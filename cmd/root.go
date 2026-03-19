@@ -19,6 +19,7 @@ COMMANDS
   current                  Show the currently active identity
   remove  <name>           Remove a saved identity
   edit    <name> <email>   Update the email for an existing identity
+  bind    <name> --ssh-key <path>  Associate an SSH key with an identity
 
 ALIASES
   ls      alias for list
@@ -43,6 +44,7 @@ EXAMPLES
   git-user current
   git-user edit home  personal@gmail.com
   git-user remove home
+  git-user bind work  --ssh-key ~/.ssh/id_rsa_work
 
 Config stored at: ~/.git-users/config.json
 `
@@ -72,6 +74,8 @@ func Execute() error {
 		return runRemove(rest)
 	case "edit":
 		return runEdit(rest)
+	case "bind":
+		return runBind(rest)
 	default:
 		ui.Errorf("unknown command %q — run 'git-user --help' for usage", sub)
 		return fmt.Errorf("unknown command")

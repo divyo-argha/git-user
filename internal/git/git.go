@@ -29,6 +29,20 @@ func CurrentEmail() string {
 	return out
 }
 
+// ConfigureSSH sets the global core.sshCommand to use a specific key.
+func ConfigureSSH(keyPath string) error {
+	val := fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes", keyPath)
+	return setConfig("core.sshCommand", val)
+}
+
+// RemoveSSHConfig unsets the global core.sshCommand.
+func RemoveSSHConfig() error {
+	cmd := exec.Command("git", "config", "--global", "--unset", "core.sshCommand")
+	// ignore error if it was already unset
+	_ = cmd.Run()
+	return nil
+}
+
 // IsInstalled checks that git is available on PATH.
 func IsInstalled() bool {
 	_, err := exec.LookPath("git")

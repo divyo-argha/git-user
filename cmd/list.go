@@ -23,7 +23,7 @@ func runList(_ []string) error {
 	ui.Header("Git Identities")
 	ui.Divider()
 	for _, u := range store.Users {
-		ui.UserRow(u.Name, u.Email, u.Name == store.Current)
+		ui.UserRow(u.Name, u.Email, u.SSHKey, u.Name == store.Current)
 	}
 	ui.Divider()
 

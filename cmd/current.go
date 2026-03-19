@@ -26,6 +26,9 @@ func runCurrent(_ []string) error {
 	ui.Divider()
 	fmt.Printf("  Name  : %s\n", u.Name)
 	fmt.Printf("  Email : %s\n", u.Email)
+	if u.SSHKey != "" {
+		fmt.Printf("  Key   : %s\n", u.SSHKey)
+	}
 	ui.Divider()
 
 	// Cross-check against actual git global config.
