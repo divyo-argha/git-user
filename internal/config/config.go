@@ -10,8 +10,9 @@ import (
 
 // User represents a stored Git identity.
 type User struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	Name   string `json:"name"`
+	Email  string `json:"email"`
+	SSHKey string `json:"ssh_key,omitempty"`
 }
 
 // Store is the top-level config persisted to disk.
@@ -121,6 +122,16 @@ func (s *Store) UpdateUser(name, newEmail string) error {
 		return errors.New("email must not be empty")
 	}
 	u.Email = newEmail
+	return nil
+}
+
+// BindSSHKey associates an SSH key path with an identity.
+func (s *Store) BindSSHKey(name, keyPath string) error {
+	u := s.FindUser(name)
+	if u == nil {
+		return fmt.Errorf("user %q not found", name)
+	}
+	u.SSHKey = keyPath
 	return nil
 }
 
