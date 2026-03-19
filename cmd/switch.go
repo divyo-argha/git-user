@@ -43,6 +43,16 @@ func runSwitch(args []string) error {
 		return err
 	}
 
+	if user.SSHKey != "" {
+		if err := git.ConfigureSSH(user.SSHKey); err != nil {
+			ui.Warn(fmt.Sprintf("applying SSH config: %v", err))
+		}
+	} else {
+		if err := git.RemoveSSHConfig(); err != nil {
+			ui.Warn(fmt.Sprintf("removing SSH config: %v", err))
+		}
+	}
+
 	if err := config.Save(store); err != nil {
 		ui.Errorf("saving config: %v", err)
 		return err

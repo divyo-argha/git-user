@@ -57,7 +57,7 @@ func Errorf(format string, args ...any) {
 }
 
 // UserRow prints a single user row in the list.
-func UserRow(name, email string, active bool) {
+func UserRow(name, email, sshKey string, active bool) {
 	marker := "  "
 	nameStr := name
 	if active {
@@ -65,7 +65,22 @@ func UserRow(name, email string, active bool) {
 		nameStr = colorize(bold+name, green)
 	}
 	emailStr := colorize(email, dim)
-	fmt.Printf("%s%-20s %s\n", marker, nameStr, emailStr)
+
+	sshStr := ""
+	if sshKey != "" {
+		sshStr = colorize(fmt.Sprintf(" [key: %s]", sshKey), dim)
+	}
+
+	fmt.Printf("%s%-20s %s%s\n", marker, nameStr, emailStr, sshStr)
+}
+
+// UserDetails prints the details of a single user.
+func UserDetails(name, email, sshKey string) {
+	fmt.Printf("  Name  : %s\n", name)
+	fmt.Printf("  Email : %s\n", email)
+	if sshKey != "" {
+		fmt.Printf("  Key   : %s\n", sshKey)
+	}
 }
 
 // Header prints a bold section header.
