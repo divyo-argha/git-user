@@ -28,6 +28,7 @@
 
 - [Installation](#installation)
 - [Terminology for Beginners](#terminology-for-beginners)
+- [Architecture Overview](#architecture-overview)
 - [Phase 1 — Identity switching](#phase-1--identity-switching)
 - [Phase 2 — SSH keys and platform accounts](#phase-2--ssh-keys-and-platform-accounts)
 - [Command reference](#command-reference)
@@ -69,6 +70,14 @@ If you're new to Git, some of these terms might be confusing. Here's a quick gui
 - **SSH Keys**: Think of these as a "digital key" that identifies you to GitHub. Each account should have its own key for security.
 - **Global Config**: These are the default name and email Git uses for every project you work on. `git-user` manages these for you automatically.
 - **Identity (or User)**: A named "profile" that contains a specific name, email, and SSH key.
+
+---
+
+## Architecture Overview
+
+`git-user` is designed for zero-friction switching. It manages a local state file and interacts with your global Git configuration to keep your identities in sync.
+
+![Architecture Overview](git_user_architecture.svg)
 
 ---
 
