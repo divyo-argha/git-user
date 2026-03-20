@@ -1,0 +1,14 @@
+# Binaries
+/git-user
+/dist/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+
+# Temporary files
+/tmp/
+XXXXXXXXXX
