@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/local/git-user/cmd"
+	"github.com/divyo-argha/git-user/cmd"
 )
 
 func main() {

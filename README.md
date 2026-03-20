@@ -85,8 +85,8 @@ If you're new to Git, some of these terms might be confusing. Here's a quick gui
 
 ```bash
 # Register identities
-git user add work  alice@company.com
-git user add home  alice@gmail.com
+git user add work  alice@example.com
+git user add home  alice@personal.com
 
 # Bind SSH keys
 git user bind work --ssh-key ~/.ssh/id_ed25519_work

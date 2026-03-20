@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/local/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/config"
 )
 
 // helper: point config at a temp dir for each test

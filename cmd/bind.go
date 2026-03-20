@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/local/git-user/internal/config"
-	"github.com/local/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/ui"
 )
 
 func runBind(args []string) error {

@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/local/git-user/internal/config"
-	"github.com/local/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/ui"
 )
 
 func runRemove(args []string) error {

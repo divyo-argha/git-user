@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/local/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/ui"
 )
 
 const usage = `git-user — manage multiple Git identities

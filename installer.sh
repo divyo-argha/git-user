@@ -3,7 +3,7 @@
 set -e
 
 # Configuration
-REPO_URL="https://github.com/divyo-argha/git-user" # Update this to your real repo URL
+REPO_URL="https://github.com/divyo-argha/git-user"
 BINARY="git-user"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
@@ -45,8 +45,8 @@ echo ""
 echo "✅ git-user installed successfully to $INSTALL_DIR/$BINARY"
 echo ""
 echo "Quick Start:"
-echo "  git user add work  work@company.com"
-echo "  git user add home  me@gmail.com"
+echo "  git user add work  alice@example.com"
+echo "  git user add home  alice@personal.com"
 echo "  git user switch work"
 echo ""
 echo "Run 'git user --help' for more information."
