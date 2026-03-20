@@ -30,3 +30,7 @@ clean:
 
 test:
 	go test ./...
+
+release-test:
+	go run github.com/goreleaser/goreleaser@latest release --snapshot --clean
+
