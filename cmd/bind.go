@@ -9,27 +9,49 @@ import (
 )
 
 func runBind(args []string) error {
-	var name, keyPath string
+	var name, sshKeyPath, signingKey, method string
+	unsetSigning := false
+
 	for i := 0; i < len(args); i++ {
-		if args[i] == "--ssh-key" {
+		switch args[i] {
+		case "--ssh-key":
 			if i+1 < len(args) {
-				keyPath = args[i+1]
+				sshKeyPath = args[i+1]
 				i++
 			}
-		} else {
+		case "--signing-key":
+			if i+1 < len(args) {
+				signingKey = args[i+1]
+				i++
+			}
+		case "--method":
+			if i+1 < len(args) {
+				method = args[i+1]
+				i++
+			}
+		case "--unset-signing":
+			unsetSigning = true
+		default:
 			name = args[i]
 		}
 	}
 
-	if name == "" || keyPath == "" {
-		ui.Error("usage: git-user bind <name> --ssh-key <path>")
+	if name == "" {
+		ui.Error("usage: git-user bind <name> [--ssh-key <path>] [--signing-key <key>] [--method gpg|ssh] [--unset-signing]")
+		return fmt.Errorf("missing name")
+	}
+
+	if sshKeyPath == "" && signingKey == "" && !unsetSigning {
+		ui.Error("nothing to bind. Use --ssh-key, --signing-key, or --unset-signing.")
 		return fmt.Errorf("missing arguments")
 	}
 
-	// Basic validation: does the key file exist?
-	if _, err := os.Stat(keyPath); os.IsNotExist(err) {
-		ui.Errorf("SSH key file %q does not exist", keyPath)
-		return err
+	// Basic validation for SSH key if provided.
+	if sshKeyPath != "" {
+		if _, err := os.Stat(sshKeyPath); os.IsNotExist(err) {
+			ui.Errorf("SSH key file %q does not exist", sshKeyPath)
+			return err
+		}
 	}
 
 	store, err := config.Load()
@@ -38,9 +60,28 @@ func runBind(args []string) error {
 		return err
 	}
 
-	if err := store.BindSSHKey(name, keyPath); err != nil {
-		ui.Error(err.Error())
-		return err
+	if sshKeyPath != "" {
+		if err := store.BindSSHKey(name, sshKeyPath); err != nil {
+			ui.Error(err.Error())
+			return err
+		}
+		ui.Success(fmt.Sprintf("Associated SSH key %q with user %q", sshKeyPath, name))
+	}
+
+	if signingKey != "" {
+		if err := store.BindSigningKey(name, signingKey, method); err != nil {
+			ui.Error(err.Error())
+			return err
+		}
+		ui.Success(fmt.Sprintf("Associated signing key %q (method: %s) with user %q", signingKey, method, name))
+	}
+
+	if unsetSigning {
+		if err := store.BindSigningKey(name, "", ""); err != nil {
+			ui.Error(err.Error())
+			return err
+		}
+		ui.Success(fmt.Sprintf("Removed signing key from user %q", name))
 	}
 
 	if err := config.Save(store); err != nil {
@@ -48,6 +89,6 @@ func runBind(args []string) error {
 		return err
 	}
 
-	ui.Success(fmt.Sprintf("Associated SSH key %q with user %q", keyPath, name))
+	return nil
 	return nil
 }

@@ -17,6 +17,35 @@ func Apply(name, email string) error {
 	return nil
 }
 
+// ApplySigning sets the global git signing configuration.
+func ApplySigning(key, method string) error {
+	if err := setConfig("user.signingkey", key); err != nil {
+		return err
+	}
+	if method == "ssh" {
+		if err := setConfig("gpg.format", "ssh"); err != nil {
+			return err
+		}
+	} else {
+		// Default or explicit gpg
+		if err := setConfig("gpg.format", "openpgp"); err != nil {
+			return err
+		}
+	}
+	if err := setConfig("commit.gpgsign", "true"); err != nil {
+		return err
+	}
+	return nil
+}
+
+// RemoveSigningConfig unsets the global git signing configuration.
+func RemoveSigningConfig() error {
+	_ = unsetConfig("user.signingkey")
+	_ = unsetConfig("gpg.format")
+	_ = setConfig("commit.gpgsign", "false")
+	return nil
+}
+
 // CurrentName returns the global git user.name (empty string if unset).
 func CurrentName() string {
 	out, _ := getConfig("user.name")
@@ -31,7 +60,8 @@ func CurrentEmail() string {
 
 // ConfigureSSH sets the global core.sshCommand to use a specific key.
 func ConfigureSSH(keyPath string) error {
-	val := fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes", keyPath)
+	// Quote the path to handle spaces and prevent injection.
+	val := fmt.Sprintf("ssh -i %q -o IdentitiesOnly=yes", keyPath)
 	return setConfig("core.sshCommand", val)
 }
 
@@ -65,4 +95,19 @@ func getConfig(key string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+// GetLocalConfig returns the local (repository-level) config value.
+func GetLocalConfig(key string) (string, error) {
+	cmd := exec.Command("git", "config", "--local", key)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+func unsetConfig(key string) error {
+	cmd := exec.Command("git", "config", "--global", "--unset", key)
+	return cmd.Run()
 }

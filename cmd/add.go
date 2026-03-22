@@ -8,13 +8,34 @@ import (
 )
 
 func runAdd(args []string) error {
-	if len(args) < 2 {
-		ui.Error("usage: git-user add <name> <email>")
-		return fmt.Errorf("missing arguments")
+	var name, email, signingKey, method string
+	posArgs := 0
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--signing-key":
+			if i+1 < len(args) {
+				signingKey = args[i+1]
+				i++
+			}
+		case "--method":
+			if i+1 < len(args) {
+				method = args[i+1]
+				i++
+			}
+		default:
+			if posArgs == 0 {
+				name = args[i]
+			} else if posArgs == 1 {
+				email = args[i]
+			}
+			posArgs++
+		}
 	}
 
-	name := args[0]
-	email := args[1]
+	if name == "" || email == "" {
+		ui.Error("usage: git-user add <name> <email> [--signing-key <key>] [--method gpg|ssh]")
+		return fmt.Errorf("missing arguments")
+	}
 
 	store, err := config.Load()
 	if err != nil {
@@ -25,6 +46,13 @@ func runAdd(args []string) error {
 	if err := store.AddUser(name, email); err != nil {
 		ui.Errorf("%v", err)
 		return err
+	}
+
+	if signingKey != "" {
+		if err := store.BindSigningKey(name, signingKey, method); err != nil {
+			ui.Errorf("binding signing key: %v", err)
+			return err
+		}
 	}
 
 	if err := config.Save(store); err != nil {

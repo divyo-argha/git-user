@@ -10,9 +10,11 @@ import (
 
 // User represents a stored Git identity.
 type User struct {
-	Name   string `json:"name"`
-	Email  string `json:"email"`
-	SSHKey string `json:"ssh_key,omitempty"`
+	Name          string `json:"name"`
+	Email         string `json:"email"`
+	SSHKey        string `json:"ssh_key,omitempty"`
+	SigningKey    string `json:"signing_key,omitempty"`
+	SigningMethod string `json:"signing_method,omitempty"` // "gpg" or "ssh"
 }
 
 // Store is the top-level config persisted to disk.
@@ -132,6 +134,25 @@ func (s *Store) BindSSHKey(name, keyPath string) error {
 		return fmt.Errorf("user %q not found", name)
 	}
 	u.SSHKey = keyPath
+	return nil
+}
+
+// BindSigningKey associates a GPG or SSH signing key with an identity.
+func (s *Store) BindSigningKey(name, key, method string) error {
+	u := s.FindUser(name)
+	if u == nil {
+		return fmt.Errorf("user %q not found", name)
+	}
+	if method != "" && method != "gpg" && method != "ssh" {
+		return fmt.Errorf("invalid signing method %q; must be 'gpg' or 'ssh'", method)
+	}
+	u.SigningKey = key
+	if method != "" {
+		u.SigningMethod = method
+	} else if u.SigningMethod == "" {
+		// Default to gpg if not specified and not already set.
+		u.SigningMethod = "gpg"
+	}
 	return nil
 }
 

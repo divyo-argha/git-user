@@ -19,7 +19,7 @@ COMMANDS
   current                  Show the currently active identity
   remove  <name>           Remove a saved identity
   edit    <name> <email>   Update the email for an existing identity
-  bind    <name> --ssh-key <path>  Associate an SSH key with an identity
+  bind    <name> [flags]   Associate an SSH key or Signing key
 
 ALIASES
   ls      alias for list
@@ -27,8 +27,12 @@ ALIASES
   rm      alias for remove
 
 FLAGS
-  --force   (remove) Force-remove the active user
-  --help    Show this help text
+  --ssh-key <path> (bind) Link SSH key
+  --signing-key <k> (add/bind) Link GPG/SSH key
+  --method <gpg|ssh>(add/bind) Set signing method
+  --unset-signing  (bind) Remove signing key
+  --force           (remove) Force-remove the active user
+  --help            Show this help text
 
 SETUP AS GIT SUBCOMMAND
   Place git-user on your PATH so you can run:

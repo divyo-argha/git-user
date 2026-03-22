@@ -53,6 +53,16 @@ func runSwitch(args []string) error {
 		}
 	}
 
+	if user.SigningKey != "" {
+		if err := git.ApplySigning(user.SigningKey, user.SigningMethod); err != nil {
+			ui.Warn(fmt.Sprintf("applying signing config: %v", err))
+		}
+	} else {
+		if err := git.RemoveSigningConfig(); err != nil {
+			ui.Warn(fmt.Sprintf("removing signing config: %v", err))
+		}
+	}
+
 	if err := config.Save(store); err != nil {
 		ui.Errorf("saving config: %v", err)
 		return err
