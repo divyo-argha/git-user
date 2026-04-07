@@ -104,8 +104,8 @@ git user bind work --ssh-key ~/.ssh/id_ed25519_work
 # Switch contexts interactively
 git user -i
 
-# Show active status
-git user current
+# Create and switch in one step (Git-style)
+git user switch -c work alice@example.com
 ```
 
 ---
@@ -156,7 +156,7 @@ git clone git@github-work:org/repo.git
 | **tui** | `git user tui` (or `-i`) | Open the interactive management menu |
 | **add** | `git user add <name> <email>` | Create a new profile manually |
 | **list** | `git user list` | Show all your profiles in card view |
-| **switch** | `git user switch <name>` | Activate a specific profile |
+| **switch** | `git user switch [-c] <n> [e]` | Activate (or create and activate) a profile |
 | **current**| `git user current` | See which profile is active |
 | **bind** | `git user bind <n> --ssh-key <p>`| Link an SSH key to a profile |
 | **remove** | `git user remove <name>` | Delete a profile from the store |
