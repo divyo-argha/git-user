@@ -1,8 +1,11 @@
 package ui
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 )
 
 // ANSI colour codes – fall back gracefully on non-TTY environments.
@@ -91,4 +94,90 @@ func Header(msg string) {
 // Divider prints a thin separator line.
 func Divider() {
 	fmt.Println(colorize("─────────────────────────────────────────", dim))
+}
+
+// RawMode toggles terminal raw mode using 'stty'.
+func RawMode(on bool) error {
+	if !isTTY() {
+		return nil
+	}
+	arg := "raw"
+	if !on {
+		arg = "-raw"
+	}
+	cmd := exec.Command("stty", arg, "-echo")
+	cmd.Stdin = os.Stdin
+	return cmd.Run()
+}
+
+// Prompt asks the user for text input.
+func Prompt(label string) (string, error) {
+	fmt.Printf("%s %s ", colorize("?", cyan), label)
+	reader := bufio.NewReader(os.Stdin)
+	text, err := reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(text), nil
+}
+
+// Select displays a list of options and returns the index of the chosen one.
+func Select(label string, options []string) (int, error) {
+	if len(options) == 0 {
+		return -1, fmt.Errorf("no options provided")
+	}
+
+	selected := 0
+	if err := RawMode(true); err != nil {
+		return -1, err
+	}
+	defer RawMode(false)
+
+	fmt.Printf("%s %s %s\n", colorize("?", cyan), label, colorize("(Use arrow keys)", dim))
+
+	for {
+		// Print options
+		for i, opt := range options {
+			if i == selected {
+				fmt.Printf("%s %s\n", colorize(">", cyan), colorize(opt, bold+cyan))
+			} else {
+				fmt.Printf("  %s\n", opt)
+			}
+		}
+
+		// Read input
+		var b [3]byte
+		n, err := os.Stdin.Read(b[:])
+		if err != nil {
+			return -1, err
+		}
+
+		// Move cursor back up
+		fmt.Printf("\033[%dA", len(options))
+
+		if n == 1 {
+			if b[0] == '\r' || b[0] == '\n' {
+				// Clear the menu before returning
+				for i := 0; i < len(options); i++ {
+					fmt.Printf("\033[K\n")
+				}
+				fmt.Printf("\033[%dA", len(options))
+				return selected, nil
+			}
+			if b[0] == 3 { // Ctrl+C
+				return -1, fmt.Errorf("interrupted")
+			}
+		} else if n == 3 && b[0] == 27 && b[1] == 91 { // Escape sequence
+			switch b[2] {
+			case 65: // Up
+				if selected > 0 {
+					selected--
+				}
+			case 66: // Down
+				if selected < len(options)-1 {
+					selected++
+				}
+			}
+		}
+	}
 }

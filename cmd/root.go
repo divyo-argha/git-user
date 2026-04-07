@@ -11,6 +11,7 @@ const usage = `git-user — manage multiple Git identities
 
 USAGE
   git-user <command> [arguments]
+  git-user tui             Open interactive menu
 
 COMMANDS
   add     <name> <email>   Add a new Git identity
@@ -20,6 +21,8 @@ COMMANDS
   remove  <name>           Remove a saved identity
   edit    <name> <email>   Update the email for an existing identity
   bind    <name> [flags]   Associate an SSH key or Signing key
+  register [name] [email]  Interactive flow: Register name, email + SSH key
+  tui                      Open an interactive management menu
 
 ALIASES
   ls      alias for list
@@ -32,6 +35,7 @@ FLAGS
   --method <gpg|ssh>(add/bind) Set signing method
   --unset-signing  (bind) Remove signing key
   --force           (remove) Force-remove the active user
+  -i, --interactive Open TUI (shortcut for tui)
   --help            Show this help text
 
 SETUP AS GIT SUBCOMMAND
@@ -80,7 +84,14 @@ func Execute() error {
 		return runEdit(rest)
 	case "bind":
 		return runBind(rest)
+	case "register", "reg":
+		return runRegister(rest)
+	case "tui":
+		return runTui()
 	default:
+		if sub == "-i" || sub == "--interactive" {
+			return runTui()
+		}
 		ui.Errorf("unknown command %q — run 'git-user --help' for usage", sub)
 		return fmt.Errorf("unknown command")
 	}
