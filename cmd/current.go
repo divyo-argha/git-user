@@ -22,7 +22,7 @@ func runCurrent(_ []string) error {
 		return nil
 	}
 
-	ui.Header("Active Identity")
+	ui.Header("Active Profile")
 	ui.Divider()
 	fmt.Printf("  Name  : %s\n", u.Name)
 	fmt.Printf("  Email : %s\n", u.Email)

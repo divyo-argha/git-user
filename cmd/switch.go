@@ -10,11 +10,25 @@ import (
 
 func runSwitch(args []string) error {
 	if len(args) < 1 {
-		ui.Error("usage: git-user switch <n>")
+		ui.Error("usage: git-user switch [-c] <name> [email]")
 		return fmt.Errorf("missing arguments")
 	}
 
-	name := args[0]
+	createMode := false
+	name := ""
+	rest := []string{}
+
+	if args[0] == "-c" {
+		if len(args) < 2 {
+			ui.Error("usage: git-user switch -c <name> [email]")
+			return fmt.Errorf("missing arguments")
+		}
+		createMode = true
+		name = args[1]
+		rest = args[2:]
+	} else {
+		name = args[0]
+	}
 
 	if !git.IsInstalled() {
 		ui.Error("git is not installed or not on PATH")
@@ -27,9 +41,22 @@ func runSwitch(args []string) error {
 		return err
 	}
 
+	if createMode {
+		if store.FindUser(name) != nil {
+			ui.Errorf("user %q already exists", name)
+			return fmt.Errorf("user exists")
+		}
+		// Create the user first
+		if err := runAdd(append([]string{name}, rest...)); err != nil {
+			return err
+		}
+		// Reload store to get the new user data
+		store, _ = config.Load()
+	}
+
 	user := store.FindUser(name)
 	if user == nil {
-		ui.Errorf("user %q not found — run 'git-user list' to see available identities", name)
+		ui.Errorf("user %q not found", name)
 		return fmt.Errorf("user not found")
 	}
 

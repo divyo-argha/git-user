@@ -16,7 +16,7 @@ USAGE
 COMMANDS
   add     [name] [email]   Add a new Git identity (interactive if no args)
   list                     List all saved identities
-  switch  <name>           Switch the active Git identity
+  switch  [-c] <name> [e] Switch or create and switch identity
   current                  Show the currently active identity
   remove  <name>           Remove a saved identity
   edit    <name> <email>   Update the email for an existing identity
@@ -50,6 +50,7 @@ EXAMPLES
   git-user add home   me@gmail.com
   git-user list
   git-user switch work
+  git-user switch -c personal me@gmail.com
   git-user current
   git-user edit home  personal@gmail.com
   git-user remove home
