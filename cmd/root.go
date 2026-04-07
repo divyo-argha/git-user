@@ -25,6 +25,7 @@ COMMANDS
   prompt                   Output current identity for shell prompts
   setup-prompt             Automated shell prompt configuration
   remove-prompt            Remove automated shell configurations
+  reload                   Refresh shell prompt configuration
   init    <zsh|bash>       Generate shell integration script
 
 ALIASES
@@ -105,6 +106,8 @@ func Execute() error {
 		return runSetupPrompt(rest)
 	case "remove-prompt":
 		return runRemovePrompt(rest)
+	case "reload":
+		return runReload(rest)
 	default:
 		if sub == "-i" || sub == "--interactive" {
 			return runTui()

@@ -115,11 +115,18 @@ func setupP10kDeep(path string, exe string) error {
 		strContent = strContent[:insertPos] + "\n    git_user                # active git-user identity" + strContent[insertPos:]
 	}
 
-	// 2. Append function definition
-	funcDef := fmt.Sprintf("\n%s\nprompt_git_user() {\n  local name=$(%s prompt --no-icon)\n  [[ -n $name ]] && p10k segment -f 31 -i '👤' -t \"$name\"\n}\n%s\n", markerStart, exe, markerEnd)
+	// 2. Append styling and function definition
+	// COLOR 15 (Bright White) name with COLOR 14 (Bright Cyan) icon
+	funcDef := fmt.Sprintf("\n%s\n# git-user:styling\ntypeset -g POWERLEVEL9K_GIT_USER_FOREGROUND=15\ntypeset -g POWERLEVEL9K_GIT_USER_VISUAL_IDENTIFIER_COLOR=14\ntypeset -g POWERLEVEL9K_GIT_USER_BOLD=true\n\nprompt_git_user() {\n  local name=$(%s prompt --no-icon)\n  [[ -n $name ]] && p10k segment -f 15 -i '👤' -t \"$name\"\n}\n%s\n", markerStart, exe, markerEnd)
 	strContent += funcDef
 
 	return os.WriteFile(path, []byte(strContent), 0644)
+}
+
+func runReload(args []string) error {
+	ui.Info("Reloading git-user configuration...")
+	runRemovePrompt(args)
+	return runSetupPrompt(args)
 }
 
 func runRemovePrompt(_ []string) error {

@@ -165,6 +165,16 @@ If you want to remove the integration, just run:
 git-user remove-prompt
 ```
 
+### Stay in Sync (Updates)
+Whenever you get new updates or changes to `git-user`, run this one-liner to stay in sync and refresh your shell prompt immediately:
+
+```bash
+go install . && ~/go/bin/git-user reload && source ~/.zshrc
+```
+
+- **`reload`**: A built-in command that safely refreshes all shell configurations (including P10k deep integration) in one step.
+- **`source ~/.zshrc`**: Ensures your current terminal session picks up the visual changes instantly.
+
 ---
 
 ## Command reference
