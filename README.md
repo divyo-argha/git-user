@@ -13,6 +13,13 @@
 | Different SSH keys per platform account | Keyed per-user, applied automatically on switch |
 | Managing ~/.ssh/config by hand | Managed blocks written and updated automatically |
 | Forgetting which account is active | git user current cross-checks everything |
+| CLI is too complex | **Interactive TUI** — complete management in one menu |
+
+### ✨ Enhanced TUI Experience
+The new `git-user` features a premium, terminal-optimized UI powered by **Lipgloss**. Expect:
+- **Gradient Banners**: Visual clarity for current operations.
+- **User Cards**: Rounded-corner cards for viewing identities.
+- **Interactive Select**: Arrow-key navigation for switching and management.
 
 ### Who is this for? (Use Cases)
 
@@ -84,18 +91,31 @@ If you're new to Git, some of these terms might be confusing. Here's a quick gui
 ## Phase 1 — Identity switching
 
 ```bash
-# Register identities
+# Register identities interactively (Simplified)
+git user register
+
+# Or traditional manual add
 git user add work  alice@example.com
 git user add home  alice@personal.com
 
 # Bind SSH keys
 git user bind work --ssh-key ~/.ssh/id_ed25519_work
-git user bind home --ssh-key ~/.ssh/id_ed25519_personal
 
-# Switch contexts
-git user switch work
+# Switch contexts interactively
+git user -i
+
+# Show active status
 git user current
 ```
+
+---
+
+## 🎮 Interactive Mode (TUI)
+Run `git user -i` or `git user tui` to open the interactive dashboard. From here you can:
+- **Switch** between users with arrow keys.
+- **Register** new identities with a unified setup flow.
+- **Bind** SSH or Signing keys without remembering flags.
+- **Remove** old identities safely.
 
 ---
 
@@ -132,8 +152,10 @@ git clone git@github-work:org/repo.git
 
 | Command | Usage | Description |
 | :--- | :--- | :--- |
-| **add** | `git user add <name> <email>` | Create a new profile |
-| **list** | `git user list` | Show all your profiles |
+| **register** | `git user register` | **Preferred**: Unified setup for name, email + SSH |
+| **tui** | `git user tui` (or `-i`) | Open the interactive management menu |
+| **add** | `git user add <name> <email>` | Create a new profile manually |
+| **list** | `git user list` | Show all your profiles in card view |
 | **switch** | `git user switch <name>` | Activate a specific profile |
 | **current**| `git user current` | See which profile is active |
 | **bind** | `git user bind <n> --ssh-key <p>`| Link an SSH key to a profile |
