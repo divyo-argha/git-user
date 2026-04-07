@@ -165,6 +165,45 @@ If you want to remove the integration, just run:
 git-user remove-prompt
 ```
 
+---
+
+## 🛡️ Professional Identity & Verification
+
+Achieve that green **✔ Verified** badge on your commits across GitHub, GitLab, and Bitbucket with zero hassle.
+
+### Why Go Verified?
+- **Security**: Proves you are the actual author of your commits.
+- **Prestige**: Adds a beautiful checkmark to your profile's contribution graph.
+- **Professionalism**: Standard practice for open-source and corporate development.
+
+### How to set it up (The "One-Key" Strategy)
+You can use the **same SSH key** for both authentication (pushing) and verification (signing). This is the cleanest setup possible.
+
+**Step 1: Get your Public Key**
+Copy your public key to your clipboard:
+```bash
+cat ~/.ssh/id_25519_worker.pub
+```
+
+**Step 2: Add to your Platform(s)**
+Add this public key to your accounts. For all platforms, use your **Personal Settings > SSH Keys**.
+- **GitHub**: Click **New SSH Key**. Choose Type: **Signing Key** (Important!).
+- **GitLab**: Click **Add new key**. Choose Usage: **Authentication & Signing**.
+- **Bitbucket**: Click **Add key**. (Bitbucket uses the same key for both automatically).
+
+**Step 3: Bind to git-user**
+Tell `git-user` to start signing your commits with this key:
+```bash
+git-user bind <name> --signing-key ~/.ssh/id_25519_worker --method ssh
+```
+
+### 🔗 Platform Mapping
+For a complete overview, link your profile to your remote accounts:
+```bash
+git-user platform add <name> <github|gitlab|bitbucket> <username>
+```
+When you run `git-user current`, you'll see a structured dashboard of all your connected platforms and security status.
+
 ### Stay in Sync (Updates)
 Whenever you get new updates or changes to `git-user`, run this one-liner to stay in sync and refresh your shell prompt immediately:
 
@@ -187,7 +226,9 @@ go install . && ~/go/bin/git-user reload && source ~/.zshrc
 | **list** | `git user list` | Show all your profiles in card view |
 | **switch** | `git user switch [-c] <n> [e]` | Activate (or create and activate) a profile |
 | **current**| `git user current` | See which profile is active |
-| **bind** | `git user bind <n> --ssh-key <p>`| Link an SSH key to a profile |
+| **bind** | `git user bind <n> [flags]`| Link SSH/Signing keys to a profile |
+| **platform**| `git user platform <add/rm>`| Map profile to GitHub/GitLab/etc. |
+| **reload** | `git-user reload` | Refresh shell prompt configuration |
 | **remove** | `git user remove <name>` | Delete a profile from the store |
 | **edit** | `git user edit <name> <email>` | Update identity email |
 
@@ -221,7 +262,10 @@ git-user/
 │   ├── current.go
 │   ├── remove.go
 │   ├── edit.go
-│   └── bind.go          links SSH keys
+│   ├── bind.go          links SSH/Signing keys
+│   ├── platform.go      maps platforms
+│   ├── setup.go         shell integration setup
+│   └── reload.go        automates prompt refresh
 └── internal/
     ├── config/config.go store CRUD
     ├── git/git.go       git config wrapper
