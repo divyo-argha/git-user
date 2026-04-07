@@ -204,6 +204,16 @@ git-user platform add <name> <github|gitlab|bitbucket> <username>
 ```
 When you run `git-user current`, you'll see a structured dashboard of all your connected platforms and security status.
 
+### ⚙️ Adaptive Identity Modes
+To prevent signing errors from blocking your workflow, `git-user` supports **Identity Modes**.
+- **Flexible Mode (Default)**: If a signing key is configured but invalid (e.g., file missing), the tool will **Warn** you but allow `git commit` to work by temporarily disabling signing for that identity. This is the default mode.
+- **Strict Mode (Enforced)**: For high-security environments. If a signing key is missing or invalid, the tool will **refuse** to disable signing, forcing you to fix the configuration before committing. You can use this for enforcing the practice of having signed commits.
+
+**Toggle Mode**:
+```bash
+git-user config --strict <on|off>
+```
+
 ### Stay in Sync (Updates)
 Whenever you get new updates or changes to `git-user`, run this one-liner to stay in sync and refresh your shell prompt immediately:
 
@@ -228,9 +238,10 @@ go install . && ~/go/bin/git-user reload && source ~/.zshrc
 | **current**| `git user current` | See which profile is active |
 | **bind** | `git user bind <n> [flags]`| Link SSH/Signing keys to a profile |
 | **platform**| `git user platform <add/rm>`| Map profile to GitHub/GitLab/etc. |
-| **reload** | `git-user reload` | Refresh shell prompt configuration |
-| **remove** | `git user remove <name>` | Delete a profile from the store |
-| **edit** | `git user edit <name> <email>` | Update identity email |
+| **config**  | `git user config [flags]` | Manage global settings (Strict mode, etc.) |
+| **reload**  | `git-user reload` | Refresh shell prompt configuration |
+| **remove**  | `git user remove <name>` | Delete a profile from the store |
+| **edit**    | `git user edit <name> <email>`| Update identity email |
 
 ---
 
@@ -264,6 +275,7 @@ git-user/
 │   ├── edit.go
 │   ├── bind.go          links SSH/Signing keys
 │   ├── platform.go      maps platforms
+│   ├── config_cmd.go    global tool settings
 │   ├── setup.go         shell integration setup
 │   └── reload.go        automates prompt refresh
 └── internal/
