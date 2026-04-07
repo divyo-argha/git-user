@@ -22,6 +22,7 @@ type User struct {
 type Store struct {
 	Current string `json:"current"` // username key (matches User.Name)
 	Users   []User `json:"users"`
+	Strict  bool   `json:"strict,omitempty"`
 }
 
 var configPath string

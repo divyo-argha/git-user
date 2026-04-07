@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -127,6 +128,20 @@ func setupP10kDeep(path string, exe string) error {
 
 func runReload(args []string) error {
 	ui.Info("Reloading git-user configuration...")
+
+	// 1. Re-apply identity logic (to fix things like Flexible mode)
+	store, err := config.Load()
+	if err == nil {
+		if u := store.CurrentUser(); u != nil {
+			if err := ApplyIdentity(u, store); err != nil {
+				ui.Warn(fmt.Sprintf("Could not re-apply identity: %v", err))
+			} else {
+				ui.Success(fmt.Sprintf("Synchronized Git identity: %s", u.Name))
+			}
+		}
+	}
+
+	// 2. Refresh shell prompt
 	runRemovePrompt(args)
 	return runSetupPrompt(args)
 }

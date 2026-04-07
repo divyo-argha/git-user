@@ -27,6 +27,7 @@ COMMANDS
   setup-prompt             Automated shell prompt configuration
   remove-prompt            Remove automated shell configurations
   reload                   Refresh shell prompt configuration
+  config [flags]           Manage global git-user settings
   init    <zsh|bash>       Generate shell integration script
 
 ALIASES
@@ -111,6 +112,8 @@ func Execute() error {
 		return runRemovePrompt(rest)
 	case "reload":
 		return runReload(rest)
+	case "config":
+		return runConfig(rest)
 	default:
 		if sub == "-i" || sub == "--interactive" {
 			return runTui()

@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
@@ -60,13 +62,28 @@ func runSwitch(args []string) error {
 		return fmt.Errorf("user not found")
 	}
 
-	if err := git.Apply(user.Name, user.Email); err != nil {
-		ui.Errorf("applying git config: %v", err)
+	if err := ApplyIdentity(user, store); err != nil {
 		return err
 	}
 
 	if err := store.SetCurrent(name); err != nil {
 		ui.Errorf("%v", err)
+		return err
+	}
+
+	if err := config.Save(store); err != nil {
+		ui.Errorf("saving config: %v", err)
+		return err
+	}
+
+	ui.Success(fmt.Sprintf("Switched to %q (%s)", user.Name, user.Email))
+	return nil
+}
+
+// ApplyIdentity synchronizes the global git and ssh configurations with the given user profile.
+func ApplyIdentity(user *config.User, store *config.Store) error {
+	if err := git.Apply(user.Name, user.Email); err != nil {
+		ui.Errorf("applying git config: %v", err)
 		return err
 	}
 
@@ -81,20 +98,37 @@ func runSwitch(args []string) error {
 	}
 
 	if user.SigningKey != "" {
-		if err := git.ApplySigning(user.SigningKey, user.SigningMethod); err != nil {
-			ui.Warn(fmt.Sprintf("applying signing config: %v", err))
+		keyExists := true
+		// If it looks like a path, check if it exists
+		if strings.Contains(user.SigningKey, "/") || strings.Contains(user.SigningKey, "~") {
+			if _, err := os.Stat(user.SigningKey); os.IsNotExist(err) {
+				keyExists = false
+			}
+		}
+
+		if !keyExists {
+			if !store.Strict {
+				ui.Warn(fmt.Sprintf("Signing key %q not found. Operating in Flexible mode — disabling signing to prevent errors.", user.SigningKey))
+				_ = git.RemoveSigningConfig()
+			} else {
+				ui.Warn(fmt.Sprintf("Signing key %q not found. Operating in Strict mode — signing will remain enabled (commits may fail).", user.SigningKey))
+				_ = git.ApplySigning(user.SigningKey, user.SigningMethod)
+			}
+		} else {
+			if err := git.ApplySigning(user.SigningKey, user.SigningMethod); err != nil {
+				ui.Warn(fmt.Sprintf("applying signing config: %v", err))
+			}
 		}
 	} else {
-		if err := git.RemoveSigningConfig(); err != nil {
-			ui.Warn(fmt.Sprintf("removing signing config: %v", err))
+		if store.Strict {
+			ui.Warn("No signing key bound. Operating in Strict mode — signing is still ENFORCED (commits will fail until you bind a key).")
+			_ = git.ApplySigning("", "")
+		} else {
+			if err := git.RemoveSigningConfig(); err != nil {
+				ui.Warn(fmt.Sprintf("removing signing config: %v", err))
+			}
 		}
 	}
 
-	if err := config.Save(store); err != nil {
-		ui.Errorf("saving config: %v", err)
-		return err
-	}
-
-	ui.Success(fmt.Sprintf("Switched to %q (%s)", user.Name, user.Email))
 	return nil
 }

@@ -67,6 +67,15 @@ func runCurrent(_ []string) error {
 		}
 	}
 
+	// Global Settings Section
+	ui.Divider()
+	ui.Header("Global Settings")
+	mode := "Flexible (Relaxed)"
+	if store.Strict {
+		mode = "Strict (Enforced)"
+	}
+	fmt.Printf("  %-10s: %s\n", ui.StyleDim().Render("Mode"), mode)
+
 	ui.Divider()
 
 	// Cross-check against actual git global config.
