@@ -148,6 +148,25 @@ git clone git@github-work:org/repo.git
 
 ---
 
+## 🐚 Plug & Play Shell Prompt
+
+Keep track of your active identity directly in your terminal prompt with zero manual setup.
+
+### Quick Setup
+Simply run:
+```bash
+git-user setup-prompt
+```
+This automatically detects your shell (Zsh/Bash), updates your config file, and shows your active profile on the right side of your prompt.
+
+### How to Remove
+If you want to remove the integration, just run:
+```bash
+git-user remove-prompt
+```
+
+---
+
 ## Command reference
 
 | Command | Usage | Description |
