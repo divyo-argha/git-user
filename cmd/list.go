@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
@@ -20,17 +18,16 @@ func runList(_ []string) error {
 		return nil
 	}
 
-	ui.Header("Git Identities")
-	ui.Divider()
-	for _, u := range store.Users {
+	ui.Banner("Git Identities")
+	for i, u := range store.Users {
 		ui.UserRow(u.Name, u.Email, u.SSHKey, u.Name == store.Current)
+		if i < len(store.Users)-1 {
+			// Small padding if needed, but the cards have margins now.
+		}
 	}
-	ui.Divider()
 
 	if store.Current == "" {
 		ui.Warn("No active identity — run 'git-user switch <n>'")
-	} else {
-		fmt.Printf("  Active: %s\n", store.Current)
 	}
 	return nil
 }

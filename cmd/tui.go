@@ -8,7 +8,7 @@ import (
 )
 
 func runTui() error {
-	ui.Header("Git-User Interactive Mode")
+	ui.Banner("Git-User Manager")
 
 	for {
 		options := []string{
@@ -60,7 +60,7 @@ func runTui() error {
 			ui.Info("Goodbye!")
 			return nil
 		}
-		fmt.Println()
+		ui.Divider()
 	}
 }
 

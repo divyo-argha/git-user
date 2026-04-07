@@ -11,6 +11,7 @@ import (
 )
 
 func runRegister(args []string) error {
+	ui.Banner("Register New Identity")
 	var name, email, sshKey string
 
 	// Parse arguments if provided
