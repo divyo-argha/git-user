@@ -13,8 +13,9 @@ type User struct {
 	Name          string `json:"name"`
 	Email         string `json:"email"`
 	SSHKey        string `json:"ssh_key,omitempty"`
-	SigningKey    string `json:"signing_key,omitempty"`
-	SigningMethod string `json:"signing_method,omitempty"` // "gpg" or "ssh"
+	SigningKey    string            `json:"signing_key,omitempty"`
+	SigningMethod string            `json:"signing_method,omitempty"` // "gpg" or "ssh"
+	Platforms     map[string]string `json:"platforms,omitempty"`      // e.g. "github" -> "alice"
 }
 
 // Store is the top-level config persisted to disk.
@@ -152,6 +153,31 @@ func (s *Store) BindSigningKey(name, key, method string) error {
 	} else if u.SigningMethod == "" {
 		// Default to gpg if not specified and not already set.
 		u.SigningMethod = "gpg"
+	}
+	return nil
+}
+
+// BindPlatform associates a platform account with an identity.
+func (s *Store) BindPlatform(name, platform, username string) error {
+	u := s.FindUser(name)
+	if u == nil {
+		return fmt.Errorf("user %q not found", name)
+	}
+	if u.Platforms == nil {
+		u.Platforms = make(map[string]string)
+	}
+	u.Platforms[platform] = username
+	return nil
+}
+
+// UnbindPlatform removes a platform account from an identity.
+func (s *Store) UnbindPlatform(name, platform string) error {
+	u := s.FindUser(name)
+	if u == nil {
+		return fmt.Errorf("user %q not found", name)
+	}
+	if u.Platforms != nil {
+		delete(u.Platforms, platform)
 	}
 	return nil
 }

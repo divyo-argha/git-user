@@ -21,6 +21,7 @@ COMMANDS
   remove  <name>           Remove a saved identity
   edit    <name> <email>   Update the email for an existing identity
   bind    <name> [flags]   Associate an SSH key or Signing key
+  platform <add/remove>    Manage platform accounts (github, gitlab, etc.)
   tui                      Open an interactive management menu
   prompt                   Output current identity for shell prompts
   setup-prompt             Automated shell prompt configuration
@@ -96,6 +97,8 @@ func Execute() error {
 		return runEdit(rest)
 	case "bind":
 		return runBind(rest)
+	case "platform":
+		return runPlatform(rest)
 	case "tui":
 		return runTui()
 	case "prompt":

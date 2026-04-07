@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/ui"
@@ -22,16 +24,49 @@ func runCurrent(_ []string) error {
 		return nil
 	}
 
-	ui.Header("Active Profile")
-	ui.Divider()
-	fmt.Printf("  Name  : %s\n", u.Name)
-	fmt.Printf("  Email : %s\n", u.Email)
-	if u.SSHKey != "" {
-		fmt.Printf("  SSH Key  : %s\n", u.SSHKey)
-	}
+	ui.Banner("Active Profile")
+
+	// Identity Section
+	verifiedLabel := ""
 	if u.SigningKey != "" {
-		fmt.Printf("  Signing  : %s (%s)\n", u.SigningKey, u.SigningMethod)
+		verifiedLabel = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#00FF00")).
+			Bold(true).
+			Render(" ✔ VERIFIED")
 	}
+
+	ui.Header("Identity")
+	fmt.Printf("  %-10s: %s%s\n", ui.StyleDim().Render("Name"), u.Name, verifiedLabel)
+	fmt.Printf("  %-10s: %s\n", ui.StyleDim().Render("Email"), u.Email)
+
+	// Security Section
+	ui.Divider()
+	ui.Header("Security")
+	signingStatus := "Not Configured"
+	if u.SigningKey != "" {
+		method := "GPG"
+		if u.SigningMethod == "ssh" {
+			method = "SSH"
+		}
+		signingStatus = fmt.Sprintf("%s (%s)", method, u.SigningKey)
+	}
+	fmt.Printf("  %-10s: %s\n", ui.StyleDim().Render("Signing"), signingStatus)
+	
+	sshStatus := "Not Configured"
+	if u.SSHKey != "" {
+		sshStatus = u.SSHKey
+	}
+	fmt.Printf("  %-10s: %s\n", ui.StyleDim().Render("SSH Key"), sshStatus)
+
+	// Platforms Section
+	if len(u.Platforms) > 0 {
+		ui.Divider()
+		ui.Header("Platforms")
+		for p, user := range u.Platforms {
+			fmt.Printf("  %-10s: %s\n", ui.StyleDim().Render(strings.Title(p)), user)
+		}
+	}
+
 	ui.Divider()
 
 	// Cross-check against actual git global config.

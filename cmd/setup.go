@@ -58,7 +58,9 @@ func runSetupPrompt(_ []string) error {
 
 	// Standard shell config injection (e.g., .zshrc)
 	content, _ := os.ReadFile(configFile)
-	injection := fmt.Sprintf("%s\neval \"$(%s init %s)\"\n%s\n", markerStart, exe, shell, markerEnd)
+	// We pass --p10k explicitly to the init command if it's p10k
+	initShell := shell
+	injection := fmt.Sprintf("%s\neval \"$(%s init %s)\"\n%s\n", markerStart, exe, initShell, markerEnd)
 
 	// Determine where to insert if P10k
 	finalContent := ""
@@ -117,7 +119,7 @@ func setupP10kDeep(path string, exe string) error {
 
 	// 2. Append styling and function definition
 	// COLOR 15 (Bright White) name with COLOR 14 (Bright Cyan) icon
-	funcDef := fmt.Sprintf("\n%s\n# git-user:styling\ntypeset -g POWERLEVEL9K_GIT_USER_FOREGROUND=15\ntypeset -g POWERLEVEL9K_GIT_USER_VISUAL_IDENTIFIER_COLOR=14\ntypeset -g POWERLEVEL9K_GIT_USER_BOLD=true\n\nprompt_git_user() {\n  local name=$(%s prompt --no-icon)\n  [[ -n $name ]] && p10k segment -f 15 -i '👤' -t \"$name\"\n}\n%s\n", markerStart, exe, markerEnd)
+	funcDef := fmt.Sprintf("\n%s\n# git-user:styling\ntypeset -g POWERLEVEL9K_GIT_USER_FOREGROUND=15\ntypeset -g POWERLEVEL9K_GIT_USER_VISUAL_IDENTIFIER_COLOR=14\ntypeset -g POWERLEVEL9K_GIT_USER_BOLD=true\n\nprompt_git_user() {\n  local name=$(%s prompt --p10k --no-icon)\n  [[ -n $name ]] && p10k segment -f 15 -i '👤' -t \"$name\"\n}\n%s\n", markerStart, exe, markerEnd)
 	strContent += funcDef
 
 	return os.WriteFile(path, []byte(strContent), 0644)

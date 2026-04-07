@@ -28,10 +28,37 @@ func runPrompt(args []string) error {
 	}
 
 	icon := "👤"
-	if len(args) > 0 && args[0] == "--no-icon" {
+	isP10k := false
+	noIcon := false
+
+	for _, arg := range args {
+		if arg == "--no-icon" {
+			noIcon = true
+		}
+		if arg == "--p10k" {
+			isP10k = true
+		}
+	}
+
+	if noIcon {
 		icon = ""
 	}
 
-	fmt.Print(iconStyle.Render(icon) + " " + promptStyle.Render(u.Name))
+	verifiedTick := ""
+	if u.SigningKey != "" {
+		if isP10k {
+			verifiedTick = " %F{10}✔%f" // Bright Green in P10k
+		} else {
+			verifiedTick = " ✔"
+		}
+	}
+
+	output := ""
+	if icon != "" {
+		output += iconStyle.Render(icon) + " "
+	}
+	output += promptStyle.Render(u.Name) + verifiedTick
+
+	fmt.Print(output)
 	return nil
 }

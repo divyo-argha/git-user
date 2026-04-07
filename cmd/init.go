@@ -43,15 +43,15 @@ func runInit(args []string) error {
 
 const p10kInit = `
 # Powerlevel10k custom segment for git-user
-typeset -g POWERLEVEL9K_GIT_USER_FOREGROUND=15
-typeset -g POWERLEVEL9K_GIT_USER_VISUAL_IDENTIFIER_COLOR=14
+typeset -g POWERLEVEL9K_GIT_USER_FOREGROUND=14
+typeset -g POWERLEVEL9K_GIT_USER_VISUAL_IDENTIFIER_COLOR=18
 typeset -g POWERLEVEL9K_GIT_USER_BOLD=true
 
 prompt_git_user() {
   local name=$({{EXE}} prompt --no-icon)
   if [[ -n "$name" ]]; then
     # We use p10k segment for a perfectly integrated look
-    p10k segment -f 15 -i '👤' -t "$name"
+    p10k segment -i '👤' -t "$name"
   fi
 }
 

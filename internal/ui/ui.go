@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -53,11 +53,11 @@ var (
 			Width(60)
 
 	styleCardInactive = lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
-			BorderForeground(gray).
-			Padding(0, 2).
-			MarginBottom(1).
-			Width(60)
+				Border(lipgloss.NormalBorder()).
+				BorderForeground(gray).
+				Padding(0, 2).
+				MarginBottom(1).
+				Width(60)
 
 	styleActiveBadge = lipgloss.NewStyle().
 				Foreground(white).
@@ -82,11 +82,14 @@ func isTTY() bool {
 	return (fi.Mode() & os.ModeCharDevice) != 0
 }
 
-
-
 // Success prints a green ✔ message.
 func Success(msg string) {
 	fmt.Println(styleSuccess.Render("✔ " + msg))
+}
+
+// Successf prints a formatted green ✔ message.
+func Successf(format string, args ...any) {
+	Success(fmt.Sprintf(format, args...))
 }
 
 // Info prints a cyan ℹ message.
@@ -107,6 +110,11 @@ func Error(msg string) {
 // Errorf prints a formatted red ✖ message to stderr.
 func Errorf(format string, args ...any) {
 	Error(fmt.Sprintf(format, args...))
+}
+
+// StyleDim returns the style used for dimmed text.
+func StyleDim() lipgloss.Style {
+	return styleDim
 }
 
 // UserRow prints a single user card in the list.
@@ -220,7 +228,7 @@ func (m SelectModel) View() string {
 
 	for i, opt := range m.options {
 		if m.cursor == i {
-			s.WriteString("  " + styleMenuSelected.Render("▶ " + opt) + "\n")
+			s.WriteString("  " + styleMenuSelected.Render("▶ "+opt) + "\n")
 		} else {
 			s.WriteString("    " + opt + "\n")
 		}
