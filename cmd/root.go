@@ -22,6 +22,10 @@ COMMANDS
   edit    <name> <email>   Update the email for an existing identity
   bind    <name> [flags]   Associate an SSH key or Signing key
   tui                      Open an interactive management menu
+  prompt                   Output current identity for shell prompts
+  setup-prompt             Automated shell prompt configuration
+  remove-prompt            Remove automated shell configurations
+  init    <zsh|bash>       Generate shell integration script
 
 ALIASES
   ls      alias for list
@@ -44,6 +48,11 @@ SETUP AS GIT SUBCOMMAND
     git user <command>
 
   (Git automatically delegates "git user" to "git-user" if the binary is on PATH.)
+
+SHELL PROMPT INTEGRATION
+  To show the active user in your prompt, add this to your .zshrc or .bashrc:
+    eval "$(git-user init zsh)"   # for Zsh
+    eval "$(git-user init bash)"  # for Bash
 
 EXAMPLES
   git-user add work   work@company.com
@@ -88,6 +97,14 @@ func Execute() error {
 		return runBind(rest)
 	case "tui":
 		return runTui()
+	case "prompt":
+		return runPrompt(rest)
+	case "init":
+		return runInit(rest)
+	case "setup-prompt":
+		return runSetupPrompt(rest)
+	case "remove-prompt":
+		return runRemovePrompt(rest)
 	default:
 		if sub == "-i" || sub == "--interactive" {
 			return runTui()
