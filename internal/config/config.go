@@ -43,7 +43,23 @@ func Load() (*Store, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return &Store{}, nil
+			s := &Store{}
+			// Perform one-time smart onboarding
+			discovered, _ := Harvest()
+			if len(discovered) > 0 {
+				for _, d := range discovered {
+					s.Users = append(s.Users, User{
+						Name:          d.Name,
+						Email:         d.Email,
+						SSHKey:        d.SSHKey,
+						SigningKey:    d.SigningKey,
+						SigningMethod: d.Method,
+					})
+				}
+				s.Current = discovered[0].Name
+				_ = Save(s)
+			}
+			return s, nil
 		}
 		return nil, fmt.Errorf("reading config: %w", err)
 	}
