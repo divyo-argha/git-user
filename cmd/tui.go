@@ -12,8 +12,7 @@ func runTui() error {
 
 	for {
 		options := []string{
-			"Add New User (Simple)",
-			"Register New User (Unified + SSH)",
+			"Add New User",
 			"Switch Active User",
 			"Show Current User",
 			"List All Users",
@@ -32,31 +31,27 @@ func runTui() error {
 			if err := runAdd(nil); err != nil {
 				ui.Errorf("add failed: %v", err)
 			}
-		case 1: // Register
-			if err := runRegister(nil); err != nil {
-				ui.Errorf("register failed: %v", err)
-			}
-		case 2: // Switch
+		case 1: // Switch
 			if err := handleTuiSwitch(); err != nil {
 				ui.Errorf("switch failed: %v", err)
 			}
-		case 3: // Current
+		case 2: // Current
 			if err := runCurrent(nil); err != nil {
 				ui.Errorf("current failed: %v", err)
 			}
-		case 4: // List
+		case 3: // List
 			if err := runList(nil); err != nil {
 				ui.Errorf("list failed: %v", err)
 			}
-		case 5: // Bind
+		case 4: // Bind
 			if err := handleTuiBind(); err != nil {
 				ui.Errorf("bind failed: %v", err)
 			}
-		case 6: // Remove
+		case 5: // Remove
 			if err := handleTuiRemove(); err != nil {
 				ui.Errorf("remove failed: %v", err)
 			}
-		case 7: // Exit
+		case 6: // Exit
 			ui.Info("Goodbye!")
 			return nil
 		}

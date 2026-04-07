@@ -14,20 +14,21 @@ USAGE
   git-user tui             Open interactive menu
 
 COMMANDS
-  add     <name> <email>   Add a new Git identity
+  add     [name] [email]   Add a new Git identity (interactive if no args)
   list                     List all saved identities
   switch  <name>           Switch the active Git identity
   current                  Show the currently active identity
   remove  <name>           Remove a saved identity
   edit    <name> <email>   Update the email for an existing identity
   bind    <name> [flags]   Associate an SSH key or Signing key
-  register [name] [email]  Interactive flow: Register name, email + SSH key
   tui                      Open an interactive management menu
 
 ALIASES
   ls      alias for list
   sw      alias for switch
   rm      alias for remove
+  reg     alias for add (interactive)
+  register alias for add (interactive)
 
 FLAGS
   --ssh-key <path> (bind) Link SSH key
@@ -70,7 +71,7 @@ func Execute() error {
 	rest := args[1:]
 
 	switch sub {
-	case "add":
+	case "add", "register", "reg":
 		return runAdd(rest)
 	case "list", "ls":
 		return runList(rest)
@@ -84,8 +85,6 @@ func Execute() error {
 		return runEdit(rest)
 	case "bind":
 		return runBind(rest)
-	case "register", "reg":
-		return runRegister(rest)
 	case "tui":
 		return runTui()
 	default:
