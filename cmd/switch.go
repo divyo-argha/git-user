@@ -122,7 +122,7 @@ func ApplyIdentity(user *config.User, store *config.Store) error {
 	} else {
 		if store.Strict {
 			ui.Warn("No signing key bound. Operating in Strict mode — signing is still ENFORCED (commits will fail until you bind a key).")
-			_ = git.ApplySigning("", "")
+			_ = git.ApplySigning("GIT_USER_STRICT_NO_KEY_BOUND", "ssh")
 		} else {
 			if err := git.RemoveSigningConfig(); err != nil {
 				ui.Warn(fmt.Sprintf("removing signing config: %v", err))

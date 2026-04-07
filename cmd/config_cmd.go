@@ -39,7 +39,20 @@ func runConfig(args []string) error {
 			store.Strict = false
 			ui.Success("Strict Mode disabled (Flexible/Relaxed)")
 		}
-		return config.Save(store)
+
+		if err := config.Save(store); err != nil {
+			return err
+		}
+
+		// Re-apply current identity to make the change instant
+		if u := store.CurrentUser(); u != nil {
+			if err := ApplyIdentity(u, store); err != nil {
+				ui.Warn(fmt.Sprintf("Could not re-apply identity: %v", err))
+			} else {
+				ui.Success(fmt.Sprintf("Synchronized Git identity: %s", u.Name))
+			}
+		}
+		return nil
 
 	default:
 		return fmt.Errorf("unknown config flag %q", sub)
