@@ -117,6 +117,11 @@ func StyleDim() lipgloss.Style {
 	return styleDim
 }
 
+// StyleSuccess returns the style used for success/verified text.
+func StyleSuccess() lipgloss.Style {
+	return styleSuccess
+}
+
 // UserRow prints a single user card in the list.
 func UserRow(name, email, sshKey string, active bool) {
 	badge := ""

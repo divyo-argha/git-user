@@ -107,6 +107,51 @@ func GetLocalConfig(key string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// GetRemoteURL returns the URL of the 'origin' remote if it exists.
+func GetRemoteURL() (string, error) {
+	cmd := exec.Command("git", "config", "--get", "remote.origin.url")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// DetectPlatformFromURL parses a git remote URL and returns the platform name and repository identifier.
+func DetectPlatformFromURL(url string) (platform, repo string) {
+	if url == "" {
+		return "", ""
+	}
+
+	// Examples:
+	// https://github.com/divyo/git-user.git
+	// git@github.com:divyo/git-user.git
+
+	url = strings.TrimSuffix(url, ".git")
+
+	if strings.Contains(url, "github.com") {
+		platform = "GitHub"
+		parts := strings.Split(url, "github.com")
+		if len(parts) > 1 {
+			repo = strings.Trim(parts[1], ":/")
+		}
+	} else if strings.Contains(url, "gitlab.com") {
+		platform = "GitLab"
+		parts := strings.Split(url, "gitlab.com")
+		if len(parts) > 1 {
+			repo = strings.Trim(parts[1], ":/")
+		}
+	} else if strings.Contains(url, "bitbucket.org") {
+		platform = "Bitbucket"
+		parts := strings.Split(url, "bitbucket.org")
+		if len(parts) > 1 {
+			repo = strings.Trim(parts[1], ":/")
+		}
+	}
+
+	return platform, repo
+}
+
 func unsetConfig(key string) error {
 	cmd := exec.Command("git", "config", "--global", "--unset", key)
 	return cmd.Run()

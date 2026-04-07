@@ -209,9 +209,19 @@ To prevent signing errors from blocking your workflow, `git-user` supports **Ide
 - **Flexible Mode (Default)**: If a signing key is configured but invalid (e.g., file missing), the tool will **Warn** you but allow `git commit` to work by temporarily disabling signing for that identity. This is the default mode.
 - **Strict Mode (Enforced)**: For high-security environments. If a signing key is missing or invalid, the tool will **refuse** to disable signing, forcing you to fix the configuration before committing. You can use this for enforcing the practice of having signed commits.
 
-**Toggle Mode**:
 ```bash
 git-user config --strict <on|off>
+```
+
+---
+
+### ✨ Smart Identity Discovery (Auto-Onboarding)
+`git-user` is designed to feel like it already knows you.
+
+- **First Run**: As soon as you install the tool on a new machine, it performs **Smart Harvesting**. It scans your global `.gitconfig` and your `~/.ssh/` folder to automatically import your existing identities and keys.
+- **Manual Scan**: Found a new key or made a change to your global Git? Re-run discovery at any time:
+```bash
+git-user discover
 ```
 
 ### Stay in Sync (Updates)
@@ -238,6 +248,7 @@ go install . && ~/go/bin/git-user reload && source ~/.zshrc
 | **current**| `git user current` | See which profile is active |
 | **bind** | `git user bind <n> [flags]`| Link SSH/Signing keys to a profile |
 | **platform**| `git user platform <add/rm>`| Map profile to GitHub/GitLab/etc. |
+| **discover**| `git-user discover` | Scan system for existing Git/SSH identities |
 | **config**  | `git user config [flags]` | Manage global settings (Strict mode, etc.) |
 | **reload**  | `git-user reload` | Refresh shell prompt configuration |
 | **remove**  | `git user remove <name>` | Delete a profile from the store |
@@ -275,11 +286,14 @@ git-user/
 │   ├── edit.go
 │   ├── bind.go          links SSH/Signing keys
 │   ├── platform.go      maps platforms
+│   ├── discover.go      manual identity discovery
 │   ├── config_cmd.go    global tool settings
 │   ├── setup.go         shell integration setup
 │   └── reload.go        automates prompt refresh
 └── internal/
-    ├── config/config.go store CRUD
+    ├── config/
+    │   ├── config.go    store CRUD
+    │   └── discovery.go identity discovery engine
     ├── git/git.go       git config wrapper
     ├── sshconf/sshconf.go ssh config manager
     └── ui/ui.go         ui helpers

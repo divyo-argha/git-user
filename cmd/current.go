@@ -39,6 +39,33 @@ func runCurrent(_ []string) error {
 	fmt.Printf("  %-10s: %s%s\n", ui.StyleDim().Render("Name"), u.Name, verifiedLabel)
 	fmt.Printf("  %-10s: %s\n", ui.StyleDim().Render("Email"), u.Email)
 
+	// Context Awareness (Current Repository)
+	if remoteURL, err := git.GetRemoteURL(); err == nil && remoteURL != "" {
+		platform, repo := git.DetectPlatformFromURL(remoteURL)
+		if platform != "" {
+			ui.Divider()
+			ui.Header("Project Context")
+			icon := "🌐"
+			switch strings.ToLower(platform) {
+			case "github":
+				icon = "🐙"
+			case "gitlab":
+				icon = "🦊"
+			case "bitbucket":
+				icon = "💙"
+			}
+			fmt.Printf("  %-10s: %s %s\n", ui.StyleDim().Render("Platform"), icon, platform)
+			fmt.Printf("  %-10s: %s\n", ui.StyleDim().Render("Repository"), repo)
+
+			// Show if this user has a bound account for THIS specific platform
+			if username, ok := u.Platforms[strings.ToLower(platform)]; ok {
+				fmt.Printf("  %-10s: %s (%s)\n", ui.StyleDim().Render("Linked"), username, ui.StyleSuccess().Render("Verified Auth"))
+			} else {
+				fmt.Printf("  %-10s: %s\n", ui.StyleDim().Render("Status"), ui.StyleDim().Render("No linked account for this platform"))
+			}
+		}
+	}
+
 	// Security Section
 	ui.Divider()
 	ui.Header("Security")
@@ -58,23 +85,12 @@ func runCurrent(_ []string) error {
 	}
 	fmt.Printf("  %-10s: %s\n", ui.StyleDim().Render("SSH Key"), sshStatus)
 
-	// Platforms Section
-	if len(u.Platforms) > 0 {
-		ui.Divider()
-		ui.Header("Platforms")
-		for p, user := range u.Platforms {
-			fmt.Printf("  %-10s: %s\n", ui.StyleDim().Render(strings.Title(p)), user)
-		}
-	}
-
-	// Global Settings Section
-	ui.Divider()
-	ui.Header("Global Settings")
-	mode := "Flexible (Relaxed)"
+	// Global Settings Section (Only show if Strict mode is ENFORCED)
 	if store.Strict {
-		mode = "Strict (Enforced)"
+		ui.Divider()
+		ui.Header("Global Settings")
+		fmt.Printf("  %-10s: %s\n", ui.StyleDim().Render("Mode"), "Strict (Enforced)")
 	}
-	fmt.Printf("  %-10s: %s\n", ui.StyleDim().Render("Mode"), mode)
 
 	ui.Divider()
 
