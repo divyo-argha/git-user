@@ -36,7 +36,9 @@ The new `git-user` features a premium, terminal-optimized UI powered by **Lipglo
 - [Installation](#installation)
 - [Terminology for Beginners](#terminology-for-beginners)
 - [Architecture Overview](#architecture-overview)
-- [Phase 1 — Identity switching](#phase-1--identity-switching)
+- [Phase 1 — Identity switching](#phase-1--identity-switching--contextual-security)
+- [Shell Prompt Integration](#-plug--play-shell-prompt)
+- [Void State](#-void-state-sign-out)
 - [Phase 2 — SSH keys and platform accounts](#phase-2--ssh-keys-and-platform-accounts)
 - [Command reference](#command-reference)
 - [Security practices](#security-practices)
@@ -88,7 +90,7 @@ If you're new to Git, some of these terms might be confusing. Here's a quick gui
 
 ---
 
-## Phase 1 — Identity switching
+## Phase 1 — Identity switching & Contextual Security
 
 ```bash
 # Register identities interactively (Simplified)
@@ -106,7 +108,19 @@ git user -i
 
 # Create and switch in one step (Git-style)
 git user switch -c work alice@example.com
+
+# Sign out (enter void state)
+git user current --sign-out
+
+# Re-activate an identity
+git user switch work
 ```
+
+### Phase 1 Features
+- **Contextual Prompt**: Shows identity only inside git repositories
+- **Void State**: Sign out with all credentials cleared
+- **Interactive TUI**: Manage identities with arrow keys
+- **Smart Discovery**: Auto-import existing identities on first run
 
 ---
 
@@ -152,6 +166,19 @@ git clone git@github-work:org/repo.git
 
 Keep track of your active identity directly in your terminal prompt with zero manual setup.
 
+### ✨ Phase 1: Contextual Prompt
+The prompt now intelligently shows your active identity **only when inside a git repository**. This reduces credential exposure and keeps your terminal clean outside of git contexts.
+
+```bash
+# Outside a git repo - no prompt
+$ cd /tmp
+$ # (no git-user prompt shown)
+
+# Inside a git repo - shows identity
+$ cd ~/my-project
+$ # (prompt shows: 👤 myidentity)
+```
+
 ### Quick Setup
 Simply run:
 ```bash
@@ -163,6 +190,47 @@ This automatically detects your shell (Zsh/Bash), updates your config file, and 
 If you want to remove the integration, just run:
 ```bash
 git-user remove-prompt
+```
+
+---
+
+## 🔐 Void State (Sign Out)
+
+Phase 1 introduces the ability to safely sign out and enter a "void" state where you cannot commit or push.
+
+### Why Sign Out?
+- **Shared Machines**: Prevent accidental commits under the wrong identity
+- **Security**: Clear all credentials from git config
+- **Peace of Mind**: Know you're in a safe state when not actively working
+
+### How to Sign Out
+```bash
+git user current --sign-out
+```
+
+This will:
+- Set git config to an invalid username (`<void-no-user>`)
+- Clear your email from git config
+- Remove signing keys and SSH configuration
+- Prevent any commits or pushes
+
+### Void State Behavior
+```bash
+# After signing out
+$ git user current
+⚠ No active identity set.
+ℹ Run 'git-user switch <n>' to activate one.
+
+# Attempting to commit fails
+$ git commit -m "test"
+fatal: not a valid object name
+```
+
+### Re-Activate an Identity
+Simply switch to any identity to exit void state:
+```bash
+git user switch myidentity
+✔ Switched to "myidentity" (email@example.com)
 ```
 
 ---
@@ -246,6 +314,7 @@ go install . && ~/go/bin/git-user reload && source ~/.zshrc
 | **list** | `git user list` | Show all your profiles in card view |
 | **switch** | `git user switch [-c] <n> [e]` | Activate (or create and activate) a profile |
 | **current**| `git user current` | See which profile is active |
+| **current --sign-out** | `git user current --sign-out` | Sign out and enter void state (no commits/pushes) |
 | **bind** | `git user bind <n> [flags]`| Link SSH/Signing keys to a profile |
 | **platform**| `git user platform <add/rm>`| Map profile to GitHub/GitLab/etc. |
 | **discover**| `git-user discover` | Scan system for existing Git/SSH identities |
