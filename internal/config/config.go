@@ -210,8 +210,19 @@ func (s *Store) SetCurrent(name string) error {
 
 // CurrentUser returns the active User or nil.
 func (s *Store) CurrentUser() *User {
-	if s.Current == "" {
+	if s.Current == "" || s.Current == "<void-no-user>" {
 		return nil
 	}
 	return s.FindUser(s.Current)
+}
+
+// IsVoid checks if the current state is the void (no user).
+func (s *Store) IsVoid() bool {
+	return s.Current == "" || s.Current == "<void-no-user>"
+}
+
+// SignOut sets the store to the void state.
+func (s *Store) SignOut() error {
+	s.Current = "<void-no-user>"
+	return nil
 }

@@ -10,7 +10,14 @@ import (
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
-func runCurrent(_ []string) error {
+func runCurrent(args []string) error {
+	// Check for --sign-out flag
+	for _, arg := range args {
+		if arg == "--sign-out" {
+			return handleSignOut()
+		}
+	}
+
 	store, err := config.Load()
 	if err != nil {
 		ui.Errorf("loading config: %v", err)
@@ -130,5 +137,48 @@ func runCurrent(_ []string) error {
 		}
 	}
 
+	return nil
+}
+
+func handleSignOut() error {
+	store, err := config.Load()
+	if err != nil {
+		ui.Errorf("loading config: %v", err)
+		return err
+	}
+
+	if store.IsVoid() {
+		ui.Info("Already in void state (no active identity).")
+		return nil
+	}
+
+	// Sign out: set to void and clear git config
+	if err := store.SignOut(); err != nil {
+		ui.Errorf("signing out: %v", err)
+		return err
+	}
+
+	// Clear git global config
+	if err := git.Apply("<void-no-user>", ""); err != nil {
+		ui.Warn(fmt.Sprintf("Could not clear git config: %v", err))
+	}
+
+	// Clear signing config
+	if err := git.RemoveSigningConfig(); err != nil {
+		ui.Warn(fmt.Sprintf("Could not clear signing config: %v", err))
+	}
+
+	// Clear SSH config
+	if err := git.RemoveSSHConfig(); err != nil {
+		ui.Warn(fmt.Sprintf("Could not clear SSH config: %v", err))
+	}
+
+	if err := config.Save(store); err != nil {
+		ui.Errorf("saving config: %v", err)
+		return err
+	}
+
+	ui.Success("Signed out. You are now in the void state.")
+	ui.Info("You cannot commit or push until you switch to an active identity.")
 	return nil
 }

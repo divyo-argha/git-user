@@ -79,6 +79,13 @@ func IsInstalled() bool {
 	return err == nil
 }
 
+// IsInGitRepo checks if the current working directory is inside a git repository.
+func IsInGitRepo() bool {
+	cmd := exec.Command("git", "rev-parse", "--git-dir")
+	err := cmd.Run()
+	return err == nil
+}
+
 func setConfig(key, value string) error {
 	cmd := exec.Command("git", "config", "--global", key, value)
 	out, err := cmd.CombinedOutput()

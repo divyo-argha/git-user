@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
 )
 
 var (
@@ -17,6 +18,11 @@ var (
 )
 
 func runPrompt(args []string) error {
+	// Only show prompt if inside a git repository
+	if !git.IsInGitRepo() {
+		return nil
+	}
+
 	store, err := config.Load()
 	if err != nil {
 		return nil

@@ -120,7 +120,7 @@ func setupP10kDeep(path string, exe string) error {
 
 	// 2. Append styling and function definition
 	// COLOR 15 (Bright White) name with COLOR 14 (Bright Cyan) icon
-	funcDef := fmt.Sprintf("\n%s\n# git-user:styling\ntypeset -g POWERLEVEL9K_GIT_USER_FOREGROUND=15\ntypeset -g POWERLEVEL9K_GIT_USER_VISUAL_IDENTIFIER_COLOR=14\ntypeset -g POWERLEVEL9K_GIT_USER_BOLD=true\n\nprompt_git_user() {\n  local name=$(%s prompt --p10k --no-icon)\n  [[ -n $name ]] && p10k segment -f 15 -i '👤' -t \"$name\"\n}\n%s\n", markerStart, exe, markerEnd)
+	funcDef := fmt.Sprintf("\n%s\n# git-user:styling\ntypeset -g POWERLEVEL9K_GIT_USER_FOREGROUND=15\ntypeset -g POWERLEVEL9K_GIT_USER_VISUAL_IDENTIFIER_COLOR=14\ntypeset -g POWERLEVEL9K_GIT_USER_BOLD=true\n\nprompt_git_user() {\n  # Only show if inside a git repo\n  if ! git rev-parse --git-dir > /dev/null 2>&1; then\n    return\n  fi\n  local name=$(%s prompt --p10k --no-icon)\n  [[ -n $name ]] && p10k segment -f 15 -i '👤' -t \"$name\"\n}\n%s\n", markerStart, exe, markerEnd)
 	strContent += funcDef
 
 	return os.WriteFile(path, []byte(strContent), 0644)

@@ -18,13 +18,14 @@ COMMANDS
   list                     List all saved identities
   switch  [-c] <name> [e] Switch or create and switch identity
   current                  Show the currently active identity
+  current --sign-out       Sign out and enter void state (no commits/pushes)
   remove  <name>           Remove a saved identity
   edit    <name> <email>   Update the email for an existing identity
   bind    <name> [flags]   Associate an SSH key or Signing key
   platform <add/remove>    Manage platform accounts (github, gitlab, etc.)
   discover                 Scan system for existing Git/SSH identities
   tui                      Open an interactive management menu
-  prompt                   Output current identity for shell prompts
+  prompt                   Output current identity for shell prompts (git repos only)
   setup-prompt             Automated shell prompt configuration
   remove-prompt            Remove automated shell configurations
   reload                   Refresh shell prompt configuration
@@ -58,6 +59,8 @@ SHELL PROMPT INTEGRATION
     eval "$(git-user init zsh)"   # for Zsh
     eval "$(git-user init bash)"  # for Bash
 
+  The prompt will only display when inside a git repository.
+
 EXAMPLES
   git-user add work   work@company.com
   git-user add home   me@gmail.com
@@ -65,6 +68,7 @@ EXAMPLES
   git-user switch work
   git-user switch -c personal me@gmail.com
   git-user current
+  git-user current --sign-out
   git-user edit home  personal@gmail.com
   git-user remove home
   git-user bind work  --ssh-key ~/.ssh/id_rsa_work
