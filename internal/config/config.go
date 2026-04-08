@@ -16,6 +16,7 @@ type User struct {
 	SigningKey    string            `json:"signing_key,omitempty"`
 	SigningMethod string            `json:"signing_method,omitempty"` // "gpg" or "ssh"
 	Platforms     map[string]string `json:"platforms,omitempty"`      // e.g. "github" -> "alice"
+	Remember      bool              `json:"remember,omitempty"`       // Persist credentials across switches
 }
 
 // Store is the top-level config persisted to disk.
@@ -224,5 +225,39 @@ func (s *Store) IsVoid() bool {
 // SignOut sets the store to the void state.
 func (s *Store) SignOut() error {
 	s.Current = "<void-no-user>"
+	return nil
+}
+
+// SetRemember marks a user to persist credentials across switches.
+func (s *Store) SetRemember(name string, remember bool) error {
+	u := s.FindUser(name)
+	if u == nil {
+		return fmt.Errorf("user %q not found", name)
+	}
+	u.Remember = remember
+	return nil
+}
+
+// IsRemembered checks if a user has credentials persisted.
+func (s *Store) IsRemembered(name string) bool {
+	u := s.FindUser(name)
+	if u == nil {
+		return false
+	}
+	return u.Remember
+}
+
+// ClearCredentialsForUser clears credentials for a user (unless remembered).
+func (s *Store) ClearCredentialsForUser(name string) error {
+	u := s.FindUser(name)
+	if u == nil {
+		return fmt.Errorf("user %q not found", name)
+	}
+	// Only clear if not remembered
+	if !u.Remember {
+		u.SSHKey = ""
+		u.SigningKey = ""
+		u.SigningMethod = ""
+	}
 	return nil
 }

@@ -19,6 +19,7 @@ COMMANDS
   switch  [-c] <name> [e] Switch or create and switch identity
   current                  Show the currently active identity
   current --sign-out       Sign out and enter void state (no commits/pushes)
+  sign-in [--remember]     Sign in with optional credential persistence
   remove  <name>           Remove a saved identity
   edit    <name> <email>   Update the email for an existing identity
   bind    <name> [flags]   Associate an SSH key or Signing key
@@ -44,6 +45,7 @@ FLAGS
   --signing-key <k> (add/bind) Link GPG/SSH key
   --method <gpg|ssh>(add/bind) Set signing method
   --unset-signing  (bind) Remove signing key
+  --remember       (sign-in) Persist credentials across profile switches
   --force           (remove) Force-remove the active user
   -i, --interactive Open TUI (shortcut for tui)
   --help            Show this help text
@@ -69,6 +71,7 @@ EXAMPLES
   git-user switch -c personal me@gmail.com
   git-user current
   git-user current --sign-out
+  git-user sign-in --remember
   git-user edit home  personal@gmail.com
   git-user remove home
   git-user bind work  --ssh-key ~/.ssh/id_rsa_work
@@ -97,6 +100,8 @@ func Execute() error {
 		return runSwitch(rest)
 	case "current":
 		return runCurrent(rest)
+	case "sign-in":
+		return runSignIn(rest)
 	case "remove", "rm":
 		return runRemove(rest)
 	case "edit":

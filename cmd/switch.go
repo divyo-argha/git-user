@@ -43,6 +43,13 @@ func runSwitch(args []string) error {
 		return err
 	}
 
+	// Clear credentials from previous user if not remembered
+	if currentUser := store.CurrentUser(); currentUser != nil {
+		if err := store.ClearCredentialsForUser(currentUser.Name); err != nil {
+			ui.Warn(fmt.Sprintf("clearing credentials: %v", err))
+		}
+	}
+
 	if createMode {
 		if store.FindUser(name) != nil {
 			ui.Errorf("user %q already exists", name)
