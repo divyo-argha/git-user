@@ -70,15 +70,8 @@ func runRegister(args []string) error {
 	}
 
 	var sshKeyPath string
-	var platform string = "github"
 	
 	if generateKey == "" || strings.ToLower(generateKey) == "y" || strings.ToLower(generateKey) == "yes" {
-		platformIdx, err := ui.Select("Which platform will you use?", []string{"GitHub", "GitLab", "Bitbucket"})
-		if err == nil {
-			platforms := []string{"github", "gitlab", "bitbucket"}
-			platform = platforms[platformIdx]
-		}
-
 		home, _ := os.UserHomeDir()
 		sshDir := filepath.Join(home, ".ssh")
 		keyPath := filepath.Join(sshDir, fmt.Sprintf("git_%s", name))
@@ -131,9 +124,9 @@ func runRegister(args []string) error {
 
 					_, _ = ui.Prompt("Press Enter once you've added the key to your platform...")
 
-					if err := verifySSHConnectionPlatform(platform); err != nil {
+					if err := verifySSHConnection(); err != nil {
 						ui.Warn("SSH verification failed. You may need to add the key to your platform.")
-						ui.Info(fmt.Sprintf("You can test manually with: ssh -T git@%s", map[string]string{"github": "github.com", "gitlab": "gitlab.com", "bitbucket": "bitbucket.org"}[platform]))
+						ui.Info("You can test manually with: ssh -T git@github.com")
 					} else {
 						ui.Success("SSH connection verified!")
 					}
