@@ -9,70 +9,33 @@ import (
 
 const usage = `git-user — manage multiple Git identities
 
-USAGE
-  git-user <command> [arguments]
-  git-user tui             Open interactive menu
+QUICK START
+  git-user register          Create a new identity (guided setup)
+  git-user switch <name>     Switch to an identity
+  git-user list              Show all identities
+  git-user current           Show active identity
+  git-user -i                Open interactive menu
 
 COMMANDS
-  add     [name] [email]   Add a new Git identity (interactive if no args)
-  register                 Guided setup with SSH key generation (recommended)
-  list                     List all saved identities
-  switch  [-c] <name> [e] Switch or create and switch identity
-  current                  Show the currently active identity
-  remove  <name>           Remove a saved identity
-  edit    <name> <email>   Update the email for an existing identity
-  bind    <name> [flags]   Associate an SSH key or Signing key
-  rekey   <name>           Rotate SSH key for an existing identity
-  platform <add/remove>    Manage platform accounts (github, gitlab, etc.)
-  discover                 Scan system for existing Git/SSH identities
-  doctor                   Diagnose configuration and connectivity issues
-  tui                      Open an interactive management menu
-  prompt                   Output current identity for shell prompts
-  setup-prompt             Automated shell prompt configuration
-  remove-prompt            Remove automated shell configurations
-  reload                   Refresh shell prompt configuration
-  config [flags]           Manage global git-user settings
-  init    <zsh|bash>       Generate shell integration script
+  register                   Create new identity with SSH key
+  switch <name>              Switch to an identity
+  list                       List all identities
+  current                    Show active identity
+  rekey <name>               Rotate SSH key
+  bind <name> --ssh-key <p>  Link SSH key
+  remove <name>              Delete an identity
+  edit <name> <email>        Update email
+  doctor                     Check setup
+  tui                        Interactive menu
 
 ALIASES
-  ls      alias for list
-  sw      alias for switch
-  rm      alias for remove
-  reg     alias for add (interactive)
-  register alias for add (interactive)
+  ls (list)  sw (switch)  rm (remove)
 
-FLAGS
-  --ssh-key <path> (bind) Link SSH key
-  --signing-key <k> (add/bind) Link GPG/SSH key
-  --method <gpg|ssh>(add/bind) Set signing method
-  --unset-signing  (bind) Remove signing key
-  --force           (remove) Force-remove the active user
-  -i, --interactive Open TUI (shortcut for tui)
-  --help            Show this help text
+HELP
+  git-user --help            Show full help
+  git-user doctor            Diagnose issues
 
-SETUP AS GIT SUBCOMMAND
-  Place git-user on your PATH so you can run:
-    git user <command>
-
-  (Git automatically delegates "git user" to "git-user" if the binary is on PATH.)
-
-SHELL PROMPT INTEGRATION
-  To show the active user in your prompt, add this to your .zshrc or .bashrc:
-    eval "$(git-user init zsh)"   # for Zsh
-    eval "$(git-user init bash)"  # for Bash
-
-EXAMPLES
-  git-user add work   work@company.com
-  git-user add home   me@gmail.com
-  git-user list
-  git-user switch work
-  git-user switch -c personal me@gmail.com
-  git-user current
-  git-user edit home  personal@gmail.com
-  git-user remove home
-  git-user bind work  --ssh-key ~/.ssh/id_rsa_work
-
-Config stored at: ~/.git-users/config.json
+Config: ~/.git-users/config.json
 `
 
 // Execute is the top-level entry point.
