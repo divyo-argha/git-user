@@ -12,7 +12,7 @@ func runTui() error {
 
 	for {
 		options := []string{
-			"Add New User",
+			"Register New Identity (Guided Setup)",
 			"Switch Active User",
 			"Show Current User",
 			"List All Users",
@@ -27,9 +27,9 @@ func runTui() error {
 		}
 
 		switch idx {
-		case 0: // Add
-			if err := runAdd(nil); err != nil {
-				ui.Errorf("add failed: %v", err)
+		case 0: // Register
+			if err := runRegister(nil); err != nil {
+				ui.Errorf("register failed: %v", err)
 			}
 		case 1: // Switch
 			if err := handleTuiSwitch(); err != nil {
