@@ -5,11 +5,18 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
+
+func isValidEmail(email string) bool {
+	pattern := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
+	matched, _ := regexp.MatchString(pattern, email)
+	return matched
+}
 
 func runRegister(args []string) error {
 	var name, email string
@@ -32,6 +39,15 @@ func runRegister(args []string) error {
 	if email == "" {
 		ui.Error("Email is required.")
 		return fmt.Errorf("missing email")
+	}
+
+	// Validate email format
+	for !isValidEmail(email) {
+		ui.Warn("Invalid email format")
+		email, err = ui.Prompt("Enter a valid email address:")
+		if err != nil {
+			return err
+		}
 	}
 
 	store, err := config.Load()
@@ -59,7 +75,15 @@ func runRegister(args []string) error {
 	}
 
 	var sshKeyPath string
+	var platform string = "github" // default
+	
 	if generateKey == "" || strings.ToLower(generateKey) == "y" || strings.ToLower(generateKey) == "yes" {
+		// Ask which platform
+		platformIdx, err := ui.Select("Which platform will you use?", []string{"GitHub", "GitLab", "Bitbucket"})
+		if err == nil {
+			platforms := []string{"github", "gitlab", "bitbucket"}
+			platform = platforms[platformIdx]
+		}
 		// Generate SSH key
 		home, _ := os.UserHomeDir()
 		sshDir := filepath.Join(home, ".ssh")
@@ -94,14 +118,22 @@ func runRegister(args []string) error {
 				ui.Success(fmt.Sprintf("SSH key created at %s", keyPath))
 				sshKeyPath = keyPath
 
-				// Display the public key
+				// Display the public key and fingerprint
 				pubKeyPath := keyPath + ".pub"
 				pubKeyBytes, err := os.ReadFile(pubKeyPath)
 				if err == nil {
+					// Get fingerprint
+					cmd := exec.Command("ssh-keygen", "-l", "-f", pubKeyPath)
+					fingerprintOutput, _ := cmd.Output()
+					
 					ui.Divider()
 					ui.Banner("ADD THIS PUBLIC KEY TO YOUR GIT PLATFORM")
 					fmt.Println()
 					fmt.Println(string(pubKeyBytes))
+					fmt.Println()
+					if len(fingerprintOutput) > 0 {
+						ui.Info(fmt.Sprintf("Fingerprint: %s", strings.TrimSpace(string(fingerprintOutput))))
+					}
 					ui.Divider()
 					ui.Info("GitHub: Settings → SSH and GPG keys → New SSH key")
 					ui.Info("GitLab: Preferences → SSH Keys → Add new key")
@@ -111,10 +143,10 @@ func runRegister(args []string) error {
 					// Wait for user confirmation
 					_, _ = ui.Prompt("Press Enter once you've added the key to your platform...")
 
-					// Verify SSH connection
-					if err := verifySSHConnection(); err != nil {
+					// Verify SSH connection with selected platform
+					if err := verifySSHConnectionPlatform(platform); err != nil {
 						ui.Warn("SSH verification failed. You may need to add the key to your platform.")
-						ui.Info("You can test manually with: ssh -T git@github.com")
+						ui.Info(fmt.Sprintf("You can test manually with: ssh -T git@%s", map[string]string{"github": "github.com", "gitlab": "gitlab.com", "bitbucket": "bitbucket.org"}[platform]))
 					} else {
 						ui.Success("SSH connection verified!")
 					}
