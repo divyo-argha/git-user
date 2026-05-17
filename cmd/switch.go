@@ -77,6 +77,17 @@ func runSwitch(args []string) error {
 	}
 
 	ui.Success(fmt.Sprintf("Switched to %q (%s)", user.Name, user.Email))
+	
+	// Verify SSH connection if SSH key is configured
+	if user.SSHKey != "" {
+		if err := verifySSHConnection(); err != nil {
+			ui.Warn("SSH verification failed. The key may not be added to your platform yet.")
+			ui.Info("Test manually with: ssh -T git@github.com")
+		} else {
+			ui.Success("SSH verified: Connection successful!")
+		}
+	}
+	
 	return nil
 }
 
