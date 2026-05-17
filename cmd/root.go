@@ -15,14 +15,17 @@ USAGE
 
 COMMANDS
   add     [name] [email]   Add a new Git identity (interactive if no args)
+  register                 Guided setup with SSH key generation (recommended)
   list                     List all saved identities
   switch  [-c] <name> [e] Switch or create and switch identity
   current                  Show the currently active identity
   remove  <name>           Remove a saved identity
   edit    <name> <email>   Update the email for an existing identity
   bind    <name> [flags]   Associate an SSH key or Signing key
+  rekey   <name>           Rotate SSH key for an existing identity
   platform <add/remove>    Manage platform accounts (github, gitlab, etc.)
   discover                 Scan system for existing Git/SSH identities
+  doctor                   Diagnose configuration and connectivity issues
   tui                      Open an interactive management menu
   prompt                   Output current identity for shell prompts
   setup-prompt             Automated shell prompt configuration
@@ -85,8 +88,10 @@ func Execute() error {
 	rest := args[1:]
 
 	switch sub {
-	case "add", "register", "reg":
+	case "add":
 		return runAdd(rest)
+	case "register", "reg":
+		return runRegister(rest)
 	case "list", "ls":
 		return runList(rest)
 	case "switch", "sw":
@@ -99,10 +104,14 @@ func Execute() error {
 		return runEdit(rest)
 	case "bind":
 		return runBind(rest)
+	case "rekey":
+		return runRekey(rest)
 	case "platform":
 		return runPlatform(rest)
 	case "discover":
 		return runDiscover(rest)
+	case "doctor":
+		return runDoctor(rest)
 	case "tui":
 		return runTui()
 	case "prompt":

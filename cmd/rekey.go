@@ -1,0 +1,120 @@
+package cmd
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+
+	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/ui"
+)
+
+func runRekey(args []string) error {
+	if len(args) < 1 {
+		ui.Error("usage: git-user rekey <name>")
+		return fmt.Errorf("missing name")
+	}
+
+	name := args[0]
+
+	store, err := config.Load()
+	if err != nil {
+		ui.Errorf("loading config: %v", err)
+		return err
+	}
+
+	user := store.FindUser(name)
+	if user == nil {
+		ui.Errorf("identity %q not found", name)
+		return fmt.Errorf("user not found")
+	}
+
+	ui.Info(fmt.Sprintf("Rotating SSH key for identity: %s (%s)", user.Name, user.Email))
+
+	// Generate new SSH key
+	home, _ := os.UserHomeDir()
+	sshDir := filepath.Join(home, ".ssh")
+	keyPath := filepath.Join(sshDir, fmt.Sprintf("git_%s", name))
+
+	// Ensure .ssh directory exists
+	if err := os.MkdirAll(sshDir, 0700); err != nil {
+		ui.Errorf("creating .ssh directory: %v", err)
+		return err
+	}
+
+	// Check if key already exists and backup
+	if _, err := os.Stat(keyPath); err == nil {
+		backupPath := keyPath + ".backup"
+		ui.Warn(fmt.Sprintf("Backing up existing key to %s", backupPath))
+		
+		// Backup private key
+		if err := os.Rename(keyPath, backupPath); err != nil {
+			ui.Errorf("backing up key: %v", err)
+			return err
+		}
+		
+		// Backup public key if exists
+		pubKeyPath := keyPath + ".pub"
+		if _, err := os.Stat(pubKeyPath); err == nil {
+			os.Rename(pubKeyPath, backupPath+".pub")
+		}
+	}
+
+	// Generate the new key
+	ui.Info(fmt.Sprintf("Generating new SSH key at %s...", keyPath))
+	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", user.Email, "-f", keyPath, "-N", "")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		ui.Errorf("generating SSH key: %v", err)
+		return err
+	}
+
+	ui.Success(fmt.Sprintf("New SSH key created at %s", keyPath))
+
+	// Display the public key
+	pubKeyPath := keyPath + ".pub"
+	pubKeyBytes, err := os.ReadFile(pubKeyPath)
+	if err != nil {
+		ui.Errorf("reading public key: %v", err)
+		return err
+	}
+
+	ui.Divider()
+	ui.Banner("REPLACE YOUR OLD KEY WITH THIS NEW PUBLIC KEY")
+	fmt.Println()
+	fmt.Println(string(pubKeyBytes))
+	ui.Divider()
+	ui.Info("GitHub: Settings → SSH and GPG keys → Delete old key → Add new key")
+	ui.Info("GitLab: Preferences → SSH Keys → Remove old key → Add new key")
+	ui.Info("Bitbucket: Personal settings → SSH keys → Delete old → Add new")
+	fmt.Println()
+
+	// Wait for user confirmation
+	_, _ = ui.Prompt("Press Enter once you've replaced the key on your platform...")
+
+	// Verify SSH connection
+	if err := verifySSHConnection(); err != nil {
+		ui.Warn("SSH verification failed. Please check that you've added the new key correctly.")
+		ui.Info("You can test manually with: ssh -T git@github.com")
+	} else {
+		ui.Success("SSH connection verified with new key!")
+	}
+
+	// Re-bind the new key
+	if err := store.BindSSHKey(name, keyPath); err != nil {
+		ui.Errorf("binding new SSH key: %v", err)
+		return err
+	}
+
+	if err := config.Save(store); err != nil {
+		ui.Errorf("saving config: %v", err)
+		return err
+	}
+
+	ui.Success(fmt.Sprintf("SSH key rotated successfully for %s", name))
+	ui.Info("Old key backed up with .backup extension")
+	return nil
+}
