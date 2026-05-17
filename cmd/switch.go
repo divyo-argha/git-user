@@ -78,7 +78,6 @@ func runSwitch(args []string) error {
 
 	ui.Success(fmt.Sprintf("Switched to %q (%s)", user.Name, user.Email))
 	
-	// Verify SSH connection if SSH key is configured
 	if user.SSHKey != "" {
 		if err := verifySSHConnection(); err != nil {
 			ui.Warn("SSH verification failed. The key may not be added to your platform yet.")
@@ -91,7 +90,6 @@ func runSwitch(args []string) error {
 	return nil
 }
 
-// ApplyIdentity synchronizes the global git and ssh configurations with the given user profile.
 func ApplyIdentity(user *config.User, store *config.Store) error {
 	if err := git.Apply(user.Name, user.Email); err != nil {
 		ui.Errorf("applying git config: %v", err)

@@ -32,36 +32,30 @@ func runRekey(args []string) error {
 
 	ui.Info(fmt.Sprintf("Rotating SSH key for identity: %s (%s)", user.Name, user.Email))
 
-	// Generate new SSH key
 	home, _ := os.UserHomeDir()
 	sshDir := filepath.Join(home, ".ssh")
 	keyPath := filepath.Join(sshDir, fmt.Sprintf("git_%s", name))
 
-	// Ensure .ssh directory exists
 	if err := os.MkdirAll(sshDir, 0700); err != nil {
 		ui.Errorf("creating .ssh directory: %v", err)
 		return err
 	}
 
-	// Check if key already exists and backup
 	if _, err := os.Stat(keyPath); err == nil {
 		backupPath := keyPath + ".backup"
 		ui.Warn(fmt.Sprintf("Backing up existing key to %s", backupPath))
 		
-		// Backup private key
 		if err := os.Rename(keyPath, backupPath); err != nil {
 			ui.Errorf("backing up key: %v", err)
 			return err
 		}
 		
-		// Backup public key if exists
 		pubKeyPath := keyPath + ".pub"
 		if _, err := os.Stat(pubKeyPath); err == nil {
 			os.Rename(pubKeyPath, backupPath+".pub")
 		}
 	}
 
-	// Generate the new key
 	ui.Info(fmt.Sprintf("Generating new SSH key at %s...", keyPath))
 	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", user.Email, "-f", keyPath, "-N", "")
 	cmd.Stdout = os.Stdout
@@ -74,7 +68,6 @@ func runRekey(args []string) error {
 
 	ui.Success(fmt.Sprintf("New SSH key created at %s", keyPath))
 
-	// Display the public key
 	pubKeyPath := keyPath + ".pub"
 	pubKeyBytes, err := os.ReadFile(pubKeyPath)
 	if err != nil {
@@ -92,10 +85,8 @@ func runRekey(args []string) error {
 	ui.Info("Bitbucket: Personal settings → SSH keys → Delete old → Add new")
 	fmt.Println()
 
-	// Wait for user confirmation
 	_, _ = ui.Prompt("Press Enter once you've replaced the key on your platform...")
 
-	// Verify SSH connection
 	if err := verifySSHConnection(); err != nil {
 		ui.Warn("SSH verification failed. Please check that you've added the new key correctly.")
 		ui.Info("You can test manually with: ssh -T git@github.com")
@@ -103,7 +94,6 @@ func runRekey(args []string) error {
 		ui.Success("SSH connection verified with new key!")
 	}
 
-	// Re-bind the new key
 	if err := store.BindSSHKey(name, keyPath); err != nil {
 		ui.Errorf("binding new SSH key: %v", err)
 		return err

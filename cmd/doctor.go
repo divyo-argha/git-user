@@ -17,7 +17,6 @@ func runDoctor(args []string) error {
 
 	issues := 0
 
-	// Check 1: Is there an active identity?
 	ui.Info("Checking active identity...")
 	store, err := config.Load()
 	if err != nil {
@@ -35,7 +34,6 @@ func runDoctor(args []string) error {
 		} else {
 			ui.Success(fmt.Sprintf("Active identity: %s (%s)", user.Name, user.Email))
 
-			// Check 2: Verify git config matches
 			ui.Info("Checking git config sync...")
 			gitName, _ := exec.Command("git", "config", "--global", "user.name").Output()
 			gitEmail, _ := exec.Command("git", "config", "--global", "user.email").Output()
@@ -52,7 +50,6 @@ func runDoctor(args []string) error {
 				ui.Success("Git config in sync")
 			}
 
-			// Check 3: SSH key file exists and has correct permissions
 			if user.SSHKey != "" {
 				ui.Info("Checking SSH key...")
 				info, err := os.Stat(user.SSHKey)
@@ -64,7 +61,6 @@ func runDoctor(args []string) error {
 					ui.Error(fmt.Sprintf("Error checking SSH key: %v", err))
 					issues++
 				} else {
-					// Check permissions (should be 0600)
 					mode := info.Mode().Perm()
 					if mode != 0600 {
 						ui.Warn(fmt.Sprintf("SSH key has incorrect permissions: %o (should be 0600)", mode))
@@ -74,7 +70,6 @@ func runDoctor(args []string) error {
 						ui.Success(fmt.Sprintf("SSH key exists with correct permissions: %s", user.SSHKey))
 					}
 
-					// Check 4: Test SSH connection
 					ui.Info("Testing SSH connection to GitHub...")
 					if err := verifySSHConnection(); err != nil {
 						ui.Warn("SSH connection failed")
@@ -96,7 +91,6 @@ func runDoctor(args []string) error {
 		}
 	}
 
-	// Check 5: Verify git is installed
 	ui.Info("Checking git installation...")
 	if !git.IsInstalled() {
 		ui.Error("Git is not installed or not on PATH")
@@ -106,7 +100,6 @@ func runDoctor(args []string) error {
 		ui.Success(fmt.Sprintf("Git installed: %s", strings.TrimSpace(string(gitVersion))))
 	}
 
-	// Check 6: Verify ssh-keygen is available
 	ui.Info("Checking ssh-keygen availability...")
 	if _, err := exec.LookPath("ssh-keygen"); err != nil {
 		ui.Warn("ssh-keygen not found on PATH")

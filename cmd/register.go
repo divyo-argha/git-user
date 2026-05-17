@@ -20,9 +20,8 @@ func isValidEmail(email string) bool {
 
 func runRegister(args []string) error {
 	var name, email string
-
-	// Interactive entry
 	var err error
+
 	name, err = ui.Prompt("Enter name for this identity (e.g., 'work'):")
 	if err != nil {
 		return err
@@ -41,7 +40,6 @@ func runRegister(args []string) error {
 		return fmt.Errorf("missing email")
 	}
 
-	// Validate email format
 	for !isValidEmail(email) {
 		ui.Warn("Invalid email format")
 		email, err = ui.Prompt("Enter a valid email address:")
@@ -56,46 +54,40 @@ func runRegister(args []string) error {
 		return err
 	}
 
-	// Check if user already exists
 	if store.FindUser(name) != nil {
 		ui.Errorf("identity %q already exists", name)
 		return fmt.Errorf("user exists")
 	}
 
-	// Add user first
 	if err := store.AddUser(name, email); err != nil {
 		ui.Errorf("%v", err)
 		return err
 	}
 
-	// Ask about SSH key generation
 	generateKey, err := ui.Prompt("Generate a new SSH key for this identity? [Y/n]:")
 	if err != nil {
 		return err
 	}
 
 	var sshKeyPath string
-	var platform string = "github" // default
+	var platform string = "github"
 	
 	if generateKey == "" || strings.ToLower(generateKey) == "y" || strings.ToLower(generateKey) == "yes" {
-		// Ask which platform
 		platformIdx, err := ui.Select("Which platform will you use?", []string{"GitHub", "GitLab", "Bitbucket"})
 		if err == nil {
 			platforms := []string{"github", "gitlab", "bitbucket"}
 			platform = platforms[platformIdx]
 		}
-		// Generate SSH key
+
 		home, _ := os.UserHomeDir()
 		sshDir := filepath.Join(home, ".ssh")
 		keyPath := filepath.Join(sshDir, fmt.Sprintf("git_%s", name))
 
-		// Ensure .ssh directory exists
 		if err := os.MkdirAll(sshDir, 0700); err != nil {
 			ui.Errorf("creating .ssh directory: %v", err)
 			return err
 		}
 
-		// Check if key already exists
 		if _, err := os.Stat(keyPath); err == nil {
 			ui.Warn(fmt.Sprintf("Key already exists at %s", keyPath))
 			useExisting, _ := ui.Prompt("Use existing key? [Y/n]:")
@@ -105,7 +97,6 @@ func runRegister(args []string) error {
 				ui.Info("Skipping SSH key setup. You can bind a key later with: git user bind")
 			}
 		} else {
-			// Generate the key
 			ui.Info(fmt.Sprintf("Generating SSH key at %s...", keyPath))
 			cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
 			cmd.Stdout = os.Stdout
@@ -118,11 +109,9 @@ func runRegister(args []string) error {
 				ui.Success(fmt.Sprintf("SSH key created at %s", keyPath))
 				sshKeyPath = keyPath
 
-				// Display the public key and fingerprint
 				pubKeyPath := keyPath + ".pub"
 				pubKeyBytes, err := os.ReadFile(pubKeyPath)
 				if err == nil {
-					// Get fingerprint
 					cmd := exec.Command("ssh-keygen", "-l", "-f", pubKeyPath)
 					fingerprintOutput, _ := cmd.Output()
 					
@@ -140,10 +129,8 @@ func runRegister(args []string) error {
 					ui.Info("Bitbucket: Personal settings → SSH keys → Add key")
 					fmt.Println()
 
-					// Wait for user confirmation
 					_, _ = ui.Prompt("Press Enter once you've added the key to your platform...")
 
-					// Verify SSH connection with selected platform
 					if err := verifySSHConnectionPlatform(platform); err != nil {
 						ui.Warn("SSH verification failed. You may need to add the key to your platform.")
 						ui.Info(fmt.Sprintf("You can test manually with: ssh -T git@%s", map[string]string{"github": "github.com", "gitlab": "gitlab.com", "bitbucket": "bitbucket.org"}[platform]))
@@ -154,7 +141,6 @@ func runRegister(args []string) error {
 			}
 		}
 	} else {
-		// Ask if they want to bind an existing key
 		bindExisting, _ := ui.Prompt("Bind an existing SSH key? [y/N]:")
 		if strings.ToLower(bindExisting) == "y" || strings.ToLower(bindExisting) == "yes" {
 			keyPath, err := ui.Prompt("Enter path to SSH private key:")
@@ -168,7 +154,6 @@ func runRegister(args []string) error {
 		}
 	}
 
-	// Bind the SSH key if we have one
 	if sshKeyPath != "" {
 		if err := store.BindSSHKey(name, sshKeyPath); err != nil {
 			ui.Errorf("binding SSH key: %v", err)
