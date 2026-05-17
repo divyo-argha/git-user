@@ -168,7 +168,7 @@ func Banner(msg string) {
 
 // Divider prints a thin separator line.
 func Divider() {
-	fmt.Println(styleDim.Render("────────────────────────────────────────────────────────────"))
+	fmt.Println(styleDim.Render("─────────────────────────────────────────────────────────────────────────────"))
 }
 
 // RawMode toggles terminal raw mode. (Now managed by Bubble Tea for Select)
