@@ -6,19 +6,13 @@
 
 ## The Problem
 
-Managing multiple Git identities is a pain:
-- **Freelancers**: Each client has their own GitHub org and wants commits under their email
-- **Open source maintainers**: Personal projects, company projects, and community projects all need different identities
-- **Contractors**: Working across multiple companies with different SSH key requirements
-- **Team leads**: Need to switch between personal, company, and team lead accounts
-
-Without a tool, you're either:
-- Manually changing git config every time
+You've got work email, personal email, maybe a client account too. Or you can be a monster coder contributing a lot of projects with different identities and for different purposes. Every time you switch projects, you're either:
+- Manually changing git config
 - Forgetting which account is active and committing with the wrong email
-- Managing SSH keys manually
+- Managing SSH keys like it's 1995
 - Copying SSH config blocks around
 
-**git-user** fixes this. One command, everything switches. No mistakes.
+**git-user** fixes this. One command, everything switches.
 
 ---
 
@@ -36,7 +30,6 @@ source ~/.zshrc  # or ~/.bashrc if you use bash
 Done. That's the whole install.
 
 ### What just happened?
-- Checked if Go is installed (and installed it if needed)
 - Downloaded and built the tool
 - Installed it to `/usr/local/bin`
 - Added it to your PATH
@@ -138,82 +131,39 @@ Arrow keys to navigate, Enter to select.
 
 ---
 
-## Real Use Cases
+## Real Examples
 
-### Freelancer with Multiple Clients
-Each client has their own GitHub org, their own SSH key, and wants commits under their email. You work on all three in a single day.
-
+### Freelancer with 3 clients
 ```bash
 git-user register
-# Name: acme-corp, Email: dev@acme.com, Generate key: yes
+# Name: client-a, Email: you@client-a.com, Generate key: yes
 
 git-user register
-# Name: startup-xyz, Email: you@startup-xyz.io, Generate key: yes
+# Name: client-b, Email: you@client-b.com, Generate key: yes
 
 git-user register
-# Name: agency-work, Email: contractor@agency.com, Generate key: yes
+# Name: client-c, Email: you@client-c.com, Generate key: yes
 
-# Before working on ACME project:
-git-user switch acme-corp
+# Before working on client A:
+git-user switch client-a
 
-# Before switching to Startup project:
-git-user switch startup-xyz
-
-# All commits go to the right account. No mistakes.
+# Before working on client B:
+git-user switch client-b
 ```
 
-### Open Source Maintainer with Multiple Orgs
-You maintain projects under your personal GitHub, your company's org, and a community foundation. Each needs a different identity.
-
+### Work + Personal
 ```bash
+git-user register
+# Name: work, Email: you@company.com
+
 git-user register
 # Name: personal, Email: you@gmail.com
 
-git-user register
-# Name: company, Email: you@company.com
+# At work:
+git-user switch work
 
-git-user register
-# Name: foundation, Email: maintainer@foundation.org
-
-# Switch based on which project you're working on
-git-user switch personal    # Your side projects
-git-user switch company     # Work projects
-git-user switch foundation  # Community projects
-```
-
-### Team Lead Managing Multiple Accounts
-You have a personal account, a company account, and sometimes need to commit as the team lead account for releases.
-
-```bash
-git-user register
-# Name: personal, Email: you@gmail.com
-
-git-user register
-# Name: company, Email: you@company.com
-
-git-user register
-# Name: team-lead, Email: team-lead@company.com
-
-# Each identity has its own SSH key
-# Switch instantly without manual config changes
-git-user switch team-lead
-```
-
-### Contractor Working Across Multiple Companies
-You work with 3 different companies. Each has their own GitHub, their own SSH key requirements, and their own email domain.
-
-```bash
-git-user register
-# Name: client-1, Email: contractor@client1.com
-
-git-user register
-# Name: client-2, Email: contractor@client2.com
-
-git-user register
-# Name: client-3, Email: contractor@client3.com
-
-# One command to switch everything
-git-user switch client-1
+# On side projects:
+git-user switch personal
 ```
 
 ---
