@@ -3,8 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -90,7 +88,7 @@ func runRegister(args []string) error {
 
 	switch choice {
 	case "1":
-		sshKeyPath, err = generateSSHKey(name, email)
+		sshKeyPath, err = generateAndDisplayKey(name, email)
 		if err != nil {
 			ui.Warn("Key generation failed. You can set up SSH later with: git-user bind")
 		}
@@ -141,71 +139,5 @@ func runRegister(args []string) error {
 	return nil
 }
 
-func generateSSHKey(name, email string) (string, error) {
-	home, _ := os.UserHomeDir()
-	sshDir := filepath.Join(home, ".ssh")
-	keyPath := filepath.Join(sshDir, fmt.Sprintf("git_%s", name))
 
-	if err := os.MkdirAll(sshDir, 0700); err != nil {
-		return "", fmt.Errorf("creating .ssh directory: %w", err)
-	}
 
-	if _, err := os.Stat(keyPath); err == nil {
-		ui.Warn(fmt.Sprintf("Key already exists at %s", keyPath))
-		useExisting, _ := ui.Prompt("Use existing key? [Y/n]:")
-		if useExisting == "" || strings.ToLower(useExisting) == "y" || strings.ToLower(useExisting) == "yes" {
-			return keyPath, nil
-		}
-		return "", fmt.Errorf("key already exists")
-	}
-
-	ui.Info(fmt.Sprintf("Generating SSH key at %s...", keyPath))
-	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("ssh-keygen failed: %w", err)
-	}
-
-	ui.Success("SSH key generated!")
-
-	pubKeyPath := keyPath + ".pub"
-	pubKeyBytes, err := os.ReadFile(pubKeyPath)
-	if err != nil {
-		return keyPath, nil
-	}
-
-	cmd = exec.Command("ssh-keygen", "-l", "-f", pubKeyPath)
-	fingerprintOutput, _ := cmd.Output()
-
-	fmt.Println()
-	ui.Divider()
-	ui.Banner("📋 YOUR PUBLIC KEY")
-	fmt.Println()
-	fmt.Println(string(pubKeyBytes))
-	if len(fingerprintOutput) > 0 {
-		ui.Info(fmt.Sprintf("Fingerprint: %s", strings.TrimSpace(string(fingerprintOutput))))
-	}
-	ui.Divider()
-	fmt.Println()
-	ui.Info("Copy the key above and add it to your Git platform:")
-	fmt.Println()
-	fmt.Println("  GitHub:    Settings → SSH and GPG keys → New SSH key")
-	fmt.Println("  GitLab:    Preferences → SSH Keys → Add new key")
-	fmt.Println("  Bitbucket: Personal settings → SSH keys → Add key")
-	fmt.Println()
-	ui.Divider()
-	fmt.Println()
-
-	_, _ = ui.Prompt("Press Enter once you've added the key...")
-
-	fmt.Println()
-	ui.Info("Testing SSH connection...")
-	if err := verifySSHConnection(); err != nil {
-		ui.Warn("SSH verification failed")
-		ui.Info("The key may not be added yet, or it needs a few seconds to propagate")
-		ui.Info("Test manually with: ssh -T git@github.com")
-	} else {
-		ui.Success("✓ SSH connection verified!")
-	}
-
-	return keyPath, nil
-}

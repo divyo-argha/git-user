@@ -41,15 +41,16 @@ func runRekey(args []string) error {
 		return err
 	}
 
+	// Rename old key to backup before generating new one
+	backupPath := keyPath + ".backup"
+	hasOldKey := false
 	if _, err := os.Stat(keyPath); err == nil {
-		backupPath := keyPath + ".backup"
+		hasOldKey = true
 		ui.Warn(fmt.Sprintf("Backing up existing key to %s", backupPath))
-		
 		if err := os.Rename(keyPath, backupPath); err != nil {
 			ui.Errorf("backing up key: %v", err)
 			return err
 		}
-		
 		pubKeyPath := keyPath + ".pub"
 		if _, err := os.Stat(pubKeyPath); err == nil {
 			os.Rename(pubKeyPath, backupPath+".pub")
@@ -62,6 +63,12 @@ func runRekey(args []string) error {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
+		// Restore old key on failure
+		if hasOldKey {
+			os.Rename(backupPath, keyPath)
+			os.Rename(backupPath+".pub", keyPath+".pub")
+			ui.Warn("Restored old key — nothing changed")
+		}
 		ui.Errorf("generating SSH key: %v", err)
 		return err
 	}

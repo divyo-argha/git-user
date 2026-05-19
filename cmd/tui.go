@@ -129,7 +129,7 @@ func handleTuiBind() error {
 	}
 
 	name := store.Users[idx].Name
-	bindType, err := ui.Select("What do you want to bind?", []string{"🔑 SSH Key", "✍️  Signing Key", "❌ Cancel"})
+	bindType, err := ui.Select("What do you want to bind?", []string{"🔑 SSH Key", "❌ Cancel"})
 	if err != nil {
 		return err
 	}
@@ -141,16 +141,6 @@ func handleTuiBind() error {
 			return nil
 		}
 		return runBind([]string{name, "--ssh-key", path})
-	case 1:
-		key, err := ui.Prompt("Enter Signing Key (GPG ID or SSH Key path):")
-		if err != nil || key == "" {
-			return nil
-		}
-		method, err := ui.Select("Select signing method:", []string{"🔐 GPG", "🔑 SSH"})
-		if err != nil {
-			return err
-		}
-		return runBind([]string{name, "--signing-key", key, "--method", []string{"gpg", "ssh"}[method]})
 	default:
 		return nil
 	}

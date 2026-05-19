@@ -48,7 +48,8 @@ func Load() (*Store, error) {
 }
 
 func Save(s *Store) error {
-	if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
+	dir := filepath.Dir(configPath)
+	if err := os.MkdirAll(dir, 0700); err != nil {
 		return fmt.Errorf("creating config directory: %w", err)
 	}
 
@@ -57,8 +58,28 @@ func Save(s *Store) error {
 		return fmt.Errorf("encoding config: %w", err)
 	}
 
-	if err := os.WriteFile(configPath, data, 0600); err != nil {
+	tmp, err := os.CreateTemp(dir, "config-*.json")
+	if err != nil {
+		return fmt.Errorf("creating temp file: %w", err)
+	}
+	tmpName := tmp.Name()
+
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
 		return fmt.Errorf("writing config: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpName)
+		return fmt.Errorf("closing temp file: %w", err)
+	}
+	if err := os.Chmod(tmpName, 0600); err != nil {
+		os.Remove(tmpName)
+		return fmt.Errorf("setting permissions: %w", err)
+	}
+	if err := os.Rename(tmpName, configPath); err != nil {
+		os.Remove(tmpName)
+		return fmt.Errorf("saving config: %w", err)
 	}
 	return nil
 }

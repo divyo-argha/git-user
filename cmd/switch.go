@@ -3,8 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
@@ -175,44 +173,12 @@ func quickRegister(name, email string, store *config.Store) error {
 
 	switch choice {
 	case "1":
-		home, _ := os.UserHomeDir()
-		sshDir := filepath.Join(home, ".ssh")
-		keyPath := filepath.Join(sshDir, fmt.Sprintf("git_%s", name))
-
-		if err := os.MkdirAll(sshDir, 0700); err != nil {
-			ui.Warn("Could not create .ssh directory")
-			break
-		}
-
-		if _, err := os.Stat(keyPath); err == nil {
-			ui.Info(fmt.Sprintf("Using existing key: %s", keyPath))
-			sshKeyPath = keyPath
-			break
-		}
-
-		ui.Info("Generating SSH key...")
-		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
-		if err := cmd.Run(); err != nil {
+		path, err := generateAndDisplayKey(name, email)
+		if err != nil {
 			ui.Warn("Key generation failed")
 			break
 		}
-
-		ui.Success("Key generated!")
-		sshKeyPath = keyPath
-
-		pubKeyBytes, err := os.ReadFile(keyPath + ".pub")
-		if err == nil {
-			fmt.Println()
-			ui.Divider()
-			ui.Banner("📋 PUBLIC KEY")
-			fmt.Println()
-			fmt.Println(string(pubKeyBytes))
-			ui.Divider()
-			fmt.Println()
-			ui.Info("Add this key to GitHub/GitLab/Bitbucket")
-			fmt.Println()
-			_, _ = ui.Prompt("Press Enter when done...")
-		}
+		sshKeyPath = path
 
 	case "2":
 		keyPath, err := ui.Prompt("Path to SSH key:")
