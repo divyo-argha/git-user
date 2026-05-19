@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
@@ -107,6 +108,18 @@ func runDoctor(args []string) error {
 		issues++
 	} else {
 		ui.Success("ssh-keygen is available")
+	}
+
+	ui.Info("Checking for stale SSH key backups...")
+	home, _ := os.UserHomeDir()
+	sshDir := filepath.Join(home, ".ssh")
+	if entries, err := os.ReadDir(sshDir); err == nil {
+		for _, e := range entries {
+			if strings.HasSuffix(e.Name(), ".backup") {
+				ui.Warn(fmt.Sprintf("Stale backup key found: ~/.ssh/%s", e.Name()))
+				ui.Info("  Safe to delete once you've confirmed the new key works")
+			}
+		}
 	}
 
 	if git.IsInRepo() {
