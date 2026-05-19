@@ -12,12 +12,14 @@ const usage = `git-user — manage multiple Git identities
 QUICK START
   git-user register          Create a new identity (guided setup)
   git-user switch <name>     Switch to an identity
+  git-user switch -c <name>  Create and switch in one command
   git-user list              Show all identities
   git-user current           Show active identity
 
 COMMANDS
   register                   Create new identity with SSH key
   switch <name>              Switch to an identity
+  switch -c <name> [email]   Create new identity and switch to it
   list                       List all identities
   current                    Show active identity
   remove <name>              Delete an identity
@@ -29,6 +31,12 @@ COMMANDS
 
 ALIASES
   ls (list)  sw (switch)  rm (remove)
+
+EXAMPLES
+  git-user register                    # Guided setup with all options
+  git-user switch -c work              # Quick create and switch
+  git-user switch -c work me@work.com  # With email
+  git-user switch personal             # Switch to existing identity
 
 HELP
   git-user --help            Show this help

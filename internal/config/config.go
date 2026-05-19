@@ -10,19 +10,15 @@ import (
 
 // User represents a stored Git identity.
 type User struct {
-	Name          string `json:"name"`
-	Email         string `json:"email"`
-	SSHKey        string `json:"ssh_key,omitempty"`
-	SigningKey    string            `json:"signing_key,omitempty"`
-	SigningMethod string            `json:"signing_method,omitempty"` // "gpg" or "ssh"
-	Platforms     map[string]string `json:"platforms,omitempty"`      // e.g. "github" -> "alice"
+	Name   string `json:"name"`
+	Email  string `json:"email"`
+	SSHKey string `json:"ssh_key,omitempty"`
 }
 
 // Store is the top-level config persisted to disk.
 type Store struct {
 	Current string `json:"current"` // username key (matches User.Name)
 	Users   []User `json:"users"`
-	Strict  bool   `json:"strict,omitempty"`
 }
 
 var configPath string
@@ -43,23 +39,7 @@ func Load() (*Store, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			s := &Store{}
-			// Perform one-time smart onboarding
-			discovered, _ := Harvest()
-			if len(discovered) > 0 {
-				for _, d := range discovered {
-					s.Users = append(s.Users, User{
-						Name:          d.Name,
-						Email:         d.Email,
-						SSHKey:        d.SSHKey,
-						SigningKey:    d.SigningKey,
-						SigningMethod: d.Method,
-					})
-				}
-				s.Current = discovered[0].Name
-				_ = Save(s)
-			}
-			return s, nil
+			return &Store{}, nil
 		}
 		return nil, fmt.Errorf("reading config: %w", err)
 	}
@@ -132,7 +112,7 @@ func (s *Store) RemoveUser(name string, force bool) error {
 	return nil
 }
 
-// UpdateUser edits the email (and optionally the name key) of an existing user.
+// UpdateUser edits the email of an existing user.
 func (s *Store) UpdateUser(name, newEmail string) error {
 	u := s.FindUser(name)
 	if u == nil {
@@ -152,50 +132,6 @@ func (s *Store) BindSSHKey(name, keyPath string) error {
 		return fmt.Errorf("user %q not found", name)
 	}
 	u.SSHKey = keyPath
-	return nil
-}
-
-// BindSigningKey associates a GPG or SSH signing key with an identity.
-func (s *Store) BindSigningKey(name, key, method string) error {
-	u := s.FindUser(name)
-	if u == nil {
-		return fmt.Errorf("user %q not found", name)
-	}
-	if method != "" && method != "gpg" && method != "ssh" {
-		return fmt.Errorf("invalid signing method %q; must be 'gpg' or 'ssh'", method)
-	}
-	u.SigningKey = key
-	if method != "" {
-		u.SigningMethod = method
-	} else if u.SigningMethod == "" {
-		// Default to gpg if not specified and not already set.
-		u.SigningMethod = "gpg"
-	}
-	return nil
-}
-
-// BindPlatform associates a platform account with an identity.
-func (s *Store) BindPlatform(name, platform, username string) error {
-	u := s.FindUser(name)
-	if u == nil {
-		return fmt.Errorf("user %q not found", name)
-	}
-	if u.Platforms == nil {
-		u.Platforms = make(map[string]string)
-	}
-	u.Platforms[platform] = username
-	return nil
-}
-
-// UnbindPlatform removes a platform account from an identity.
-func (s *Store) UnbindPlatform(name, platform string) error {
-	u := s.FindUser(name)
-	if u == nil {
-		return fmt.Errorf("user %q not found", name)
-	}
-	if u.Platforms != nil {
-		delete(u.Platforms, platform)
-	}
 	return nil
 }
 

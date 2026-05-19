@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
@@ -16,18 +18,21 @@ func runSwitch(args []string) error {
 		return fmt.Errorf("missing arguments")
 	}
 
+	// Check for -c flag (create and switch)
 	createMode := false
 	name := ""
-	rest := []string{}
+	email := ""
 
 	if args[0] == "-c" {
 		if len(args) < 2 {
 			ui.Error("usage: git-user switch -c <name> [email]")
-			return fmt.Errorf("missing arguments")
+			return fmt.Errorf("missing name")
 		}
 		createMode = true
 		name = args[1]
-		rest = args[2:]
+		if len(args) > 2 {
+			email = args[2]
+		}
 	} else {
 		name = args[0]
 	}
@@ -43,29 +48,49 @@ func runSwitch(args []string) error {
 		return err
 	}
 
+	// Create mode: register new identity first
 	if createMode {
 		if store.FindUser(name) != nil {
-			ui.Errorf("user %q already exists", name)
+			ui.Errorf("identity %q already exists", name)
 			return fmt.Errorf("user exists")
 		}
-		// Create the user first
-		if err := runAdd(append([]string{name}, rest...)); err != nil {
+
+		// Quick registration
+		if err := quickRegister(name, email, store); err != nil {
 			return err
 		}
-		// Reload store to get the new user data
+
+		// Reload store
 		store, _ = config.Load()
 	}
 
+	// Switch to identity
 	user := store.FindUser(name)
 	if user == nil {
-		ui.Errorf("user %q not found", name)
+		ui.Errorf("identity %q not found", name)
+		ui.Info("Create it with: git-user register")
+		ui.Info("Or create and switch: git-user switch -c " + name)
 		return fmt.Errorf("user not found")
 	}
 
-	if err := ApplyIdentity(user, store); err != nil {
+	// Apply git config
+	if err := git.Apply(user.Name, user.Email); err != nil {
+		ui.Errorf("applying git config: %v", err)
 		return err
 	}
 
+	// Apply SSH config if key exists
+	if user.SSHKey != "" {
+		if err := git.ConfigureSSH(user.SSHKey); err != nil {
+			ui.Warn(fmt.Sprintf("applying SSH config: %v", err))
+		}
+	} else {
+		if err := git.RemoveSSHConfig(); err != nil {
+			ui.Warn(fmt.Sprintf("removing SSH config: %v", err))
+		}
+	}
+
+	// Set as current
 	if err := store.SetCurrent(name); err != nil {
 		ui.Errorf("%v", err)
 		return err
@@ -90,54 +115,130 @@ func runSwitch(args []string) error {
 	return nil
 }
 
-func ApplyIdentity(user *config.User, store *config.Store) error {
-	if err := git.Apply(user.Name, user.Email); err != nil {
-		ui.Errorf("applying git config: %v", err)
+// quickRegister creates a new identity with streamlined onboarding
+func quickRegister(name, email string, store *config.Store) error {
+	ui.Banner("QUICK SETUP: " + name)
+	fmt.Println()
+
+	var err error
+
+	// Get email if not provided
+	if email == "" {
+		email, err = ui.Prompt("Email address:")
+		if err != nil {
+			return err
+		}
+		if email == "" {
+			ui.Error("Email is required.")
+			return fmt.Errorf("missing email")
+		}
+	}
+
+	// Add user
+	if err := store.AddUser(name, email); err != nil {
+		ui.Errorf("%v", err)
 		return err
 	}
 
-	if user.SSHKey != "" {
-		if err := git.ConfigureSSH(user.SSHKey); err != nil {
-			ui.Warn(fmt.Sprintf("applying SSH config: %v", err))
-		}
-	} else {
-		if err := git.RemoveSSHConfig(); err != nil {
-			ui.Warn(fmt.Sprintf("removing SSH config: %v", err))
-		}
+	// SSH Key Setup
+	fmt.Println()
+	ui.Info("SSH Key Setup:")
+	fmt.Println("  1. Auto-generate (recommended)")
+	fmt.Println("  2. Use existing key")
+	fmt.Println("  3. Skip")
+	fmt.Println()
+
+	choice, err := ui.Prompt("Choice [1/2/3]:")
+	if err != nil {
+		choice = "1"
+	}
+	choice = strings.TrimSpace(choice)
+	if choice == "" {
+		choice = "1"
 	}
 
-	if user.SigningKey != "" {
-		keyExists := true
-		// If it looks like a path, check if it exists
-		if strings.Contains(user.SigningKey, "/") || strings.Contains(user.SigningKey, "~") {
-			if _, err := os.Stat(user.SigningKey); os.IsNotExist(err) {
-				keyExists = false
-			}
+	var sshKeyPath string
+
+	switch choice {
+	case "1":
+		// Auto-generate
+		home, _ := os.UserHomeDir()
+		sshDir := filepath.Join(home, ".ssh")
+		keyPath := filepath.Join(sshDir, fmt.Sprintf("git_%s", name))
+
+		if err := os.MkdirAll(sshDir, 0700); err != nil {
+			ui.Warn("Could not create .ssh directory")
+			break
 		}
 
-		if !keyExists {
-			if !store.Strict {
-				ui.Warn(fmt.Sprintf("Signing key %q not found. Operating in Flexible mode — disabling signing to prevent errors.", user.SigningKey))
-				_ = git.RemoveSigningConfig()
+		// Check if exists
+		if _, err := os.Stat(keyPath); err == nil {
+			ui.Info(fmt.Sprintf("Using existing key: %s", keyPath))
+			sshKeyPath = keyPath
+			break
+		}
+
+		// Generate
+		ui.Info("Generating SSH key...")
+		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
+		if err := cmd.Run(); err != nil {
+			ui.Warn("Key generation failed")
+			break
+		}
+
+		ui.Success("Key generated!")
+		sshKeyPath = keyPath
+
+		// Show public key
+		pubKeyBytes, err := os.ReadFile(keyPath + ".pub")
+		if err == nil {
+			fmt.Println()
+			ui.Divider()
+			ui.Banner("📋 PUBLIC KEY")
+			fmt.Println()
+			fmt.Println(string(pubKeyBytes))
+			ui.Divider()
+			fmt.Println()
+			ui.Info("Add this key to GitHub/GitLab/Bitbucket")
+			fmt.Println()
+			_, _ = ui.Prompt("Press Enter when done...")
+		}
+
+	case "2":
+		// Existing key
+		keyPath, err := ui.Prompt("Path to SSH key:")
+		if err == nil && keyPath != "" {
+			expanded := expandPath(keyPath)
+			if _, err := os.Stat(expanded); err == nil {
+				sshKeyPath = expanded
+				ui.Success("Using existing key")
 			} else {
-				ui.Warn(fmt.Sprintf("Signing key %q not found. Operating in Strict mode — signing will remain enabled (commits may fail).", user.SigningKey))
-				_ = git.ApplySigning(user.SigningKey, user.SigningMethod)
-			}
-		} else {
-			if err := git.ApplySigning(user.SigningKey, user.SigningMethod); err != nil {
-				ui.Warn(fmt.Sprintf("applying signing config: %v", err))
+				ui.Warn("Key not found")
 			}
 		}
-	} else {
-		if store.Strict {
-			ui.Warn("No signing key bound. Operating in Strict mode — signing is still ENFORCED (commits will fail until you bind a key).")
-			_ = git.ApplySigning("GIT_USER_STRICT_NO_KEY_BOUND", "ssh")
-		} else {
-			if err := git.RemoveSigningConfig(); err != nil {
-				ui.Warn(fmt.Sprintf("removing signing config: %v", err))
-			}
+
+	case "3":
+		ui.Info("Skipping SSH setup")
+	}
+
+	// Bind key if we have one
+	if sshKeyPath != "" {
+		if err := store.BindSSHKey(name, sshKeyPath); err != nil {
+			ui.Warn("Could not bind SSH key")
 		}
 	}
+
+	// Save
+	if err := config.Save(store); err != nil {
+		return err
+	}
+
+	fmt.Println()
+	ui.Success(fmt.Sprintf("✓ Identity created: %s (%s)", name, email))
+	if sshKeyPath != "" {
+		ui.Success(fmt.Sprintf("✓ SSH key: %s", sshKeyPath))
+	}
+	fmt.Println()
 
 	return nil
 }
