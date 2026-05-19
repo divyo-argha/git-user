@@ -11,4 +11,10 @@
 
 # Temporary files
 /tmp/
-XXXXXXXXXX
+
+# npm
+npm/node_modules/
+npm/bin/git-user
+npm/bin/git-user.exe
+npm/package-lock.json
+*.tgz

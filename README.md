@@ -4,46 +4,245 @@
 
 ---
 
-I built this because I got tired of the same stupid problem every single day.
+I built this because I got tired of the same problem every day: juggling multiple Git accounts (work, personal, clients) and constantly forgetting to switch my git config or SSH keys. 
 
-I have a work GitHub account, a personal one, and two client freelance accounts. Every time I jumped between projects I'd either forget to change my git config, push a commit with my work email to a personal repo, or spend ten minutes untangling SSH keys. It was embarrassing. There had to be a better way.
-
-`git-user` is that better way. You register your identities once, and from then on switching between them is literally one command.
+`git-user` solves this. Register your identities once, then switch between them in one command.
 
 ---
 
-## How it works (the short version)
+## Installation
 
-```bash
-git-user register    # set up a new identity — name, email, SSH key, all in one go
-git-user switch work # switch to it
-git-user current     # check what's active
-```
-
-That's it. Everything else — writing your `~/.gitconfig`, managing `~/.ssh/config`, testing the connection — happens automatically in the background.
-
----
-
-## Installing
+### One-line install (recommended)
 
 ```bash
 curl -sSfL https://raw.githubusercontent.com/divyo-argha/git-user/main/install.sh | bash
 ```
 
-Then restart your terminal (or `source ~/.zshrc` / `source ~/.bashrc`).
+Restart your terminal. PATH is configured automatically.
 
-Prefer to build from source?
+### Via npm
 
 ```bash
-git clone https://github.com/divyo-argha/git-user
-cd git-user
-go build -o git-user
-sudo cp git-user /usr/local/bin/
+npm install -g @divyo-argha/git-user
 ```
 
-**Requirements:** Go 1.21+, git, ssh-keygen. You almost certainly already have all of these.
+### Via Go
+
+```bash
+go install github.com/divyo-argha/git-user@latest
+```
+
+**Requirements:** Git, ssh-keygen (optional)
 
 ---
+
+## Quick Start
+
+```bash
+# Create your first identity
+git-user register
+
+# Or create and switch in one command
+git-user switch -c work
+
+# Switch between identities
+git-user switch work
+git-user switch personal
+
+# List all identities
+git-user list
+
+# Check what's active
+git-user current
+```
+
+---
+
+## How It Works
+
+### First Time Setup
+
+When you run `git-user register`, you get a guided setup:
+
+1. **Enter identity name** (e.g., "work", "personal")
+2. **Enter email address**
+3. **Choose SSH key setup:**
+   - **Auto-generate** - Creates key, displays it in terminal, waits for you to add it to GitHub/GitLab
+   - **Use existing key** - Provide path to your existing SSH key
+   - **Skip** - Set up SSH later
+
+The public key is displayed right in your terminal - just copy and paste it to GitHub/GitLab/Bitbucket.
+
+### Quick Create and Switch
+
+```bash
+# Prompts for email and SSH setup, then switches immediately
+git-user switch -c work
+
+# Even faster with email
+git-user switch -c work me@work.com
+```
+
+### Daily Usage
+
+```bash
+# Switch identities
+git-user switch work      # ✓ Switched to "work" (you@company.com)
+git-user switch personal  # ✓ Switched to "personal" (you@gmail.com)
+
+# That's it. Git config and SSH are updated automatically.
+```
+
+---
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `register` | Create new identity (guided setup) |
+| `switch <name>` | Switch to an identity |
+| `switch -c <name> [email]` | Create and switch in one command |
+| `list` | Show all identities |
+| `current` | Show active identity |
+| `remove <name>` | Delete an identity |
+| `edit <name> <email>` | Update email |
+| `bind <name> --ssh-key <path>` | Link SSH key to identity |
+| `rekey <name>` | Rotate SSH key |
+| `doctor` | Run health check |
+| `tui` | Interactive menu |
+
+**Aliases:** `ls` (list), `sw` (switch), `rm` (remove)
+
+---
+
+## Real-World Examples
+
+### Freelancer with Multiple Clients
+
+```bash
+git-user register  # name: client-a, email: you@client-a.com
+git-user register  # name: client-b, email: you@client-b.com
+git-user register  # name: personal, email: you@gmail.com
+
+# Before each work session
+git-user switch client-a
+```
+
+### Work vs Personal
+
+```bash
+git-user register  # name: work, email: you@company.com
+git-user register  # name: personal, email: you@gmail.com
+
+git-user switch work      # at the office
+git-user switch personal  # at home
+```
+
+### Quick Setup for Multiple Identities
+
+```bash
+git-user switch -c work me@work.com
+git-user switch -c personal me@gmail.com
+git-user switch -c client me@client.com
+# Each gets its own SSH key automatically
+```
+
+---
+
+## SSH Key Options
+
+### Option 1: Auto-generate (Recommended)
+
+The tool creates a new SSH key and displays it in your terminal:
+
+```
+┌─────────────────────────────────────────┐
+│     📋 YOUR PUBLIC KEY                  │
+└─────────────────────────────────────────┘
+
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... you@company.com
+
+Copy the key above and add it to your Git platform:
+  GitHub:    Settings → SSH and GPG keys → New SSH key
+  GitLab:    Preferences → SSH Keys → Add new key
+  Bitbucket: Personal settings → SSH keys → Add key
+```
+
+Just copy the key, add it to your platform, press Enter. The tool verifies the connection automatically.
+
+### Option 2: Use Existing Key
+
+Already have SSH keys? Just provide the path:
+
+```bash
+# During setup, choose option 2
+Path to SSH key: ~/.ssh/id_ed25519
+```
+
+### Option 3: Skip
+
+Skip SSH setup and add it later:
+
+```bash
+git-user bind work --ssh-key ~/.ssh/id_ed25519
+```
+
+---
+
+## What Gets Modified
+
+- **`~/.gitconfig`** - Updates `user.name`, `user.email`, and `core.sshCommand`
+- **`~/.git-users/config.json`** - Stores your identities
+- **`~/.ssh/git_<name>`** - SSH keys (if auto-generated)
+
+Your repositories are never touched. Only your global Git config changes.
+
+---
+
+## Troubleshooting
+
+```bash
+# Run health check
+git-user doctor
+
+# Check version
+git-user --version
+
+# Get help
+git-user --help
+```
+
+Common issues:
+- **SSH verification failed** - The key may not be added to your platform yet, or needs a few seconds to propagate
+- **Command not found** - Restart your terminal or run `source ~/.zshrc` (or `~/.bashrc`)
+
+---
+
+## Uninstall
+
+```bash
+# Remove binary
+sudo rm /usr/local/bin/git-user
+
+# Remove config (optional)
+rm -rf ~/.git-users
+```
+
+---
+
+## Contributing
+
+Issues and pull requests welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+## License
+
+MIT License - see [LICENSE](LICENSE)
+
+---
+
+*Made for developers who just want their Git to work.*
 
 ## Workflow diagrams
 

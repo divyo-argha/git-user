@@ -1,0 +1,46 @@
+{
+  "name": "@divyo-argha/git-user",
+  "version": "1.0.0",
+  "description": "Switch Git accounts in one command. No config editing. No SSH key chaos.",
+  "main": "index.js",
+  "bin": {
+    "git-user": "./bin/git-user.js"
+  },
+  "scripts": {
+    "postinstall": "node install.js",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": [
+    "git",
+    "github",
+    "gitlab",
+    "ssh",
+    "identity",
+    "account",
+    "switch",
+    "cli",
+    "developer-tools"
+  ],
+  "author": "Divyo Argha",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/divyo-argha/git-user.git"
+  },
+  "bugs": {
+    "url": "https://github.com/divyo-argha/git-user/issues"
+  },
+  "homepage": "https://github.com/divyo-argha/git-user#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ]
+}

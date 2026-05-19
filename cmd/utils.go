@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -33,4 +35,13 @@ func verifySSHConnectionPlatform(platform string) error {
 	}
 	
 	return fmt.Errorf("connection failed")
+}
+
+// expandPath expands ~ to home directory
+func expandPath(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		home, _ := os.UserHomeDir()
+		return filepath.Join(home, path[2:])
+	}
+	return path
 }
