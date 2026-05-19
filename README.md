@@ -109,6 +109,9 @@ git-user switch personal  # ✓ Switched to "personal" (you@gmail.com)
 | `bind <name> --ssh-key <path>` | Link SSH key to identity |
 | `rekey <name>` | Rotate SSH key |
 | `fix-remote` | Convert HTTPS remotes to SSH |
+| `export --all` | Export all identities + SSH keys (encrypted bundle) |
+| `export <name> [name...]` | Export specific identities (encrypted bundle) |
+| `import <file>` | Import identities from an encrypted bundle |
 | `doctor` | Run health check |
 | `tui` | Interactive menu |
 
@@ -257,6 +260,70 @@ git-user bind work --ssh-key ~/.ssh/id_ed25519
 - **`~/.ssh/git_<name>`** - SSH keys (if auto-generated)
 
 Your repositories are never touched. Only your global Git config changes.
+
+---
+
+## Moving to a New Machine
+
+Setting up all your identities from scratch on a new computer takes time. `export` and `import` handle it in one step.
+
+### Export (on your current machine)
+
+```bash
+# Export everything
+git-user export --all
+
+# Or export specific identities
+git-user export work personal client-a
+```
+
+```
+⚠  This file will contain your PRIVATE SSH keys.
+⚠  Keep it secure and delete it after importing on the new machine.
+
+Enter passphrase to encrypt bundle: ****
+Confirm passphrase: ****
+ℹ  Encrypting… (this takes a few seconds)
+
+✔ Exported 3 identities to ~/git-user-export-2026-05-19.bundle
+
+  • work (you@company.com)
+  • personal (you@gmail.com)
+  • client-a (you@client.com)
+
+ℹ  Transfer this file to your new machine, then run:
+   git-user import ~/git-user-export-2026-05-19.bundle
+```
+
+The bundle is saved to your home directory with today's date in the filename. No need to think about where to put it.
+
+Transfer the file to your new machine (USB, encrypted cloud, `scp`, etc.).
+
+### Import (on the new machine)
+
+```bash
+git-user import ~/git-user-backup.bundle
+```
+
+```
+Enter passphrase: ****
+ℹ  Decrypting…
+
+✔ Imported: work (you@company.com) → ~/.ssh/git_work
+✔ Imported: personal (you@gmail.com) → ~/.ssh/git_personal
+✔ Imported: client-a (you@client.com) → ~/.ssh/git_client-a
+
+ℹ  Imported 3 identities. Run 'git-user switch <name>' to activate one.
+```
+
+All identities and SSH keys are restored. Run `git-user switch work` and you're ready to push.
+
+### Security
+
+- Encrypted with **AES-256-GCM**
+- Passphrase stretched with **scrypt** (N=2¹⁷) — brute-forcing a strong passphrase is computationally infeasible
+- **Delete the bundle file after importing** — it contains your private keys
+- `import` never overwrites existing identities — it skips them
 
 ---
 
@@ -539,6 +606,9 @@ It tells you what's wrong and what to do about it. No decoding cryptic SSH error
 | `git-user bind <name> --ssh-key <path>` | Link an SSH key you already have |
 | `git-user remove <name>` | Delete an identity |
 | `git-user edit <name> <email>` | Update an identity's email |
+| `git-user export --all` | Export all identities + SSH keys (encrypted bundle) |
+| `git-user export <name> [name...]` | Export specific identities (encrypted bundle) |
+| `git-user import <file>` | Import identities from an encrypted bundle |
 | `git-user doctor` | Run a health check on everything |
 | `git-user -i` | Open the interactive TUI menu |
 

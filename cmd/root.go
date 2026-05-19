@@ -27,7 +27,8 @@ COMMANDS
   bind <name> [--ssh-key <p>] Add/link SSH key (interactive if no path)
   rekey <name>               Rotate SSH key
   fix-remote                 Convert HTTPS remotes to SSH
-  export <file>              Export identities + SSH keys (encrypted)
+  export --all               Export all identities + SSH keys (encrypted)
+  export <name> [name...]    Export specific identities (encrypted)
   import <file>              Import identities from a bundle
   doctor                     Check setup
   tui                        Interactive menu

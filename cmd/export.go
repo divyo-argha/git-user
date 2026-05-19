@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/divyo-argha/git-user/internal/bundle"
 	"github.com/divyo-argha/git-user/internal/config"
@@ -11,11 +13,10 @@ import (
 )
 
 func runExport(args []string) error {
-	if len(args) < 1 {
-		ui.Error("usage: git-user export <output-file>")
-		return fmt.Errorf("missing output file")
+	if len(args) == 0 {
+		ui.Error("usage: git-user export --all | git-user export <name> [name...]")
+		return fmt.Errorf("missing arguments")
 	}
-	outPath := expandPath(args[0])
 
 	store, err := config.Load()
 	if err != nil {
@@ -25,6 +26,21 @@ func runExport(args []string) error {
 	if len(store.Users) == 0 {
 		ui.Warn("No identities to export.")
 		return nil
+	}
+
+	// Resolve which identities to export
+	var selected []config.User
+	if args[0] == "--all" {
+		selected = store.Users
+	} else {
+		for _, name := range args {
+			u := store.FindUser(name)
+			if u == nil {
+				ui.Errorf("identity %q not found", name)
+				return fmt.Errorf("user not found")
+			}
+			selected = append(selected, *u)
+		}
 	}
 
 	fmt.Println()
@@ -50,7 +66,7 @@ func runExport(args []string) error {
 	}
 
 	var identities []bundle.Identity
-	for _, u := range store.Users {
+	for _, u := range selected {
 		id := bundle.Identity{Name: u.Name, Email: u.Email}
 		if u.SSHKey != "" {
 			id.PrivateKey, _ = os.ReadFile(u.SSHKey)
@@ -66,6 +82,8 @@ func runExport(args []string) error {
 		return err
 	}
 
+	home, _ := os.UserHomeDir()
+	outPath := filepath.Join(home, fmt.Sprintf("git-user-export-%s.bundle", time.Now().Format("2006-01-02")))
 	if err := os.WriteFile(outPath, encrypted, 0600); err != nil {
 		ui.Errorf("writing bundle: %v", err)
 		return err
@@ -73,8 +91,13 @@ func runExport(args []string) error {
 
 	fmt.Println()
 	ui.Success(fmt.Sprintf("Exported %d identit%s to %s", len(identities), plural(len(identities)), outPath))
+	fmt.Println()
+	for _, id := range identities {
+		ui.Info(fmt.Sprintf("  • %s (%s)", id.Name, id.Email))
+	}
+	fmt.Println()
 	ui.Info("Transfer this file to your new machine, then run:")
-	ui.Info("  git-user import " + outPath)
+	fmt.Printf("  git-user import %s\n", outPath)
 	return nil
 }
 
