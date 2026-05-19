@@ -17,6 +17,11 @@ func runEdit(args []string) error {
 	name := args[0]
 	newEmail := args[1]
 
+	if !isValidEmail(newEmail) {
+		ui.Error("invalid email format")
+		return fmt.Errorf("invalid email")
+	}
+
 	store, err := config.Load()
 	if err != nil {
 		ui.Errorf("loading config: %v", err)

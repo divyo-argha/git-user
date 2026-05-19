@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
@@ -32,6 +33,13 @@ func runRemove(args []string) error {
 		return err
 	}
 
+	user := store.FindUser(name)
+	if user == nil {
+		ui.Errorf("identity %q not found", name)
+		return fmt.Errorf("user not found")
+	}
+	sshKey := user.SSHKey
+
 	if err := store.RemoveUser(name, force); err != nil {
 		ui.Errorf("%v", err)
 		return err
@@ -42,9 +50,19 @@ func runRemove(args []string) error {
 		return err
 	}
 
-	ui.Success(fmt.Sprintf("Removed user %q", name))
+	ui.Success(fmt.Sprintf("Removed identity %q", name))
+
+	if sshKey != "" {
+		answer, _ := ui.Prompt(fmt.Sprintf("Delete SSH key file %s? [y/N]:", sshKey))
+		if answer == "y" || answer == "Y" {
+			os.Remove(sshKey)
+			os.Remove(sshKey + ".pub")
+			ui.Success("SSH key files deleted")
+		}
+	}
+
 	if store.Current == "" {
-		ui.Warn("No active identity — run 'git-user switch <n>'")
+		ui.Warn("No active identity — run 'git-user switch <name>'")
 	}
 	return nil
 }
