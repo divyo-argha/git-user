@@ -24,7 +24,7 @@ COMMANDS
   current                    Show active identity
   remove <name>              Delete an identity
   edit <name> <email>        Update email
-  bind <name> --ssh-key <p>  Link SSH key
+  bind <name> [--ssh-key <p>] Add/link SSH key (interactive if no path)
   rekey <name>               Rotate SSH key
   fix-remote                 Convert HTTPS remotes to SSH
   doctor                     Check setup

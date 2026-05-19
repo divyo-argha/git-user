@@ -108,6 +108,7 @@ git-user switch personal  # ✓ Switched to "personal" (you@gmail.com)
 | `edit <name> <email>` | Update email |
 | `bind <name> --ssh-key <path>` | Link SSH key to identity |
 | `rekey <name>` | Rotate SSH key |
+| `fix-remote` | Convert HTTPS remotes to SSH |
 | `doctor` | Run health check |
 | `tui` | Interactive menu |
 
@@ -146,6 +147,66 @@ git-user switch -c personal me@gmail.com
 git-user switch -c client me@client.com
 # Each gets its own SSH key automatically
 ```
+
+---
+
+## Passwordless Push with SSH
+
+### The Problem
+
+When you `git push` and see this:
+
+```
+Username for 'https://github.com': _
+```
+
+Your SSH keys are useless because the repository is using HTTPS, not SSH.
+
+### The Solution
+
+`git-user` automatically detects HTTPS remotes and offers to convert them:
+
+```bash
+$ git-user switch work
+  ✅ Switched to work (you@company.com)
+  
+  ⚠️  This repo uses HTTPS remotes
+      Convert to SSH for passwordless push? [Y/n] y
+  
+  ✅ origin: https://github.com/company/app.git → git@github.com:company/app.git
+  
+  Try: git push
+```
+
+### Manual Conversion
+
+Already in a repo with HTTPS remotes? Fix it instantly:
+
+```bash
+$ git-user fix-remote
+
+  ✅ origin: https://github.com/user/repo.git → git@github.com:user/repo.git
+  ✅ upstream: https://github.com/org/repo.git → git@github.com:org/repo.git
+  
+  Converted 2 remote(s) to SSH
+  Try: git push
+```
+
+Now `git push` works without credentials.
+
+### How It Works
+
+- **HTTPS URLs** require username/password or tokens
+- **SSH URLs** use your SSH keys (already set up by git-user)
+- `fix-remote` converts: `https://github.com/user/repo.git` → `git@github.com:user/repo.git`
+- Works with GitHub, GitLab, Bitbucket, and any Git platform
+
+### When to Use
+
+Run `git-user fix-remote` when:
+- You cloned a repo via HTTPS (GitHub's default)
+- Git asks for credentials when pushing
+- You want passwordless authentication
 
 ---
 
