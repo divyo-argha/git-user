@@ -27,6 +27,8 @@ COMMANDS
   bind <name> [--ssh-key <p>] Add/link SSH key (interactive if no path)
   rekey <name>               Rotate SSH key
   fix-remote                 Convert HTTPS remotes to SSH
+  export <file>              Export identities + SSH keys (encrypted)
+  import <file>              Import identities from a bundle
   doctor                     Check setup
   tui                        Interactive menu
 
@@ -78,6 +80,10 @@ func Execute() error {
 		return runRekey(rest)
 	case "fix-remote":
 		return runFixRemote(rest)
+	case "export":
+		return runExport(rest)
+	case "import":
+		return runImport(rest)
 	case "doctor":
 		return runDoctor(rest)
 	case "tui", "-i", "--interactive":

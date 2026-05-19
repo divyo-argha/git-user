@@ -1,6 +1,6 @@
 module github.com/divyo-argha/git-user
 
-go 1.24.2
+go 1.25.0
 
 require (
 	github.com/charmbracelet/bubbletea v0.24.2
@@ -21,8 +21,9 @@ require (
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
-	golang.org/x/term v0.6.0 // indirect
-	golang.org/x/text v0.3.8 // indirect
+	golang.org/x/crypto v0.51.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sys v0.44.0 // indirect
+	golang.org/x/term v0.43.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 )
