@@ -6,7 +6,6 @@ import (
 	"strings"
 )
 
-// Apply sets the global git user.name and user.email.
 func Apply(name, email string) error {
 	if err := setConfig("user.name", name); err != nil {
 		return err
@@ -17,32 +16,27 @@ func Apply(name, email string) error {
 	return nil
 }
 
-// CurrentName returns the global git user.name (empty string if unset).
 func CurrentName() string {
 	out, _ := getConfig("user.name")
 	return out
 }
 
-// CurrentEmail returns the global git user.email (empty string if unset).
 func CurrentEmail() string {
 	out, _ := getConfig("user.email")
 	return out
 }
 
-// ConfigureSSH sets the global core.sshCommand to use a specific key.
 func ConfigureSSH(keyPath string) error {
 	val := fmt.Sprintf("ssh -i %q -o IdentitiesOnly=yes", keyPath)
 	return setConfig("core.sshCommand", val)
 }
 
-// RemoveSSHConfig unsets the global core.sshCommand.
 func RemoveSSHConfig() error {
 	cmd := exec.Command("git", "config", "--global", "--unset", "core.sshCommand")
 	_ = cmd.Run()
 	return nil
 }
 
-// IsInstalled checks that git is available on PATH.
 func IsInstalled() bool {
 	_, err := exec.LookPath("git")
 	return err == nil

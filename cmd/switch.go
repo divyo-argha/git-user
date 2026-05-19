@@ -18,7 +18,6 @@ func runSwitch(args []string) error {
 		return fmt.Errorf("missing arguments")
 	}
 
-	// Check for -c flag (create and switch)
 	createMode := false
 	name := ""
 	email := ""
@@ -48,23 +47,19 @@ func runSwitch(args []string) error {
 		return err
 	}
 
-	// Create mode: register new identity first
 	if createMode {
 		if store.FindUser(name) != nil {
 			ui.Errorf("identity %q already exists", name)
 			return fmt.Errorf("user exists")
 		}
 
-		// Quick registration
 		if err := quickRegister(name, email, store); err != nil {
 			return err
 		}
 
-		// Reload store
 		store, _ = config.Load()
 	}
 
-	// Switch to identity
 	user := store.FindUser(name)
 	if user == nil {
 		ui.Errorf("identity %q not found", name)
@@ -73,13 +68,11 @@ func runSwitch(args []string) error {
 		return fmt.Errorf("user not found")
 	}
 
-	// Apply git config
 	if err := git.Apply(user.Name, user.Email); err != nil {
 		ui.Errorf("applying git config: %v", err)
 		return err
 	}
 
-	// Apply SSH config if key exists
 	if user.SSHKey != "" {
 		if err := git.ConfigureSSH(user.SSHKey); err != nil {
 			ui.Warn(fmt.Sprintf("applying SSH config: %v", err))
@@ -90,7 +83,6 @@ func runSwitch(args []string) error {
 		}
 	}
 
-	// Set as current
 	if err := store.SetCurrent(name); err != nil {
 		ui.Errorf("%v", err)
 		return err
@@ -115,14 +107,12 @@ func runSwitch(args []string) error {
 	return nil
 }
 
-// quickRegister creates a new identity with streamlined onboarding
 func quickRegister(name, email string, store *config.Store) error {
 	ui.Banner("QUICK SETUP: " + name)
 	fmt.Println()
 
 	var err error
 
-	// Get email if not provided
 	if email == "" {
 		email, err = ui.Prompt("Email address:")
 		if err != nil {
@@ -134,13 +124,11 @@ func quickRegister(name, email string, store *config.Store) error {
 		}
 	}
 
-	// Add user
 	if err := store.AddUser(name, email); err != nil {
 		ui.Errorf("%v", err)
 		return err
 	}
 
-	// SSH Key Setup
 	fmt.Println()
 	ui.Info("SSH Key Setup:")
 	fmt.Println("  1. Auto-generate (recommended)")
@@ -161,7 +149,6 @@ func quickRegister(name, email string, store *config.Store) error {
 
 	switch choice {
 	case "1":
-		// Auto-generate
 		home, _ := os.UserHomeDir()
 		sshDir := filepath.Join(home, ".ssh")
 		keyPath := filepath.Join(sshDir, fmt.Sprintf("git_%s", name))
@@ -171,14 +158,12 @@ func quickRegister(name, email string, store *config.Store) error {
 			break
 		}
 
-		// Check if exists
 		if _, err := os.Stat(keyPath); err == nil {
 			ui.Info(fmt.Sprintf("Using existing key: %s", keyPath))
 			sshKeyPath = keyPath
 			break
 		}
 
-		// Generate
 		ui.Info("Generating SSH key...")
 		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
 		if err := cmd.Run(); err != nil {
@@ -189,7 +174,6 @@ func quickRegister(name, email string, store *config.Store) error {
 		ui.Success("Key generated!")
 		sshKeyPath = keyPath
 
-		// Show public key
 		pubKeyBytes, err := os.ReadFile(keyPath + ".pub")
 		if err == nil {
 			fmt.Println()
@@ -205,7 +189,6 @@ func quickRegister(name, email string, store *config.Store) error {
 		}
 
 	case "2":
-		// Existing key
 		keyPath, err := ui.Prompt("Path to SSH key:")
 		if err == nil && keyPath != "" {
 			expanded := expandPath(keyPath)
@@ -221,14 +204,12 @@ func quickRegister(name, email string, store *config.Store) error {
 		ui.Info("Skipping SSH setup")
 	}
 
-	// Bind key if we have one
 	if sshKeyPath != "" {
 		if err := store.BindSSHKey(name, sshKeyPath); err != nil {
 			ui.Warn("Could not bind SSH key")
 		}
 	}
 
-	// Save
 	if err := config.Save(store); err != nil {
 		return err
 	}

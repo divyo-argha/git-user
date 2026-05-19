@@ -46,7 +46,6 @@ HELP
 Config: ~/.git-users/config.json
 `
 
-// Execute is the top-level entry point.
 func Execute() error {
 	args := os.Args[1:]
 

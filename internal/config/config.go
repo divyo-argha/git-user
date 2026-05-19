@@ -8,16 +8,14 @@ import (
 	"path/filepath"
 )
 
-// User represents a stored Git identity.
 type User struct {
 	Name   string `json:"name"`
 	Email  string `json:"email"`
 	SSHKey string `json:"ssh_key,omitempty"`
 }
 
-// Store is the top-level config persisted to disk.
 type Store struct {
-	Current string `json:"current"` // username key (matches User.Name)
+	Current string `json:"current"`
 	Users   []User `json:"users"`
 }
 
@@ -31,10 +29,8 @@ func init() {
 	configPath = filepath.Join(home, ".git-users", "config.json")
 }
 
-// ConfigPath returns the path to the config file (useful for diagnostics).
 func ConfigPath() string { return configPath }
 
-// Load reads the config from disk. Returns an empty store if not found.
 func Load() (*Store, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -51,7 +47,6 @@ func Load() (*Store, error) {
 	return &s, nil
 }
 
-// Save writes the store to disk, creating directories as needed.
 func Save(s *Store) error {
 	if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
 		return fmt.Errorf("creating config directory: %w", err)
@@ -68,7 +63,6 @@ func Save(s *Store) error {
 	return nil
 }
 
-// FindUser returns the user with the given name, or nil.
 func (s *Store) FindUser(name string) *User {
 	for i := range s.Users {
 		if s.Users[i].Name == name {
@@ -78,7 +72,6 @@ func (s *Store) FindUser(name string) *User {
 	return nil
 }
 
-// AddUser appends a new user. Returns error on duplicate name.
 func (s *Store) AddUser(name, email string) error {
 	if name == "" || email == "" {
 		return errors.New("name and email must not be empty")
@@ -90,8 +83,6 @@ func (s *Store) AddUser(name, email string) error {
 	return nil
 }
 
-// RemoveUser deletes the user by name. Refuses to remove the active user
-// unless force is true.
 func (s *Store) RemoveUser(name string, force bool) error {
 	if s.FindUser(name) == nil {
 		return fmt.Errorf("user %q not found", name)
@@ -112,7 +103,6 @@ func (s *Store) RemoveUser(name string, force bool) error {
 	return nil
 }
 
-// UpdateUser edits the email of an existing user.
 func (s *Store) UpdateUser(name, newEmail string) error {
 	u := s.FindUser(name)
 	if u == nil {
@@ -125,7 +115,6 @@ func (s *Store) UpdateUser(name, newEmail string) error {
 	return nil
 }
 
-// BindSSHKey associates an SSH key path with an identity.
 func (s *Store) BindSSHKey(name, keyPath string) error {
 	u := s.FindUser(name)
 	if u == nil {
@@ -135,7 +124,6 @@ func (s *Store) BindSSHKey(name, keyPath string) error {
 	return nil
 }
 
-// SetCurrent records the active user name (must already exist).
 func (s *Store) SetCurrent(name string) error {
 	if s.FindUser(name) == nil {
 		return fmt.Errorf("user %q not found", name)
@@ -144,7 +132,6 @@ func (s *Store) SetCurrent(name string) error {
 	return nil
 }
 
-// CurrentUser returns the active User or nil.
 func (s *Store) CurrentUser() *User {
 	if s.Current == "" {
 		return nil

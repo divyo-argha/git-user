@@ -67,7 +67,6 @@ func runRegister(args []string) error {
 		return err
 	}
 
-	// SSH Key Setup with clear options
 	fmt.Println()
 	ui.Banner("SSH KEY SETUP")
 	fmt.Println()
@@ -91,14 +90,12 @@ func runRegister(args []string) error {
 
 	switch choice {
 	case "1":
-		// Auto-generate key
 		sshKeyPath, err = generateSSHKey(name, email)
 		if err != nil {
 			ui.Warn("Key generation failed. You can set up SSH later with: git-user bind")
 		}
 
 	case "2":
-		// Use existing key
 		keyPath, err := ui.Prompt("Enter path to your SSH private key:")
 		if err == nil && keyPath != "" {
 			expandedPath := expandPath(keyPath)
@@ -112,7 +109,6 @@ func runRegister(args []string) error {
 		}
 
 	case "3":
-		// Skip
 		ui.Info("Skipping SSH key setup")
 		ui.Info("You can set up SSH later with: git-user bind " + name + " --ssh-key <path>")
 
@@ -121,7 +117,6 @@ func runRegister(args []string) error {
 		ui.Info("You can set up SSH later with: git-user bind " + name + " --ssh-key <path>")
 	}
 
-	// Bind SSH key if we have one
 	if sshKeyPath != "" {
 		if err := store.BindSSHKey(name, sshKeyPath); err != nil {
 			ui.Errorf("binding SSH key: %v", err)
@@ -133,7 +128,6 @@ func runRegister(args []string) error {
 		return err
 	}
 
-	// Success message
 	fmt.Println()
 	ui.Divider()
 	ui.Success(fmt.Sprintf("✓ Identity created: %s (%s)", name, email))
@@ -156,7 +150,6 @@ func generateSSHKey(name, email string) (string, error) {
 		return "", fmt.Errorf("creating .ssh directory: %w", err)
 	}
 
-	// Check if key already exists
 	if _, err := os.Stat(keyPath); err == nil {
 		ui.Warn(fmt.Sprintf("Key already exists at %s", keyPath))
 		useExisting, _ := ui.Prompt("Use existing key? [Y/n]:")
@@ -166,7 +159,6 @@ func generateSSHKey(name, email string) (string, error) {
 		return "", fmt.Errorf("key already exists")
 	}
 
-	// Generate new key
 	ui.Info(fmt.Sprintf("Generating SSH key at %s...", keyPath))
 	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
 	if err := cmd.Run(); err != nil {
@@ -175,18 +167,15 @@ func generateSSHKey(name, email string) (string, error) {
 
 	ui.Success("SSH key generated!")
 
-	// Display public key
 	pubKeyPath := keyPath + ".pub"
 	pubKeyBytes, err := os.ReadFile(pubKeyPath)
 	if err != nil {
 		return keyPath, nil
 	}
 
-	// Get fingerprint
 	cmd = exec.Command("ssh-keygen", "-l", "-f", pubKeyPath)
 	fingerprintOutput, _ := cmd.Output()
 
-	// Beautiful display
 	fmt.Println()
 	ui.Divider()
 	ui.Banner("📋 YOUR PUBLIC KEY")
@@ -208,7 +197,6 @@ func generateSSHKey(name, email string) (string, error) {
 
 	_, _ = ui.Prompt("Press Enter once you've added the key...")
 
-	// Verify connection
 	fmt.Println()
 	ui.Info("Testing SSH connection...")
 	if err := verifySSHConnection(); err != nil {

@@ -8,12 +8,10 @@ import (
 	"strings"
 )
 
-// verifySSHConnection tests SSH connectivity to GitHub
 func verifySSHConnection() error {
 	return verifySSHConnectionPlatform("github")
 }
 
-// verifySSHConnectionPlatform tests SSH connectivity to a specific platform
 func verifySSHConnectionPlatform(platform string) error {
 	hosts := map[string]string{
 		"github":    "git@github.com",
@@ -23,13 +21,12 @@ func verifySSHConnectionPlatform(platform string) error {
 	
 	host := hosts[platform]
 	if host == "" {
-		host = "git@github.com" // default
+		host = "git@github.com"
 	}
 	
 	cmd := exec.Command("ssh", "-T", host, "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5")
 	output, _ := cmd.CombinedOutput()
 	
-	// GitHub/GitLab/Bitbucket return exit code 1 even on success with "Hi username!"
 	if strings.Contains(string(output), "successfully authenticated") || strings.Contains(string(output), "Hi ") {
 		return nil
 	}
@@ -37,7 +34,6 @@ func verifySSHConnectionPlatform(platform string) error {
 	return fmt.Errorf("connection failed")
 }
 
-// expandPath expands ~ to home directory
 func expandPath(path string) string {
 	if strings.HasPrefix(path, "~/") {
 		home, _ := os.UserHomeDir()
