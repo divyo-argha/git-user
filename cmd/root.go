@@ -26,6 +26,7 @@ COMMANDS
   edit <name> <email>        Update email
   bind <name> --ssh-key <p>  Link SSH key
   rekey <name>               Rotate SSH key
+  fix-remote                 Convert HTTPS remotes to SSH
   doctor                     Check setup
   tui                        Interactive menu
 
@@ -37,6 +38,7 @@ EXAMPLES
   git-user switch -c work              # Quick create and switch
   git-user switch -c work me@work.com  # With email
   git-user switch personal             # Switch to existing identity
+  git-user fix-remote                  # Convert repo remotes to SSH
 
 HELP
   git-user --help            Show this help
@@ -74,6 +76,8 @@ func Execute() error {
 		return runBind(rest)
 	case "rekey":
 		return runRekey(rest)
+	case "fix-remote":
+		return runFixRemote(rest)
 	case "doctor":
 		return runDoctor(rest)
 	case "tui", "-i", "--interactive":

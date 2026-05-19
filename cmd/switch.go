@@ -103,6 +103,32 @@ func runSwitch(args []string) error {
 			ui.Success("SSH verified: Connection successful!")
 		}
 	}
+
+	if git.IsInRepo() {
+		remotes, _ := git.ListRemotes()
+		hasHTTPS := false
+		for _, remote := range remotes {
+			url, err := git.GetRemoteURL(remote)
+			if err == nil && strings.HasPrefix(url, "https://") {
+				hasHTTPS = true
+				break
+			}
+		}
+
+		if hasHTTPS {
+			fmt.Println()
+			ui.Warn("This repo uses HTTPS remotes")
+			ui.Info("Convert to SSH for passwordless push? [Y/n]")
+			
+			response, err := ui.Prompt("")
+			if err == nil {
+				response = strings.ToLower(strings.TrimSpace(response))
+				if response == "" || response == "y" || response == "yes" {
+					_ = runFixRemote(nil)
+				}
+			}
+		}
+	}
 	
 	return nil
 }

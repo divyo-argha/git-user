@@ -109,6 +109,30 @@ func runDoctor(args []string) error {
 		ui.Success("ssh-keygen is available")
 	}
 
+	if git.IsInRepo() {
+		ui.Info("Checking current repository remotes...")
+		remotes, err := git.ListRemotes()
+		if err == nil && len(remotes) > 0 {
+			hasHTTPS := false
+			for _, remote := range remotes {
+				url, err := git.GetRemoteURL(remote)
+				if err == nil && strings.HasPrefix(url, "https://") {
+					if !hasHTTPS {
+						ui.Warn("Repository uses HTTPS remotes")
+						hasHTTPS = true
+					}
+					ui.Info(fmt.Sprintf("  %s: %s", remote, url))
+				}
+			}
+			if hasHTTPS {
+				ui.Info("  Fix: Run 'git-user fix-remote' to convert to SSH")
+				issues++
+			} else {
+				ui.Success("All remotes use SSH")
+			}
+		}
+	}
+
 	fmt.Println()
 	ui.Divider()
 	if issues == 0 {
