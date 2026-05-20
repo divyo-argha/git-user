@@ -110,9 +110,9 @@ func runSwitch(args []string) error {
 	ui.Success(fmt.Sprintf("Switched to %q (%s)", user.Name, user.Email))
 
 	if user.SSHKey != "" && isSSHKeyLoaded(user.SSHKey) {
-		if err := verifySSHConnection(); err != nil {
+		if err := verifySSHConnectionWithKey(user.SSHKey); err != nil {
 			ui.Warn("SSH verification failed. The key may not be added to your platform yet.")
-			ui.Info("Test manually with: ssh -T git@github.com")
+			ui.Info(fmt.Sprintf("Test manually with: ssh -i %s -o IdentitiesOnly=yes -T git@github.com", user.SSHKey))
 		} else {
 			ui.Success("SSH verified: Connection successful!")
 		}

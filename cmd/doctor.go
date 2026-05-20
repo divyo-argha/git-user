@@ -72,13 +72,13 @@ func runDoctor(args []string) error {
 					}
 
 					ui.Info("Testing SSH connection to GitHub...")
-					if err := verifySSHConnection(); err != nil {
+					if err := verifySSHConnectionWithKey(user.SSHKey); err != nil {
 						ui.Warn("SSH connection failed")
 						ui.Info("  This could mean:")
 						ui.Info("    - The public key is not added to your GitHub account")
 						ui.Info("    - The key is not loaded in ssh-agent")
 						ui.Info("    - Network connectivity issues")
-						ui.Info("  Fix: Add your public key to GitHub or run 'ssh -T git@github.com' for details")
+						ui.Info(fmt.Sprintf("  Fix: Add your public key to GitHub or run 'ssh -i %s -o IdentitiesOnly=yes -T git@github.com' for details", user.SSHKey))
 						issues++
 					} else {
 						ui.Success("SSH connection verified!")

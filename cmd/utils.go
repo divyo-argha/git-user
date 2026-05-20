@@ -10,8 +10,12 @@ import (
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
-// verifySSHConnection tries GitHub, GitLab, and Bitbucket and returns nil if any succeeds.
+
 func verifySSHConnection() error {
+	return verifySSHConnectionWithKey("")
+}
+
+func verifySSHConnectionWithKey(keyPath string) error {
 	platforms := []struct {
 		host    string
 		success []string
@@ -22,7 +26,13 @@ func verifySSHConnection() error {
 	}
 
 	for _, p := range platforms {
-		cmd := exec.Command("ssh", "-T", p.host, "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5")
+		args := []string{"-T", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5"}
+		if keyPath != "" {
+			args = append(args, "-i", keyPath, "-o", "IdentitiesOnly=yes")
+		}
+		args = append(args, p.host)
+
+		cmd := exec.Command("ssh", args...)
 		output, _ := cmd.CombinedOutput()
 		out := string(output)
 		for _, marker := range p.success {
@@ -41,6 +51,33 @@ func expandPath(path string) string {
 		return filepath.Join(home, path[2:])
 	}
 	return path
+}
+
+func promptNewSSHKeyPassphrase() (string, error) {
+	ui.Info("Protect this SSH key with a passphrase.")
+	ui.Info("Leave empty only if you intentionally want an unprotected key.")
+
+	passphrase, err := readPassphrase("SSH key passphrase: ")
+	if err != nil {
+		return "", err
+	}
+	if passphrase == "" {
+		if ui.Confirm("Create SSH key without a passphrase?", false) {
+			return "", nil
+		}
+		return promptNewSSHKeyPassphrase()
+	}
+
+	confirm, err := readPassphrase("Confirm SSH key passphrase: ")
+	if err != nil {
+		return "", err
+	}
+	if passphrase != confirm {
+		ui.Error("Passphrases do not match.")
+		return "", fmt.Errorf("passphrase mismatch")
+	}
+
+	return passphrase, nil
 }
 
 // generateAndDisplayKey creates an ed25519 key at keyPath, prints the public key,
@@ -62,8 +99,13 @@ func generateAndDisplayKey(name, email string) (string, error) {
 		return keyPath, nil
 	}
 
+	passphrase, err := promptNewSSHKeyPassphrase()
+	if err != nil {
+		return "", err
+	}
+
 	ui.Info(fmt.Sprintf("Generating SSH key at %s...", keyPath))
-	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
+	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", passphrase)
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("ssh-keygen failed: %w", err)
 	}
@@ -98,10 +140,10 @@ func generateAndDisplayKey(name, email string) (string, error) {
 
 	fmt.Println()
 	ui.Info("Testing SSH connection...")
-	if err := verifySSHConnection(); err != nil {
+	if err := verifySSHConnectionWithKey(keyPath); err != nil {
 		ui.Warn("SSH verification failed")
 		ui.Info("The key may not be added yet, or it needs a few seconds to propagate")
-		ui.Info("Test manually with: ssh -T git@github.com")
+		ui.Info(fmt.Sprintf("Test manually with: ssh -i %s -o IdentitiesOnly=yes -T git@github.com", keyPath))
 	} else {
 		ui.Success("✓ SSH connection verified!")
 	}

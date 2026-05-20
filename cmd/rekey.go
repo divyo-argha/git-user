@@ -41,7 +41,11 @@ func runRekey(args []string) error {
 		return err
 	}
 
-	// Rename old key to backup before generating new one
+	passphrase, err := promptNewSSHKeyPassphrase()
+	if err != nil {
+		return err
+	}
+
 	backupPath := keyPath + ".backup"
 	hasOldKey := false
 	if _, err := os.Stat(keyPath); err == nil {
@@ -58,12 +62,11 @@ func runRekey(args []string) error {
 	}
 
 	ui.Info(fmt.Sprintf("Generating new SSH key at %s...", keyPath))
-	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", user.Email, "-f", keyPath, "-N", "")
+	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", user.Email, "-f", keyPath, "-N", passphrase)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		// Restore old key on failure
 		if hasOldKey {
 			os.Rename(backupPath, keyPath)
 			os.Rename(backupPath+".pub", keyPath+".pub")
@@ -94,9 +97,9 @@ func runRekey(args []string) error {
 
 	_, _ = ui.Prompt("Press Enter once you've replaced the key on your platform...")
 
-	if err := verifySSHConnection(); err != nil {
+	if err := verifySSHConnectionWithKey(keyPath); err != nil {
 		ui.Warn("SSH verification failed. Please check that you've added the new key correctly.")
-		ui.Info("You can test manually with: ssh -T git@github.com")
+		ui.Info(fmt.Sprintf("You can test manually with: ssh -i %s -o IdentitiesOnly=yes -T git@github.com", keyPath))
 	} else {
 		ui.Success("SSH connection verified with new key!")
 	}

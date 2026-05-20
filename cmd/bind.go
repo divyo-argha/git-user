@@ -64,7 +64,7 @@ func runBind(args []string) error {
 	}
 
 	ui.Success(fmt.Sprintf("Associated SSH key %q with user %q", expanded, name))
-	
+
 	if store.Current == name {
 		ui.Info("This is your active identity. Updating git config...")
 		if err := git.ConfigureSSH(expanded); err != nil {
@@ -73,14 +73,14 @@ func runBind(args []string) error {
 			ui.Success("Git SSH config updated")
 		}
 	}
-	
+
 	return nil
 }
 
 func interactiveSSHSetup(name, email string, store *config.Store) error {
 	ui.Banner("SSH KEY SETUP: " + name)
 	fmt.Println()
-	
+
 	idx, err := ui.Select("Choose SSH key setup:", []string{
 		"Auto-generate (recommended)",
 		"Use existing key",
@@ -108,8 +108,13 @@ func interactiveSSHSetup(name, email string, store *config.Store) error {
 			ui.Info(fmt.Sprintf("Using existing key: %s", keyPath))
 			sshKeyPath = keyPath
 		} else {
+			passphrase, err := promptNewSSHKeyPassphrase()
+			if err != nil {
+				return err
+			}
+
 			ui.Info("Generating SSH key...")
-			cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
+			cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", passphrase)
 			if err := cmd.Run(); err != nil {
 				ui.Error("Key generation failed")
 				return err
@@ -172,10 +177,10 @@ func interactiveSSHSetup(name, email string, store *config.Store) error {
 	fmt.Println()
 
 	ui.Info("Testing SSH connection...")
-	if err := verifySSHConnection(); err != nil {
+	if err := verifySSHConnectionWithKey(sshKeyPath); err != nil {
 		ui.Warn("SSH verification failed")
 		ui.Info("The key may not be added to your platform yet")
-		ui.Info("Test manually: ssh -T git@github.com")
+		ui.Info(fmt.Sprintf("Test manually: ssh -i %s -o IdentitiesOnly=yes -T git@github.com", sshKeyPath))
 	} else {
 		ui.Success("SSH connection verified!")
 	}
