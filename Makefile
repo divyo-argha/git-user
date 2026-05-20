@@ -1,11 +1,13 @@
 BINARY   := git-user
 BUILD_DIR := dist
+VERSION  := $(shell git describe --tags --always 2>/dev/null || echo "dev")
+DATE     := $(shell date -u +'%Y-%m-%d')
 
 .PHONY: build install clean test
 
 build:
 	@mkdir -p $(BUILD_DIR)
-	go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY) .
+	go build -ldflags="-s -w -X main.version=$(VERSION) -X main.date=$(DATE)" -o $(BUILD_DIR)/$(BINARY) .
 	@echo "Binary built: $(BUILD_DIR)/$(BINARY)"
 
 # Install to /usr/local/bin so 'git user' works as a subcommand
