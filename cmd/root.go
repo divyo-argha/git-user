@@ -34,6 +34,8 @@ COMMANDS
   tui                        Interactive menu
   completion <shell>         Generate shell completion (bash/zsh/fish)
   hook <install|uninstall>   Manage git pre-commit hooks
+  security                   Run security audit
+  session <start|stop|status> Manage SSH authentication sessions
 
 ALIASES
   ls (list)  sw (switch)  rm (remove)
@@ -96,6 +98,10 @@ func Execute() error {
 		return runCompletion(rest)
 	case "hook":
 		return runHook(rest)
+	case "security":
+		return runSecurityCheck(rest)
+	case "session":
+		return runSession(rest)
 	default:
 		ui.Errorf("unknown command %q — run 'git-user --help' for usage", sub)
 		return fmt.Errorf("unknown command")
