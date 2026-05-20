@@ -116,14 +116,9 @@ func runSwitch(args []string) error {
 		if hasHTTPS {
 			fmt.Println()
 			ui.Warn("This repo uses HTTPS remotes")
-			ui.Info("Convert to SSH for passwordless push? [Y/n]")
 			
-			response, err := ui.Prompt("")
-			if err == nil {
-				response = strings.ToLower(strings.TrimSpace(response))
-				if response == "" || response == "y" || response == "yes" {
-					_ = runFixRemote(nil)
-				}
+			if ui.Confirm("Convert to SSH for passwordless push?", true) {
+				_ = runFixRemote(nil)
 			}
 		}
 	}
@@ -155,24 +150,20 @@ func quickRegister(name, email string, store *config.Store) error {
 
 	fmt.Println()
 	ui.Info("SSH Key Setup:")
-	fmt.Println("  1. Auto-generate (recommended)")
-	fmt.Println("  2. Use existing key")
-	fmt.Println("  3. Skip")
-	fmt.Println()
-
-	choice, err := ui.Prompt("Choice [1/2/3]:")
+	
+	idx, err := ui.Select("Choose SSH key setup:", []string{
+		"Auto-generate (recommended)",
+		"Use existing key",
+		"Skip",
+	})
 	if err != nil {
-		choice = "1"
-	}
-	choice = strings.TrimSpace(choice)
-	if choice == "" {
-		choice = "1"
+		idx = 0 // Default to auto-generate
 	}
 
 	var sshKeyPath string
 
-	switch choice {
-	case "1":
+	switch idx {
+	case 0: // Auto-generate
 		path, err := generateAndDisplayKey(name, email)
 		if err != nil {
 			ui.Warn("Key generation failed")
@@ -180,7 +171,7 @@ func quickRegister(name, email string, store *config.Store) error {
 		}
 		sshKeyPath = path
 
-	case "2":
+	case 1: // Use existing key
 		keyPath, err := ui.Prompt("Path to SSH key:")
 		if err == nil && keyPath != "" {
 			expanded := expandPath(keyPath)
@@ -192,7 +183,7 @@ func quickRegister(name, email string, store *config.Store) error {
 			}
 		}
 
-	case "3":
+	case 2: // Skip
 		ui.Info("Skipping SSH setup")
 	}
 

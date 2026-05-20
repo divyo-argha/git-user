@@ -65,8 +65,7 @@ func installHook() error {
 			fmt.Println(string(content))
 			fmt.Println()
 			
-			response, err := ui.Prompt("Overwrite? [y/N]:")
-			if err != nil || (response != "y" && response != "Y") {
+			if !ui.Confirm("Overwrite?", false) {
 				ui.Info("Cancelled")
 				return nil
 			}

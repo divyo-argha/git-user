@@ -53,8 +53,7 @@ func runRemove(args []string) error {
 	ui.Success(fmt.Sprintf("Removed identity %q", name))
 
 	if sshKey != "" {
-		answer, _ := ui.Prompt(fmt.Sprintf("Delete SSH key file %s? [y/N]:", sshKey))
-		if answer == "y" || answer == "Y" {
+		if ui.Confirm(fmt.Sprintf("Delete SSH key file %s?", sshKey), false) {
 			os.Remove(sshKey)
 			os.Remove(sshKey + ".pub")
 			ui.Success("SSH key files deleted")

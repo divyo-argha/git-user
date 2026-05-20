@@ -263,3 +263,31 @@ func Select(label string, options []string) (int, error) {
 
 	return m.chosen, nil
 }
+
+// Confirm asks a yes/no question and returns true for yes.
+func Confirm(question string, defaultYes bool) bool {
+	options := []string{"Yes", "No"}
+	cursor := 0
+	if !defaultYes {
+		cursor = 1
+	}
+	
+	m := SelectModel{
+		label:   question,
+		options: options,
+		chosen:  -1,
+		cursor:  cursor,
+	}
+
+	p := tea.NewProgram(m)
+	finalModel, err := p.Run()
+	if err != nil {
+		return defaultYes
+	}
+
+	m = finalModel.(SelectModel)
+	if m.canceled {
+		return defaultYes
+	}
+	return m.chosen == 0
+}

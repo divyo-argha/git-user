@@ -56,11 +56,10 @@ func generateAndDisplayKey(name, email string) (string, error) {
 
 	if _, err := os.Stat(keyPath); err == nil {
 		ui.Warn(fmt.Sprintf("Key already exists at %s", keyPath))
-		answer, _ := ui.Prompt("Use existing key? [Y/n]:")
-		if answer == "" || strings.ToLower(answer) == "y" || strings.ToLower(answer) == "yes" {
-			return keyPath, nil
+		if !ui.Confirm("Use existing key?", true) {
+			return "", fmt.Errorf("key already exists")
 		}
-		return "", fmt.Errorf("key already exists")
+		return keyPath, nil
 	}
 
 	ui.Info(fmt.Sprintf("Generating SSH key at %s...", keyPath))

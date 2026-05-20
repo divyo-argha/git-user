@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
@@ -68,32 +67,26 @@ func runRegister(args []string) error {
 	fmt.Println()
 	ui.Banner("SSH KEY SETUP")
 	fmt.Println()
-	ui.Info("Choose how to set up your SSH key:")
-	fmt.Println()
-	fmt.Println("  1. Generate new key automatically (recommended)")
-	fmt.Println("  2. Use existing key (provide path)")
-	fmt.Println("  3. Skip for now (set up later)")
-	fmt.Println()
-
-	choice, err := ui.Prompt("Enter choice [1/2/3]:")
+	
+	idx, err := ui.Select("Choose how to set up your SSH key:", []string{
+		"Generate new key automatically (recommended)",
+		"Use existing key (provide path)",
+		"Skip for now (set up later)",
+	})
 	if err != nil {
-		choice = "1"
-	}
-	choice = strings.TrimSpace(choice)
-	if choice == "" {
-		choice = "1"
+		idx = 0 // Default to generate
 	}
 
 	var sshKeyPath string
 
-	switch choice {
-	case "1":
+	switch idx {
+	case 0: // Generate new key
 		sshKeyPath, err = generateAndDisplayKey(name, email)
 		if err != nil {
 			ui.Warn("Key generation failed. You can set up SSH later with: git-user bind")
 		}
 
-	case "2":
+	case 1: // Use existing key
 		keyPath, err := ui.Prompt("Enter path to your SSH private key:")
 		if err == nil && keyPath != "" {
 			expandedPath := expandPath(keyPath)
@@ -106,7 +99,7 @@ func runRegister(args []string) error {
 			}
 		}
 
-	case "3":
+	case 2: // Skip
 		ui.Info("Skipping SSH key setup")
 		ui.Info("You can set up SSH later with: git-user bind " + name + " --ssh-key <path>")
 

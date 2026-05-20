@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
@@ -81,25 +80,21 @@ func runBind(args []string) error {
 func interactiveSSHSetup(name, email string, store *config.Store) error {
 	ui.Banner("SSH KEY SETUP: " + name)
 	fmt.Println()
-	ui.Info("Options:")
-	fmt.Println("  1. Auto-generate (recommended)")
-	fmt.Println("  2. Use existing key")
-	fmt.Println("  3. Cancel")
-	fmt.Println()
-
-	choice, err := ui.Prompt("Choice [1/2/3]:")
-	if err != nil {
-		choice = "1"
-	}
-	choice = strings.TrimSpace(choice)
-	if choice == "" {
-		choice = "1"
+	
+	idx, err := ui.Select("Choose SSH key setup:", []string{
+		"Auto-generate (recommended)",
+		"Use existing key",
+		"Cancel",
+	})
+	if err != nil || idx == 2 {
+		ui.Info("Cancelled")
+		return nil
 	}
 
 	var sshKeyPath string
 
-	switch choice {
-	case "1":
+	switch idx {
+	case 0: // Auto-generate
 		home, _ := os.UserHomeDir()
 		sshDir := filepath.Join(home, ".ssh")
 		keyPath := filepath.Join(sshDir, fmt.Sprintf("git_%s", name))
@@ -138,7 +133,7 @@ func interactiveSSHSetup(name, email string, store *config.Store) error {
 			}
 		}
 
-	case "2":
+	case 1: // Use existing key
 		keyPath, err := ui.Prompt("Path to SSH key:")
 		if err != nil {
 			return err
@@ -154,14 +149,6 @@ func interactiveSSHSetup(name, email string, store *config.Store) error {
 		}
 		sshKeyPath = expanded
 		ui.Success("Using existing key")
-
-	case "3":
-		ui.Info("Cancelled")
-		return nil
-
-	default:
-		ui.Error("Invalid choice")
-		return fmt.Errorf("invalid choice")
 	}
 
 	if sshKeyPath == "" {
