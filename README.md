@@ -114,6 +114,8 @@ git-user switch personal  # ✓ Switched to "personal" (you@gmail.com)
 | `import <file>` | Import identities from an encrypted bundle |
 | `doctor` | Run health check |
 | `tui` | Interactive menu |
+| `completion <shell>` | Generate shell completions (bash/zsh/fish) |
+| `hook <install\|uninstall>` | Manage git pre-commit hooks |
 
 **Aliases:** `ls` (list), `sw` (switch), `rm` (remove)
 
@@ -324,6 +326,98 @@ All identities and SSH keys are restored. Run `git-user switch work` and you're 
 - Passphrase stretched with **scrypt** (N=2¹⁷) — brute-forcing a strong passphrase is computationally infeasible
 - **Delete the bundle file after importing** — it contains your private keys
 - `import` never overwrites existing identities — it skips them
+
+---
+
+## Shell Completions
+
+Speed up your workflow with intelligent autocompletion for bash, zsh, and fish.
+
+### Installation
+
+**Bash:**
+```bash
+git-user completion bash | sudo tee /etc/bash_completion.d/git-user
+# Restart your terminal
+```
+
+**Zsh:**
+```bash
+git-user completion zsh > "${fpath[1]}/_git-user"
+# Restart your terminal
+```
+
+**Fish:**
+```bash
+git-user completion fish > ~/.config/fish/completions/git-user.fish
+# Restart your terminal
+```
+
+### What You Get
+
+```bash
+git-user sw<TAB>           # Completes to: git-user switch
+git-user switch <TAB>      # Shows: work  personal  client-a
+git-user remove <TAB>      # Shows your identity names
+git-user completion <TAB>  # Shows: bash  zsh  fish
+```
+
+Completions work for:
+- All commands (register, switch, list, etc.)
+- Identity names (reads from your config)
+- Flags (--all, --ssh-key, etc.)
+- Shell types for completion command
+
+---
+
+## Git Hooks: Prevent Wrong Identity Commits
+
+Accidentally committing with the wrong identity is a common mistake. Git hooks prevent this.
+
+### Install Hook
+
+```bash
+# In any git repository
+git-user hook install
+```
+
+This creates a pre-commit hook that verifies your identity before each commit.
+
+### How It Works
+
+```bash
+# You're on your work identity
+git-user switch work
+
+# Try to commit
+git commit -m "Add feature"
+
+# If identity matches → commit proceeds ✓
+# If identity mismatches → commit blocked ✗
+```
+
+**Example of blocked commit:**
+```
+✖ Identity mismatch!
+  Expected: work (you@company.com)
+  Git config: you@gmail.com
+  Run: git-user switch work
+```
+
+### Remove Hook
+
+```bash
+git-user hook uninstall
+```
+
+### When to Use
+
+Install hooks in repositories where identity matters:
+- Work repositories (prevent personal commits)
+- Client repositories (prevent wrong client identity)
+- Open source projects (ensure correct public identity)
+
+**Note:** Hooks are per-repository. Install in each repo where you want verification.
 
 ---
 
@@ -610,6 +704,9 @@ It tells you what's wrong and what to do about it. No decoding cryptic SSH error
 | `git-user export <name> [name...]` | Export specific identities (encrypted bundle) |
 | `git-user import <file>` | Import identities from an encrypted bundle |
 | `git-user doctor` | Run a health check on everything |
+| `git-user completion <shell>` | Generate shell completions (bash/zsh/fish) |
+| `git-user hook install` | Install pre-commit hook to verify identity |
+| `git-user hook uninstall` | Remove pre-commit hook |
 | `git-user -i` | Open the interactive TUI menu |
 
 ---
