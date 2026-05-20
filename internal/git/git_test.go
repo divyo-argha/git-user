@@ -31,3 +31,67 @@ func TestConvertHTTPSToSSH(t *testing.T) {
 		}
 	}
 }
+
+func TestIsInstalled(t *testing.T) {
+	// Git should be installed for this project to work
+	if !git.IsInstalled() {
+		t.Error("IsInstalled() = false, but git should be available")
+	}
+}
+
+func TestApply(t *testing.T) {
+	// Save current git config
+	oldName := git.CurrentName()
+	oldEmail := git.CurrentEmail()
+	
+	// Ensure we restore it
+	defer func() {
+		if oldName != "" {
+			git.Apply(oldName, oldEmail)
+		}
+	}()
+
+	// Test applying new config
+	testName := "Test User"
+	testEmail := "test@example.com"
+	
+	if err := git.Apply(testName, testEmail); err != nil {
+		t.Fatalf("Apply() failed: %v", err)
+	}
+
+	// Verify it was applied
+	if got := git.CurrentName(); got != testName {
+		t.Errorf("CurrentName() = %q, want %q", got, testName)
+	}
+	if got := git.CurrentEmail(); got != testEmail {
+		t.Errorf("CurrentEmail() = %q, want %q", got, testEmail)
+	}
+}
+
+func TestConfigureSSH(t *testing.T) {
+	testKeyPath := "/home/user/.ssh/test_key"
+	
+	if err := git.ConfigureSSH(testKeyPath); err != nil {
+		t.Fatalf("ConfigureSSH() failed: %v", err)
+	}
+
+	// Clean up
+	defer git.RemoveSSHConfig()
+}
+
+func TestRemoveSSHConfig(t *testing.T) {
+	// Set a test SSH config
+	testKeyPath := "/tmp/test_key"
+	git.ConfigureSSH(testKeyPath)
+
+	// Remove it
+	if err := git.RemoveSSHConfig(); err != nil {
+		t.Fatalf("RemoveSSHConfig() failed: %v", err)
+	}
+}
+
+func TestIsInRepo(t *testing.T) {
+	// This test depends on whether we're in a git repo
+	// Just verify it doesn't panic
+	_ = git.IsInRepo()
+}
