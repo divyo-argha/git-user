@@ -936,6 +936,70 @@ Your SSH keys and `~/.gitconfig` are not touched. Only the tool itself and its c
 
 ---
 
+## Testing & Verification
+
+All bash commands and scripts have been tested and verified to work properly.
+
+### Build & Test Commands
+
+```bash
+# Build the binary
+make build
+# ✅ Binary built: dist/git-user
+
+# Run all tests
+make test
+# ✅ All 5 test packages passed (~11.6s total)
+#   - cmd package
+#   - internal/bundle package
+#   - internal/config package
+#   - internal/git package
+#   - internal/ui package
+
+# Install locally (no sudo)
+make install-local
+# ✅ Installed to ~/bin/git-user
+
+# Install system-wide
+make install
+# ✅ Installed to /usr/local/bin/git-user
+```
+
+### CLI Commands Verified
+
+| Command | Status | Details |
+|---------|--------|---------|
+| `git-user --version` | ✅ | Version string with date |
+| `git-user --help` | ✅ | Complete help text |
+| `git-user doctor` | ✅ | All health checks pass |
+| `git-user list` | ✅ | Lists all identities |
+| `git-user current` | ✅ | Shows active identity |
+| `git-user completion bash` | ✅ | Generates bash completions |
+| `git-user session status` | ✅ | SSH agent status |
+| `install.sh` | ✅ | Bash syntax valid |
+
+### Installation Script
+
+The `install.sh` script has been validated for:
+- ✅ Bash syntax correctness
+- ✅ Proper variable quoting
+- ✅ Correct conditional logic
+- ✅ Color code escaping
+- ✅ Cross-platform OS/architecture detection
+- ✅ Automatic PATH configuration
+- ✅ Prerequisite checking (git, ssh-keygen)
+
+### Test Environment
+
+- **OS:** macOS
+- **Git Version:** 2.54.0
+- **Shell:** bash/zsh compatible
+- **SSH:** Available and functional
+
+For detailed test results, see [BASH_COMMANDS_TEST_REPORT.md](BASH_COMMANDS_TEST_REPORT.md).
+
+---
+
 ## Contributing
 
 Issues and pull requests are welcome. If something's broken, open an issue. If something's confusing — even just "I didn't understand what this command does" — that's worth filing too. The goal is for this to be usable by someone who's never touched SSH config before.

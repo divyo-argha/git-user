@@ -5,11 +5,23 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
-echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║     Git-User Installer v1.0            ║${NC}"
-echo -e "${BLUE}╚════════════════════════════════════════╝${NC}\n"
+# Check if already installed
+if command -v git-user &> /dev/null; then
+    CURRENT_VERSION=$(git-user --version 2>&1 | grep -oP 'v\d+\.\d+\.\d+' || echo "unknown")
+    MODE="UPDATE"
+    echo -e "${CYAN}╔════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║   Git-User Updater                     ║${NC}"
+    echo -e "${CYAN}║   Current: $CURRENT_VERSION                      ║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════╝${NC}\n"
+else
+    MODE="INSTALL"
+    echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}║     Git-User Installer                ║${NC}"
+    echo -e "${BLUE}╚════════════════════════════════════════╝${NC}\n"
+fi
 
 # Detect OS and Architecture
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -47,7 +59,7 @@ else
 fi
 
 # Download or build
-echo -e "\n${BLUE}[2/5]${NC} Installing git-user..."
+echo -e "\n${BLUE}[2/5]${NC} Getting latest git-user..."
 
 TEMP_DIR=$(mktemp -d)
 cd "$TEMP_DIR"
@@ -103,50 +115,56 @@ fi
 
 echo -e "${GREEN}✓ Installed${NC}"
 
-# Configure PATH automatically
-echo -e "\n${BLUE}[4/5]${NC} Configuring PATH..."
+# Configure PATH automatically (only for fresh install)
+if [ "$MODE" = "INSTALL" ]; then
+    echo -e "\n${BLUE}[4/5]${NC} Configuring PATH..."
 
-SHELL_RC=""
-SHELL_NAME=$(basename "$SHELL")
+    SHELL_RC=""
+    SHELL_NAME=$(basename "$SHELL")
 
-case "$SHELL_NAME" in
-    zsh)
-        SHELL_RC="$HOME/.zshrc"
-        ;;
-    bash)
-        if [ -f "$HOME/.bash_profile" ]; then
-            SHELL_RC="$HOME/.bash_profile"
+    case "$SHELL_NAME" in
+        zsh)
+            SHELL_RC="$HOME/.zshrc"
+            ;;
+        bash)
+            if [ -f "$HOME/.bash_profile" ]; then
+                SHELL_RC="$HOME/.bash_profile"
+            else
+                SHELL_RC="$HOME/.bashrc"
+            fi
+            ;;
+        fish)
+            SHELL_RC="$HOME/.config/fish/config.fish"
+            mkdir -p "$(dirname "$SHELL_RC")"
+            ;;
+        *)
+            echo -e "${YELLOW}⚠ Unknown shell: $SHELL_NAME${NC}"
+            ;;
+    esac
+
+    if [ -n "$SHELL_RC" ]; then
+        if ! grep -q "git-user" "$SHELL_RC" 2>/dev/null; then
+            echo "" >> "$SHELL_RC"
+            echo "# Added by git-user installer" >> "$SHELL_RC"
+            if [ "$SHELL_NAME" = "fish" ]; then
+                echo "set -gx PATH $INSTALL_DIR \$PATH" >> "$SHELL_RC"
+            else
+                echo "export PATH=\"$INSTALL_DIR:\$PATH\"" >> "$SHELL_RC"
+            fi
+            echo -e "${GREEN}✓ PATH configured in $SHELL_RC${NC}"
         else
-            SHELL_RC="$HOME/.bashrc"
+            echo -e "${GREEN}✓ PATH already configured${NC}"
         fi
-        ;;
-    fish)
-        SHELL_RC="$HOME/.config/fish/config.fish"
-        mkdir -p "$(dirname "$SHELL_RC")"
-        ;;
-    *)
-        echo -e "${YELLOW}⚠ Unknown shell: $SHELL_NAME${NC}"
-        ;;
-esac
-
-if [ -n "$SHELL_RC" ]; then
-    if ! grep -q "$INSTALL_DIR" "$SHELL_RC" 2>/dev/null; then
-        echo "" >> "$SHELL_RC"
-        echo "# Added by git-user installer" >> "$SHELL_RC"
-        if [ "$SHELL_NAME" = "fish" ]; then
-            echo "set -gx PATH $INSTALL_DIR \$PATH" >> "$SHELL_RC"
-        else
-            echo "export PATH=\"$INSTALL_DIR:\$PATH\"" >> "$SHELL_RC"
+        
+        # Source the file to apply changes immediately
+        if [ "$SHELL_NAME" != "fish" ]; then
+            export PATH="$INSTALL_DIR:$PATH"
         fi
-        echo -e "${GREEN}✓ PATH configured in $SHELL_RC${NC}"
-    else
-        echo -e "${GREEN}✓ PATH already configured${NC}"
     fi
     
-    # Source the file to apply changes immediately
-    if [ "$SHELL_NAME" != "fish" ]; then
-        export PATH="$INSTALL_DIR:$PATH"
-    fi
+    STEP="[5/5]"
+else
+    STEP="[4/5]"
 fi
 
 # Cleanup
@@ -154,11 +172,11 @@ cd /
 rm -rf "$TEMP_DIR"
 
 # Verify installation
-echo -e "\n${BLUE}[5/5]${NC} Verifying installation..."
+echo -e "\n${BLUE}$STEP${NC} Verifying installation..."
 
 if command -v git-user &> /dev/null; then
-    VERSION=$(git-user --version 2>&1 || echo "installed")
-    echo -e "${GREEN}✓ git-user $VERSION${NC}"
+    NEW_VERSION=$(git-user --version 2>&1 | grep -oP 'v\d+\.\d+\.\d+' || echo "installed")
+    echo -e "${GREEN}✓ git-user $NEW_VERSION${NC}"
 else
     echo -e "${YELLOW}⚠ git-user not found in PATH${NC}"
     echo "You may need to restart your terminal or run:"
@@ -166,21 +184,27 @@ else
 fi
 
 # Success message
-echo -e "\n${GREEN}╔════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║   Installation Complete! 🎉            ║${NC}"
-echo -e "${GREEN}╚════════════════════════════════════════╝${NC}\n"
+if [ "$MODE" = "UPDATE" ]; then
+    echo -e "\n${GREEN}╔════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║   Update Complete! ✨                  ║${NC}"
+    echo -e "${GREEN}╚════════════════════════════════════════╝${NC}\n"
+else
+    echo -e "\n${GREEN}╔════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║   Installation Complete! 🎉            ║${NC}"
+    echo -e "${GREEN}╚════════════════════════════════════════╝${NC}\n"
 
-echo -e "${BLUE}Quick Start:${NC}"
-echo "  1. Restart your terminal (or run: source $SHELL_RC)"
-echo "  2. Create your first identity:"
-echo -e "     ${YELLOW}git-user register${NC}"
-echo ""
-echo "  3. Switch between identities:"
-echo -e "     ${YELLOW}git-user switch <name>${NC}"
-echo ""
-echo "  4. Check your setup:"
-echo -e "     ${YELLOW}git-user doctor${NC}"
-echo ""
-echo "  5. Get help:"
-echo -e "     ${YELLOW}git-user --help${NC}"
-echo ""
+    echo -e "${BLUE}Quick Start:${NC}"
+    echo "  1. Restart your terminal (or run: source $SHELL_RC)"
+    echo "  2. Create your first identity:"
+    echo -e "     ${YELLOW}git-user register${NC}"
+    echo ""
+    echo "  3. Switch between identities:"
+    echo -e "     ${YELLOW}git-user switch <name>${NC}"
+    echo ""
+    echo "  4. Check your setup:"
+    echo -e "     ${YELLOW}git-user doctor${NC}"
+    echo ""
+    echo "  5. Get help:"
+    echo -e "     ${YELLOW}git-user --help${NC}"
+    echo ""
+fi
