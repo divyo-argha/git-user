@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/divyo-argha/git-user/internal/config"
@@ -30,27 +31,52 @@ func runSecurityCheck(args []string) error {
 
 	store, err := config.Load()
 	if err == nil {
+		if len(store.Users) > 0 {
+			fmt.Println()
+			ui.Header("IDENTITY SECURITY")
+			fmt.Println()
+		}
+
 		for _, user := range store.Users {
-			if user.SSHKey != "" {
-				info, err := os.Stat(user.SSHKey)
-				if err != nil {
-					ui.Warn(fmt.Sprintf("SSH key not found: %s", user.SSHKey))
-					issues++
-					continue
-				}
+			ui.Info(fmt.Sprintf("%s (%s)", user.Name, user.Email))
 
-				mode := info.Mode().Perm()
-				if mode != 0600 {
-					ui.Warn(fmt.Sprintf("%s: Insecure permissions %o", filepath.Base(user.SSHKey), mode))
-					ui.Info(fmt.Sprintf("Fix: chmod 600 %s", user.SSHKey))
-					issues++
-				} else {
-					ui.Success(fmt.Sprintf("%s: Permissions OK", user.Name))
-				}
-
-				ui.Info(fmt.Sprintf("%s: Checking passphrase protection...", user.Name))
-				ui.Info("  Tip: Add passphrase with: ssh-keygen -p -f " + user.SSHKey)
+			if user.SSHKey == "" {
+				ui.Warn("  No SSH key bound")
+				ui.Info(fmt.Sprintf("  Fix: git-user bind %s", user.Name))
+				issues++
+				continue
 			}
+
+			info, err := os.Stat(user.SSHKey)
+			if err != nil {
+				ui.Warn(fmt.Sprintf("  SSH key not found: %s", user.SSHKey))
+				issues++
+				continue
+			}
+
+			mode := info.Mode().Perm()
+			if mode != 0600 {
+				ui.Warn(fmt.Sprintf("  Insecure key permissions: %o", mode))
+				ui.Info(fmt.Sprintf("  Fix: chmod 600 %s", user.SSHKey))
+				issues++
+			} else {
+				ui.Success(fmt.Sprintf("  Permissions OK: %s", filepath.Base(user.SSHKey)))
+			}
+
+			protected, err := isSSHKeyPassphraseProtected(user.SSHKey)
+			if err != nil {
+				ui.Warn("  Could not verify passphrase protection")
+				ui.Info(fmt.Sprintf("  Check manually: ssh-keygen -y -f %s", user.SSHKey))
+				issues++
+			} else if protected {
+				ui.Success("  Passphrase protected")
+			} else {
+				ui.Warn("  No passphrase detected")
+				ui.Info("  Fix: ssh-keygen -p -f " + user.SSHKey)
+				issues++
+			}
+
+			fmt.Println()
 		}
 	}
 
@@ -83,4 +109,16 @@ func runSecurityCheck(args []string) error {
 	fmt.Println("   - SSH keys: 0600 (owner only)")
 
 	return nil
+}
+
+func isSSHKeyPassphraseProtected(keyPath string) (bool, error) {
+	if err := exec.Command("ssh-keygen", "-y", "-P", "", "-f", keyPath).Run(); err == nil {
+		return false, nil
+	}
+
+	if err := exec.Command("ssh-keygen", "-lf", keyPath).Run(); err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
