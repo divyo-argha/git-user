@@ -7,13 +7,13 @@ This is the npm distribution of [git-user](https://github.com/divyo-argha/git-us
 ## Installation
 
 ```bash
-npm install -g @divyo-argha/git-user
+npm install -g @divyo_argha/git-user
 ```
 
 Or use without installing:
 
 ```bash
-npx @divyo-argha/git-user register
+npx @divyo_argha/git-user register
 ```
 
 ## Quick Start
