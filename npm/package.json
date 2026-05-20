@@ -1,5 +1,5 @@
 {
-  "name": "@divyo-argha/git-user",
+  "name": "git-user-manager",
   "version": "2.1.2",
   "description": "Switch Git accounts in one command. No config editing. No SSH key chaos.",
   "bin": {
