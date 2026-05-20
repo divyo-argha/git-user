@@ -32,6 +32,8 @@ COMMANDS
   import <file>              Import identities from a bundle
   doctor                     Check setup
   tui                        Interactive menu
+  completion <shell>         Generate shell completion (bash/zsh/fish)
+  hook <install|uninstall>   Manage git pre-commit hooks
 
 ALIASES
   ls (list)  sw (switch)  rm (remove)
@@ -42,6 +44,7 @@ EXAMPLES
   git-user switch -c work me@work.com  # With email
   git-user switch personal             # Switch to existing identity
   git-user fix-remote                  # Convert repo remotes to SSH
+  git-user completion bash > /etc/bash_completion.d/git-user  # Enable completions
 
 HELP
   git-user --help            Show this help
@@ -89,6 +92,10 @@ func Execute() error {
 		return runDoctor(rest)
 	case "tui", "-i", "--interactive":
 		return runTui()
+	case "completion":
+		return runCompletion(rest)
+	case "hook":
+		return runHook(rest)
 	default:
 		ui.Errorf("unknown command %q — run 'git-user --help' for usage", sub)
 		return fmt.Errorf("unknown command")
