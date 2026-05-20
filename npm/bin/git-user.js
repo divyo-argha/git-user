@@ -4,7 +4,8 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 // Get the binary path
-const binPath = path.join(__dirname, '..', 'bin', 'git-user');
+const binaryName = process.platform === 'win32' ? 'git-user.exe' : 'git-user';
+const binPath = path.join(__dirname, '..', 'bin', binaryName);
 
 // Forward all arguments to the binary
 const child = spawn(binPath, process.argv.slice(2), {

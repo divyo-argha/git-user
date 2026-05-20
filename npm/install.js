@@ -7,6 +7,7 @@ const { execSync } = require('child_process');
 const os = require('os');
 const zlib = require('zlib');
 const tar = require('tar');
+const pkg = require('./package.json');
 
 const REPO = 'divyo-argha/git-user';
 const BIN_DIR = path.join(__dirname, 'bin');
@@ -63,12 +64,12 @@ function download(url, dest) {
   });
 }
 
-// Get latest release info
-function getLatestRelease() {
+// Get release info matching this npm package version.
+function getRelease() {
   return new Promise((resolve, reject) => {
     const options = {
       hostname: 'api.github.com',
-      path: `/repos/${REPO}/releases/latest`,
+      path: `/repos/${REPO}/releases/tags/v${pkg.version}`,
       headers: {
         'User-Agent': 'git-user-npm-installer'
       }
@@ -109,9 +110,9 @@ async function install() {
       fs.mkdirSync(BIN_DIR, { recursive: true });
     }
     
-    // Get latest release
-    console.log('🔍 Fetching latest release...');
-    const release = await getLatestRelease();
+    // Get matching release
+    console.log(`🔍 Fetching release v${pkg.version}...`);
+    const release = await getRelease();
     
     // Find the right asset
     const assetName = `git-user_${osName}_${arch}.tar.gz`;
