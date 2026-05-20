@@ -1,6 +1,6 @@
 BINARY   := git-user
 BUILD_DIR := dist
-VERSION  := $(shell git describe --tags --always 2>/dev/null || echo "dev")
+VERSION  := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev")
 DATE     := $(shell date -u +'%Y-%m-%d')
 
 .PHONY: build install clean test
