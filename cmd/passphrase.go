@@ -10,12 +10,11 @@ import (
 )
 
 func runPassphrase(args []string) error {
-	if len(args) < 1 {
-		ui.Error("usage: git-user passphrase <name>")
-		return fmt.Errorf("missing name")
+	if len(args) > 0 {
+		ui.Error("usage: git-user passphrase")
+		ui.Info("This command only changes the active, unlocked identity.")
+		return fmt.Errorf("unexpected arguments")
 	}
-
-	name := args[0]
 
 	store, err := config.Load()
 	if err != nil {
@@ -23,26 +22,22 @@ func runPassphrase(args []string) error {
 		return err
 	}
 
-	user := store.FindUser(name)
+	user := store.CurrentUser()
 	if user == nil {
-		ui.Errorf("identity %q not found", name)
-		ui.Info("Run 'git-user list' to see available identities.")
-		return fmt.Errorf("user not found")
-	}
-
-	if err := requireActivePassphraseIdentity(store, user); err != nil {
-		return err
+		ui.Error("No active identity.")
+		ui.Info("Switch first: git-user switch <name>")
+		return fmt.Errorf("no active identity")
 	}
 
 	if user.SSHKey == "" {
-		ui.Warn(fmt.Sprintf("Identity %q has no SSH key bound", name))
-		ui.Info(fmt.Sprintf("Run: git-user bind %s", name))
+		ui.Warn(fmt.Sprintf("Identity %q has no SSH key bound", user.Name))
+		ui.Info(fmt.Sprintf("Run: git-user bind %s", user.Name))
 		return fmt.Errorf("no ssh key")
 	}
 
 	if _, err := os.Stat(user.SSHKey); err != nil {
 		ui.Errorf("SSH key file is not accessible: %s", user.SSHKey)
-		ui.Info(fmt.Sprintf("Run 'git-user bind %s' to attach an existing key, or 'git-user rekey %s' to create a new one.", name, name))
+		ui.Info(fmt.Sprintf("Run 'git-user bind %s' to attach an existing key, or 'git-user rekey %s' to create a new one.", user.Name, user.Name))
 		return err
 	}
 
@@ -97,20 +92,6 @@ func runPassphrase(args []string) error {
 	}
 	ui.Info("Use 'git-user session start' to unlock this key for your work session.")
 
-	return nil
-}
-
-func requireActivePassphraseIdentity(store *config.Store, user *config.User) error {
-	if store.Current == "" {
-		ui.Error("No active identity.")
-		ui.Info(fmt.Sprintf("Switch first: git-user switch %s", user.Name))
-		return fmt.Errorf("no active identity")
-	}
-	if store.Current != user.Name {
-		ui.Errorf("Cannot change passphrase for %q while %q is active.", user.Name, store.Current)
-		ui.Info(fmt.Sprintf("Switch first: git-user switch %s", user.Name))
-		return fmt.Errorf("identity not active")
-	}
 	return nil
 }
 
