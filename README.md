@@ -67,7 +67,7 @@ When you run `git-user register`, you get a guided setup:
 1. **Enter identity name** (e.g., "work", "personal")
 2. **Enter email address**
 3. **Choose SSH key setup:**
-   - **Auto-generate** - Creates key, displays it in terminal, waits for you to add it to GitHub/GitLab
+   - **Auto-generate** - Creates a key, asks for a key passphrase, displays the public key, and waits for you to add it to GitHub/GitLab
    - **Use existing key** - Provide path to your existing SSH key
    - **Skip** - Set up SSH later
 
@@ -107,6 +107,7 @@ git-user switch personal  # ✓ Switched to "personal" (you@gmail.com)
 | `remove <name>` | Delete an identity |
 | `edit <name> <email>` | Update email |
 | `bind <name> --ssh-key <path>` | Link SSH key to identity |
+| `passphrase` | Add or change passphrase for the active, unlocked identity |
 | `rekey <name>` | Rotate SSH key |
 | `fix-remote` | Convert HTTPS remotes to SSH |
 | `export --all` | Export all identities + SSH keys (encrypted bundle) |
@@ -116,6 +117,10 @@ git-user switch personal  # ✓ Switched to "personal" (you@gmail.com)
 | `tui` | Interactive menu |
 | `completion <shell>` | Generate shell completions (bash/zsh/fish) |
 | `hook <install\|uninstall>` | Manage git pre-commit hooks |
+| `session start [name] [--ttl <duration>]` | Load an identity's SSH key into ssh-agent |
+| `session stop [name]` | Unload an identity's SSH key; identity stays selected |
+| `session stop --all` | Remove all keys from ssh-agent |
+| `session status` | Show ssh-agent and loaded-key status |
 
 **Aliases:** `ls` (list), `sw` (switch), `rm` (remove)
 
@@ -234,7 +239,9 @@ Copy the key above and add it to your Git platform:
   Bitbucket: Personal settings → SSH keys → Add key
 ```
 
-Just copy the key, add it to your platform, press Enter. The tool verifies the connection automatically.
+Just copy the key, add it to your platform, press Enter. The tool verifies the connection with that exact key.
+
+When a new key is generated, `git-user` asks for an SSH key passphrase. This passphrase protects the private key on disk. It is not your GitHub/GitLab password, and `git-user` does not store it.
 
 ### Option 2: Use Existing Key
 
@@ -251,6 +258,111 @@ Skip SSH setup and add it later:
 
 ```bash
 git-user bind work --ssh-key ~/.ssh/id_ed25519
+```
+
+---
+
+## Security, Passphrases, and Sessions
+
+`git-user` separates two ideas:
+
+- **Identity**: the selected Git name, email, and SSH key path.
+- **Session**: whether that SSH key is currently unlocked in `ssh-agent`.
+
+Switching identity does not mean the key is unlocked. Stopping a session does not switch your identity.
+
+### Check Security Status
+
+Run a full security audit:
+
+```bash
+git-user security
+```
+
+This checks each identity for:
+
+- missing SSH key binding
+- missing key file
+- unsafe private key permissions
+- whether the SSH key has a passphrase
+
+If an old identity was created before passphrase support, `git-user security` will show it and print the fix.
+
+### Add or Change a Passphrase
+
+Passphrases are changed only for the active, unlocked identity. This prevents one identity from modifying another identity's key.
+
+```bash
+git-user switch work
+git-user session start
+git-user passphrase
+```
+
+If the key has no passphrase, this adds one. If it already has a passphrase, this asks for the current passphrase and then sets a new one.
+
+You cannot recover a forgotten SSH key passphrase. If you forget it, create a new key:
+
+```bash
+git-user rekey work
+```
+
+### Start and Stop Sessions
+
+Start a session for the current identity:
+
+```bash
+git-user session start
+```
+
+Or start one explicitly:
+
+```bash
+git-user session start work
+git-user session start work --ttl 4h
+```
+
+Stop the current identity's session:
+
+```bash
+git-user session stop
+```
+
+This unloads the current identity's key from `ssh-agent`, but the active identity stays the same.
+
+Remove every loaded SSH key only when you explicitly mean it:
+
+```bash
+git-user session stop --all
+```
+
+Check what is loaded:
+
+```bash
+git-user session status
+```
+
+### Secure Existing Identities
+
+For identities you created earlier:
+
+```bash
+git-user security
+git-user switch <name>
+git-user session start
+git-user passphrase
+git-user security
+```
+
+If the identity has no SSH key yet:
+
+```bash
+git-user bind <name>
+```
+
+Or generate a fresh key:
+
+```bash
+git-user rekey <name>
 ```
 
 ---
@@ -698,6 +810,12 @@ It tells you what's wrong and what to do about it. No decoding cryptic SSH error
 | `git-user current` | Check what's active right now |
 | `git-user rekey <name>` | Generate a fresh SSH key for an identity |
 | `git-user bind <name> --ssh-key <path>` | Link an SSH key you already have |
+| `git-user passphrase` | Add/change passphrase for the active, unlocked identity |
+| `git-user session start [name] [--ttl <duration>]` | Unlock an identity's SSH key in ssh-agent |
+| `git-user session stop [name]` | Unload an identity's key without switching identity |
+| `git-user session stop --all` | Remove all loaded SSH keys from ssh-agent |
+| `git-user session status` | Show ssh-agent and loaded-key status |
+| `git-user security` | Audit key permissions and passphrase protection |
 | `git-user remove <name>` | Delete an identity |
 | `git-user edit <name> <email>` | Update an identity's email |
 | `git-user export --all` | Export all identities + SSH keys (encrypted bundle) |
@@ -789,6 +907,10 @@ Arrow keys to navigate, Enter to select. Does everything the CLI does, just with
 
 - Private keys stay on your machine with `0600` permissions — only you can read them
 - Key permissions are validated before use — if something's wrong, you're told immediately
+- Generated SSH keys can be protected with passphrases during `register`, `switch -c`, `bind`, and `rekey`
+- `git-user passphrase` can add or change the passphrase only for the active, unlocked identity
+- `git-user security` audits every identity and reports missing keys, unsafe permissions, and missing passphrases
+- `git-user session stop` unloads only the current identity's key; use `session stop --all` only when you want to clear every key
 - `IdentitiesOnly yes` in `~/.ssh/config` means SSH only tries the key you assigned, nothing else
 - Config writes are atomic (temp file + rename) — a crash mid-write can't leave you in a broken state
 
