@@ -58,18 +58,28 @@ else
     BINARY="git-user"
 fi
 
+# Check if we need sudo
+NEED_SUDO=false
+if [ ! -w "$INSTALL_DIR" ]; then
+    NEED_SUDO=true
+fi
+
 # Backup current binary
 if [ -f "$INSTALL_DIR/git-user" ]; then
-    cp "$INSTALL_DIR/git-user" "$INSTALL_DIR/git-user.bak"
+    if [ "$NEED_SUDO" = true ]; then
+        sudo cp "$INSTALL_DIR/git-user" "$INSTALL_DIR/git-user.bak" 2>/dev/null || true
+    else
+        cp "$INSTALL_DIR/git-user" "$INSTALL_DIR/git-user.bak" 2>/dev/null || true
+    fi
 fi
 
 # Install new binary
-if [ -w "$INSTALL_DIR" ]; then
-    cp "$BINARY" "$INSTALL_DIR/"
-    chmod +x "$INSTALL_DIR/git-user"
-else
+if [ "$NEED_SUDO" = true ]; then
     sudo cp "$BINARY" "$INSTALL_DIR/"
     sudo chmod +x "$INSTALL_DIR/git-user"
+else
+    cp "$BINARY" "$INSTALL_DIR/"
+    chmod +x "$INSTALL_DIR/git-user"
 fi
 
 # Cleanup

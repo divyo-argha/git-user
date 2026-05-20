@@ -66,6 +66,10 @@ func Execute() error {
 		return nil
 	}
 
+	if args[0] == "--update" || args[0] == "update" {
+		return RunUpdate()
+	}
+
 	sub := args[0]
 	rest := args[1:]
 

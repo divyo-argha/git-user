@@ -22,13 +22,15 @@ Restart your terminal. PATH is configured automatically.
 
 ### Update to latest version
 
-If you already have git-user installed, update with:
+If you already have git-user installed, update with a single command:
 
 ```bash
 git-user --update
 ```
 
-Or use the one-line install again to update.
+This automatically downloads and installs the latest release. The command handles sudo permissions automatically when needed.
+
+Alternatively, you can use the one-line install script again to update.
 
 ### Via npm
 
@@ -949,65 +951,38 @@ Your SSH keys and `~/.gitconfig` are not touched. Only the tool itself and its c
 
 ## Testing & Verification
 
-All bash commands and scripts have been tested and verified to work properly.
+All core functionality has been tested and verified to work properly.
 
 ### Build & Test Commands
 
 ```bash
 # Build the binary
 make build
-# ✅ Binary built: dist/git-user
 
 # Run all tests
 make test
-# ✅ All 5 test packages passed (~11.6s total)
-#   - cmd package
-#   - internal/bundle package
-#   - internal/config package
-#   - internal/git package
-#   - internal/ui package
 
 # Install locally (no sudo)
 make install-local
-# ✅ Installed to ~/bin/git-user
 
 # Install system-wide
 make install
-# ✅ Installed to /usr/local/bin/git-user
 ```
 
-### CLI Commands Verified
+### Update Command
 
-| Command | Status | Details |
-|---------|--------|---------|
-| `git-user --version` | ✅ | Version string with date |
-| `git-user --help` | ✅ | Complete help text |
-| `git-user doctor` | ✅ | All health checks pass |
-| `git-user list` | ✅ | Lists all identities |
-| `git-user current` | ✅ | Shows active identity |
-| `git-user completion bash` | ✅ | Generates bash completions |
-| `git-user session status` | ✅ | SSH agent status |
-| `install.sh` | ✅ | Bash syntax valid |
-
-### Installation Script
-
-The `install.sh` script has been validated for:
-- ✅ Bash syntax correctness
-- ✅ Proper variable quoting
-- ✅ Correct conditional logic
-- ✅ Color code escaping
-- ✅ Cross-platform OS/architecture detection
-- ✅ Automatic PATH configuration
-- ✅ Prerequisite checking (git, ssh-keygen)
+The `git-user --update` command:
+- ✅ Automatically detects your installation location
+- ✅ Downloads the latest release from GitHub
+- ✅ Handles sudo permissions when needed
+- ✅ Creates a backup before updating
+- ✅ Verifies the update was successful
 
 ### Test Environment
 
 - **OS:** macOS
-- **Git Version:** 2.54.0
 - **Shell:** bash/zsh compatible
 - **SSH:** Available and functional
-
-For detailed test results, see [BASH_COMMANDS_TEST_REPORT.md](BASH_COMMANDS_TEST_REPORT.md).
 
 ---
 
