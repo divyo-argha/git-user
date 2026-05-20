@@ -20,6 +20,16 @@ curl -sSfL https://raw.githubusercontent.com/divyo-argha/git-user/main/install.s
 
 Restart your terminal. PATH is configured automatically.
 
+### Update to latest version
+
+If you already have git-user installed, update with:
+
+```bash
+git-user --update
+```
+
+Or use the one-line install again to update.
+
 ### Via npm
 
 ```bash
@@ -826,6 +836,7 @@ It tells you what's wrong and what to do about it. No decoding cryptic SSH error
 | `git-user hook install` | Install pre-commit hook to verify identity |
 | `git-user hook uninstall` | Remove pre-commit hook |
 | `git-user -i` | Open the interactive TUI menu |
+| `git-user --update` | Update to the latest version |
 
 ---
 

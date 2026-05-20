@@ -13,9 +13,17 @@ var (
 )
 
 func main() {
-	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v" || os.Args[1] == "version") {
-		printVersion()
-		os.Exit(0)
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "--version", "-v", "version":
+			printVersion()
+			os.Exit(0)
+		case "--update", "update":
+			if err := cmd.RunUpdate(); err != nil {
+				os.Exit(1)
+			}
+			os.Exit(0)
+		}
 	}
 
 	if err := cmd.Execute(); err != nil {

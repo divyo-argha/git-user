@@ -14,12 +14,12 @@ if command -v git-user &> /dev/null; then
     MODE="UPDATE"
     echo -e "${CYAN}╔════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║   Git-User Updater                     ║${NC}"
-    echo -e "${CYAN}║   Current: $CURRENT_VERSION                      ║${NC}"
+    echo -e "${CYAN}║   Current: $CURRENT_VERSION            ║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════╝${NC}\n"
 else
     MODE="INSTALL"
     echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║     Git-User Installer                ║${NC}"
+    echo -e "${BLUE}║     Git-User Installer                 ║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════════╝${NC}\n"
 fi
 
@@ -143,7 +143,7 @@ if [ "$MODE" = "INSTALL" ]; then
     esac
 
     if [ -n "$SHELL_RC" ]; then
-        if ! grep -q "git-user" "$SHELL_RC" 2>/dev/null; then
+        if ! grep -q "$INSTALL_DIR" "$SHELL_RC" 2>/dev/null; then
             echo "" >> "$SHELL_RC"
             echo "# Added by git-user installer" >> "$SHELL_RC"
             if [ "$SHELL_NAME" = "fish" ]; then

@@ -52,6 +52,7 @@ EXAMPLES
 HELP
   git-user --help            Show this help
   git-user --version         Show version
+  git-user --update          Update to latest version
   git-user doctor            Diagnose issues
 
 Config: ~/.git-users/config.json
