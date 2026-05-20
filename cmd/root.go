@@ -25,7 +25,7 @@ COMMANDS
   remove <name>              Delete an identity
   edit <name> <email>        Update email
   bind <name> [--ssh-key <p>] Add/link SSH key (interactive if no path)
-  passphrase <name>          Add/change SSH key passphrase
+  passphrase <name>          Add/change passphrase for active, unlocked identity
   rekey <name>               Rotate SSH key
   fix-remote                 Convert HTTPS remotes to SSH
   export --all               Export all identities + SSH keys (encrypted)
