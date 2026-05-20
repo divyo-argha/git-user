@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -64,6 +65,16 @@ func runBind(args []string) error {
 	}
 
 	ui.Success(fmt.Sprintf("Associated SSH key %q with user %q", expanded, name))
+	
+	if store.Current == name {
+		ui.Info("This is your active identity. Updating git config...")
+		if err := git.ConfigureSSH(expanded); err != nil {
+			ui.Warn(fmt.Sprintf("Failed to update git SSH config: %v", err))
+		} else {
+			ui.Success("Git SSH config updated")
+		}
+	}
+	
 	return nil
 }
 
