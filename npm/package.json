@@ -1,6 +1,6 @@
 {
   "name": "@divyo-argha/git-user",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Switch Git accounts in one command. No config editing. No SSH key chaos.",
   "main": "index.js",
   "bin": {
