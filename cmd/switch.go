@@ -75,6 +75,22 @@ func runSwitch(args []string) error {
 		if err := git.ConfigureSSH(user.SSHKey); err != nil {
 			ui.Warn(fmt.Sprintf("applying SSH config: %v", err))
 		}
+
+		if os.Getenv("SSH_AUTH_SOCK") == "" {
+			ui.Info("ssh-agent is not running; start it with: eval \"$(ssh-agent -s)\"")
+			ui.Info("Then run: git-user session start")
+		} else if !isSSHKeyLoaded(user.SSHKey) {
+			ui.Warn(fmt.Sprintf("SSH key for %q is not loaded", user.Name))
+			if ui.Confirm("Start session now?", true) {
+				if err := addSSHKey(user.SSHKey, ""); err != nil {
+					ui.Warn("Could not start authenticated session")
+				} else {
+					ui.Success("Session started")
+				}
+			} else {
+				ui.Info("You can start it later with: git-user session start")
+			}
+		}
 	} else {
 		if err := git.RemoveSSHConfig(); err != nil {
 			ui.Warn(fmt.Sprintf("removing SSH config: %v", err))
@@ -92,14 +108,16 @@ func runSwitch(args []string) error {
 	}
 
 	ui.Success(fmt.Sprintf("Switched to %q (%s)", user.Name, user.Email))
-	
-	if user.SSHKey != "" {
+
+	if user.SSHKey != "" && isSSHKeyLoaded(user.SSHKey) {
 		if err := verifySSHConnection(); err != nil {
 			ui.Warn("SSH verification failed. The key may not be added to your platform yet.")
 			ui.Info("Test manually with: ssh -T git@github.com")
 		} else {
 			ui.Success("SSH verified: Connection successful!")
 		}
+	} else if user.SSHKey != "" {
+		ui.Info("Skipping SSH verification until the key is loaded")
 	}
 
 	if git.IsInRepo() {
@@ -116,13 +134,13 @@ func runSwitch(args []string) error {
 		if hasHTTPS {
 			fmt.Println()
 			ui.Warn("This repo uses HTTPS remotes")
-			
+
 			if ui.Confirm("Convert to SSH for passwordless push?", true) {
 				_ = runFixRemote(nil)
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -150,7 +168,7 @@ func quickRegister(name, email string, store *config.Store) error {
 
 	fmt.Println()
 	ui.Info("SSH Key Setup:")
-	
+
 	idx, err := ui.Select("Choose SSH key setup:", []string{
 		"Auto-generate (recommended)",
 		"Use existing key",
