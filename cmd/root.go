@@ -25,6 +25,7 @@ COMMANDS
   remove <name>              Delete an identity
   edit <name> <email>        Update email
   bind <name> [--ssh-key <p>] Add/link SSH key (interactive if no path)
+  passphrase <name>          Add/change SSH key passphrase
   rekey <name>               Rotate SSH key
   fix-remote                 Convert HTTPS remotes to SSH
   export --all               Export all identities + SSH keys (encrypted)
@@ -82,6 +83,8 @@ func Execute() error {
 		return runEdit(rest)
 	case "bind":
 		return runBind(rest)
+	case "passphrase":
+		return runPassphrase(rest)
 	case "rekey":
 		return runRekey(rest)
 	case "fix-remote":
