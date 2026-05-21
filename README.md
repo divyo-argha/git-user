@@ -35,7 +35,7 @@ Alternatively, you can use the one-line install script again to update.
 ### Via npm
 
 ```bash
-npm install -g @divyo_argha/git-user
+npm install -g git-user-manager
 ```
 
 ### Via Go

@@ -1,6 +1,6 @@
 {
-  "name": "@divyo_argha/git-user",
-  "version": "2.1.3",
+  "name": "git-user-manager",
+  "version": "2.1.4",
   "description": "Switch Git accounts in one command. No config editing. No SSH key chaos.",
   "bin": {
     "git-user": "./bin/git-user.js"
