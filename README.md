@@ -35,7 +35,7 @@ Alternatively, you can use the one-line install script again to update.
 ### Via npm
 
 ```bash
-npm install -g git-user-manager
+npm install -g git-user-hub
 ```
 
 ### Via Go

@@ -7,13 +7,13 @@ This is the npm distribution of [git-user](https://github.com/divyo-argha/git-us
 ## Installation
 
 ```bash
-npm install -g git-user-manager
+npm install -g git-user-hub
 ```
 
 Or use without installing:
 
 ```bash
-npx git-user-manager register
+npx git-user-hub register
 ```
 
 ## Quick Start
