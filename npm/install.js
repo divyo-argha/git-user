@@ -114,13 +114,21 @@ async function install() {
     console.log(`🔍 Fetching release v${pkg.version}...`);
     const release = await getRelease();
     
-    // Find the right asset
-    const assetName = `git-user_${osName}_${arch}.tar.gz`;
-    const asset = release.assets.find(a => a.name === assetName);
+    // Find the right asset dynamically
+    const asset = release.assets.find(a => {
+      const name = a.name.toLowerCase();
+      if (!name.includes(osName)) return false;
+      
+      if (arch === 'arm64') {
+        return name.includes('arm64');
+      } else {
+        return name.includes('x86_64') || name.includes('amd64') || name.includes('x64');
+      }
+    });
     
     if (!asset) {
       console.error('❌ No binary found for your platform');
-      console.error(`   Looking for: ${assetName}`);
+      console.error(`   Looking for a ${osName} binary matching architecture: ${arch}`);
       process.exit(1);
     }
     
