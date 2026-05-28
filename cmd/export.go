@@ -9,7 +9,6 @@ import (
 	"github.com/divyo-argha/git-user/internal/bundle"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
-	"golang.org/x/term"
 )
 
 func runExport(args []string) error {
@@ -99,27 +98,4 @@ func runExport(args []string) error {
 	ui.Info("Transfer this file to your new machine, then run:")
 	fmt.Printf("  git-user import %s\n", outPath)
 	return nil
-}
-
-func readPassphrase(prompt string) (string, error) {
-	fmt.Print(prompt)
-	b, err := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Println()
-	if err != nil {
-		// fallback for non-TTY (e.g. tests)
-		var s string
-		_, err2 := fmt.Scanln(&s)
-		if err2 != nil {
-			return "", fmt.Errorf("reading passphrase: %w", err)
-		}
-		return s, nil
-	}
-	return string(b), nil
-}
-
-func plural(n int) string {
-	if n == 1 {
-		return "y"
-	}
-	return "ies"
 }

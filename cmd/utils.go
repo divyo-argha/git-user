@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/ui"
+	"golang.org/x/term"
 )
 
 
@@ -53,33 +54,6 @@ func expandPath(path string) string {
 	return path
 }
 
-func promptNewSSHKeyPassphrase() (string, error) {
-	ui.Info("Protect this SSH key with a passphrase.")
-	ui.Info("Leave empty only if you intentionally want an unprotected key.")
-
-	passphrase, err := readPassphrase("SSH key passphrase: ")
-	if err != nil {
-		return "", err
-	}
-	if passphrase == "" {
-		if ui.Confirm("Create SSH key without a passphrase?", false) {
-			return "", nil
-		}
-		return promptNewSSHKeyPassphrase()
-	}
-
-	confirm, err := readPassphrase("Confirm SSH key passphrase: ")
-	if err != nil {
-		return "", err
-	}
-	if passphrase != confirm {
-		ui.Error("Passphrases do not match.")
-		return "", fmt.Errorf("passphrase mismatch")
-	}
-
-	return passphrase, nil
-}
-
 // generateAndDisplayKey creates an ed25519 key at keyPath, prints the public key,
 // waits for the user to add it, then verifies the connection.
 // Returns the key path on success.
@@ -99,13 +73,12 @@ func generateAndDisplayKey(name, email string) (string, error) {
 		return keyPath, nil
 	}
 
-	passphrase, err := promptNewSSHKeyPassphrase()
-	if err != nil {
-		return "", err
-	}
-
 	ui.Info(fmt.Sprintf("Generating SSH key at %s...", keyPath))
-	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", passphrase)
+	ui.Info("You will be prompted to set a passphrase for the key.")
+	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("ssh-keygen failed: %w", err)
 	}
@@ -149,4 +122,26 @@ func generateAndDisplayKey(name, email string) (string, error) {
 	}
 
 	return keyPath, nil
+}
+
+func readPassphrase(prompt string) (string, error) {
+	fmt.Print(prompt)
+	b, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Println()
+	if err != nil {
+		var s string
+		_, err2 := fmt.Scanln(&s)
+		if err2 != nil {
+			return "", fmt.Errorf("reading passphrase: %w", err)
+		}
+		return s, nil
+	}
+	return string(b), nil
+}
+
+func plural(n int) string {
+	if n == 1 {
+		return "y"
+	}
+	return "ies"
 }
