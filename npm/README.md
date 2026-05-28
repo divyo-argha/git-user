@@ -1,6 +1,6 @@
 <div align="center">
   <br />
-  <img src="https://raw.githubusercontent.com/divyo-argha/git-user/main/git-user-logo-clean.png" alt="git-user" width="100" height="100" style="border-radius:22px" />
+  <img src="https://raw.githubusercontent.com/divyo-argha/git-user/main/img/git-user-logo-clean.png" alt="git-user" width="100" height="100" style="border-radius:22px" />
   <br /><br />
 
   <h1>git-user</h1>
