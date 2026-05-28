@@ -1,999 +1,525 @@
-# git-user
+<div align="center">
+  <br />
+  <img src="git-user-logo-clean.png" alt="git-user" width="120" height="120" style="border-radius:26px" />
+  <br /><br />
 
-> Switch Git accounts in one command. No config editing. No SSH key chaos.
+  <h1>git-user</h1>
+
+  <p>
+    <strong>One command to rule all your Git identities.</strong><br />
+    Stop committing as the wrong person. Stop juggling SSH keys. Stop editing config files.
+  </p>
+
+  <p>
+    <a href="https://github.com/divyo-argha/git-user/releases"><img src="https://img.shields.io/github/v/release/divyo-argha/git-user?style=flat-square&color=00FFAA&label=latest" alt="Latest Release" /></a>
+    <a href="https://www.npmjs.com/package/git-userhub"><img src="https://img.shields.io/npm/v/git-userhub?style=flat-square&color=CB3837&logo=npm&logoColor=white&label=npm" alt="npm" /></a>
+    <a href="https://www.npmjs.com/package/git-userhub"><img src="https://img.shields.io/npm/dm/git-userhub?style=flat-square&color=CB3837&logo=npm&logoColor=white" alt="downloads" /></a>
+    <a href="https://pkg.go.dev/github.com/divyo-argha/git-user"><img src="https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-22c55e?style=flat-square" alt="MIT" /></a>
+  </p>
+
+  <p>
+    <a href="#-the-problem">The Problem</a> ·
+    <a href="#-install">Install</a> ·
+    <a href="#-quick-start">Quick Start</a> ·
+    <a href="#-why-git-user">Why git-user</a> ·
+    <a href="#-features">Features</a> ·
+    <a href="#-commands">Commands</a> ·
+    <a href="#-security">Security</a> ·
+    <a href="#-contributing">Contributing</a>
+  </p>
+
+  <br />
+
+  <img src="https://img.shields.io/badge/GitHub-supported-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub" />
+  <img src="https://img.shields.io/badge/GitLab-supported-FC6D26?style=for-the-badge&logo=gitlab&logoColor=white" alt="GitLab" />
+  <img src="https://img.shields.io/badge/Bitbucket-supported-0052CC?style=for-the-badge&logo=bitbucket&logoColor=white" alt="Bitbucket" />
+  <img src="https://img.shields.io/badge/macOS-supported-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS" />
+  <img src="https://img.shields.io/badge/Linux-supported-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux" />
+
+  <br /><br />
+
+</div>
 
 ---
 
-I built this because I got tired of the same problem every day: juggling multiple Git accounts (work, personal, clients) and constantly forgetting to switch my git config or SSH keys. 
+## 😤 The Problem
 
-`git-user` solves this. Register your identities once, then switch between them in one command.
+You're a developer with multiple lives — work, personal, freelance, open source. Each one has its own Git account, its own SSH key, its own email.
+
+And every few weeks, this happens:
+
+```
+# You just pushed 3 commits to your client's repo.
+# Then you check the author.
+
+Author: you@personal.com   ← 💀 wrong account. again.
+
+# Or your work email leaked onto your public GitHub profile.
+# Or your client can see your personal email in their repo history.
+```
+
+You've tried everything:
+
+| Attempt | Result |
+|---------|--------|
+| Editing `~/.gitconfig` manually | You forget. Every time. |
+| Per-repo `.git/config` overrides | Works until you clone a new repo |
+| Multiple terminal profiles | Still mix them up |
+| SSH config `Host` aliases | Breaks half your existing remotes |
+| Remembering which key goes where | Not a real solution |
+
+**git-user is the permanent fix.** Register your identities once. Switch with one command. Everything — git config, SSH key, remote verification — updates automatically in under a second.
 
 ---
 
-## Installation
+## 📦 Install
 
-### One-line install (recommended)
+<table>
+<tr>
+<td width="33%" valign="top">
 
+### One-line
 ```bash
 curl -sSfL https://raw.githubusercontent.com/divyo-argha/git-user/main/install.sh | bash
 ```
-
 Restart your terminal. PATH is configured automatically.
 
-### Update to latest version
+</td>
+<td width="33%" valign="top">
 
-If you already have git-user installed, update with a single command:
-
-```bash
-git-user --update
-```
-
-This automatically downloads and installs the latest release. The command handles sudo permissions automatically when needed.
-
-Alternatively, you can use the one-line install script again to update.
-
-### Via npm
-
+### npm
 ```bash
 npm install -g git-userhub
 ```
+> Published as `git-userhub` on npm.
+> After install, the command is `git-user`.
 
-### Via Go
+</td>
+<td width="33%" valign="top">
 
+### Go
 ```bash
 go install github.com/divyo-argha/git-user@latest
 ```
 
-**Requirements:** Git, ssh-keygen (optional)
+### Self-update
+```bash
+git-user --update
+```
+
+</td>
+</tr>
+</table>
+
+**Requirements:** ![Git](https://img.shields.io/badge/Git-required-F05032?style=flat-square&logo=git&logoColor=white) · ssh-keygen (optional, for SSH key generation)
 
 ---
 
-## Quick Start
+## ⚡ Quick Start
+
+Two minutes to set up. One second to switch forever after.
 
 ```bash
-# Create your first identity
-git-user register
+# Step 1 — register your identities (guided, interactive)
+git-user register   # → name: work,     email: you@company.com
+git-user register   # → name: personal, email: you@gmail.com
+git-user register   # → name: client-a, email: you@client.com
 
-# Or create and switch in one command
-git-user switch -c work
-
-# Switch between identities
+# Step 2 — switch
 git-user switch work
-git-user switch personal
 
-# List all identities
-git-user list
+# Step 3 — push. that's it.
+git push   # ← commits as you@company.com ✓
+```
 
-# Check what's active
+```bash
+# Create and switch in one command
+git-user switch -c freelance me@freelance.com
+
+# Always know who you are
 git-user current
 ```
 
 ---
 
-## How It Works
+## 🏆 Why git-user?
 
-### First Time Setup
+There are other tools that try to solve this. Here's how git-user is different:
 
-When you run `git-user register`, you get a guided setup:
+| Feature | git-user | direnv / per-dir config | SSH `Host` aliases | Manual `~/.gitconfig` |
+|---------|:--------:|:----------------------:|:------------------:|:---------------------:|
+| One command to switch everything | ✅ | ❌ | ❌ | ❌ |
+| SSH key managed automatically | ✅ | ❌ | ⚠️ partial | ❌ |
+| Works across all repos, not just one | ✅ | ❌ | ✅ | ✅ |
+| SSH connection verified on switch | ✅ | ❌ | ❌ | ❌ |
+| Temporary sessions (shared machines) | ✅ | ❌ | ❌ | ❌ |
+| Encrypted export/import | ✅ | ❌ | ❌ | ❌ |
+| Pre-commit identity guard | ✅ | ❌ | ❌ | ❌ |
+| Security audit built-in | ✅ | ❌ | ❌ | ❌ |
+| Interactive TUI | ✅ | ❌ | ❌ | ❌ |
+| Shell completions | ✅ | ❌ | ❌ | ❌ |
+| Zero config files to edit manually | ✅ | ❌ | ❌ | ❌ |
 
-1. **Enter identity name** (e.g., "work", "personal")
-2. **Enter email address**
-3. **Choose SSH key setup:**
-   - **Auto-generate** - Creates a key, asks for a key passphrase, displays the public key, and waits for you to add it to GitHub/GitLab
-   - **Use existing key** - Provide path to your existing SSH key
-   - **Skip** - Set up SSH later
-
-The public key is displayed right in your terminal - just copy and paste it to GitHub/GitLab/Bitbucket.
-
-### Quick Create and Switch
-
-```bash
-# Prompts for email and SSH setup, then switches immediately
-git-user switch -c work
-
-# Even faster with email
-git-user switch -c work me@work.com
-```
-
-### Daily Usage
-
-```bash
-# Switch identities
-git-user switch work      # ✓ Switched to "work" (you@company.com)
-git-user switch personal  # ✓ Switched to "personal" (you@gmail.com)
-
-# That's it. Git config and SSH are updated automatically.
-```
+> **The key difference:** git-user manages the *whole identity* — name, email, SSH key, and agent session — as a single atomic unit. Other approaches only solve part of the problem, leaving you to manually wire the rest.
 
 ---
 
-## Commands
+## ✨ Features
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 🔑 Identity Management
+- Register unlimited identities — name, email, SSH key
+- Switch in one command, git config updates instantly
+- `switch -c <name>` — create and switch in one step
+- Edit email without re-registering
+- Remove identities safely, with active-identity guard
+
+</td>
+<td width="50%" valign="top">
+
+### 🔐 SSH Key Handling
+- Auto-generate ed25519 keys per identity
+- Public key printed in your terminal — no hunting in `~/.ssh/`
+- Bind any existing key to any identity
+- `rekey` rotates keys with automatic backup and rollback
+- `IdentitiesOnly yes` — SSH never leaks the wrong key
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 🛡️ Security & Passphrases
+- Passphrase-protected keys enforced by default
+- `security` audits every identity: permissions, passphrase, key existence
+- `passphrase` changes passphrase only for the active, unlocked identity
+- All config writes are atomic (temp file + rename) — crash-safe
+- All files stored at `0600` permissions
+
+</td>
+<td width="50%" valign="top">
+
+### ⏱️ Session Management
+- `session start` — loads SSH key into `ssh-agent`
+- `session start --ttl 4h` — auto-expires after a duration
+- `session stop` — unloads key, identity stays selected
+- `session status` — see what's loaded and what's active
+- **Temporary sessions** — use any identity on a shared machine, zero trace left behind
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 🚀 Passwordless Push
+- Detects HTTPS remotes on `switch` and offers to convert
+- `fix-remote` converts all remotes HTTPS → SSH instantly
+- Works with GitHub, GitLab, Bitbucket, and any Git host
+
+</td>
+<td width="50%" valign="top">
+
+### 🖥️ Developer Experience
+- Interactive TUI menu (`git-user tui`)
+- Shell completions for bash, zsh, fish
+- Pre-commit hooks to block wrong-identity commits
+- `doctor` diagnoses your entire setup in one command
+- Encrypted export/import for moving to a new machine
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🔄 How It Works
+
+### Under the hood — one switch
+
+```
+git-user switch work
+        │
+        ▼
+  1. Looks up "work" in ~/.git-users/config.json
+  2. Sets ~/.gitconfig  →  user.name, user.email
+  3. Sets ~/.gitconfig  →  core.sshCommand (points to your key)
+  4. Verifies SSH connection to GitHub/GitLab/Bitbucket
+  5. ✅ Switched to "work" (you@company.com)
+
+git push  ← just works, every time
+```
+
+### A real day with multiple accounts
+
+```
+ 9:00 AM — starting work
+──────────────────────────────────────────────────────────
+ $ git-user switch work
+   ✅ Switched to work (you@company.com)
+ $ git push                        ← commits as you@company.com ✓
+
+ 1:00 PM — open source on lunch break
+──────────────────────────────────────────────────────────
+ $ git-user switch personal
+   ✅ Switched to personal (you@gmail.com)
+ $ git push                        ← commits as you@gmail.com ✓
+
+ 5:00 PM — freelance client work
+──────────────────────────────────────────────────────────
+ $ git-user switch client-a
+   ✅ Switched to client-a (you@client-a.com)
+ $ git push                        ← commits as you@client-a.com ✓
+```
+
+Each switch: under one second. No config editing. No SSH juggling.
+
+---
+
+## 🔒 Temporary Sessions
+
+Working on a shared or borrowed machine? Don't want to leave your SSH keys behind?
+
+```bash
+git-user session start --temp alice me@work.com --ttl 2h
+```
+
+What happens:
+- Generates a **temporary** ed25519 key (not saved to your identity store)
+- Loads it into `ssh-agent` with a 2-hour TTL
+- Sets your git config for the session
+- On `session stop` — key files are **deleted**, git config is **restored**, nothing persists
+
+```bash
+git-user session stop
+# ✅ Temporary session ended — key files deleted
+# ✅ Restored identity: bob (bob@personal.com)
+# ⚠  Remember to remove the temporary key from your Git platform
+```
+
+If the TTL expires and you forget to stop — `git-user` auto-detects the expired session and cleans up on the next invocation.
+
+---
+
+## 📋 Commands
 
 | Command | Description |
 |---------|-------------|
-| `register` | Create new identity (guided setup) |
+| `register` | Create a new identity (guided setup with SSH) |
 | `switch <name>` | Switch to an identity |
 | `switch -c <name> [email]` | Create and switch in one command |
 | `list` | Show all identities |
 | `current` | Show active identity |
 | `remove <name>` | Delete an identity |
 | `edit <name> <email>` | Update email |
-| `bind <name> --ssh-key <path>` | Link SSH key to identity |
+| `bind <name> [--ssh-key <path>]` | Link an SSH key to an identity |
 | `passphrase` | Add or change passphrase for the active, unlocked identity |
-| `rekey <name>` | Rotate SSH key |
+| `rekey <name>` | Rotate SSH key (with rollback safety) |
 | `fix-remote` | Convert HTTPS remotes to SSH |
-| `export --all` | Export all identities + SSH keys (encrypted bundle) |
-| `export <name> [name...]` | Export specific identities (encrypted bundle) |
-| `import <file>` | Import identities from an encrypted bundle |
-| `doctor` | Run health check |
-| `tui` | Interactive menu |
-| `completion <shell>` | Generate shell completions (bash/zsh/fish) |
-| `hook <install\|uninstall>` | Manage git pre-commit hooks |
-| `session start [name] [--ttl <duration>]` | Load an identity's SSH key into ssh-agent |
-| `session stop [name]` | Unload an identity's SSH key; identity stays selected |
+| `session start [name] [--ttl <d>]` | Load SSH key into ssh-agent |
+| `session start --temp <name> <email> [--ttl <d>]` | **Temporary session — nothing saved permanently** |
+| `session stop [name]` | Unload SSH key; identity stays selected |
 | `session stop --all` | Remove all keys from ssh-agent |
-| `session status` | Show ssh-agent and loaded-key status |
+| `session status` | Show agent and loaded-key status |
+| `security` | Audit all identities for security issues |
+| `export --all` | Export all identities + SSH keys (AES-256 encrypted) |
+| `export <name> [name...]` | Export specific identities |
+| `import <file>` | Import from an encrypted bundle |
+| `doctor` | Run a full health check |
+| `tui` | Interactive menu |
+| `completion <shell>` | Shell completions (bash/zsh/fish) |
+| `hook <install\|uninstall>` | Pre-commit hook to verify identity |
+| `--update` | Update to the latest version |
 
-**Aliases:** `ls` (list), `sw` (switch), `rm` (remove)
-
----
-
-## Real-World Examples
-
-### Freelancer with Multiple Clients
-
-```bash
-git-user register  # name: client-a, email: you@client-a.com
-git-user register  # name: client-b, email: you@client-b.com
-git-user register  # name: personal, email: you@gmail.com
-
-# Before each work session
-git-user switch client-a
-```
-
-### Work vs Personal
-
-```bash
-git-user register  # name: work, email: you@company.com
-git-user register  # name: personal, email: you@gmail.com
-
-git-user switch work      # at the office
-git-user switch personal  # at home
-```
-
-### Quick Setup for Multiple Identities
-
-```bash
-git-user switch -c work me@work.com
-git-user switch -c personal me@gmail.com
-git-user switch -c client me@client.com
-# Each gets its own SSH key automatically
-```
+**Aliases:** `ls` → `list` · `sw` → `switch` · `rm` → `remove`
 
 ---
 
-## Passwordless Push with SSH
+## 🛡️ Security
 
-### The Problem
+<table>
+<tr>
+<td width="50%" valign="top">
 
-When you `git push` and see this:
+**What git-user does**
+- Private keys stay on your machine at `0600` permissions
+- Config writes are atomic (temp file + rename) — crash-safe
+- `IdentitiesOnly yes` in SSH config — no key leakage
+- Passphrase protection audited by `security` command
+- Export bundles encrypted with AES-256-GCM, passphrase stretched with scrypt (N=2¹⁷)
+- Passphrases are never passed as CLI arguments — entered directly into the terminal
 
-```
-Username for 'https://github.com': _
-```
+</td>
+<td width="50%" valign="top">
 
-Your SSH keys are useless because the repository is using HTTPS, not SSH.
+**What git-user never does**
+- Never stores passphrases
+- Never sends keys or config anywhere
+- Never modifies your repositories
+- Never overwrites existing identities on import
+- Temporary sessions leave zero trace after `session stop`
 
-### The Solution
+</td>
+</tr>
+</table>
 
-`git-user` automatically detects HTTPS remotes and offers to convert them:
-
-```bash
-$ git-user switch work
-  ✅ Switched to work (you@company.com)
-  
-  ⚠️  This repo uses HTTPS remotes
-      Convert to SSH for passwordless push? [Y/n] y
-  
-  ✅ origin: https://github.com/company/app.git → git@github.com:company/app.git
-  
-  Try: git push
-```
-
-### Manual Conversion
-
-Already in a repo with HTTPS remotes? Fix it instantly:
-
-```bash
-$ git-user fix-remote
-
-  ✅ origin: https://github.com/user/repo.git → git@github.com:user/repo.git
-  ✅ upstream: https://github.com/org/repo.git → git@github.com:org/repo.git
-  
-  Converted 2 remote(s) to SSH
-  Try: git push
-```
-
-Now `git push` works without credentials.
-
-### How It Works
-
-- **HTTPS URLs** require username/password or tokens
-- **SSH URLs** use your SSH keys (already set up by git-user)
-- `fix-remote` converts: `https://github.com/user/repo.git` → `git@github.com:user/repo.git`
-- Works with GitHub, GitLab, Bitbucket, and any Git platform
-
-### When to Use
-
-Run `git-user fix-remote` when:
-- You cloned a repo via HTTPS (GitHub's default)
-- Git asks for credentials when pushing
-- You want passwordless authentication
-
----
-
-## SSH Key Options
-
-### Option 1: Auto-generate (Recommended)
-
-The tool creates a new SSH key and displays it in your terminal:
-
-```
-┌─────────────────────────────────────────┐
-│     📋 YOUR PUBLIC KEY                  │
-└─────────────────────────────────────────┘
-
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... you@company.com
-
-Copy the key above and add it to your Git platform:
-  GitHub:    Settings → SSH and GPG keys → New SSH key
-  GitLab:    Preferences → SSH Keys → Add new key
-  Bitbucket: Personal settings → SSH keys → Add key
-```
-
-Just copy the key, add it to your platform, press Enter. The tool verifies the connection with that exact key.
-
-When a new key is generated, `git-user` asks for an SSH key passphrase. This passphrase protects the private key on disk. It is not your GitHub/GitLab password, and `git-user` does not store it.
-
-### Option 2: Use Existing Key
-
-Already have SSH keys? Just provide the path:
-
-```bash
-# During setup, choose option 2
-Path to SSH key: ~/.ssh/id_ed25519
-```
-
-### Option 3: Skip
-
-Skip SSH setup and add it later:
-
-```bash
-git-user bind work --ssh-key ~/.ssh/id_ed25519
-```
-
----
-
-## Security, Passphrases, and Sessions
-
-`git-user` separates two ideas:
-
-- **Identity**: the selected Git name, email, and SSH key path.
-- **Session**: whether that SSH key is currently unlocked in `ssh-agent`.
-
-Switching identity does not mean the key is unlocked. Stopping a session does not switch your identity.
-
-### Check Security Status
-
-Run a full security audit:
+### Run a security audit
 
 ```bash
 git-user security
 ```
 
-This checks each identity for:
-
-- missing SSH key binding
-- missing key file
-- unsafe private key permissions
-- whether the SSH key has a passphrase
-
-If an old identity was created before passphrase support, `git-user security` will show it and print the fix.
-
-### Add or Change a Passphrase
-
-Passphrases are changed only for the active, unlocked identity. This prevents one identity from modifying another identity's key.
-
-```bash
-git-user switch work
-git-user session start
-git-user passphrase
 ```
+✔ Config file permissions OK (0600)
 
-If the key has no passphrase, this adds one. If it already has a passphrase, this asks for the current passphrase and then sets a new one.
+ℹ work (you@company.com)
+  ✔ Permissions OK: git_work
+  ✔ Passphrase protected
 
-You cannot recover a forgotten SSH key passphrase. If you forget it, create a new key:
-
-```bash
-git-user rekey work
-```
-
-### Start and Stop Sessions
-
-Start a session for the current identity:
-
-```bash
-git-user session start
-```
-
-Or start one explicitly:
-
-```bash
-git-user session start work
-git-user session start work --ttl 4h
-```
-
-Stop the current identity's session:
-
-```bash
-git-user session stop
-```
-
-This unloads the current identity's key from `ssh-agent`, but the active identity stays the same.
-
-Remove every loaded SSH key only when you explicitly mean it:
-
-```bash
-git-user session stop --all
-```
-
-Check what is loaded:
-
-```bash
-git-user session status
-```
-
-### Secure Existing Identities
-
-For identities you created earlier:
-
-```bash
-git-user security
-git-user switch <name>
-git-user session start
-git-user passphrase
-git-user security
-```
-
-If the identity has no SSH key yet:
-
-```bash
-git-user bind <name>
-```
-
-Or generate a fresh key:
-
-```bash
-git-user rekey <name>
+ℹ personal (you@gmail.com)
+  ✔ Permissions OK: git_personal
+  ⚠ No passphrase detected
+    Fix: ssh-keygen -p -f ~/.ssh/git_personal
 ```
 
 ---
 
-## What Gets Modified
-
-- **`~/.gitconfig`** - Updates `user.name`, `user.email`, and `core.sshCommand`
-- **`~/.git-users/config.json`** - Stores your identities
-- **`~/.ssh/git_<name>`** - SSH keys (if auto-generated)
-
-Your repositories are never touched. Only your global Git config changes.
-
----
-
-## Moving to a New Machine
-
-Setting up all your identities from scratch on a new computer takes time. `export` and `import` handle it in one step.
-
-### Export (on your current machine)
+## 🚚 Moving to a New Machine
 
 ```bash
-# Export everything
+# On your current machine
 git-user export --all
+# → ~/git-user-export-2026-05-29.bundle  (AES-256 encrypted)
 
-# Or export specific identities
-git-user export work personal client-a
-```
+# Transfer the file, then on the new machine
+git-user import ~/git-user-export-2026-05-29.bundle
+# ✅ Imported: work (you@company.com) → ~/.ssh/git_work
+# ✅ Imported: personal (you@gmail.com) → ~/.ssh/git_personal
 
-```
-⚠  This file will contain your PRIVATE SSH keys.
-⚠  Keep it secure and delete it after importing on the new machine.
-
-Enter passphrase to encrypt bundle: ****
-Confirm passphrase: ****
-ℹ  Encrypting… (this takes a few seconds)
-
-✔ Exported 3 identities to ~/git-user-export-2026-05-19.bundle
-
-  • work (you@company.com)
-  • personal (you@gmail.com)
-  • client-a (you@client.com)
-
-ℹ  Transfer this file to your new machine, then run:
-   git-user import ~/git-user-export-2026-05-19.bundle
-```
-
-The bundle is saved to your home directory with today's date in the filename. No need to think about where to put it.
-
-Transfer the file to your new machine (USB, encrypted cloud, `scp`, etc.).
-
-### Import (on the new machine)
-
-```bash
-git-user import ~/git-user-backup.bundle
-```
-
-```
-Enter passphrase: ****
-ℹ  Decrypting…
-
-✔ Imported: work (you@company.com) → ~/.ssh/git_work
-✔ Imported: personal (you@gmail.com) → ~/.ssh/git_personal
-✔ Imported: client-a (you@client.com) → ~/.ssh/git_client-a
-
-ℹ  Imported 3 identities. Run 'git-user switch <name>' to activate one.
-```
-
-All identities and SSH keys are restored. Run `git-user switch work` and you're ready to push.
-
-### Security
-
-- Encrypted with **AES-256-GCM**
-- Passphrase stretched with **scrypt** (N=2¹⁷) — brute-forcing a strong passphrase is computationally infeasible
-- **Delete the bundle file after importing** — it contains your private keys
-- `import` never overwrites existing identities — it skips them
-
----
-
-## Shell Completions
-
-Speed up your workflow with intelligent autocompletion for bash, zsh, and fish.
-
-### Installation
-
-**Bash:**
-```bash
-git-user completion bash | sudo tee /etc/bash_completion.d/git-user
-# Restart your terminal
-```
-
-**Zsh:**
-```bash
-git-user completion zsh > "${fpath[1]}/_git-user"
-# Restart your terminal
-```
-
-**Fish:**
-```bash
-git-user completion fish > ~/.config/fish/completions/git-user.fish
-# Restart your terminal
-```
-
-### What You Get
-
-```bash
-git-user sw<TAB>           # Completes to: git-user switch
-git-user switch <TAB>      # Shows: work  personal  client-a
-git-user remove <TAB>      # Shows your identity names
-git-user completion <TAB>  # Shows: bash  zsh  fish
-```
-
-Completions work for:
-- All commands (register, switch, list, etc.)
-- Identity names (reads from your config)
-- Flags (--all, --ssh-key, etc.)
-- Shell types for completion command
-
----
-
-## Git Hooks: Prevent Wrong Identity Commits
-
-Accidentally committing with the wrong identity is a common mistake. Git hooks prevent this.
-
-### Install Hook
-
-```bash
-# In any git repository
-git-user hook install
-```
-
-This creates a pre-commit hook that verifies your identity before each commit.
-
-### How It Works
-
-```bash
-# You're on your work identity
 git-user switch work
+# Ready to push immediately
+```
 
-# Try to commit
+---
+
+## 🔧 Troubleshooting
+
+```bash
+git-user doctor
+```
+
+```
+✅ git installed (2.43.0)
+✅ ssh-keygen available
+✅ Active identity: work (you@company.com)
+✅ SSH key exists at ~/.ssh/git_work
+✅ Key permissions OK (0600)
+✅ GitHub connection verified — Hi alice-corp!
+──────────────────────────────────────────────
+Everything looks good.
+```
+
+**Common issues:**
+
+| Symptom | Fix |
+|---------|-----|
+| `git-user: command not found` | Restart terminal or `source ~/.zshrc` |
+| SSH verification failed | Key not added to platform yet — `git-user doctor` shows the public key |
+| `Permission denied` during install | Expected — installer needs sudo for `/usr/local/bin` |
+| Git asks for credentials on push | Run `git-user fix-remote` to convert HTTPS → SSH |
+
+---
+
+## 🐚 Shell Completions
+
+```bash
+# Bash
+git-user completion bash | sudo tee /etc/bash_completion.d/git-user
+
+# Zsh
+git-user completion zsh > "${fpath[1]}/_git-user"
+
+# Fish
+git-user completion fish > ~/.config/fish/completions/git-user.fish
+```
+
+```bash
+git-user sw<TAB>          # → git-user switch
+git-user switch <TAB>     # → work  personal  client-a
+git-user remove <TAB>     # → your identity names
+```
+
+---
+
+## 🪝 Pre-commit Hooks
+
+```bash
+git-user hook install   # in any repo where identity matters
+```
+
+```bash
 git commit -m "Add feature"
 
-# If identity matches → commit proceeds ✓
-# If identity mismatches → commit blocked ✗
-```
-
-**Example of blocked commit:**
-```
-✖ Identity mismatch!
-  Expected: work (you@company.com)
-  Git config: you@gmail.com
-  Run: git-user switch work
-```
-
-### Remove Hook
-
-```bash
-git-user hook uninstall
-```
-
-### When to Use
-
-Install hooks in repositories where identity matters:
-- Work repositories (prevent personal commits)
-- Client repositories (prevent wrong client identity)
-- Open source projects (ensure correct public identity)
-
-**Note:** Hooks are per-repository. Install in each repo where you want verification.
-
----
-
-## Troubleshooting
-
-```bash
-# Run health check
-git-user doctor
-
-# Check version
-git-user --version
-
-# Get help
-git-user --help
-```
-
-Common issues:
-- **SSH verification failed** - The key may not be added to your platform yet, or needs a few seconds to propagate
-- **Command not found** - Restart your terminal or run `source ~/.zshrc` (or `~/.bashrc`)
-
----
-
-## Uninstall
-
-```bash
-# Remove binary
-sudo rm /usr/local/bin/git-user
-
-# Remove config (optional)
-rm -rf ~/.git-users
+# ✖ Identity mismatch!
+#   Expected: work (you@company.com)
+#   Git config: you@gmail.com
+#   Run: git-user switch work
 ```
 
 ---
 
-## Contributing
-
-Issues and pull requests welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
-
----
-
-## License
-
-MIT License - see [LICENSE](LICENSE)
-
----
-
-*Made for developers who just want their Git to work.*
-
-## Workflow diagrams
-
-Pictures are worth a thousand man pages. Here's exactly what happens at each step.
-
----
-
-### Setting up a new identity (first time)
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                       git-user register                          │
-└─────────────────────────────┬────────────────────────────────────┘
-                              │
-                              ▼
-                   ┌─────────────────────┐
-                   │  What's your name?  │  ← e.g. "work" or "alice-personal"
-                   └──────────┬──────────┘
-                              │
-                              ▼
-                   ┌─────────────────────┐
-                   │  What's your email? │  ← e.g. alice@company.com
-                   └──────────┬──────────┘
-                              │
-                              ▼
-             ┌────────────────────────────────┐
-             │   Generate a new SSH key? Y/n  │
-             └────────────┬───────────────────┘
-                          │
-           ┌──────────────┴──────────────┐
-           ▼                             ▼
-     ┌──────────┐                ┌──────────────────────┐
-     │   YES    │                │          NO          │
-     └────┬─────┘                └──────────┬───────────┘
-          │                                 │
-          ▼                                 ▼
-┌──────────────────────┐       ┌────────────────────────────┐
-│ Key generated at     │       │ Enter path to your key     │
-│ ~/.ssh/git_work      │       │ e.g. ~/.ssh/id_ed25519     │
-│                      │       └────────────────────────────┘
-│ ┌──────────────────┐ │
-│ │  PUBLIC KEY      │ │  ← printed right here in the terminal
-│ │  ssh-ed25519 ... │ │     copy it, add it to GitHub/GitLab/Bitbucket
-│ │  Fingerprint: .. │ │     (same key works on all platforms!)
-│ └──────────────────┘ │
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│  Added it to GitHub? │
-│  Press Enter...      │
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│  Testing connection  │
-│  ssh -T git@github.. │
-└──────────┬───────────┘
-           │
-     ┌─────┴──────┐
-     ▼            ▼
-  ✅ Works    ❌ Fails
-  Identity    Shows you
-  saved and   exactly
-  activated   what to fix
-```
-
-**The whole thing takes under 2 minutes.** The public key is printed directly in your terminal — you don't have to hunt for it in `~/.ssh/`. The tool tests the connection before saving anything, so you never end up with a half-configured identity.
-
-**Note:** One SSH key works on GitHub, GitLab, and Bitbucket. Just add the public key to whichever platforms you use.
-
----
-
-### Switching between identities
-
-Once you have two or more identities, switching looks like this:
-
-```
-You type:  git-user switch personal
-                     │
-                     ▼
-      ┌──────────────────────────────────────────┐
-      │           What git-user does             │
-      │                                          │
-      │  1. Finds "personal" in its store        │
-      │     ~/.git-users/config.json             │
-      │                                          │
-      │  2. Updates ~/.gitconfig                 │
-      │     user.name  = Alice                   │
-      │     user.email = alice@gmail.com         │
-      │                                          │
-      │  3. Rewrites ~/.ssh/config block         │
-      │     Host github.com                      │
-      │       IdentityFile ~/.ssh/git_personal   │
-      │       IdentitiesOnly yes                 │
-      │                                          │
-      │  4. Tests SSH connection                 │
-      │     → Hi alice! (github.com)             │
-      │                                          │
-      │  5. ✅ Switched to personal              │
-      └──────────────────────────────────────────┘
-                     │
-                     ▼
-            git push just works.
-```
-
-One command. Half a second. You're done.
-
----
-
-### A real day with multiple accounts
-
-This is what switching actually looks like day-to-day:
-
-```
- 9:00 AM — starting work
-──────────────────────────────────────────────────
- $ git-user switch work
-   ✅ Switched to work (alice@company.com)
-
- $ cd ~/projects/company-app
- $ git commit -m "fix: null check on user input"
- $ git push                   ← commits as alice@company.com ✓
-
-
- 1:00 PM — open source, on your lunch break
-──────────────────────────────────────────────────
- $ git-user switch personal
-   ✅ Switched to personal (alice@gmail.com)
-
- $ cd ~/oss/my-cool-library
- $ git commit -m "feat: add streaming support"
- $ git push                   ← commits as alice@gmail.com ✓
-
-
- 5:00 PM — freelance client work
-──────────────────────────────────────────────────
- $ git-user switch client-a
-   ✅ Switched to client-a (alice@client-a.com)
-
- $ cd ~/freelance/their-dashboard
- $ git push                   ← commits as alice@client-a.com ✓
-```
-
-Each switch takes less time than unlocking your screen. No config editing, no SSH agent juggling, no "wait, which account am I on?"
-
----
-
-### Rotating an SSH key
-
-Keys expire. Keys get revoked. Sometimes you just want a fresh one. `rekey` handles the whole process:
-
-```
-git-user rekey work
-        │
-        ▼
-┌──────────────────────────────────────────┐
-│  Generates new ed25519 key pair          │
-│  ~/.ssh/git_work (new)                  │
-└───────────────────┬──────────────────────┘
-                    │
-                    ▼
-┌──────────────────────────────────────────┐
-│  Prints new public key to terminal       │
-│  → you copy it, add to GitHub            │
-│  → press Enter when done                 │
-└───────────────────┬──────────────────────┘
-                    │
-                    ▼
-┌──────────────────────────────────────────┐
-│  Tests connection with the new key       │
-└───────────────────┬──────────────────────┘
-                    │
-          ┌─────────┴──────────┐
-          ▼                    ▼
-     ✅ Works             ❌ Fails
-     Old key replaced     Old key kept
-     atomically           Nothing breaks
-                          Tells you what's wrong
-```
-
-If the new key fails verification, you're still on the old one. Nothing breaks. Fix the issue and try again.
-
----
-
-### Diagnosing problems
-
-Something feels off? This is your first stop:
-
-```
-$ git-user doctor
-
-Checking your git-user setup...
-
-  ✅  git installed (2.43.0)
-  ✅  ssh-keygen available
-  ✅  Active identity: work (alice@company.com)
-  ✅  SSH key exists at ~/.ssh/git_work
-  ✅  Key permissions OK (0600)
-  ✅  GitHub connection verified — Hi alice-corp!
-  ──────────────────────────────────────────────
-  Everything looks good.
-```
-
-When something's wrong, it's specific:
-
-```
-$ git-user doctor
-
-  ✅  git installed (2.43.0)
-  ✅  ssh-keygen available
-  ✅  Active identity: work (alice@company.com)
-  ✅  SSH key exists at ~/.ssh/git_work
-  ❌  GitHub connection failed
-      Your key isn't added to GitHub yet.
-      Run: cat ~/.ssh/git_work.pub
-      Then go to: github.com/settings/keys
-```
-
-It tells you what's wrong and what to do about it. No decoding cryptic SSH errors.
-
----
-
-## All commands
-
-| Command | What it does |
-|---|---|
-| `git-user register` | Create a new identity — guided, SSH included |
-| `git-user switch <name>` | Activate an identity |
-| `git-user list` | See all your identities |
-| `git-user current` | Check what's active right now |
-| `git-user rekey <name>` | Generate a fresh SSH key for an identity |
-| `git-user bind <name> --ssh-key <path>` | Link an SSH key you already have |
-| `git-user passphrase` | Add/change passphrase for the active, unlocked identity |
-| `git-user session start [name] [--ttl <duration>]` | Unlock an identity's SSH key in ssh-agent |
-| `git-user session stop [name]` | Unload an identity's key without switching identity |
-| `git-user session stop --all` | Remove all loaded SSH keys from ssh-agent |
-| `git-user session status` | Show ssh-agent and loaded-key status |
-| `git-user security` | Audit key permissions and passphrase protection |
-| `git-user remove <name>` | Delete an identity |
-| `git-user edit <name> <email>` | Update an identity's email |
-| `git-user export --all` | Export all identities + SSH keys (encrypted bundle) |
-| `git-user export <name> [name...]` | Export specific identities (encrypted bundle) |
-| `git-user import <file>` | Import identities from an encrypted bundle |
-| `git-user doctor` | Run a health check on everything |
-| `git-user completion <shell>` | Generate shell completions (bash/zsh/fish) |
-| `git-user hook install` | Install pre-commit hook to verify identity |
-| `git-user hook uninstall` | Remove pre-commit hook |
-| `git-user -i` | Open the interactive TUI menu |
-| `git-user --update` | Update to the latest version |
-
----
-
-## Real scenarios
-
-### Freelancer with multiple clients
-
-```bash
-git-user register   # name: client-a, email: you@client-a.com
-git-user register   # name: client-b, email: you@client-b.com
-git-user register   # name: client-c, email: you@client-c.com
-
-# Before every session — one command
-git-user switch client-b
-```
-
-No more accidentally emailing a client with commits from your personal address. No more "wait, which SSH key does this repo need?"
-
-### Work vs personal
-
-```bash
-git-user register   # name: work,     email: you@company.com
-git-user register   # name: personal, email: you@gmail.com
-
-git-user switch work      # at the office
-git-user switch personal  # on your own time
-```
-
-Your company email never leaks onto your public GitHub profile. Your personal commits don't show up in your employer's activity.
-
-### Open source maintainer with multiple orgs
-
-```bash
-git-user register   # name: personal,   email: you@gmail.com
-git-user register   # name: company,    email: you@company.com
-git-user register   # name: foundation, email: maintainer@foundation.org
-
-git-user switch personal    # your side projects
-git-user switch company     # work projects
-git-user switch foundation  # community projects
-```
-
-### Already have SSH keys set up
-
-You don't need to regenerate anything. Skip the key generation during `register`, then bind your existing key:
-
-```bash
-git-user register   # name: work, email: you@company.com → generate key: no
-git-user bind work --ssh-key ~/.ssh/id_ed25519_work
-```
-
-### Prefer clicking over typing
-
-```bash
-git-user -i   # or: git-user tui
-```
-
-Arrow keys to navigate, Enter to select. Does everything the CLI does, just with a beautiful menu.
-
----
-
-## What's stored where
+## 📁 What Gets Modified
 
 ```
 ~/.git-users/
-  └── config.json         ← your identities (names, emails, key paths)
+  ├── config.json          ← your identities (names, emails, key paths)
+  └── temp_session.json    ← active temporary session state (if any)
 
-~/.gitconfig              ← updated on every switch (name + email)
-~/.ssh/config             ← updated on every switch (which key to use)
-~/.ssh/git_<name>         ← private key (never leaves your machine)
-~/.ssh/git_<name>.pub     ← public key (what you add to GitHub/GitLab)
+~/.gitconfig               ← updated on every switch (name, email, sshCommand)
+~/.ssh/git_<name>          ← private key (never leaves your machine)
+~/.ssh/git_<name>.pub      ← public key (what you add to GitHub/GitLab)
+~/.ssh/git_tmp_<name>      ← temporary session key (deleted on session stop)
 ```
 
-`git-user` stores the *path* to your private keys, not the keys themselves. If you back up `~/.git-users/config.json` and move it to a new machine, you just need to re-run `register` for the SSH key part — all the profile info carries over.
+Your repositories are never touched. Only global git config changes.
 
 ---
 
-## Security
+## 🤝 Contributing
 
-- Private keys stay on your machine with `0600` permissions — only you can read them
-- Key permissions are validated before use — if something's wrong, you're told immediately
-- Generated SSH keys can be protected with passphrases during `register`, `switch -c`, `bind`, and `rekey`
-- `git-user passphrase` can add or change the passphrase only for the active, unlocked identity
-- `git-user security` audits every identity and reports missing keys, unsafe permissions, and missing passphrases
-- `git-user session stop` unloads only the current identity's key; use `session stop --all` only when you want to clear every key
-- `IdentitiesOnly yes` in `~/.ssh/config` means SSH only tries the key you assigned, nothing else
-- Config writes are atomic (temp file + rename) — a crash mid-write can't leave you in a broken state
-
----
-
-## Troubleshooting
-
-**"git-user: command not found"**
-Restart your terminal, or run `source ~/.zshrc` (bash: `source ~/.bashrc`). If it still doesn't work, check that `/usr/local/bin` is in your `$PATH`.
-
-**"Permission denied" during install**
-The installer copies the binary to `/usr/local/bin` which usually needs sudo. It'll ask for your password — that's expected.
-
-**SSH verification failed after register**
-The key probably isn't added to GitHub yet. Run `git-user doctor` — it'll show you the public key again and tell you exactly where to paste it.
-
-**Want to uninstall?**
-```bash
-sudo rm /usr/local/bin/git-user
-rm -rf ~/.git-users
-```
-Your SSH keys and `~/.gitconfig` are not touched. Only the tool itself and its config file are removed.
-
----
-
-## Testing & Verification
-
-All core functionality has been tested and verified to work properly.
-
-### Build & Test Commands
+Issues and pull requests are welcome. If something's broken, open an issue. If something's confusing — even just "I didn't understand what this command does" — that's worth filing too.
 
 ```bash
-# Build the binary
-make build
-
-# Run all tests
-make test
-
-# Install locally (no sudo)
-make install-local
-
-# Install system-wide
-make install
+git clone https://github.com/divyo-argha/git-user.git
+cd git-user
+make build   # build binary
+make test    # run tests
 ```
 
-### Update Command
-
-The `git-user --update` command:
-- ✅ Automatically detects your installation location
-- ✅ Downloads the latest release from GitHub
-- ✅ Handles sudo permissions when needed
-- ✅ Creates a backup before updating
-- ✅ Verifies the update was successful
-
-### Test Environment
-
-- **OS:** macOS
-- **Shell:** bash/zsh compatible
-- **SSH:** Available and functional
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ---
 
-## Contributing
+## 📄 License
 
-Issues and pull requests are welcome. If something's broken, open an issue. If something's confusing — even just "I didn't understand what this command does" — that's worth filing too. The goal is for this to be usable by someone who's never touched SSH config before.
-
----
-
-MIT License.
+MIT — see [LICENSE](LICENSE).
 
 ---
 
-*Made for developers who just want their Git to work.*
+<div align="center">
+
+**Made for developers who just want their Git to work.**
+
+<br />
+
+[![GitHub](https://img.shields.io/badge/Star%20on%20GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/divyo-argha/git-user)
+[![npm](https://img.shields.io/badge/Install%20via%20npm-CB3837?style=for-the-badge&logo=npm&logoColor=white)](https://www.npmjs.com/package/git-userhub)
+
+<br />
+
+<sub>If git-user saved you from a wrong-account commit, consider giving it a ⭐</sub>
+
+</div>
