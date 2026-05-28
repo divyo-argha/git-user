@@ -8,7 +8,7 @@ import (
 )
 
 func runTui() error {
-	ui.Banner("🎯 Git-User Manager")
+	ui.PrintLogo()
 	fmt.Println()
 
 	for {

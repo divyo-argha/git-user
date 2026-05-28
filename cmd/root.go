@@ -68,6 +68,7 @@ func Execute() error {
 	autoCleanupExpiredTempSession()
 
 	if len(args) == 0 || args[0] == "--help" || args[0] == "-h" || args[0] == "help" {
+		ui.PrintLogo()
 		fmt.Print(usage)
 		return nil
 	}
