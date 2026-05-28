@@ -37,6 +37,18 @@ func runSession(args []string) error {
 }
 
 func startSession(args []string) error {
+	for _, arg := range args {
+		if arg == "--temp" {
+			rest := make([]string, 0, len(args))
+			for _, a := range args {
+				if a != "--temp" {
+					rest = append(rest, a)
+				}
+			}
+			return startTempSession(rest)
+		}
+	}
+
 	ui.Banner("START SESSION")
 	fmt.Println()
 
@@ -112,7 +124,8 @@ func stopSession(args []string) error {
 		return err
 	}
 
-	if err := ensureSSHAgent(); err != nil {
+	if os.Getenv("SSH_AUTH_SOCK") == "" {
+		ui.Info("No ssh-agent running — nothing to stop")
 		return nil
 	}
 
@@ -121,8 +134,17 @@ func stopSession(args []string) error {
 			ui.Warn("Failed to remove keys from agent")
 			return err
 		}
+		removeTempSessionFile()
 		ui.Success("All SSH keys removed from agent")
 		ui.Info("Session ended")
+		return nil
+	}
+
+	if ts, _ := loadTempSession(); ts != nil && name == "" {
+		cleanupTempSession(ts)
+		ui.Success("Temporary session ended — key files deleted")
+		ui.Info(fmt.Sprintf("Restored identity: %s (%s)", ts.PrevName, ts.PrevEmail))
+		ui.Warn("Remember to remove the temporary key from your Git platform")
 		return nil
 	}
 
@@ -154,10 +176,8 @@ func stopSession(args []string) error {
 	if err := removeSSHKey(user.SSHKey); err != nil {
 		ui.Warn("Failed to remove key from agent")
 		return err
-	} else {
-		ui.Success(fmt.Sprintf("SSH key removed for %q", user.Name))
 	}
-
+	ui.Success(fmt.Sprintf("SSH key removed for %q", user.Name))
 	ui.Info("Session ended")
 	ui.Info(fmt.Sprintf("Current identity is still %q", user.Name))
 	ui.Info("You'll need to authenticate again on next push")
@@ -207,6 +227,18 @@ func sessionStatus() error {
 }
 
 func showCurrentSessionIdentity() {
+	if ts, _ := loadTempSession(); ts != nil {
+		fmt.Println()
+		ui.Warn(fmt.Sprintf("Temporary session active: %s (%s)", ts.Name, ts.Email))
+		ui.Info(fmt.Sprintf("Key: %s", ts.KeyPath))
+		if isSSHKeyLoaded(ts.KeyPath) {
+			ui.Success("Temporary key is loaded")
+		} else {
+			ui.Warn("Temporary key has expired — run 'git-user session stop' to clean up")
+		}
+		return
+	}
+
 	store, err := config.Load()
 	if err == nil && store.Current != "" {
 		fmt.Println()
@@ -353,7 +385,11 @@ func addSSHKey(keyPath, ttl string) error {
 }
 
 func removeSSHKey(keyPath string) error {
-	cmd := exec.Command("ssh-add", "-d", keyPath)
+	pubKeyPath := keyPath + ".pub"
+	if _, err := os.Stat(pubKeyPath); err != nil {
+		return fmt.Errorf("public key not found at %s", pubKeyPath)
+	}
+	cmd := exec.Command("ssh-add", "-d", pubKeyPath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

@@ -36,7 +36,11 @@ COMMANDS
   completion <shell>         Generate shell completion (bash/zsh/fish)
   hook <install|uninstall>   Manage git pre-commit hooks
   security                   Run security audit
-  session <start|stop|status> Manage SSH authentication sessions
+  session start [name] [--ttl <duration>]  Load an identity's SSH key into ssh-agent
+  session start --temp <name> <email> [--ttl] Temporary session — key not saved, deleted on stop
+  session stop [name]          Unload an identity's SSH key; identity stays selected
+  session stop --all           Remove all keys from ssh-agent
+  session status               Show ssh-agent and loaded-key status
 
 ALIASES
   ls (list)  sw (switch)  rm (remove)
@@ -60,6 +64,8 @@ Config: ~/.git-users/config.json
 
 func Execute() error {
 	args := os.Args[1:]
+
+	autoCleanupExpiredTempSession()
 
 	if len(args) == 0 || args[0] == "--help" || args[0] == "-h" || args[0] == "help" {
 		fmt.Print(usage)
