@@ -108,13 +108,12 @@ func interactiveSSHSetup(name, email string, store *config.Store) error {
 			ui.Info(fmt.Sprintf("Using existing key: %s", keyPath))
 			sshKeyPath = keyPath
 		} else {
-			passphrase, err := promptNewSSHKeyPassphrase()
-			if err != nil {
-				return err
-			}
-
 			ui.Info("Generating SSH key...")
-			cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", passphrase)
+			ui.Info("You will be prompted to set a passphrase for the key.")
+			cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath)
+			cmd.Stdin = os.Stdin
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
 				ui.Error("Key generation failed")
 				return err

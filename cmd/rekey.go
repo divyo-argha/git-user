@@ -41,11 +41,6 @@ func runRekey(args []string) error {
 		return err
 	}
 
-	passphrase, err := promptNewSSHKeyPassphrase()
-	if err != nil {
-		return err
-	}
-
 	backupPath := keyPath + ".backup"
 	hasOldKey := false
 	if _, err := os.Stat(keyPath); err == nil {
@@ -62,7 +57,9 @@ func runRekey(args []string) error {
 	}
 
 	ui.Info(fmt.Sprintf("Generating new SSH key at %s...", keyPath))
-	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", user.Email, "-f", keyPath, "-N", passphrase)
+	ui.Info("You will be prompted to set a passphrase for the key.")
+	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", user.Email, "-f", keyPath)
+	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
