@@ -1,6 +1,6 @@
 {
   "name": "git-userhub",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Switch Git accounts in one command. No config editing. No SSH key chaos.",
   "bin": {
     "git-user": "bin/git-user.js"
@@ -44,5 +44,12 @@
   "cpu": [
     "x64",
     "arm64"
-  ]
+  ],
+  "socket": {
+    "allowedNetworkHosts": [
+      "api.github.com",
+      "github.com",
+      "objects.githubusercontent.com"
+    ]
+  }
 }
