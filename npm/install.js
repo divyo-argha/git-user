@@ -3,13 +3,11 @@
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
 const os = require('os');
-const zlib = require('zlib');
 const tar = require('tar');
 const pkg = require('./package.json');
 
-const REPO = 'divyo-argha/git-user';
+const REPO = pkg.config.repo;
 const BIN_DIR = path.join(__dirname, 'bin');
 
 // Detect platform and architecture
