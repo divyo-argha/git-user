@@ -24,6 +24,7 @@ COMMANDS
   current                    Show active identity
   remove <name>              Delete an identity
   edit <name> <email>        Update email
+  pubkey                     Show public key for active identity only
   bind <name> [--ssh-key <p>] Add/link SSH key (interactive if no path)
   passphrase                 Add/change passphrase for active, unlocked identity
   rekey <name>               Rotate SSH key
@@ -93,6 +94,8 @@ func Execute() error {
 		return runRemove(rest)
 	case "edit":
 		return runEdit(rest)
+	case "pubkey":
+		return runPubkey(rest)
 	case "bind":
 		return runBind(rest)
 	case "passphrase":
