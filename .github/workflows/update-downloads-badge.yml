@@ -1,0 +1,54 @@
+name: Update Downloads Badge
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Daily at midnight UTC
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  update-badge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Fetch download counts
+        id: downloads
+        run: |
+          # GitHub releases downloads
+          GH_DOWNLOADS=$(curl -s https://api.github.com/repos/divyo-argha/git-user/releases | \
+            jq '[.[].assets[].download_count] | add // 0')
+          
+          # npm total downloads (all time)
+          NPM_DOWNLOADS=$(curl -s https://api.npmjs.org/downloads/point/2000-01-01:2100-12-31/git-userhub | \
+            jq '.downloads // 0')
+          
+          TOTAL=$((GH_DOWNLOADS + NPM_DOWNLOADS))
+          
+          echo "gh_downloads=$GH_DOWNLOADS" >> $GITHUB_OUTPUT
+          echo "npm_downloads=$NPM_DOWNLOADS" >> $GITHUB_OUTPUT
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+
+      - name: Create badge JSON
+        run: |
+          mkdir -p badges
+          cat > badges/total-downloads.json << EOF
+          {
+            "schemaVersion": 1,
+            "label": "total downloads",
+            "message": "${{ steps.downloads.outputs.total }}",
+            "color": "brightgreen"
+          }
+          EOF
+
+      - name: Commit badge data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add badges/total-downloads.json
+          git diff --quiet && git diff --staged --quiet || git commit -m "chore: update total downloads badge"
+          git push
