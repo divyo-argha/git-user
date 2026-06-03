@@ -18,6 +18,9 @@
   <img src="https://img.shields.io/badge/GitHub-supported-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub" />
   <img src="https://img.shields.io/badge/GitLab-supported-FC6D26?style=for-the-badge&logo=gitlab&logoColor=white" alt="GitLab" />
   <img src="https://img.shields.io/badge/Bitbucket-supported-0052CC?style=for-the-badge&logo=bitbucket&logoColor=white" alt="Bitbucket" />
+  <img src="https://img.shields.io/badge/macOS-supported-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS" />
+  <img src="https://img.shields.io/badge/Linux-supported-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux" />
+  <img src="https://img.shields.io/badge/Windows-supported-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Windows" />
 
   <br /><br />
 
@@ -87,7 +90,7 @@ git-user switch work
 | Feature | Description |
 |---------|-------------|
 | 🔑 **Identity switching** | Name + email + SSH key as one atomic unit |
-| 🔐 **SSH key management** | Auto-generate ed25519 keys, bind existing keys |
+| 🔐 **SSH key management** | Auto-generate ed25519 keys, bind existing keys, `pubkey` shows active key only |
 | 🔒 **Temporary sessions** | Use an identity on a shared machine — zero trace left behind |
 | 🛡️ **Security audit** | `git-user security` checks permissions and passphrase protection |
 | 🚀 **HTTPS → SSH** | `git-user fix-remote` converts remotes for passwordless push |
@@ -123,6 +126,7 @@ current                     Show active identity
 remove <name>               Delete an identity
 edit <name> <email>         Update email
 bind <name>                 Link an SSH key
+pubkey                      Show public key of active identity
 passphrase                  Change passphrase for active identity
 rekey <name>                Rotate SSH key
 fix-remote                  Convert HTTPS remotes to SSH
@@ -138,6 +142,7 @@ tui                         Interactive menu
 completion <shell>          Shell completions
 hook install|uninstall      Pre-commit identity guard
 --update                    Update to latest version
+--version / -v              Show version
 ```
 
 **Aliases:** `ls` → `list` · `sw` → `switch` · `rm` → `remove`

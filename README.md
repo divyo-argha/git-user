@@ -35,6 +35,7 @@
   <img src="https://img.shields.io/badge/Bitbucket-supported-0052CC?style=for-the-badge&logo=bitbucket&logoColor=white" alt="Bitbucket" />
   <img src="https://img.shields.io/badge/macOS-supported-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS" />
   <img src="https://img.shields.io/badge/Linux-supported-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux" />
+  <img src="https://img.shields.io/badge/Windows-supported-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Windows" />
 
   <br /><br />
 
@@ -182,7 +183,7 @@ There are other tools that try to solve this. Here's how git-user is different:
 
 ### 🔐 SSH Key Handling
 - Auto-generate ed25519 keys per identity
-- Public key printed in your terminal — no hunting in `~/.ssh/`
+- `pubkey` — print active identity's public key (add to GitHub, GitLab, Bitbucket)
 - Bind any existing key to any identity
 - `rekey` rotates keys with automatic backup and rollback
 - `IdentitiesOnly yes` — SSH never leaks the wrong key
@@ -315,6 +316,7 @@ If the TTL expires and you forget to stop — `git-user` auto-detects the expire
 | `remove <name>` | Delete an identity |
 | `edit <name> <email>` | Update email |
 | `bind <name> [--ssh-key <path>]` | Link an SSH key to an identity |
+| `pubkey` | Show the public key of the active identity |
 | `passphrase` | Add or change passphrase for the active, unlocked identity |
 | `rekey <name>` | Rotate SSH key (with rollback safety) |
 | `fix-remote` | Convert HTTPS remotes to SSH |
@@ -332,6 +334,7 @@ If the TTL expires and you forget to stop — `git-user` auto-detects the expire
 | `completion <shell>` | Shell completions (bash/zsh/fish) |
 | `hook <install\|uninstall>` | Pre-commit hook to verify identity |
 | `--update` | Update to the latest version |
+| `--version` / `-v` | Show version |
 
 **Aliases:** `ls` → `list` · `sw` → `switch` · `rm` → `remove`
 
@@ -350,6 +353,7 @@ If the TTL expires and you forget to stop — `git-user` auto-detects the expire
 - Passphrase protection audited by `security` command
 - Export bundles encrypted with AES-256-GCM, passphrase stretched with scrypt (N=2¹⁷)
 - Passphrases are never passed as CLI arguments — entered directly into the terminal
+- `pubkey` only shows the active identity's key — other identities' keys are never exposed
 
 </td>
 <td width="50%" valign="top">
@@ -426,7 +430,7 @@ Everything looks good.
 | Symptom | Fix |
 |---------|-----|
 | `git-user: command not found` | Restart terminal or `source ~/.zshrc` |
-| SSH verification failed | Key not added to platform yet — `git-user doctor` shows the public key |
+| SSH verification failed | Key not added to platform yet — run `git-user pubkey` to copy the public key |
 | `Permission denied` during install | Expected — installer needs sudo for `/usr/local/bin` |
 | Git asks for credentials on push | Run `git-user fix-remote` to convert HTTPS → SSH |
 
