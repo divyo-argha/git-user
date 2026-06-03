@@ -64,21 +64,21 @@ if [ ! -w "$INSTALL_DIR" ]; then
     NEED_SUDO=true
 fi
 
-# Backup current binary
+# Move existing binary out of the way first (avoid "Text file busy")
 if [ -f "$INSTALL_DIR/git-user" ]; then
     if [ "$NEED_SUDO" = true ]; then
-        sudo cp "$INSTALL_DIR/git-user" "$INSTALL_DIR/git-user.bak" 2>/dev/null || true
+        sudo mv "$INSTALL_DIR/git-user" "$INSTALL_DIR/git-user.bak" 2>/dev/null || true
     else
-        cp "$INSTALL_DIR/git-user" "$INSTALL_DIR/git-user.bak" 2>/dev/null || true
+        mv "$INSTALL_DIR/git-user" "$INSTALL_DIR/git-user.bak" 2>/dev/null || true
     fi
 fi
 
-# Install new binary
+# Install new binary (use mv to avoid "Text file busy" on running binaries)
 if [ "$NEED_SUDO" = true ]; then
-    sudo cp "$BINARY" "$INSTALL_DIR/"
+    sudo mv "$BINARY" "$INSTALL_DIR/git-user"
     sudo chmod +x "$INSTALL_DIR/git-user"
 else
-    cp "$BINARY" "$INSTALL_DIR/"
+    mv "$BINARY" "$INSTALL_DIR/git-user"
     chmod +x "$INSTALL_DIR/git-user"
 fi
 
