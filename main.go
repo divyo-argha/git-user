@@ -32,5 +32,5 @@ func main() {
 }
 
 func printVersion() {
-	fmt.Printf("%s\n", version)
+	fmt.Printf("git-user %s\n", version)
 }
