@@ -12,6 +12,7 @@ type User struct {
 	Name   string `json:"name"`
 	Email  string `json:"email"`
 	SSHKey string `json:"ssh_key,omitempty"`
+	Source string `json:"source,omitempty"` // "original" or empty (manual)
 }
 
 // OriginalConfig holds the gitconfig state that existed before git-user was first used.

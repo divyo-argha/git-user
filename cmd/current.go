@@ -23,7 +23,12 @@ func runCurrent(_ []string) error {
 	}
 
 	ui.Banner("Active Identity")
-	fmt.Printf("  Name:  %s\n", u.Name)
+	fmt.Printf("  Name:  %s", u.Name)
+	if u.Source == "original" {
+		fmt.Printf(" [imported from original]\n")
+	} else {
+		fmt.Println()
+	}
 	fmt.Printf("  Email: %s\n", u.Email)
 	
 	if u.SSHKey != "" {

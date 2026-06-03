@@ -140,7 +140,7 @@ func StyleSuccess() lipgloss.Style {
 }
 
 // UserRow prints a single user card in the list.
-func UserRow(name, email, sshKey string, active bool) {
+func UserRow(name, email, sshKey string, active bool, isOriginal bool) {
 	badge := ""
 	cardStyle := styleCardInactive
 	nameStyle := lipgloss.NewStyle().Bold(true).Foreground(white)
@@ -151,9 +151,17 @@ func UserRow(name, email, sshKey string, active bool) {
 		nameStyle = lipgloss.NewStyle().Bold(true).Foreground(green)
 	}
 
-	content := fmt.Sprintf("%s%s\n%s",
+	originalTag := ""
+	if isOriginal {
+		originalTag = " " + lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFAA00")).
+			Render("[original]")
+	}
+
+	content := fmt.Sprintf("%s%s%s\n%s",
 		badge,
 		nameStyle.Render(name),
+		originalTag,
 		styleDim.Render(email),
 	)
 

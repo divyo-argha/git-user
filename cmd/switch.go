@@ -53,6 +53,9 @@ func runSwitch(args []string) error {
 	// Snapshot original gitconfig before first ever switch
 	store.SnapshotOriginal(git.CurrentName(), git.CurrentEmail(), git.CurrentSSHCommand())
 
+	// Auto-import original as an identity on first switch if no identities exist yet
+	autoImportOriginalIfNeeded(store)
+
 	if createMode {
 		if store.FindUser(name) != nil {
 			ui.Errorf("identity %q already exists", name)
@@ -282,4 +285,37 @@ func runSwitchOriginal() error {
 	ui.Info("To switch back: git-user switch <name>")
 
 	return nil
+}
+
+// autoImportOriginalIfNeeded imports the original gitconfig as an identity
+// on the very first switch, if it hasn't been imported yet and has valid data.
+func autoImportOriginalIfNeeded(store *config.Store) {
+	// Skip if already imported
+	for _, u := range store.Users {
+		if u.Source == "original" {
+			return
+		}
+	}
+
+	o := store.Original
+	if o == nil || (o.Name == "" && o.Email == "") {
+		return
+	}
+
+	importName := o.Name
+	if importName == "" {
+		importName = "original"
+	}
+
+	// Don't overwrite an existing identity with same name
+	if store.FindUser(importName) != nil {
+		return
+	}
+
+	store.Users = append(store.Users, config.User{
+		Name:   importName,
+		Email:  o.Email,
+		SSHKey: extractSSHKeyFromCommand(o.SSHCommand),
+		Source: "original",
+	})
 }

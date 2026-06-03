@@ -32,8 +32,8 @@ func TestFormatFunctions(t *testing.T) {
 	Header("Test Header")
 	Banner("Test Banner")
 	Divider()
-	UserRow("test", "test@example.com", "/path/to/key", true)
-	UserRow("test2", "test2@example.com", "", false)
+	UserRow("test", "test@example.com", "/path/to/key", true, false)
+	UserRow("test2", "test2@example.com", "", false, true)
 	UserDetails("test", "test@example.com", "/path/to/key")
 }
 

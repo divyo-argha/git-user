@@ -20,7 +20,7 @@ func runList(_ []string) error {
 
 	ui.Banner("Git Identities")
 	for _, u := range store.Users {
-		ui.UserRow(u.Name, u.Email, u.SSHKey, u.Name == store.Current)
+		ui.UserRow(u.Name, u.Email, u.SSHKey, u.Name == store.Current, u.Source == "original")
 	}
 
 	if store.Current == "" {
