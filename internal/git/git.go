@@ -26,8 +26,17 @@ func CurrentEmail() string {
 	return out
 }
 
+func CurrentSSHCommand() string {
+	out, _ := getConfig("core.sshCommand")
+	return out
+}
+
 func ConfigureSSH(keyPath string) error {
 	val := fmt.Sprintf("ssh -i %q -o IdentitiesOnly=yes", keyPath)
+	return setConfig("core.sshCommand", val)
+}
+
+func SetSSHCommand(val string) error {
 	return setConfig("core.sshCommand", val)
 }
 

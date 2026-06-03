@@ -14,9 +14,17 @@ type User struct {
 	SSHKey string `json:"ssh_key,omitempty"`
 }
 
+// OriginalConfig holds the gitconfig state that existed before git-user was first used.
+type OriginalConfig struct {
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	SSHCommand string `json:"ssh_command,omitempty"`
+}
+
 type Store struct {
-	Current string `json:"current"`
-	Users   []User `json:"users"`
+	Current  string          `json:"current"`
+	Users    []User          `json:"users"`
+	Original *OriginalConfig `json:"original,omitempty"`
 }
 
 var configPath string
@@ -158,4 +166,17 @@ func (s *Store) CurrentUser() *User {
 		return nil
 	}
 	return s.FindUser(s.Current)
+}
+
+// SnapshotOriginal saves the current gitconfig state as the original, if not already saved.
+// Should be called before the first switch.
+func (s *Store) SnapshotOriginal(name, email, sshCommand string) {
+	if s.Original != nil {
+		return // already saved, never overwrite
+	}
+	s.Original = &OriginalConfig{
+		Name:       name,
+		Email:      email,
+		SSHCommand: sshCommand,
+	}
 }

@@ -16,6 +16,11 @@ func runSwitch(args []string) error {
 		return fmt.Errorf("missing arguments")
 	}
 
+	// Handle restore to original pre-git-user state
+	if args[0] == "--original" {
+		return runSwitchOriginal()
+	}
+
 	createMode := false
 	name := ""
 	email := ""
@@ -44,6 +49,9 @@ func runSwitch(args []string) error {
 		ui.Errorf("loading config: %v", err)
 		return err
 	}
+
+	// Snapshot original gitconfig before first ever switch
+	store.SnapshotOriginal(git.CurrentName(), git.CurrentEmail(), git.CurrentSSHCommand())
 
 	if createMode {
 		if store.FindUser(name) != nil {
@@ -221,6 +229,57 @@ func quickRegister(name, email string, store *config.Store) error {
 		ui.Success(fmt.Sprintf("✓ SSH key: %s", sshKeyPath))
 	}
 	fmt.Println()
+
+	return nil
+}
+
+func runSwitchOriginal() error {
+	store, err := config.Load()
+	if err != nil {
+		ui.Errorf("loading config: %v", err)
+		return err
+	}
+
+	if store.Original == nil {
+		ui.Error("no original identity snapshot found")
+		ui.Info("git-user hasn't made a switch yet — your gitconfig is still in its original state")
+		return fmt.Errorf("no original snapshot")
+	}
+
+	o := store.Original
+	if o.Name == "" && o.Email == "" {
+		ui.Warn("Original gitconfig had no user.name or user.email set")
+	}
+
+	if err := git.Apply(o.Name, o.Email); err != nil {
+		ui.Errorf("restoring git config: %v", err)
+		return err
+	}
+
+	if o.SSHCommand != "" {
+		if err := git.SetSSHCommand(o.SSHCommand); err != nil {
+			ui.Warn(fmt.Sprintf("could not restore core.sshCommand: %v", err))
+		}
+	} else {
+		git.RemoveSSHConfig()
+	}
+
+	store.Current = ""
+	if err := config.Save(store); err != nil {
+		ui.Errorf("saving config: %v", err)
+		return err
+	}
+
+	ui.Success("Restored original identity")
+	if o.Name != "" || o.Email != "" {
+		ui.Info(fmt.Sprintf("  name:  %s", o.Name))
+		ui.Info(fmt.Sprintf("  email: %s", o.Email))
+	}
+	if o.SSHCommand != "" {
+		ui.Info(fmt.Sprintf("  sshCommand: %s", o.SSHCommand))
+	}
+	fmt.Println()
+	ui.Info("To switch back: git-user switch <name>")
 
 	return nil
 }

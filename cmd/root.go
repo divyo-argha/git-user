@@ -20,6 +20,7 @@ COMMANDS
   register                   Create new identity with SSH key
   switch <name>              Switch to an identity
   switch -c <name> [email]   Create new identity and switch to it
+  switch --original          Restore the gitconfig state from before git-user was first used
   list                       List all identities
   current                    Show active identity
   remove <name>              Delete an identity
