@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
@@ -305,6 +306,11 @@ func selectedSessionUser(store *config.Store, name string) *config.User {
 
 func ensureSSHAgent() error {
 	if os.Getenv("SSH_AUTH_SOCK") != "" {
+		return nil
+	}
+	// On Windows, OpenSSH agent uses a named pipe — SSH_AUTH_SOCK won't be set
+	// but ssh-add may still work. Let it try rather than failing early.
+	if runtime.GOOS == "windows" {
 		return nil
 	}
 	ui.Warn("ssh-agent is not running in this shell")

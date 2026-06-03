@@ -1,112 +1,191 @@
 package cmd
 
 import (
+	"archive/tar"
+	"compress/gzip"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
 func RunUpdate() error {
-	// Check if git-user is installed
 	execPath, err := os.Executable()
 	if err != nil {
-		ui.Errorf("Could not determine installation path")
-		return err
+		return fmt.Errorf("could not determine install path: %w", err)
+	}
+	// Resolve symlinks (e.g. npm bin wrapper points to real binary)
+	if resolved, err := filepath.EvalSymlinks(execPath); err == nil {
+		execPath = resolved
 	}
 
 	ui.Info(fmt.Sprintf("Updating git-user from %s...", execPath))
 
-	// Determine install directory
-	installDir := filepath.Dir(execPath)
+	// Fetch latest release info
+	releaseURL := "https://api.github.com/repos/divyo-argha/git-user/releases/latest"
+	req, _ := http.NewRequest("GET", releaseURL, nil)
+	req.Header.Set("User-Agent", "git-user-updater")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("fetching release info: %w", err)
+	}
+	defer resp.Body.Close()
 
-	// Download and run install script
-	tempScript := filepath.Join(os.TempDir(), "git-user-update.sh")
-	defer os.Remove(tempScript)
-
-	// Create update script
-	script := `#!/bin/bash
-set -e
-
-INSTALL_DIR="` + installDir + `"
-TEMP_DIR=$(mktemp -d)
-cd "$TEMP_DIR"
-
-# Download pre-built binary from GitHub releases
-RELEASE_URL="https://api.github.com/repos/divyo-argha/git-user/releases/latest"
-OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-ARCH=$(uname -m)
-
-case "$ARCH" in
-    x86_64) ARCH="amd64" ;;
-    arm64|aarch64) ARCH="arm64" ;;
-esac
-
-DOWNLOAD_URL=$(curl -s "$RELEASE_URL" | grep "browser_download_url.*${OS}_${ARCH}" | cut -d '"' -f 4 | head -n 1)
-
-if [ -n "$DOWNLOAD_URL" ]; then
-    curl -sSfL "$DOWNLOAD_URL" -o git-user.tar.gz
-    tar -xzf git-user.tar.gz
-    BINARY="git-user"
-else
-    echo "Building from source..."
-    git clone --depth 1 https://github.com/divyo-argha/git-user.git .
-    go mod download
-    go build -ldflags="-s -w" -o git-user .
-    BINARY="git-user"
-fi
-
-# Check if we need sudo
-NEED_SUDO=false
-if [ ! -w "$INSTALL_DIR" ]; then
-    NEED_SUDO=true
-fi
-
-# Move existing binary out of the way first (avoid "Text file busy")
-if [ -f "$INSTALL_DIR/git-user" ]; then
-    if [ "$NEED_SUDO" = true ]; then
-        sudo mv "$INSTALL_DIR/git-user" "$INSTALL_DIR/git-user.bak" 2>/dev/null || true
-    else
-        mv "$INSTALL_DIR/git-user" "$INSTALL_DIR/git-user.bak" 2>/dev/null || true
-    fi
-fi
-
-# Install new binary (use mv to avoid "Text file busy" on running binaries)
-if [ "$NEED_SUDO" = true ]; then
-    sudo mv "$BINARY" "$INSTALL_DIR/git-user"
-    sudo chmod +x "$INSTALL_DIR/git-user"
-else
-    mv "$BINARY" "$INSTALL_DIR/git-user"
-    chmod +x "$INSTALL_DIR/git-user"
-fi
-
-# Cleanup
-cd /
-rm -rf "$TEMP_DIR"
-
-echo "✓ Update complete"
-`
-
-	if err := os.WriteFile(tempScript, []byte(script), 0755); err != nil {
-		ui.Errorf("Failed to create update script: %v", err)
-		return err
+	var release struct {
+		TagName string `json:"tag_name"`
+		Assets  []struct {
+			Name               string `json:"name"`
+			BrowserDownloadURL string `json:"browser_download_url"`
+		} `json:"assets"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return fmt.Errorf("parsing release info: %w", err)
 	}
 
-	// Execute update script
-	cmd := exec.Command("bash", tempScript)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
+	// Map runtime values to release asset naming
+	goos := runtime.GOOS
+	goarch := runtime.GOARCH
 
-	if err := cmd.Run(); err != nil {
-		ui.Errorf("Update failed: %v", err)
-		return err
+	osName := goos // linux, darwin, windows
+	archName := goarch
+	if archName == "amd64" {
+		archName = "x86_64"
 	}
 
-	fmt.Printf("\n%s✨ git-user updated successfully%s\n", "\033[32m", "\033[0m")
-	fmt.Printf("%sRestart your terminal or run: source ~/.zshrc%s\n", "\033[36m", "\033[0m")
+	ext := ""
+	if goos == "windows" {
+		ext = ".exe"
+	}
 
+	// Find matching asset
+	var downloadURL string
+	for _, asset := range release.Assets {
+		name := strings.ToLower(asset.Name)
+		if strings.Contains(name, osName) && strings.Contains(name, strings.ToLower(archName)) {
+			downloadURL = asset.BrowserDownloadURL
+			break
+		}
+	}
+	if downloadURL == "" {
+		return fmt.Errorf("no binary found for %s/%s in release %s", goos, goarch, release.TagName)
+	}
+
+	// Download to temp file
+	tmpFile, err := os.CreateTemp("", "git-user-update-*")
+	if err != nil {
+		return fmt.Errorf("creating temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
+	tmpFile.Close()
+
+	ui.Info(fmt.Sprintf("Downloading %s...", release.TagName))
+	if err := downloadFile(downloadURL, tmpPath); err != nil {
+		return fmt.Errorf("downloading binary: %w", err)
+	}
+
+	// Extract binary from tar.gz
+	newBinary, err := extractBinary(tmpPath, "git-user"+ext)
+	if err != nil {
+		return fmt.Errorf("extracting binary: %w", err)
+	}
+	defer os.Remove(newBinary)
+
+	// Make executable
+	if err := os.Chmod(newBinary, 0755); err != nil {
+		return fmt.Errorf("chmod: %w", err)
+	}
+
+	// Replace: move old binary aside, move new one in
+	backupPath := execPath + ".bak"
+	if err := os.Rename(execPath, backupPath); err != nil {
+		return fmt.Errorf("backing up current binary: %w", err)
+	}
+
+	if err := os.Rename(newBinary, execPath); err != nil {
+		// Rollback
+		os.Rename(backupPath, execPath)
+		return fmt.Errorf("installing new binary: %w", err)
+	}
+
+	// Clean up backup
+	os.Remove(backupPath)
+
+	fmt.Printf("\n\033[32m✨ git-user updated to %s\033[0m\n", release.TagName)
 	return nil
+}
+
+func downloadFile(url, dest string) error {
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("User-Agent", "git-user-updater")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Follow redirects (http.DefaultClient does this, but handle non-200)
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	f, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = io.Copy(f, resp.Body)
+	return err
+}
+
+// extractBinary extracts a named file from a .tar.gz archive into a temp file.
+// Returns the path to the extracted file.
+func extractBinary(archivePath, binaryName string) (string, error) {
+	f, err := os.Open(archivePath)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return "", err
+	}
+	defer gz.Close()
+
+	tr := tar.NewReader(gz)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+
+		// Match by base name to handle paths like ./git-user or git-user
+		if filepath.Base(hdr.Name) == binaryName {
+			out, err := os.CreateTemp("", "git-user-new-*")
+			if err != nil {
+				return "", err
+			}
+			if _, err := io.Copy(out, tr); err != nil {
+				out.Close()
+				os.Remove(out.Name())
+				return "", err
+			}
+			out.Close()
+			return out.Name(), nil
+		}
+	}
+
+	return "", fmt.Errorf("binary %q not found in archive", binaryName)
 }

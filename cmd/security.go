@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
@@ -18,7 +19,7 @@ func runSecurityCheck(args []string) error {
 
 	configPath := config.ConfigPath()
 	info, err := os.Stat(configPath)
-	if err == nil {
+	if err == nil && runtime.GOOS != "windows" {
 		mode := info.Mode().Perm()
 		if mode != 0600 {
 			ui.Warn(fmt.Sprintf("Config file has insecure permissions: %o", mode))

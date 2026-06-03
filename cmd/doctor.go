@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
@@ -62,13 +63,17 @@ func runDoctor(args []string) error {
 					ui.Error(fmt.Sprintf("Error checking SSH key: %v", err))
 					issues++
 				} else {
-					mode := info.Mode().Perm()
-					if mode != 0600 {
-						ui.Warn(fmt.Sprintf("SSH key has incorrect permissions: %o (should be 0600)", mode))
-						ui.Info(fmt.Sprintf("  Fix: Run 'chmod 600 %s'", user.SSHKey))
-						issues++
+					if runtime.GOOS != "windows" {
+						mode := info.Mode().Perm()
+						if mode != 0600 {
+							ui.Warn(fmt.Sprintf("SSH key has incorrect permissions: %o (should be 0600)", mode))
+							ui.Info(fmt.Sprintf("  Fix: Run 'chmod 600 %s'", user.SSHKey))
+							issues++
+						} else {
+							ui.Success(fmt.Sprintf("SSH key exists with correct permissions: %s", user.SSHKey))
+						}
 					} else {
-						ui.Success(fmt.Sprintf("SSH key exists with correct permissions: %s", user.SSHKey))
+						ui.Success(fmt.Sprintf("SSH key exists: %s", user.SSHKey))
 					}
 
 					ui.Info("Testing SSH connection to GitHub...")
