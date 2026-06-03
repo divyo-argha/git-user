@@ -70,7 +70,11 @@ func Execute() error {
 
 	autoCleanupExpiredTempSession()
 
-	if len(args) == 0 || args[0] == "--help" || args[0] == "-h" || args[0] == "help" {
+	if len(args) == 0 {
+		return runTui()
+	}
+
+	if args[0] == "--help" || args[0] == "-h" || args[0] == "help" {
 		ui.PrintLogo()
 		fmt.Print(usage)
 		return nil
@@ -125,6 +129,10 @@ func Execute() error {
 	case "session":
 		return runSession(rest)
 	default:
+		// Try as identity name → detail view
+		if handleUnknownArg(sub) {
+			return nil
+		}
 		ui.Errorf("unknown command %q — run 'git-user --help' for usage", sub)
 		return fmt.Errorf("unknown command")
 	}
