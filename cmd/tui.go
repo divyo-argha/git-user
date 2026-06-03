@@ -355,15 +355,7 @@ func (m tuiModel) View() string {
 func (m tuiModel) viewMain() string {
 	sb := strings.Builder{}
 
-	// Header
-	header := tuiBold.Render("  git-user")
-	if m.store.Current != "" {
-		u := m.store.CurrentUser()
-		if u != nil {
-			header += "  " + tuiDim.Render("active: "+u.Name+" ("+u.Email+")")
-		}
-	}
-	sb.WriteString("\n" + header + "\n\n")
+	sb.WriteString("\n" + renderHeader(m.store) + "\n\n")
 
 	for i, item := range m.mainItems {
 		if item.isSep {
