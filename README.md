@@ -155,7 +155,7 @@ There are other tools that try to solve this. Here's how git-user is different:
 | SSH key managed automatically | ✅ | ❌ | ⚠️ partial | ❌ |
 | Works across all repos, not just one | ✅ | ❌ | ✅ | ✅ |
 | SSH connection verified on switch | ✅ | ❌ | ❌ | ❌ |
-| Temporary sessions (shared machines) | ✅ | ❌ | ❌ | ❌ |
+| Clean logout/sign-out to void state | ✅ | ❌ | ❌ | ❌ |
 | Encrypted export/import | ✅ | ❌ | ❌ | ❌ |
 | Pre-commit identity guard | ✅ | ❌ | ❌ | ❌ |
 | Security audit built-in | ✅ | ❌ | ❌ | ❌ |
@@ -163,7 +163,7 @@ There are other tools that try to solve this. Here's how git-user is different:
 | Shell completions | ✅ | ❌ | ❌ | ❌ |
 | Zero config files to edit manually | ✅ | ❌ | ❌ | ❌ |
 
-> **The key difference:** git-user manages the *whole identity* — name, email, SSH key, and agent session — as a single atomic unit. Other approaches only solve part of the problem, leaving you to manually wire the rest.
+> **The key difference:** git-user manages the *whole identity* — name, email, SSH key, and passphrase protection — as a single atomic unit. Other approaches only solve part of the problem, leaving you to manually wire the rest.
 
 ---
 
@@ -205,12 +205,11 @@ There are other tools that try to solve this. Here's how git-user is different:
 </td>
 <td width="50%" valign="top">
 
-### ⏱️ Session Management
-- `session start` — loads SSH key into `ssh-agent`
-- `session start --ttl 4h` — auto-expires after a duration
-- `session stop` — unloads key, identity stays selected
-- `session status` — see what's loaded and what's active
-- **Temporary sessions** — use any identity on a shared machine, zero trace left behind
+### 🔒 Passphrase-Gated Switching
+- Gated switch: switching to a passphrase-protected profile requires entering the passphrase to unlock the SSH key
+- Seamless ssh-agent management: the SSH key is added automatically on switch
+- Security by default: you cannot act as an identity without verifying the passphrase first
+- Clean logout: sign out at any time to clear active user config completely
 
 </td>
 </tr>
@@ -281,28 +280,19 @@ Each switch: under one second. No config editing. No SSH juggling.
 
 ---
 
-## 🔒 Temporary Sessions
+## 🚪 Logout / Void State
 
-Working on a shared or borrowed machine? Don't want to leave your SSH keys behind?
+When you are done with your work or leaving a shared machine, you can sign out to clear your active Git identity completely:
 
 ```bash
-git-user session start --temp alice me@work.com --ttl 2h
+git-user logout
 ```
 
 What happens:
-- Generates a **temporary** ed25519 key (not saved to your identity store)
-- Loads it into `ssh-agent` with a 2-hour TTL
-- Sets your git config for the session
-- On `session stop` — key files are **deleted**, git config is **restored**, nothing persists
-
-```bash
-git-user session stop
-# ✅ Temporary session ended — key files deleted
-# ✅ Restored identity: bob (bob@personal.com)
-# ⚠  Remember to remove the temporary key from your Git platform
-```
-
-If the TTL expires and you forget to stop — `git-user` auto-detects the expired session and cleans up on the next invocation.
+- Unloads the active SSH key from `ssh-agent`
+- Clears the global `user.name` and `user.email` from `~/.gitconfig`
+- Clears `core.sshCommand` from `~/.gitconfig`
+- Puts the terminal into a clean "void" state (no git user configured), preventing accidental commits under your identity by other users.
 
 ---
 
@@ -322,11 +312,7 @@ If the TTL expires and you forget to stop — `git-user` auto-detects the expire
 | `passphrase` | Add or change passphrase for the active, unlocked identity |
 | `rekey <name>` | Rotate SSH key (with rollback safety) |
 | `fix-remote` | Convert HTTPS remotes to SSH |
-| `session start [name] [--ttl <d>]` | Load SSH key into ssh-agent |
-| `session start --temp <name> <email> [--ttl <d>]` | **Temporary session — nothing saved permanently** |
-| `session stop [name]` | Unload SSH key; identity stays selected |
-| `session stop --all` | Remove all keys from ssh-agent |
-| `session status` | Show agent and loaded-key status |
+| `logout` | Sign out, clearing the active identity and restoring a void state |
 | `security` | Audit all identities for security issues |
 | `export --all` | Export all identities + SSH keys (AES-256 encrypted) |
 | `export <name> [name...]` | Export specific identities |
@@ -365,7 +351,7 @@ If the TTL expires and you forget to stop — `git-user` auto-detects the expire
 - Never sends keys or config anywhere
 - Never modifies your repositories
 - Never overwrites existing identities on import
-- Temporary sessions leave zero trace after `session stop`
+- `logout` command cleanly clears all gitconfig references and unloads loaded keys
 
 </td>
 </tr>
@@ -480,13 +466,11 @@ git commit -m "Add feature"
 
 ```
 ~/.git-users/
-  ├── config.json          ← your identities (names, emails, key paths)
-  └── temp_session.json    ← active temporary session state (if any)
+  └── config.json          ← your identities (names, emails, key paths)
 
-~/.gitconfig               ← updated on every switch (name, email, sshCommand)
+~/.gitconfig               ← updated on every switch/logout (name, email, sshCommand)
 ~/.ssh/git_<name>          ← private key (never leaves your machine)
 ~/.ssh/git_<name>.pub      ← public key (what you add to GitHub/GitLab)
-~/.ssh/git_tmp_<name>      ← temporary session key (deleted on session stop)
 ```
 
 Your repositories are never touched. Only global git config changes.
