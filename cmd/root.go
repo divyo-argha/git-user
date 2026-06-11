@@ -36,7 +36,7 @@ COMMANDS
   export --all               Export all identities + SSH keys (encrypted)
   export <name> [name...]    Export specific identities (encrypted)
   import-original [name]     Import original gitconfig identity into git-user
-  import <file>              Import identities from a bundle
+  import [--force] <file>    Import identities from a bundle
   doctor                     Check setup
   tui                        Interactive menu
   completion <shell>         Generate shell completion (bash/zsh/fish)

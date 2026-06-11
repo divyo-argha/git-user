@@ -12,10 +12,25 @@ import (
 
 func runImport(args []string) error {
 	if len(args) < 1 {
-		ui.Error("usage: git-user import <bundle-file>")
+		ui.Error("usage: git-user import [--force] <bundle-file>")
+		return fmt.Errorf("missing arguments")
+	}
+
+	var force bool
+	var bundleFile string
+	for _, a := range args {
+		if a == "--force" || a == "-f" {
+			force = true
+		} else {
+			bundleFile = a
+		}
+	}
+
+	if bundleFile == "" {
+		ui.Error("usage: git-user import [--force] <bundle-file>")
 		return fmt.Errorf("missing bundle file")
 	}
-	inPath := expandPath(args[0])
+	inPath := expandPath(bundleFile)
 
 	data, err := os.ReadFile(inPath)
 	if err != nil {
@@ -51,10 +66,64 @@ func runImport(args []string) error {
 	imported := 0
 	skipped := 0
 	for _, id := range identities {
-		if store.FindUser(id.Name) != nil {
-			ui.Warn(fmt.Sprintf("Skipping %q — identity already exists", id.Name))
-			skipped++
-			continue
+		conflictMsg := ""
+		if store.IsNameTaken(id.Name) {
+			conflictMsg = fmt.Sprintf("Identity name %q is already taken", id.Name)
+		} else if store.IsEmailTaken(id.Email) {
+			conflictMsg = fmt.Sprintf("Email %q is already used by another identity", id.Email)
+		}
+
+		if conflictMsg != "" {
+			if force {
+				if store.IsNameTaken(id.Name) {
+					_ = store.RemoveUser(id.Name, true)
+				}
+				if store.IsEmailTaken(id.Email) {
+					for _, u := range store.Users {
+						if u.Email == id.Email {
+							_ = store.RemoveUser(u.Name, true)
+							break
+						}
+					}
+				}
+			} else if !ui.IsTTY() {
+				ui.Warn(fmt.Sprintf("Skipping %q — conflict (%s) and no --force", id.Name, conflictMsg))
+				skipped++
+				continue
+			} else {
+				ui.Warn(fmt.Sprintf("Conflict for %q: %s", id.Name, conflictMsg))
+				choice, err := ui.Select("How would you like to proceed?", []string{"Skip", "Overwrite (removes conflicting local identity)", "Rename (import with a different name)"})
+				if err != nil || choice == 0 {
+					ui.Info(fmt.Sprintf("Skipped %q", id.Name))
+					skipped++
+					continue
+				} else if choice == 1 { // Overwrite
+					if store.IsNameTaken(id.Name) {
+						_ = store.RemoveUser(id.Name, true)
+					}
+					if store.IsEmailTaken(id.Email) {
+						for _, u := range store.Users {
+							if u.Email == id.Email {
+								_ = store.RemoveUser(u.Name, true)
+								break
+							}
+						}
+					}
+				} else if choice == 2 { // Rename
+					newName, err := ui.Prompt(fmt.Sprintf("Enter new name for %q:", id.Name))
+					if err != nil || newName == "" {
+						ui.Info(fmt.Sprintf("Skipped %q", id.Name))
+						skipped++
+						continue
+					}
+					id.Name = newName
+					if store.IsNameTaken(id.Name) || store.IsEmailTaken(id.Email) {
+						ui.Error(fmt.Sprintf("Still conflicts after rename. Skipping %q.", id.Name))
+						skipped++
+						continue
+					}
+				}
+			}
 		}
 
 		if err := store.AddUser(id.Name, id.Email); err != nil {
