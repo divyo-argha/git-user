@@ -102,12 +102,30 @@ func (s *Store) FindUser(name string) *User {
 	return nil
 }
 
+// IsNameTaken returns true if any profile already uses this name.
+func (s *Store) IsNameTaken(name string) bool {
+	return s.FindUser(name) != nil
+}
+
+// IsEmailTaken returns true if any profile already uses this email.
+func (s *Store) IsEmailTaken(email string) bool {
+	for _, u := range s.Users {
+		if u.Email == email {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Store) AddUser(name, email string) error {
 	if name == "" || email == "" {
 		return errors.New("name and email must not be empty")
 	}
-	if s.FindUser(name) != nil {
+	if s.IsNameTaken(name) {
 		return fmt.Errorf("user %q already exists", name)
+	}
+	if s.IsEmailTaken(email) {
+		return fmt.Errorf("email %q already in use", email)
 	}
 	s.Users = append(s.Users, User{Name: name, Email: email})
 	return nil

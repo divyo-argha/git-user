@@ -111,8 +111,7 @@ func buildMainItems(store *config.Store) []mainItem {
 		items = append(items, mainItem{label: label, isUser: true, userName: u.Name})
 	}
 	items = append(items, mainItem{label: lipgloss.NewStyle().Foreground(tuiCyan).Render("+ Create new identity"), isAction: true, actionKey: "register"})
-	items = append(items, mainItem{isSep: true})
-	items = append(items, mainItem{label: "Session status", isAction: true, actionKey: "session-status"})
+	items = append(items, mainItem{label: "Sign out (logout)", isAction: true, actionKey: "logout"})
 	items = append(items, mainItem{label: "Fix remotes (HTTPS → SSH)", isAction: true, actionKey: "fix-remote"})
 	items = append(items, mainItem{label: "Security audit", isAction: true, actionKey: "security"})
 	items = append(items, mainItem{label: "Doctor (health check)", isAction: true, actionKey: "doctor"})
@@ -148,15 +147,6 @@ func buildDetailItems(user *config.User, store *config.Store) []detailItem {
 	items = append(items, detailItem{label: "Rotate SSH key", key: "rekey"})
 	if user.SSHKey != "" {
 		items = append(items, detailItem{label: "Remove SSH key", key: "unbind"})
-	}
-	items = append(items, detailItem{isSep: true})
-
-	if user.SSHKey != "" {
-		items = append(items, detailItem{label: "Start session", key: "session-start"})
-		items = append(items, detailItem{label: "Start session with TTL", key: "session-start-ttl"})
-		items = append(items, detailItem{label: "Stop session", key: "session-stop"})
-	} else {
-		items = append(items, detailItem{label: tuiDim.Render("Start session (no SSH key)"), key: "session-na"})
 	}
 	items = append(items, detailItem{isSep: true})
 
@@ -587,22 +577,8 @@ func executeAction(act *pendingAction, store *config.Store) {
 	case "passphrase":
 		runPassphrase(nil)
 
-	case "session-start":
-		runSession([]string{"start", act.name})
-
-	case "session-start-ttl":
-		ttl, err := ui.Prompt("TTL duration (e.g. 4h, 30m):")
-		if err != nil || ttl == "" {
-			ui.Info("Cancelled")
-			return
-		}
-		runSession([]string{"start", act.name, "--ttl", ttl})
-
-	case "session-stop":
-		runSession([]string{"stop", act.name})
-
-	case "session-status":
-		runSession([]string{"status"})
+	case "logout":
+		runLogout(nil)
 
 	case "export":
 		runExport([]string{act.name})

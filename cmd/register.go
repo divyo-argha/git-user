@@ -54,9 +54,14 @@ func runRegister(args []string) error {
 		return err
 	}
 
-	if store.FindUser(name) != nil {
+	if store.IsNameTaken(name) {
 		ui.Errorf("identity %q already exists", name)
 		return fmt.Errorf("user exists")
+	}
+
+	if store.IsEmailTaken(email) {
+		ui.Errorf("Email already in use — each identity must have a unique email to prevent impersonation.")
+		return fmt.Errorf("email exists")
 	}
 
 	if err := store.AddUser(name, email); err != nil {

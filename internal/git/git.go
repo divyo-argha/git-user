@@ -16,6 +16,13 @@ func Apply(name, email string) error {
 	return nil
 }
 
+// ClearIdentity removes user.name, user.email, and core.sshCommand from global gitconfig.
+func ClearIdentity() {
+	exec.Command("git", "config", "--global", "--unset", "user.name").Run()
+	exec.Command("git", "config", "--global", "--unset", "user.email").Run()
+	exec.Command("git", "config", "--global", "--unset", "core.sshCommand").Run()
+}
+
 func CurrentName() string {
 	out, _ := getConfig("user.name")
 	return out

@@ -78,6 +78,41 @@ func runSwitch(args []string) error {
 		return fmt.Errorf("user not found")
 	}
 
+	// Auto-logout: unload the previous identity's key from ssh-agent
+	if store.Current != "" && store.Current != name {
+		if prev := store.CurrentUser(); prev != nil && prev.SSHKey != "" {
+			if isSSHKeyLoaded(prev.SSHKey) {
+				_ = removeSSHKey(prev.SSHKey)
+				ui.Info(fmt.Sprintf("Unloaded SSH key for previous identity %q", prev.Name))
+			}
+		}
+	}
+
+	// Passphrase gate
+	if user.SSHKey != "" {
+		protected, err := isSSHKeyPassphraseProtected(user.SSHKey)
+		if err == nil && protected && !isSSHKeyLoaded(user.SSHKey) {
+			ui.Info(fmt.Sprintf("Identity %q is protected.", user.Name))
+			passphrase, err := readPassphrase("Passphrase: ")
+			if err != nil {
+				return err
+			}
+			if !verifyPassphrase(user.SSHKey, passphrase) {
+				ui.Error("Incorrect passphrase. Access denied.")
+				return fmt.Errorf("incorrect passphrase")
+			}
+
+			// Load it into agent
+			if ensureSSHAgent() == nil {
+				if err := addSSHKeyWithPassphrase(user.SSHKey, passphrase); err != nil {
+					ui.Warn(fmt.Sprintf("Could not load key into agent: %v", err))
+				} else {
+					ui.Success("Key unlocked and loaded into ssh-agent.")
+				}
+			}
+		}
+	}
+
 	if err := git.Apply(user.Name, user.Email); err != nil {
 		ui.Errorf("applying git config: %v", err)
 		return err
@@ -86,22 +121,6 @@ func runSwitch(args []string) error {
 	if user.SSHKey != "" {
 		if err := git.ConfigureSSH(user.SSHKey); err != nil {
 			ui.Warn(fmt.Sprintf("applying SSH config: %v", err))
-		}
-
-		if os.Getenv("SSH_AUTH_SOCK") == "" {
-			ui.Info("ssh-agent is not running; start it with: eval \"$(ssh-agent -s)\"")
-			ui.Info("Then run: git-user session start")
-		} else if !isSSHKeyLoaded(user.SSHKey) {
-			ui.Warn(fmt.Sprintf("SSH key for %q is not loaded", user.Name))
-			if ui.Confirm("Start session now?", true) {
-				if err := addSSHKey(user.SSHKey, ""); err != nil {
-					ui.Warn("Could not start authenticated session")
-				} else {
-					ui.Success("Session started")
-				}
-			} else {
-				ui.Info("You can start it later with: git-user session start")
-			}
 		}
 	} else {
 		if err := git.RemoveSSHConfig(); err != nil {

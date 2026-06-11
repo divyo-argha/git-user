@@ -41,14 +41,9 @@ COMMANDS
   completion <shell>         Generate shell completion (bash/zsh/fish)
   hook <install|uninstall>   Manage git pre-commit hooks
   security                   Run security audit
-  session start [name] [--ttl <duration>]  Load an identity's SSH key into ssh-agent
-  session start --temp <name> <email> [--ttl] Temporary session — key not saved, deleted on stop
-  session stop [name]          Unload an identity's SSH key; identity stays selected
-  session stop --all           Remove all keys from ssh-agent
-  session status               Show ssh-agent and loaded-key status
+  logout                     Sign out and clear active identity
 
 ALIASES
-  ls (list)  sw (switch)  rm (remove)
 
 EXAMPLES
   git-user register                    # Guided setup with all options
@@ -70,7 +65,6 @@ Config: ~/.git-users/config.json
 func Execute() error {
 	args := os.Args[1:]
 
-	autoCleanupExpiredTempSession()
 	autoSeedFromGitconfig() // first-run: import existing .gitconfig identity
 
 	if len(args) == 0 {
@@ -129,8 +123,8 @@ func Execute() error {
 		return runHook(rest)
 	case "security":
 		return runSecurityCheck(rest)
-	case "session":
-		return runSession(rest)
+	case "logout", "lo", "signout":
+		return runLogout(rest)
 	default:
 		// Try as identity name → detail view
 		if handleUnknownArg(sub) {

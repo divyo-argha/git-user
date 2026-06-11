@@ -28,6 +28,11 @@ func runEdit(args []string) error {
 		return err
 	}
 
+	if store.IsEmailTaken(newEmail) {
+		ui.Errorf("Email already in use — each identity must have a unique email to prevent impersonation.")
+		return fmt.Errorf("email exists")
+	}
+
 	if err := store.UpdateUser(name, newEmail); err != nil {
 		ui.Errorf("%v", err)
 		return err

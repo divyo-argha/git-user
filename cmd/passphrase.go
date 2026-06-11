@@ -42,10 +42,6 @@ func runPassphrase(args []string) error {
 		return err
 	}
 
-	if err := requireActivePassphraseSession(user); err != nil {
-		return err
-	}
-
 	protected, err := isSSHKeyPassphraseProtected(user.SSHKey)
 	if err != nil {
 		ui.Errorf("Could not inspect SSH key: %v", err)
@@ -93,20 +89,6 @@ func runPassphrase(args []string) error {
 	}
 	ui.Info("Use 'git-user session start' to unlock this key for your work session.")
 
-	return nil
-}
-
-func requireActivePassphraseSession(user *config.User) error {
-	if os.Getenv("SSH_AUTH_SOCK") == "" {
-		ui.Error("No active SSH session.")
-		ui.Info("Start ssh-agent, then run: git-user session start")
-		return fmt.Errorf("ssh-agent not running")
-	}
-	if !isSSHKeyLoaded(user.SSHKey) {
-		ui.Errorf("SSH key for %q is not loaded in this session.", user.Name)
-		ui.Info("Unlock it first: git-user session start")
-		return fmt.Errorf("identity session not active")
-	}
 	return nil
 }
 
