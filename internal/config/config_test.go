@@ -104,21 +104,39 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	}
 }
 
-func TestAtomicSave(t *testing.T) {
-	// Verify Save writes to a temp file then renames (no partial writes visible).
-	// We test this indirectly: Save + Load must round-trip correctly.
+func TestRealSaveLoad(t *testing.T) {
 	dir := t.TempDir()
-	// Override configPath via env trick isn't available, so test the Store methods
-	// and trust the Save implementation (covered by code review + TestSaveLoadRoundTrip).
-	_ = dir
+	path := filepath.Join(dir, "config.json")
+	config.SetConfigPath(path)
+
+	if config.ConfigPath() != path {
+		t.Errorf("ConfigPath() = %s, want %s", config.ConfigPath(), path)
+	}
 
 	s := &config.Store{}
 	_ = s.AddUser("grace", "grace@example.com")
-	if s.CurrentUser() != nil {
-		t.Fatal("current should be nil before SetCurrent")
-	}
 	_ = s.SetCurrent("grace")
-	if s.CurrentUser() == nil {
-		t.Fatal("current should be set")
+
+	if err := config.Save(s); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	loaded, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if loaded.Current != "grace" {
+		t.Errorf("expected current to be grace, got %s", loaded.Current)
+	}
+
+	// Test loading non-existent config path returns empty store
+	config.SetConfigPath(filepath.Join(dir, "nonexistent.json"))
+	nonexistent, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load on nonexistent path should succeed, got error: %v", err)
+	}
+	if len(nonexistent.Users) != 0 {
+		t.Errorf("expected empty store on nonexistent file load, got users count %d", len(nonexistent.Users))
 	}
 }

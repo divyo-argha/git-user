@@ -40,6 +40,8 @@ func init() {
 
 func ConfigPath() string { return configPath }
 
+func SetConfigPath(path string) { configPath = path }
+
 func Load() (*Store, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {

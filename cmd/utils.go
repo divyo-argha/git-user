@@ -143,7 +143,12 @@ func generateAndDisplayKey(name, email, passphrase string) (string, error) {
 	return keyPath, nil
 }
 
+var readPassphraseFn func(prompt string) (string, error)
+
 func readPassphrase(prompt string) (string, error) {
+	if readPassphraseFn != nil {
+		return readPassphraseFn(prompt)
+	}
 	fmt.Print(prompt)
 	b, err := term.ReadPassword(int(os.Stdin.Fd()))
 	fmt.Println()

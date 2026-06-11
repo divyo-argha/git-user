@@ -72,6 +72,11 @@ var (
 	styleHelp = lipgloss.NewStyle().
 			Foreground(gray).
 			Italic(true)
+
+	// Mock function hooks for unit tests
+	PromptFn  func(label string) (string, error)
+	SelectFn  func(label string, options []string) (int, error)
+	ConfirmFn func(question string, defaultYes bool) bool
 )
 
 // IsTTY returns true if stdout is a character device (terminal).
@@ -204,6 +209,9 @@ func RawMode(on bool) error {
 
 // Prompt asks the user for text input.
 func Prompt(label string) (string, error) {
+	if PromptFn != nil {
+		return PromptFn(label)
+	}
 	fmt.Printf("%s %s ", styleInfo.Render("?"), lipgloss.NewStyle().Bold(true).Render(label))
 	reader := bufio.NewReader(os.Stdin)
 	text, err := reader.ReadString('\n')
@@ -270,6 +278,9 @@ func (m SelectModel) View() string {
 
 // Select displays a list of options and returns the index of the chosen one.
 func Select(label string, options []string) (int, error) {
+	if SelectFn != nil {
+		return SelectFn(label, options)
+	}
 	m := SelectModel{
 		label:   label,
 		options: options,
@@ -292,6 +303,9 @@ func Select(label string, options []string) (int, error) {
 
 // Confirm asks a yes/no question and returns true for yes.
 func Confirm(question string, defaultYes bool) bool {
+	if ConfirmFn != nil {
+		return ConfirmFn(question, defaultYes)
+	}
 	options := []string{"Yes", "No"}
 	cursor := 0
 	if !defaultYes {

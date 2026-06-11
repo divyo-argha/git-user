@@ -31,7 +31,7 @@ clean:
 	@rm -rf $(BUILD_DIR)
 
 test:
-	go test ./...
+	@go run test/runner/main.go
 
 release-test:
 	go run github.com/goreleaser/goreleaser@latest release --snapshot --clean
