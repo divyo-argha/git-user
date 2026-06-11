@@ -12,7 +12,7 @@ func TestStyleFunctions(t *testing.T) {
 
 func TestIsTTY(t *testing.T) {
 	// Just verify it doesn't panic
-	_ = isTTY()
+	_ = IsTTY()
 }
 
 func TestMessageFunctions(t *testing.T) {

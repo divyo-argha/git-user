@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -23,16 +24,6 @@ var (
 	tuiOrange  = lipgloss.Color("#FFAA00")
 	tuiRed     = lipgloss.Color("#FF5555")
 
-	tuiCardActive = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(tuiGreen).
-			Padding(0, 2).Width(58)
-
-	tuiCardNormal = lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
-			BorderForeground(tuiGray).
-			Padding(0, 2).Width(58)
-
 	tuiSelected   = lipgloss.NewStyle().Foreground(tuiCyan).Bold(true)
 	tuiDim        = lipgloss.NewStyle().Foreground(tuiGray)
 	tuiActive     = lipgloss.NewStyle().Foreground(tuiGreen).Bold(true)
@@ -40,6 +31,43 @@ var (
 	tuiDanger     = lipgloss.NewStyle().Foreground(tuiRed)
 	tuiHelp       = lipgloss.NewStyle().Foreground(tuiGray).Italic(true)
 	tuiBold       = lipgloss.NewStyle().Foreground(tuiWhite).Bold(true)
+
+	paneTitleStyle = lipgloss.NewStyle().Foreground(tuiCyan).Bold(true)
+
+	styleActivePane = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(tuiCyan).
+			Padding(1, 2).
+			Width(44).
+			Height(14)
+
+	styleInactivePane = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(tuiGray).
+			Padding(1, 2).
+			Width(44).
+			Height(14)
+
+	styleDetailCard = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(tuiGray).
+			Padding(1, 2).
+			Width(44).
+			Height(14)
+
+	styleDetailActiveCard = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(tuiGreen).
+			Padding(1, 2).
+			Width(44).
+			Height(14)
+
+	styleDetailActions = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(tuiCyan).
+			Padding(1, 2).
+			Width(44).
+			Height(14)
 )
 
 // ── Screen state ──────────────────────────────────────────────────────────────
@@ -72,19 +100,29 @@ type mainItem struct {
 
 // ── Model ─────────────────────────────────────────────────────────────────────
 
+type tuiPane int
+
+const (
+	paneIdentities tuiPane = iota
+	paneActions
+)
+
 type tuiModel struct {
-	screen     tuiScreen
-	store      *config.Store
+	screen           tuiScreen
+	store            *config.Store
 	// main screen
-	mainItems  []mainItem
-	mainCursor int
+	activePane       tuiPane
+	identitiesCursor int
+	actionsCursor    int
+	identitiesList   []mainItem
+	actionsList      []mainItem
 	// detail screen
-	detailName    string
-	detailItems   []detailItem
-	detailCursor  int
+	detailName       string
+	detailItems      []detailItem
+	detailCursor     int
 	// result
-	quit    bool
-	action  *pendingAction
+	quit   bool
+	action *pendingAction
 }
 
 type detailItem struct {
@@ -96,7 +134,7 @@ type detailItem struct {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-func buildMainItems(store *config.Store) []mainItem {
+func buildIdentitiesList(store *config.Store) []mainItem {
 	items := []mainItem{}
 	for _, u := range store.Users {
 		label := u.Name
@@ -110,19 +148,26 @@ func buildMainItems(store *config.Store) []mainItem {
 		}
 		items = append(items, mainItem{label: label, isUser: true, userName: u.Name})
 	}
-	items = append(items, mainItem{label: lipgloss.NewStyle().Foreground(tuiCyan).Render("+ Create new identity"), isAction: true, actionKey: "register"})
-	items = append(items, mainItem{label: "Sign out (logout)", isAction: true, actionKey: "logout"})
-	items = append(items, mainItem{label: "Fix remotes (HTTPS → SSH)", isAction: true, actionKey: "fix-remote"})
-	items = append(items, mainItem{label: "Security audit", isAction: true, actionKey: "security"})
-	items = append(items, mainItem{label: "Doctor (health check)", isAction: true, actionKey: "doctor"})
-	items = append(items, mainItem{isSep: true})
-	items = append(items, mainItem{label: "Export all identities", isAction: true, actionKey: "export-all"})
-	items = append(items, mainItem{label: "Import identities", isAction: true, actionKey: "import"})
-	items = append(items, mainItem{label: "Import original gitconfig identity", isAction: true, actionKey: "import-original"})
-	items = append(items, mainItem{isSep: true})
-	items = append(items, mainItem{label: "Update git-user", isAction: true, actionKey: "update"})
-	items = append(items, mainItem{label: tuiDim.Render("Quit"), isAction: true, actionKey: "quit"})
+	items = append(items, mainItem{
+		label:     lipgloss.NewStyle().Foreground(tuiCyan).Render("+ Register new identity"),
+		isAction:  true,
+		actionKey: "register",
+	})
 	return items
+}
+
+func buildActionsList() []mainItem {
+	return []mainItem{
+		{label: "Sign out (logout)", isAction: true, actionKey: "logout"},
+		{label: "Fix remotes (HTTPS → SSH)", isAction: true, actionKey: "fix-remote"},
+		{label: "Security audit", isAction: true, actionKey: "security"},
+		{label: "Doctor (health check)", isAction: true, actionKey: "doctor"},
+		{label: "Export all identities", isAction: true, actionKey: "export-all"},
+		{label: "Import identities", isAction: true, actionKey: "import"},
+		{label: "Import original gitconfig", isAction: true, actionKey: "import-original"},
+		{label: "Update git-user", isAction: true, actionKey: "update"},
+		{label: tuiDim.Render("Quit"), isAction: true, actionKey: "quit"},
+	}
 }
 
 func buildDetailItems(user *config.User, store *config.Store) []detailItem {
@@ -161,15 +206,6 @@ func buildDetailItems(user *config.User, store *config.Store) []detailItem {
 	return items
 }
 
-func firstSelectable(items []mainItem) int {
-	for i, it := range items {
-		if !it.isSep {
-			return i
-		}
-	}
-	return 0
-}
-
 func firstDetailSelectable(items []detailItem) int {
 	for i, it := range items {
 		if !it.isSep {
@@ -180,12 +216,16 @@ func firstDetailSelectable(items []detailItem) int {
 }
 
 func initialModel(store *config.Store, startDetail string) tuiModel {
-	items := buildMainItems(store)
+	idList := buildIdentitiesList(store)
+	actList := buildActionsList()
 	m := tuiModel{
-		screen:     screenMain,
-		store:      store,
-		mainItems:  items,
-		mainCursor: firstSelectable(items),
+		screen:           screenMain,
+		store:            store,
+		activePane:       paneIdentities,
+		identitiesList:   idList,
+		actionsList:      actList,
+		identitiesCursor: 0,
+		actionsCursor:    0,
 	}
 	if startDetail != "" {
 		m.screen = screenDetail
@@ -214,21 +254,57 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			if m.screen == screenDetail {
 				m.screen = screenMain
+				m.identitiesList = buildIdentitiesList(m.store) // reload in case of changes
 				return m, nil
 			}
 			m.quit = true
 			return m, tea.Quit
 
+		case "tab":
+			if m.screen == screenMain {
+				if m.activePane == paneIdentities {
+					m.activePane = paneActions
+				} else {
+					m.activePane = paneIdentities
+				}
+			}
+
+		case "left", "h":
+			if m.screen == screenMain {
+				m.activePane = paneIdentities
+			}
+
+		case "right", "l":
+			if m.screen == screenMain {
+				m.activePane = paneActions
+			}
+
 		case "up", "k":
 			if m.screen == screenMain {
-				m.mainCursor = prevSelectable(m.mainItems, m.mainCursor)
+				if m.activePane == paneIdentities {
+					if m.identitiesCursor > 0 {
+						m.identitiesCursor--
+					}
+				} else {
+					if m.actionsCursor > 0 {
+						m.actionsCursor--
+					}
+				}
 			} else {
 				m.detailCursor = prevDetailSelectable(m.detailItems, m.detailCursor)
 			}
 
 		case "down", "j":
 			if m.screen == screenMain {
-				m.mainCursor = nextSelectable(m.mainItems, m.mainCursor)
+				if m.activePane == paneIdentities {
+					if m.identitiesCursor < len(m.identitiesList)-1 {
+						m.identitiesCursor++
+					}
+				} else {
+					if m.actionsCursor < len(m.actionsList)-1 {
+						m.actionsCursor++
+					}
+				}
 			} else {
 				m.detailCursor = nextDetailSelectable(m.detailItems, m.detailCursor)
 			}
@@ -244,27 +320,30 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m tuiModel) handleMainEnter() (tea.Model, tea.Cmd) {
-	item := m.mainItems[m.mainCursor]
-
-	if item.isUser {
-		// Open detail screen for this identity
-		user := m.store.FindUser(item.userName)
-		if user == nil {
+	if m.activePane == paneIdentities {
+		item := m.identitiesList[m.identitiesCursor]
+		if item.isUser {
+			user := m.store.FindUser(item.userName)
+			if user == nil {
+				return m, nil
+			}
+			m.screen = screenDetail
+			m.detailName = item.userName
+			m.detailItems = buildDetailItems(user, m.store)
+			m.detailCursor = firstDetailSelectable(m.detailItems)
 			return m, nil
 		}
-		m.screen = screenDetail
-		m.detailName = item.userName
-		m.detailItems = buildDetailItems(user, m.store)
-		m.detailCursor = firstDetailSelectable(m.detailItems)
-		return m, nil
-	}
-
-	if item.isAction {
-		switch item.actionKey {
-		case "quit":
-			m.quit = true
+		if item.isAction {
+			m.action = &pendingAction{kind: item.actionKey}
 			return m, tea.Quit
-		default:
+		}
+	} else {
+		item := m.actionsList[m.actionsCursor]
+		if item.isAction {
+			if item.actionKey == "quit" {
+				m.quit = true
+				return m, tea.Quit
+			}
 			m.action = &pendingAction{kind: item.actionKey}
 			return m, tea.Quit
 		}
@@ -284,9 +363,9 @@ func (m tuiModel) handleDetailEnter() (tea.Model, tea.Cmd) {
 	switch item.key {
 	case "back":
 		m.screen = screenMain
+		m.identitiesList = buildIdentitiesList(m.store) // reload
 		return m, nil
 	case "pubkey-locked", "session-na":
-		// non-actionable, just stay
 		return m, nil
 	default:
 		m.action = &pendingAction{kind: item.key, name: m.detailName}
@@ -295,24 +374,6 @@ func (m tuiModel) handleDetailEnter() (tea.Model, tea.Cmd) {
 }
 
 // ── Navigation helpers ─────────────────────────────────────────────────────────
-
-func nextSelectable(items []mainItem, cur int) int {
-	for i := cur + 1; i < len(items); i++ {
-		if !items[i].isSep {
-			return i
-		}
-	}
-	return cur
-}
-
-func prevSelectable(items []mainItem, cur int) int {
-	for i := cur - 1; i >= 0; i-- {
-		if !items[i].isSep {
-			return i
-		}
-	}
-	return cur
-}
 
 func nextDetailSelectable(items []detailItem, cur int) int {
 	for i := cur + 1; i < len(items); i++ {
@@ -344,21 +405,66 @@ func (m tuiModel) View() string {
 func (m tuiModel) viewMain() string {
 	sb := strings.Builder{}
 
-	sb.WriteString("\n" + renderHeader(m.store) + "\n\n")
-
-	for i, item := range m.mainItems {
-		if item.isSep {
-			sb.WriteString("  " + tuiDim.Render("──────────────────────────────────────────────") + "\n")
-			continue
-		}
-		if i == m.mainCursor {
-			sb.WriteString("  " + tuiSelected.Render("▶ "+stripAnsi(item.label)) + "\n")
+	// Left Pane (Identities) content
+	var leftLines []string
+	leftLines = append(leftLines, paneTitleStyle.Render("Git Identities"))
+	leftLines = append(leftLines, tuiDim.Render("───────────────────────────────────────────"))
+	for i, item := range m.identitiesList {
+		prefix := "  "
+		if m.activePane == paneIdentities && i == m.identitiesCursor {
+			prefix = "▶ "
+			lineText := prefix + stripAnsi(item.label)
+			leftLines = append(leftLines, tuiSelected.Render(lineText))
+		} else if m.activePane != paneIdentities && i == m.identitiesCursor {
+			prefix = "▶ "
+			lineText := prefix + stripAnsi(item.label)
+			leftLines = append(leftLines, tuiDim.Render(lineText))
 		} else {
-			sb.WriteString("    " + item.label + "\n")
+			leftLines = append(leftLines, prefix+item.label)
 		}
 	}
+	// Pad pane content lines
+	for len(leftLines) < 12 {
+		leftLines = append(leftLines, "")
+	}
 
-	sb.WriteString("\n" + tuiHelp.Render("  ↑↓ navigate  Enter select  q quit") + "\n")
+	// Right Pane (Utilities) content
+	var rightLines []string
+	rightLines = append(rightLines, paneTitleStyle.Render("System Utilities"))
+	rightLines = append(rightLines, tuiDim.Render("───────────────────────────────────────────"))
+	for i, item := range m.actionsList {
+		prefix := "  "
+		if m.activePane == paneActions && i == m.actionsCursor {
+			prefix = "▶ "
+			lineText := prefix + stripAnsi(item.label)
+			rightLines = append(rightLines, tuiSelected.Render(lineText))
+		} else if m.activePane != paneActions && i == m.actionsCursor {
+			prefix = "▶ "
+			lineText := prefix + stripAnsi(item.label)
+			rightLines = append(rightLines, tuiDim.Render(lineText))
+		} else {
+			rightLines = append(rightLines, prefix+item.label)
+		}
+	}
+	// Pad pane content lines
+	for len(rightLines) < 12 {
+		rightLines = append(rightLines, "")
+	}
+
+	var leftBox, rightBox string
+	if m.activePane == paneIdentities {
+		leftBox = styleActivePane.Render(strings.Join(leftLines, "\n"))
+		rightBox = styleInactivePane.Render(strings.Join(rightLines, "\n"))
+	} else {
+		leftBox = styleInactivePane.Render(strings.Join(leftLines, "\n"))
+		rightBox = styleActivePane.Render(strings.Join(rightLines, "\n"))
+	}
+
+	panes := lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "   ", rightBox)
+
+	sb.WriteString("\n" + renderHeader(m.store) + "\n\n")
+	sb.WriteString(panes + "\n\n")
+	sb.WriteString(tuiHelp.Render("  Tab/←/→ switch pane  ↑↓ navigate  Enter select  q quit") + "\n")
 	return sb.String()
 }
 
@@ -370,69 +476,106 @@ func (m tuiModel) viewDetail() string {
 
 	sb := strings.Builder{}
 
-	// Info card
 	isActive := user.Name == m.store.Current
-	cardStyle := tuiCardNormal
-	if isActive {
-		cardStyle = tuiCardActive
-	}
 
-	nameStr := tuiBold.Render(user.Name)
+	// Left Pane: Info card
+	var profileLines []string
+	profileLines = append(profileLines, paneTitleStyle.Render("Identity Profile"))
+	profileLines = append(profileLines, tuiDim.Render("───────────────────────────────────────────"))
+	profileLines = append(profileLines, "")
+
+	// Name
+	nameVal := user.Name
 	if isActive {
-		nameStr = tuiActive.Render("● " + user.Name)
+		nameVal = tuiActive.Render("● "+user.Name) + " [active]"
+	} else {
+		nameVal = "○ " + user.Name
 	}
 	if user.Source == "original" {
-		nameStr += "  " + tuiOriginal.Render("(original)")
+		nameVal += " " + tuiOriginal.Render("(original)")
 	}
+	profileLines = append(profileLines, fmt.Sprintf("%s\n  %s", tuiDim.Render("Profile Name:"), nameVal))
+	profileLines = append(profileLines, "")
 
-	sshLine := tuiDim.Render("(no SSH key)")
+	// Email
+	profileLines = append(profileLines, fmt.Sprintf("%s\n  %s", tuiDim.Render("Email Address:"), user.Email))
+	profileLines = append(profileLines, "")
+
+	// SSH Key
+	sshKeyStr := "None"
 	if user.SSHKey != "" {
-		sshLine = tuiDim.Render(user.SSHKey)
+		sshKeyStr = filepath.Base(user.SSHKey)
 	}
+	profileLines = append(profileLines, fmt.Sprintf("%s\n  %s", tuiDim.Render("SSH Key File:"), sshKeyStr))
+	profileLines = append(profileLines, "")
 
-	sessionLine := tuiDim.Render("not loaded")
-	if user.SSHKey != "" && isSSHKeyLoaded(user.SSHKey) {
-		sessionLine = tuiActive.Render("key loaded ✓")
-	}
-
-	syncLine := ""
-	if isActive {
-		gitEmail := git.CurrentEmail()
-		if gitEmail == user.Email {
-			syncLine = "\n  " + tuiDim.Render("Sync     ") + tuiActive.Render("in sync ✓")
-		} else {
-			syncLine = "\n  " + tuiDim.Render("Sync     ") + tuiDanger.Render("out of sync ⚠")
+	// Passphrase status
+	passphraseStr := tuiDim.Render("Unknown")
+	if user.SSHKey != "" {
+		if protected, err := isSSHKeyPassphraseProtected(user.SSHKey); err == nil {
+			if protected {
+				passphraseStr = tuiActive.Render("Passphrase Protected ✓")
+			} else {
+				passphraseStr = tuiDanger.Render("No Passphrase ⚠")
+			}
 		}
 	}
+	profileLines = append(profileLines, fmt.Sprintf("%s\n  %s", tuiDim.Render("Security Status:"), passphraseStr))
+	profileLines = append(profileLines, "")
 
-	cardContent := fmt.Sprintf("  %s\n\n  %s  %s\n  %s  %s\n  %s  %s%s",
-		nameStr,
-		tuiDim.Render("Email   "), user.Email,
-		tuiDim.Render("SSH Key "), sshLine,
-		tuiDim.Render("Session "), sessionLine,
-		syncLine,
-	)
-	sb.WriteString("\n" + cardStyle.Render(cardContent) + "\n\n")
+	// Agent status
+	sessionStr := tuiDim.Render("not loaded")
+	if user.SSHKey != "" && isSSHKeyLoaded(user.SSHKey) {
+		sessionStr = tuiActive.Render("Loaded in agent ✓")
+	}
+	profileLines = append(profileLines, fmt.Sprintf("%s\n  %s", tuiDim.Render("ssh-agent Session:"), sessionStr))
 
-	// Actions
+	// Pad pane content lines
+	for len(profileLines) < 12 {
+		profileLines = append(profileLines, "")
+	}
+
+	var leftBox string
+	if isActive {
+		leftBox = styleDetailActiveCard.Render(strings.Join(profileLines, "\n"))
+	} else {
+		leftBox = styleDetailCard.Render(strings.Join(profileLines, "\n"))
+	}
+
+	// Right Pane: Profile Actions
+	var actionLines []string
+	actionLines = append(actionLines, paneTitleStyle.Render("Profile Actions"))
+	actionLines = append(actionLines, tuiDim.Render("───────────────────────────────────────────"))
 	for i, item := range m.detailItems {
 		if item.isSep {
-			sb.WriteString("  " + tuiDim.Render("──────────────────────────────────────────────") + "\n")
+			actionLines = append(actionLines, "  "+tuiDim.Render("───────────────────────────────────────────"))
 			continue
 		}
+		prefix := "  "
 		if i == m.detailCursor {
+			prefix = "▶ "
 			raw := stripAnsi(item.label)
 			if item.isDanger {
-				sb.WriteString("  " + tuiDanger.Render("▶ "+raw) + "\n")
+				actionLines = append(actionLines, tuiDanger.Render(prefix+raw))
 			} else {
-				sb.WriteString("  " + tuiSelected.Render("▶ "+raw) + "\n")
+				actionLines = append(actionLines, tuiSelected.Render(prefix+raw))
 			}
 		} else {
-			sb.WriteString("    " + item.label + "\n")
+			actionLines = append(actionLines, prefix+item.label)
 		}
 	}
+	// Pad pane content lines
+	for len(actionLines) < 12 {
+		actionLines = append(actionLines, "")
+	}
 
-	sb.WriteString("\n" + tuiHelp.Render("  ↑↓ navigate  Enter select  Esc back  q quit") + "\n")
+	rightBox := styleDetailActions.Render(strings.Join(actionLines, "\n"))
+
+	panes := lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "   ", rightBox)
+
+	sb.WriteString("\n" + renderHeader(m.store) + "\n\n")
+	sb.WriteString(panes + "\n\n")
+	sb.WriteString(tuiHelp.Render("  ↑↓ navigate  Enter select  Esc back  q quit") + "\n")
 	return sb.String()
 }
 

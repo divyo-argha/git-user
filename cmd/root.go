@@ -94,6 +94,10 @@ func Execute() error {
 	autoSeedFromGitconfig() // first-run: import existing .gitconfig identity
 
 	if len(args) == 0 {
+		if !ui.IsTTY() {
+			printConciseStatus()
+			return nil
+		}
 		return runTui()
 	}
 
@@ -191,4 +195,41 @@ func autoSeedFromGitconfig() {
 	})
 
 	_ = config.Save(store)
+}
+
+func printConciseStatus() {
+	store, err := config.Load()
+	if err != nil {
+		fmt.Printf("Error loading configuration: %v\n", err)
+		return
+	}
+
+	fmt.Println("git-user — manage multiple Git identities")
+	fmt.Println()
+
+	// Active Identity
+	if store.Current != "" {
+		if u := store.CurrentUser(); u != nil {
+			fmt.Printf("  Active Profile: \033[1;32m%s\033[0m (%s)\n", u.Name, u.Email)
+		} else {
+			fmt.Printf("  Active Profile: \033[1;31m%s (missing)\033[0m\n", store.Current)
+		}
+	} else {
+		fmt.Println("  Active Profile: \033[1;30mNone (logged out)\033[0m")
+	}
+
+	// SSH Agent Connection
+	_, conn, err := getAgentClient()
+	if err == nil {
+		defer conn.Close()
+		fmt.Println("  SSH Agent     : \033[1;32mConnected\033[0m")
+		if fingerprints, errList := loadedSSHKeyFingerprints(); errList == nil {
+			fmt.Printf("  Loaded Keys   : %d\n", len(fingerprints))
+		}
+	} else {
+		fmt.Println("  SSH Agent     : \033[1;31mNot reachable\033[0m")
+	}
+
+	fmt.Println("\nRun in an interactive terminal to open the TUI dashboard.")
+	fmt.Println("Run `git-user --help` to view all available commands.")
 }

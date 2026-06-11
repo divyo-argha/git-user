@@ -74,7 +74,8 @@ var (
 			Italic(true)
 )
 
-func isTTY() bool {
+// IsTTY returns true if stdout is a character device (terminal).
+func IsTTY() bool {
 	fi, err := os.Stdout.Stat()
 	if err != nil {
 		return false

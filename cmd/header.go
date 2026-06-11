@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -32,21 +33,60 @@ func renderLogoHeader(store *config.Store) string {
 	logoH := len(logo.PixelLines)
 
 	nameStyle  := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FFAA")).Bold(true)
-	tagStyle   := lipgloss.NewStyle().Foreground(lipgloss.Color("#444466")).Italic(true)
+	tagStyle   := lipgloss.NewStyle().Foreground(lipgloss.Color("#666688")).Italic(true)
 	dotStyle   := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF99"))
 	actName    := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF99")).Bold(true)
-	actEmail   := lipgloss.NewStyle().Foreground(lipgloss.Color("#555577"))
+	actEmail   := lipgloss.NewStyle().Foreground(lipgloss.Color("#8888AA"))
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#777799"))
 
 	rightLines := []string{
 		nameStyle.Render("git-user"),
 		tagStyle.Render("switch git identities in one command"),
+		"",
 	}
+
+	// Active profile details
 	if store.Current != "" {
 		if u := store.CurrentUser(); u != nil {
-			rightLines = append(rightLines, "")
-			rightLines = append(rightLines,
-				dotStyle.Render("●")+" "+actName.Render(u.Name)+actEmail.Render(" · "+u.Email))
+			rightLines = append(rightLines, fmt.Sprintf("%s  %s %s", 
+				labelStyle.Render("Active profile :"),
+				dotStyle.Render("●"),
+				actName.Render(u.Name)+" "+actEmail.Render("("+u.Email+")"),
+			))
+		} else {
+			rightLines = append(rightLines, fmt.Sprintf("%s  %s", 
+				labelStyle.Render("Active profile :"),
+				lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555")).Render(store.Current+" (missing)"),
+			))
 		}
+	} else {
+		rightLines = append(rightLines, fmt.Sprintf("%s  %s", 
+			labelStyle.Render("Active profile :"),
+			lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")).Render("None (logged out)"),
+		))
+	}
+
+	// Agent status
+	client, conn, err := getAgentClient()
+	if err == nil {
+		conn.Close()
+		_ = client
+		agentStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF66")).Render("Connected")
+		keyCount := 0
+		if fingerprints, errList := loadedSSHKeyFingerprints(); errList == nil {
+			keyCount = len(fingerprints)
+		}
+		rightLines = append(rightLines, fmt.Sprintf("%s  %s (%d keys loaded)", 
+			labelStyle.Render("SSH Agent      :"),
+			agentStr,
+			keyCount,
+		))
+	} else {
+		agentStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555")).Render("Not reachable")
+		rightLines = append(rightLines, fmt.Sprintf("%s  %s", 
+			labelStyle.Render("SSH Agent      :"),
+			agentStr,
+		))
 	}
 
 	// vertically center text within logo height
