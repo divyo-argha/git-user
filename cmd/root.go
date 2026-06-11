@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -69,6 +71,7 @@ func Execute() error {
 	args := os.Args[1:]
 
 	autoCleanupExpiredTempSession()
+	autoSeedFromGitconfig() // first-run: import existing .gitconfig identity
 
 	if len(args) == 0 {
 		return runTui()
@@ -136,4 +139,36 @@ func Execute() error {
 		ui.Errorf("unknown command %q — run 'git-user --help' for usage", sub)
 		return fmt.Errorf("unknown command")
 	}
+}
+
+// autoSeedFromGitconfig is a no-op if any identities already exist.
+func autoSeedFromGitconfig() {
+	store, err := config.Load()
+	if err != nil || len(store.Users) > 0 {
+		return 
+	}
+
+	name := git.CurrentName()
+	email := git.CurrentEmail()
+	sshCommand := git.CurrentSSHCommand()
+
+	if name == "" && email == "" {
+		return 
+	}
+
+	importName := name
+	if importName == "" {
+		importName = "original"
+	}
+
+	store.SnapshotOriginal(name, email, sshCommand)
+
+	store.Users = append(store.Users, config.User{
+		Name:   importName,
+		Email:  email,
+		SSHKey: extractSSHKeyFromCommand(sshCommand),
+		Source: "original",
+	})
+
+	_ = config.Save(store)
 }

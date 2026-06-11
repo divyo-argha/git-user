@@ -55,6 +55,7 @@ func runSwitch(args []string) error {
 
 	// Auto-import original as an identity on first switch if no identities exist yet
 	autoImportOriginalIfNeeded(store)
+	_ = config.Save(store) 
 
 	if createMode {
 		if store.FindUser(name) != nil {
@@ -307,7 +308,6 @@ func autoImportOriginalIfNeeded(store *config.Store) {
 		importName = "original"
 	}
 
-	// Don't overwrite an existing identity with same name
 	if store.FindUser(importName) != nil {
 		return
 	}

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -671,6 +670,3 @@ func handleUnknownArg(name string) bool {
 	}
 	return false
 }
-
-// ensure os is used
-var _ = os.Stderr
