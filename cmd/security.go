@@ -1,14 +1,15 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
+	"golang.org/x/crypto/ssh"
 )
 
 func runSecurityCheck(args []string) error {
@@ -113,13 +114,20 @@ func runSecurityCheck(args []string) error {
 }
 
 func isSSHKeyPassphraseProtected(keyPath string) (bool, error) {
-	if err := exec.Command("ssh-keygen", "-y", "-P", "", "-f", keyPath).Run(); err == nil {
-		return false, nil
-	}
-
-	if err := exec.Command("ssh-keygen", "-lf", keyPath).Run(); err != nil {
+	data, err := os.ReadFile(keyPath)
+	if err != nil {
 		return false, err
 	}
 
-	return true, nil
+	_, err = ssh.ParseRawPrivateKey(data)
+	if err == nil {
+		return false, nil
+	}
+
+	var passphraseErr *ssh.PassphraseMissingError
+	if errors.As(err, &passphraseErr) {
+		return true, nil
+	}
+
+	return false, err
 }

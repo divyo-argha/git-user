@@ -115,7 +115,32 @@ func promptRequiredPassphrase(prompt, confirmPrompt string) (string, error) {
 }
 
 func changeSSHKeyPassphrase(keyPath, oldPassphrase, newPassphrase string) error {
-	cmd := exec.Command("ssh-keygen", "-p", "-f", keyPath, "-P", oldPassphrase, "-N", newPassphrase)
+	exe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("getting executable path: %w", err)
+	}
+
+	cmd := exec.Command("ssh-keygen", "-p", "-f", keyPath)
+	env := os.Environ()
+
+	env = append(env, "GIT_USER_ASKPASS_MODE=true")
+	env = append(env, "GIT_USER_OLD_PASSPHRASE="+oldPassphrase)
+	env = append(env, "GIT_USER_NEW_PASSPHRASE="+newPassphrase)
+	env = append(env, "SSH_ASKPASS="+exe)
+	env = append(env, "SSH_ASKPASS_REQUIRE=force")
+
+	hasDisplay := false
+	for _, e := range env {
+		if strings.HasPrefix(e, "DISPLAY=") {
+			hasDisplay = true
+			break
+		}
+	}
+	if !hasDisplay {
+		env = append(env, "DISPLAY=dummy:0")
+	}
+
+	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))

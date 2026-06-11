@@ -2,12 +2,15 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/ui"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 )
 
 func ensureSSHAgent() error {
@@ -24,6 +27,18 @@ func ensureSSHAgent() error {
 	fmt.Println(`  eval "$(ssh-agent -s)"`)
 	ui.Info("Then try again.")
 	return fmt.Errorf("ssh-agent not running")
+}
+
+func getAgentClient() (agent.Agent, net.Conn, error) {
+	socket := os.Getenv("SSH_AUTH_SOCK")
+	if socket == "" {
+		return nil, nil, fmt.Errorf("SSH_AUTH_SOCK not set")
+	}
+	conn, err := net.Dial("unix", socket)
+	if err != nil {
+		return nil, nil, err
+	}
+	return agent.NewClient(conn), conn, nil
 }
 
 func isSSHKeyLoaded(keyPath string) bool {
@@ -47,28 +62,54 @@ func isSSHKeyLoaded(keyPath string) bool {
 
 func sshKeyFingerprint(keyPath string) (string, error) {
 	pubKeyPath := keyPath + ".pub"
-	if _, err := os.Stat(pubKeyPath); err != nil {
-		return "", err
+	data, err := os.ReadFile(pubKeyPath)
+	if err != nil {
+		if _, errStat := os.Stat(pubKeyPath); errStat != nil {
+			return "", errStat
+		}
+		output, errCmd := exec.Command("ssh-keygen", "-lf", pubKeyPath).Output()
+		if errCmd != nil {
+			return "", errCmd
+		}
+		return parseSSHKeyFingerprint(string(output))
 	}
 
-	output, err := exec.Command("ssh-keygen", "-lf", pubKeyPath).Output()
+	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(data)
 	if err != nil {
-		return "", err
+		output, errCmd := exec.Command("ssh-keygen", "-lf", pubKeyPath).Output()
+		if errCmd != nil {
+			return "", errCmd
+		}
+		return parseSSHKeyFingerprint(string(output))
 	}
-	return parseSSHKeyFingerprint(string(output))
+
+	return ssh.FingerprintSHA256(pubKey), nil
 }
 
 func loadedSSHKeyFingerprints() ([]string, error) {
-	output, err := exec.Command("ssh-add", "-l").Output()
-	if err != nil {
-		return nil, err
+	client, conn, err := getAgentClient()
+	if err == nil {
+		defer conn.Close()
+		keys, errList := client.List()
+		if errList == nil {
+			fingerprints := make([]string, 0, len(keys))
+			for _, key := range keys {
+				fingerprints = append(fingerprints, ssh.FingerprintSHA256(key))
+			}
+			return fingerprints, nil
+		}
+	}
+
+	output, errCmd := exec.Command("ssh-add", "-l").Output()
+	if errCmd != nil {
+		return nil, errCmd
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 	fingerprints := make([]string, 0, len(lines))
 	for _, line := range lines {
-		fingerprint, err := parseSSHKeyFingerprint(line)
-		if err == nil {
+		fingerprint, errParse := parseSSHKeyFingerprint(line)
+		if errParse == nil {
 			fingerprints = append(fingerprints, fingerprint)
 		}
 	}
@@ -84,23 +125,46 @@ func parseSSHKeyFingerprint(line string) (string, error) {
 }
 
 // addSSHKeyWithPassphrase adds the SSH key to the agent using the provided passphrase.
-// It sets DISPLAY and SSH_ASKPASS so that ssh-add doesn't prompt interactively.
+// It tries in-process parsing and loading first, and falls back to a secure SSH_ASKPASS execution.
 func addSSHKeyWithPassphrase(keyPath, passphrase string) error {
-	cmd := exec.Command("ssh-add", keyPath)
-	
-	// Create a temporary script for SSH_ASKPASS
-	askpassScript, err := os.CreateTemp("", "git-user-askpass-*")
+	data, err := os.ReadFile(keyPath)
+	if err == nil {
+		var privKey interface{}
+		var errParse error
+		if passphrase == "" {
+			privKey, errParse = ssh.ParseRawPrivateKey(data)
+		} else {
+			privKey, errParse = ssh.ParseRawPrivateKeyWithPassphrase(data, []byte(passphrase))
+		}
+
+		if errParse == nil {
+			client, conn, errDial := getAgentClient()
+			if errDial == nil {
+				defer conn.Close()
+				errAdd := client.Add(agent.AddedKey{
+					PrivateKey: privKey,
+					Comment:    keyPath,
+				})
+				if errAdd == nil {
+					return nil
+				}
+			}
+		}
+	}
+
+	exe, err := os.Executable()
 	if err != nil {
-		return fmt.Errorf("failed to create askpass script: %w", err)
-	}
-	defer os.Remove(askpassScript.Name())
-
-	scriptContent := fmt.Sprintf("#!/bin/sh\necho '%s'\n", strings.ReplaceAll(passphrase, "'", "'\\''"))
-	if err := os.WriteFile(askpassScript.Name(), []byte(scriptContent), 0700); err != nil {
-		return fmt.Errorf("failed to write askpass script: %w", err)
+		return fmt.Errorf("getting executable path: %w", err)
 	}
 
+	cmd := exec.Command("ssh-add", keyPath)
 	env := os.Environ()
+
+	env = append(env, "GIT_USER_ASKPASS_MODE=true")
+	env = append(env, "GIT_USER_PASSPHRASE="+passphrase)
+	env = append(env, "SSH_ASKPASS="+exe)
+	env = append(env, "SSH_ASKPASS_REQUIRE=force")
+
 	hasDisplay := false
 	for _, e := range env {
 		if strings.HasPrefix(e, "DISPLAY=") {
@@ -108,18 +172,11 @@ func addSSHKeyWithPassphrase(keyPath, passphrase string) error {
 			break
 		}
 	}
-
 	if !hasDisplay {
-		// SSH_ASKPASS requires DISPLAY to be set, even if it's a dummy value.
 		env = append(env, "DISPLAY=dummy:0")
 	}
 
-	env = append(env, "SSH_ASKPASS="+askpassScript.Name())
-	env = append(env, "SSH_ASKPASS_REQUIRE=force")
-
 	cmd.Env = env
-	
-	// Suppress output
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("ssh-add failed: %v, output: %s", err, string(out))
@@ -129,6 +186,21 @@ func addSSHKeyWithPassphrase(keyPath, passphrase string) error {
 
 func removeSSHKey(keyPath string) error {
 	pubKeyPath := keyPath + ".pub"
+	data, err := os.ReadFile(pubKeyPath)
+	if err == nil {
+		pubKey, _, _, _, errParse := ssh.ParseAuthorizedKey(data)
+		if errParse == nil {
+			client, conn, errDial := getAgentClient()
+			if errDial == nil {
+				defer conn.Close()
+				errRemove := client.Remove(pubKey)
+				if errRemove == nil {
+					return nil
+				}
+			}
+		}
+	}
+
 	if _, err := os.Stat(pubKeyPath); err != nil {
 		return fmt.Errorf("public key not found at %s", pubKeyPath)
 	}
@@ -137,6 +209,15 @@ func removeSSHKey(keyPath string) error {
 }
 
 func verifyPassphrase(keyPath, passphrase string) bool {
-	cmd := exec.Command("ssh-keygen", "-y", "-P", passphrase, "-f", keyPath)
-	return cmd.Run() == nil
+	data, err := os.ReadFile(keyPath)
+	if err != nil {
+		return false
+	}
+	var errParse error
+	if passphrase == "" {
+		_, errParse = ssh.ParseRawPrivateKey(data)
+	} else {
+		_, errParse = ssh.ParseRawPrivateKeyWithPassphrase(data, []byte(passphrase))
+	}
+	return errParse == nil
 }
