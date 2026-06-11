@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/ui"
@@ -25,7 +26,7 @@ func runCurrent(_ []string) error {
 	ui.Banner("Active Identity")
 	fmt.Printf("  Name:  %s", u.Name)
 	if u.Source == "original" {
-		fmt.Printf(" [imported from original]\n")
+		fmt.Printf(" %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).Render("(original)"))
 	} else {
 		fmt.Println()
 	}

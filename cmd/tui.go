@@ -36,7 +36,7 @@ var (
 	tuiSelected   = lipgloss.NewStyle().Foreground(tuiCyan).Bold(true)
 	tuiDim        = lipgloss.NewStyle().Foreground(tuiGray)
 	tuiActive     = lipgloss.NewStyle().Foreground(tuiGreen).Bold(true)
-	tuiOriginal   = lipgloss.NewStyle().Foreground(tuiOrange)
+	tuiOriginal   = lipgloss.NewStyle().Foreground(tuiGreen)
 	tuiDanger     = lipgloss.NewStyle().Foreground(tuiRed)
 	tuiHelp       = lipgloss.NewStyle().Foreground(tuiGray).Italic(true)
 	tuiBold       = lipgloss.NewStyle().Foreground(tuiWhite).Bold(true)
@@ -106,7 +106,7 @@ func buildMainItems(store *config.Store) []mainItem {
 			label = "○ " + u.Name + "  " + tuiDim.Render(u.Email)
 		}
 		if u.Source == "original" {
-			label += "  " + tuiOriginal.Render("[original]")
+			label += "  " + tuiOriginal.Render("(original)")
 		}
 		items = append(items, mainItem{label: label, isUser: true, userName: u.Name})
 	}
@@ -382,7 +382,7 @@ func (m tuiModel) viewDetail() string {
 		nameStr = tuiActive.Render("● " + user.Name)
 	}
 	if user.Source == "original" {
-		nameStr += "  " + tuiOriginal.Render("[original]")
+		nameStr += "  " + tuiOriginal.Render("(original)")
 	}
 
 	sshLine := tuiDim.Render("(no SSH key)")

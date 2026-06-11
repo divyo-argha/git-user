@@ -154,8 +154,8 @@ func UserRow(name, email, sshKey string, active bool, isOriginal bool) {
 	originalTag := ""
 	if isOriginal {
 		originalTag = " " + lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FFAA00")).
-			Render("[original]")
+			Foreground(lipgloss.Color("#00FF00")).
+			Render("(original)")
 	}
 
 	content := fmt.Sprintf("%s%s%s\n%s",
