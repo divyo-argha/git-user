@@ -68,8 +68,14 @@ func runExport(args []string) error {
 	for _, u := range selected {
 		id := bundle.Identity{Name: u.Name, Email: u.Email}
 		if u.SSHKey != "" {
-			id.PrivateKey, _ = os.ReadFile(u.SSHKey)
-			id.PublicKey, _ = os.ReadFile(u.SSHKey + ".pub")
+			privKey, err := os.ReadFile(u.SSHKey)
+			if err != nil {
+				ui.Warn(fmt.Sprintf("Could not read private key for %q: %v. Exporting without SSH key.", u.Name, err))
+			} else {
+				id.PrivateKey = privKey
+				// Public key is optional but try to read it
+				id.PublicKey, _ = os.ReadFile(u.SSHKey + ".pub")
+			}
 		}
 		identities = append(identities, id)
 	}
@@ -82,7 +88,18 @@ func runExport(args []string) error {
 	}
 
 	home, _ := os.UserHomeDir()
-	outPath := filepath.Join(home, fmt.Sprintf("git-user-export-%s.bundle", time.Now().Format("2006-01-02")))
+	baseName := fmt.Sprintf("git-user-export-%s", time.Now().Format("2006-01-02"))
+	outPath := filepath.Join(home, baseName+".bundle")
+
+	counter := 1
+	for {
+		if _, err := os.Stat(outPath); os.IsNotExist(err) {
+			break
+		}
+		outPath = filepath.Join(home, fmt.Sprintf("%s-%d.bundle", baseName, counter))
+		counter++
+	}
+
 	if err := os.WriteFile(outPath, encrypted, 0600); err != nil {
 		ui.Errorf("writing bundle: %v", err)
 		return err
