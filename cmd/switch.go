@@ -24,16 +24,29 @@ func runSwitch(args []string) error {
 	createMode := false
 	name := ""
 	email := ""
+	passphrase := ""
 
 	if args[0] == "-c" {
-		if len(args) < 2 {
-			ui.Error("usage: git-user switch -c <name> [email]")
+		createMode = true
+		var otherArgs []string
+		for i := 1; i < len(args); i++ {
+			switch args[i] {
+			case "--passphrase", "-p":
+				if i+1 < len(args) {
+					passphrase = args[i+1]
+					i++
+				}
+			default:
+				otherArgs = append(otherArgs, args[i])
+			}
+		}
+		if len(otherArgs) < 1 {
+			ui.Error("usage: git-user switch -c <name> [email] [--passphrase <passphrase>]")
 			return fmt.Errorf("missing name")
 		}
-		createMode = true
-		name = args[1]
-		if len(args) > 2 {
-			email = args[2]
+		name = otherArgs[0]
+		if len(otherArgs) > 1 {
+			email = otherArgs[1]
 		}
 	} else {
 		name = args[0]
@@ -63,7 +76,7 @@ func runSwitch(args []string) error {
 			return fmt.Errorf("user exists")
 		}
 
-		if err := quickRegister(name, email, store); err != nil {
+		if err := quickRegister(name, email, passphrase, store); err != nil {
 			return err
 		}
 
@@ -175,7 +188,7 @@ func runSwitch(args []string) error {
 	return nil
 }
 
-func quickRegister(name, email string, store *config.Store) error {
+func quickRegister(name, email, passphrase string, store *config.Store) error {
 	ui.Banner("QUICK SETUP: " + name)
 	fmt.Println()
 
@@ -213,7 +226,7 @@ func quickRegister(name, email string, store *config.Store) error {
 
 	switch idx {
 	case 0: // Auto-generate
-		path, err := generateAndDisplayKey(name, email)
+		path, err := generateAndDisplayKey(name, email, passphrase)
 		if err != nil {
 			ui.Warn("Key generation failed")
 			break

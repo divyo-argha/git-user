@@ -575,7 +575,7 @@ func executeAction(act *pendingAction, store *config.Store) {
 		runRekey([]string{act.name})
 
 	case "passphrase":
-		runPassphrase(nil)
+		runPassphrase([]string{act.name})
 
 	case "logout":
 		runLogout(nil)

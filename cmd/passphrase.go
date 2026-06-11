@@ -11,10 +11,12 @@ import (
 )
 
 func runPassphrase(args []string) error {
-	if len(args) > 0 {
-		ui.Error("usage: git-user passphrase")
-		ui.Info("This command only changes the active, unlocked identity.")
+	var name string
+	if len(args) > 1 {
+		ui.Error("usage: git-user passphrase [name]")
 		return fmt.Errorf("unexpected arguments")
+	} else if len(args) == 1 {
+		name = args[0]
 	}
 
 	store, err := config.Load()
@@ -23,11 +25,21 @@ func runPassphrase(args []string) error {
 		return err
 	}
 
-	user := store.CurrentUser()
-	if user == nil {
-		ui.Error("No active identity.")
-		ui.Info("Switch first: git-user switch <name>")
-		return fmt.Errorf("no active identity")
+	var user *config.User
+	if name != "" {
+		user = store.FindUser(name)
+		if user == nil {
+			ui.Errorf("identity %q not found", name)
+			return fmt.Errorf("user not found")
+		}
+	} else {
+		user = store.CurrentUser()
+		if user == nil {
+			ui.Error("No active identity.")
+			ui.Info("Switch first: git-user switch <name>")
+			ui.Info("Or specify identity name: git-user passphrase <name>")
+			return fmt.Errorf("no active identity")
+		}
 	}
 
 	if user.SSHKey == "" {

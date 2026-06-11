@@ -16,28 +16,52 @@ func isValidEmail(email string) bool {
 }
 
 func runRegister(args []string) error {
+	var name, email, passphrase string
+	var err error
+
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--name", "-n":
+			if i+1 < len(args) {
+				name = args[i+1]
+				i++
+			}
+		case "--email", "-e":
+			if i+1 < len(args) {
+				email = args[i+1]
+				i++
+			}
+		case "--passphrase", "-p":
+			if i+1 < len(args) {
+				passphrase = args[i+1]
+				i++
+			}
+		}
+	}
+
 	ui.Banner("CREATE NEW IDENTITY")
 	fmt.Println()
 
-	var name, email string
-	var err error
-
-	name, err = ui.Prompt("Identity name (e.g., 'work', 'personal'):")
-	if err != nil {
-		return err
-	}
 	if name == "" {
-		ui.Error("Name is required.")
-		return fmt.Errorf("missing name")
+		name, err = ui.Prompt("Identity name (e.g., 'work', 'personal'):")
+		if err != nil {
+			return err
+		}
+		if name == "" {
+			ui.Error("Name is required.")
+			return fmt.Errorf("missing name")
+		}
 	}
 
-	email, err = ui.Prompt("Email address:")
-	if err != nil {
-		return err
-	}
 	if email == "" {
-		ui.Error("Email is required.")
-		return fmt.Errorf("missing email")
+		email, err = ui.Prompt("Email address:")
+		if err != nil {
+			return err
+		}
+		if email == "" {
+			ui.Error("Email is required.")
+			return fmt.Errorf("missing email")
+		}
 	}
 
 	for !isValidEmail(email) {
@@ -86,7 +110,7 @@ func runRegister(args []string) error {
 
 	switch idx {
 	case 0: // Generate new key
-		sshKeyPath, err = generateAndDisplayKey(name, email)
+		sshKeyPath, err = generateAndDisplayKey(name, email, passphrase)
 		if err != nil {
 			ui.Warn("Key generation failed. You can set up SSH later with: git-user bind")
 		}

@@ -57,7 +57,7 @@ func expandPath(path string) string {
 // generateAndDisplayKey creates an ed25519 key at keyPath, prints the public key,
 // waits for the user to add it, then verifies the connection.
 // Returns the key path on success.
-func generateAndDisplayKey(name, email string) (string, error) {
+func generateAndDisplayKey(name, email, passphrase string) (string, error) {
 	home, _ := os.UserHomeDir()
 	keyPath := filepath.Join(home, ".ssh", fmt.Sprintf("git_%s", name))
 
@@ -74,15 +74,31 @@ func generateAndDisplayKey(name, email string) (string, error) {
 	}
 
 	ui.Info(fmt.Sprintf("Generating SSH key at %s...", keyPath))
-	ui.Info("You will be prompted to set a passphrase for the key.")
-	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	var cmd *exec.Cmd
+	if passphrase != "" {
+		cmd = exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
+	} else {
+		ui.Info("You will be prompted to set a passphrase for the key.")
+		cmd = exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("ssh-keygen failed: %w", err)
 	}
 	ui.Success("SSH key generated!")
+
+	if passphrase != "" {
+		if err := changeSSHKeyPassphrase(keyPath, "", passphrase); err != nil {
+			ui.Errorf("Could not add passphrase: %v", err)
+		} else {
+			ui.Success("✓ Passphrase applied securely!")
+		}
+	} else {
+		checkAndPromptPassphrase(keyPath)
+	}
 
 	pubKeyBytes, err := os.ReadFile(keyPath + ".pub")
 	if err != nil {
@@ -144,4 +160,22 @@ func plural(n int) string {
 		return "y"
 	}
 	return "ies"
+}
+
+func checkAndPromptPassphrase(keyPath string) {
+	protected, err := isSSHKeyPassphraseProtected(keyPath)
+	if err == nil && !protected {
+		fmt.Println()
+		ui.Warn("⚠️  Your SSH key is not passphrase protected.")
+		if ui.Confirm("Would you like to add a passphrase to protect this identity now?", true) {
+			newPassphrase, err := promptRequiredPassphrase("New passphrase: ", "Confirm new passphrase: ")
+			if err == nil && newPassphrase != "" {
+				if err := changeSSHKeyPassphrase(keyPath, "", newPassphrase); err != nil {
+					ui.Errorf("Could not add passphrase: %v", err)
+				} else {
+					ui.Success("✓ Passphrase added successfully!")
+				}
+			}
+		}
+	}
 }

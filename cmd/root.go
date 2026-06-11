@@ -63,7 +63,7 @@ HELP
 Config: ~/.git-users/config.json
 `
 
-func Execute() error {
+func init() {
 	if os.Getenv("GIT_USER_ASKPASS_MODE") == "true" {
 		prompt := ""
 		if len(os.Args) > 1 {
@@ -83,8 +83,11 @@ func Execute() error {
 				fmt.Println(os.Getenv("GIT_USER_NEW_PASSPHRASE"))
 			}
 		}
-		return nil
+		os.Exit(0)
 	}
+}
+
+func Execute() error {
 
 	args := os.Args[1:]
 
