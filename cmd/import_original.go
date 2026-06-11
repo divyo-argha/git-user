@@ -89,7 +89,7 @@ func runImportOriginal(args []string) error {
 	}
 
 	fmt.Println()
-	ui.Success(fmt.Sprintf("✓ Imported original identity as %q", importName))
+	ui.Success(fmt.Sprintf("Imported original identity as %q", importName))
 	ui.Info(fmt.Sprintf("  Email: %s", email))
 	if sshKey != "" {
 		ui.Info(fmt.Sprintf("  SSH Key: %s", sshKey))

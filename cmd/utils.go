@@ -34,6 +34,9 @@ func verifySSHConnectionWithKey(keyPath string) error {
 		args = append(args, p.host)
 
 		cmd := exec.Command("ssh", args...)
+		if keyPath != "" {
+			cmd.Env = append(os.Environ(), "SSH_AUTH_SOCK=")
+		}
 		output, _ := cmd.CombinedOutput()
 		out := string(output)
 		for _, marker := range p.success {
@@ -94,7 +97,7 @@ func generateAndDisplayKey(name, email, passphrase string) (string, error) {
 		if err := changeSSHKeyPassphrase(keyPath, "", passphrase); err != nil {
 			ui.Errorf("Could not add passphrase: %v", err)
 		} else {
-			ui.Success("✓ Passphrase applied securely!")
+			ui.Success("Passphrase applied securely!")
 		}
 	} else {
 		checkAndPromptPassphrase(keyPath)
@@ -134,7 +137,7 @@ func generateAndDisplayKey(name, email, passphrase string) (string, error) {
 		ui.Info("The key may not be added yet, or it needs a few seconds to propagate")
 		ui.Info(fmt.Sprintf("Test manually with: ssh -i %s -o IdentitiesOnly=yes -T git@github.com", keyPath))
 	} else {
-		ui.Success("✓ SSH connection verified!")
+		ui.Success("SSH connection verified!")
 	}
 
 	return keyPath, nil
@@ -173,7 +176,7 @@ func checkAndPromptPassphrase(keyPath string) {
 				if err := changeSSHKeyPassphrase(keyPath, "", newPassphrase); err != nil {
 					ui.Errorf("Could not add passphrase: %v", err)
 				} else {
-					ui.Success("✓ Passphrase added successfully!")
+					ui.Success("Passphrase added successfully!")
 				}
 			}
 		}

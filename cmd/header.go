@@ -17,6 +17,11 @@ import (
 //
 const headerStyle = "logo"
 
+// Choose which logo to display:
+//   true  → new logo from logo.png (logo.NewSmallPixelLines)
+//   false → original logo from git-userhub-logo.png (logo.SmallPixelLines)
+const useNewLogo = true
+
 // RenderHeader returns the TUI header block for the main screen.
 func renderHeader(store *config.Store) string {
 	switch headerStyle {
@@ -30,7 +35,13 @@ func renderHeader(store *config.Store) string {
 // ── Logo header ───────────────────────────────────────────────────────────────
 
 func renderLogoHeader(store *config.Store) string {
-	logoH := len(logo.PixelLines)
+	var logoLines []string
+	if useNewLogo {
+		logoLines = logo.NewSmallPixelLines
+	} else {
+		logoLines = logo.SmallPixelLines
+	}
+	logoH := len(logoLines)
 
 	nameStyle  := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FFAA")).Bold(true)
 	tagStyle   := lipgloss.NewStyle().Foreground(lipgloss.Color("#666688")).Italic(true)
@@ -40,7 +51,7 @@ func renderLogoHeader(store *config.Store) string {
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#777799"))
 
 	rightLines := []string{
-		nameStyle.Render("git-user"),
+		nameStyle.Render("GIT-USER"),
 		tagStyle.Render("switch git identities in one command"),
 		"",
 	}
@@ -97,7 +108,7 @@ func renderLogoHeader(store *config.Store) string {
 	rightBlock := strings.Repeat("\n", padTop) + strings.Join(rightLines, "\n")
 
 	return lipgloss.JoinHorizontal(lipgloss.Top,
-		strings.Join(logo.PixelLines, "\n"),
+		strings.Join(logoLines, "\n"),
 		"   ",
 		rightBlock,
 	)

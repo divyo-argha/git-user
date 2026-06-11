@@ -150,9 +150,9 @@ func runRegister(args []string) error {
 
 	fmt.Println()
 	ui.Divider()
-	ui.Success(fmt.Sprintf("✓ Identity created: %s (%s)", name, email))
+	ui.Success(fmt.Sprintf("Identity created: %s (%s)", name, email))
 	if sshKeyPath != "" {
-		ui.Success(fmt.Sprintf("✓ SSH key configured: %s", sshKeyPath))
+		ui.Success(fmt.Sprintf("SSH key configured: %s", sshKeyPath))
 	}
 	fmt.Println()
 	ui.Info(fmt.Sprintf("Activate with: git-user switch %s", name))

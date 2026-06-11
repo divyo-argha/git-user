@@ -175,8 +175,8 @@ func interactiveSSHSetup(name, email string, store *config.Store) error {
 	}
 
 	fmt.Println()
-	ui.Success(fmt.Sprintf("✓ SSH key configured for %q", name))
-	ui.Success(fmt.Sprintf("✓ Key: %s", sshKeyPath))
+	ui.Success(fmt.Sprintf("SSH key configured for %q", name))
+	ui.Success(fmt.Sprintf("Key: %s", sshKeyPath))
 	fmt.Println()
 
 	ui.Info("Testing SSH connection...")

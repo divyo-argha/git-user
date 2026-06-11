@@ -462,7 +462,7 @@ func (m tuiModel) viewMain() string {
 
 	panes := lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "   ", rightBox)
 
-	sb.WriteString("\n" + renderHeader(m.store) + "\n\n")
+	sb.WriteString("\n" + renderHeader(m.store) + "\n")
 	sb.WriteString(panes + "\n\n")
 	sb.WriteString(tuiHelp.Render("  Tab/←/→ switch pane  ↑↓ navigate  Enter select  q quit") + "\n")
 	return sb.String()
@@ -573,7 +573,7 @@ func (m tuiModel) viewDetail() string {
 
 	panes := lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "   ", rightBox)
 
-	sb.WriteString("\n" + renderHeader(m.store) + "\n\n")
+	sb.WriteString("\n" + renderHeader(m.store) + "\n")
 	sb.WriteString(panes + "\n\n")
 	sb.WriteString(tuiHelp.Render("  ↑↓ navigate  Enter select  Esc back  q quit") + "\n")
 	return sb.String()

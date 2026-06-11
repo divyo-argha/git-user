@@ -260,9 +260,9 @@ func quickRegister(name, email, passphrase string, store *config.Store) error {
 	}
 
 	fmt.Println()
-	ui.Success(fmt.Sprintf("✓ Identity created: %s (%s)", name, email))
+	ui.Success(fmt.Sprintf("Identity created: %s (%s)", name, email))
 	if sshKeyPath != "" {
-		ui.Success(fmt.Sprintf("✓ SSH key: %s", sshKeyPath))
+		ui.Success(fmt.Sprintf("SSH key: %s", sshKeyPath))
 	}
 	fmt.Println()
 
