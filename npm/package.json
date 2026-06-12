@@ -1,6 +1,6 @@
 {
   "name": "git-userhub",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "Switch Git accounts in one command. No config editing. No SSH key chaos.",
   "bin": {
     "git-user": "bin/git-user.js"
