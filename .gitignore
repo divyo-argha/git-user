@@ -19,3 +19,4 @@ npm/bin/git-user.exe
 npm/bin/git-user-*
 npm/package-lock.json
 *.tgz
+npm/packages/
