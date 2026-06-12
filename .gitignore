@@ -16,5 +16,6 @@
 npm/node_modules/
 npm/bin/git-user
 npm/bin/git-user.exe
+npm/bin/git-user-*
 npm/package-lock.json
 *.tgz

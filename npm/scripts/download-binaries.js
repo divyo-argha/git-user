@@ -134,7 +134,10 @@ async function main() {
     await tar.extract({ 
       file: archivePath, 
       cwd: BIN_DIR,
-      filter: (p) => p === binaryNameInArchive || p === `./${binaryNameInArchive}`
+      filter: (p) => {
+        const base = p.replace(/^\.\//, '');
+        return base === binaryNameInArchive;
+      }
     });
     
     fs.unlinkSync(archivePath);
