@@ -6,9 +6,10 @@
     "git-user": "bin/git-user.js"
   },
   "scripts": {
-    "test": "echo \"No tests yet\" && exit 0"
+    "test": "echo \"No tests yet\" && exit 0",
+    "prepublishOnly": "node scripts/download-binaries.js"
   },
-  "dependencies": {
+  "devDependencies": {
     "tar": "^7.4.3"
   },
   "keywords": [
@@ -44,13 +45,6 @@
     "x64",
     "arm64"
   ],
-  "socket": {
-    "allowedNetworkHosts": [
-      "api.github.com",
-      "github.com",
-      "objects.githubusercontent.com"
-    ]
-  },
   "config": {
     "repo": "divyo-argha/git-user"
   }
