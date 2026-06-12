@@ -10,7 +10,28 @@ const REPO = 'divyo-argha/git-user';
 const VERSION = `v${PKG_JSON.version}`;
 
 // --- START PINNED HASHES ---
-const PINNED_HASHES = {};
+const PINNED_HASHES = {
+    "git-user_darwin_arm64.tar.gz": {
+      "archive": "434850b54bc77e777b7b57416bd029fc3600906addb8036759572d2279081080",
+      "binary": "3210a67ac54cbe675c31ef8c4c9e515262253a006c60205f115063c314c91113"
+    },
+    "git-user_darwin_x86_64.tar.gz": {
+      "archive": "85deb7ccc4d487d78c22453b57061d447ca79101d8192e3c66d92539361fdae8",
+      "binary": "a75202a115d5c2b65581e18f8a71d2273cbac2708bb38fd37a1626141023e733"
+    },
+    "git-user_linux_arm64.tar.gz": {
+      "archive": "e97a1d23ca85228d7097f313f60be86b692a9a4002d91cd691e3e6ccb913a34f",
+      "binary": "eb714726d488b3eb39a1de8b21a8ce48a24eff8bb39ba8a1d332615bcb956e1f"
+    },
+    "git-user_linux_x86_64.tar.gz": {
+      "archive": "e30e0b709c70fa79bb44dcfb7193157ff626e63664ed704cf35f663cecd321e7",
+      "binary": "3e37645becc5a2928808a41cdadb492106fc2df2ace18be1d11774a3d636ca71"
+    },
+    "git-user_windows_x86_64.tar.gz": {
+      "archive": "32a771b04e588d87dcb1ce7d8dd5303cc8332080686f55688b5054f4c7f0403c",
+      "binary": "570ec56a28741cd5e515aee1b2c18583dd77ea4527b08c68f75d38e80b0bee29"
+    }
+  };
 // --- END PINNED HASHES ---
 
 const platform = os.platform();
