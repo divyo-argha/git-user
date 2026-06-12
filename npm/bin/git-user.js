@@ -29,8 +29,19 @@ if (!osName || !archName) {
   process.exit(1);
 }
 
-const binaryName = `git-user-${osName}-${archName}${ext}`;
-const binaryPath = path.join(__dirname, binaryName);
+const pkgName = `git-userhub-${platform}-${arch}`;
+
+let binaryPath;
+try {
+  // Find the sub-package directory by resolving its package.json
+  const subPkgPath = require.resolve(`${pkgName}/package.json`);
+  binaryPath = path.join(path.dirname(subPkgPath), 'bin', `git-user${ext}`);
+} catch (e) {
+  console.error(`❌ git-user native binary not installed!`);
+  console.error(`   npm should have installed the optional dependency '${pkgName}'.`);
+  console.error(`   Please try reinstalling the package.`);
+  process.exit(1);
+}
 
 if (!fs.existsSync(binaryPath)) {
   console.error(`❌ git-user binary not found at ${binaryPath}`);

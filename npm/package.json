@@ -1,13 +1,20 @@
 {
   "name": "git-userhub",
-  "version": "3.0.4",
+  "version": "3.0.5",
   "description": "Switch Git accounts in one command. No config editing. No SSH key chaos.",
   "bin": {
     "git-user": "bin/git-user.js"
   },
   "scripts": {
     "test": "echo \"No tests yet\" && exit 0",
-    "prepublishOnly": "node scripts/download-binaries.js"
+    "release": "node scripts/release.js"
+  },
+  "optionalDependencies": {
+    "git-userhub-darwin-arm64": "3.0.5",
+    "git-userhub-darwin-x64": "3.0.5",
+    "git-userhub-linux-arm64": "3.0.5",
+    "git-userhub-linux-x64": "3.0.5",
+    "git-userhub-win32-x64": "3.0.5"
   },
   "devDependencies": {
     "tar": "^7.4.3"
