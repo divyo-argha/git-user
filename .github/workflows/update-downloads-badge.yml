@@ -20,12 +20,16 @@ jobs:
         id: downloads
         run: |
           # GitHub releases downloads
-          GH_DOWNLOADS=$(curl -s https://api.github.com/repos/divyo-argha/git-user/releases | \
+          GH_DOWNLOADS=$(curl -s --fail -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/divyo-argha/git-user/releases | \
             jq '[.[].assets[].download_count] | add // 0')
           
-          # npm total downloads (all time)
-          NPM_DOWNLOADS=$(curl -s https://api.npmjs.org/downloads/point/2000-01-01:2100-12-31/git-userhub | \
-            jq '.downloads // 0')
+          # npm total downloads (all time) by summing yearly chunks to bypass 18-month API limit
+          NPM_DOWNLOADS=0
+          CURRENT_YEAR=$(date +%Y)
+          for YEAR in $(seq 2024 $CURRENT_YEAR); do
+            COUNT=$(curl -s --fail "https://api.npmjs.org/downloads/point/${YEAR}-01-01:${YEAR}-12-31/git-userhub" | jq '.downloads // 0')
+            NPM_DOWNLOADS=$((NPM_DOWNLOADS + COUNT))
+          done
           
           TOTAL=$((GH_DOWNLOADS + NPM_DOWNLOADS))
           
