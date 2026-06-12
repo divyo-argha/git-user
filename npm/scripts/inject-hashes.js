@@ -70,7 +70,7 @@ async function run() {
       fs.unlinkSync(extractedPath);
     }
 
-    const targetFile = path.join(__dirname, '..', 'bin', 'git-user.js');
+    const targetFile = path.join(__dirname, 'install.js');
     let code = fs.readFileSync(targetFile, 'utf8');
 
     const hashesJson = JSON.stringify(hashes, null, 2).replace(/\n/g, '\n  ');
@@ -82,7 +82,7 @@ async function run() {
     const endIndex = code.indexOf(endMarker);
     
     if (startIndex === -1 || endIndex === -1) {
-      throw new Error("Could not find PINNED HASHES markers in bin/git-user.js");
+      throw new Error("Could not find PINNED HASHES markers in scripts/install.js");
     }
 
     const newCode = code.substring(0, startIndex + startMarker.length) + 
@@ -90,7 +90,7 @@ async function run() {
                     code.substring(endIndex);
 
     fs.writeFileSync(targetFile, newCode);
-    console.log(`✅ Successfully injected cryptographic pins into bin/git-user.js`);
+    console.log(`✅ Successfully injected cryptographic pins into scripts/install.js`);
   } catch (err) {
     console.error(`❌ Failed to inject hashes: ${err.message}`);
     process.exit(1);

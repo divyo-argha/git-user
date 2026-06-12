@@ -1,13 +1,14 @@
 {
   "name": "git-userhub",
-  "version": "3.0.8",
+  "version": "3.0.9",
   "description": "Switch Git accounts in one command. No config editing. No SSH key chaos.",
   "bin": {
     "git-user": "bin/git-user.js"
   },
   "scripts": {
     "test": "echo \"No tests yet\" && exit 0",
-    "prepublishOnly": "node scripts/inject-hashes.js"
+    "prepublishOnly": "node scripts/inject-hashes.js",
+    "postinstall": "node scripts/install.js"
   },
   "keywords": [
     "git",
