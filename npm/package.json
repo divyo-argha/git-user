@@ -1,23 +1,12 @@
 {
   "name": "git-userhub",
-  "version": "3.0.6",
+  "version": "3.0.7",
   "description": "Switch Git accounts in one command. No config editing. No SSH key chaos.",
   "bin": {
     "git-user": "bin/git-user.js"
   },
   "scripts": {
-    "test": "echo \"No tests yet\" && exit 0",
-    "release": "node scripts/release.js"
-  },
-  "optionalDependencies": {
-    "git-userhub-darwin-arm64": "3.0.6",
-    "git-userhub-darwin-x64": "3.0.6",
-    "git-userhub-linux-arm64": "3.0.6",
-    "git-userhub-linux-x64": "3.0.6",
-    "git-userhub-windows-x64": "3.0.6"
-  },
-  "devDependencies": {
-    "tar": "^7.4.3"
+    "test": "echo \"No tests yet\" && exit 0"
   },
   "keywords": [
     "git",
@@ -54,5 +43,8 @@
   ],
   "config": {
     "repo": "divyo-argha/git-user"
+  },
+  "dependencies": {
+    "tar": "^7.5.16"
   }
 }
