@@ -67,6 +67,36 @@ func TestRunBind_Success(t *testing.T) {
 	if git.CurrentSSHCommand() != expectedSSHCmd {
 		t.Errorf("expected git core.sshCommand to be %q, got %q", expectedSSHCmd, git.CurrentSSHCommand())
 	}
+
+	// Verify signing was enabled by default
+	if user.SignKey != keyPath || user.SignFormat != "ssh" || user.SignDisabled {
+		t.Errorf("expected commit signing to be enabled with ssh key, got %v", user)
+	}
+}
+
+func TestRunBind_NoSign(t *testing.T) {
+	tmpDir := setupTestEnv(t)
+
+	store, _ := config.Load()
+	_ = store.AddUser("bob", "bob@example.com")
+	_ = config.Save(store)
+
+	keyPath := filepath.Join(tmpDir, "dummy_id2")
+	_ = os.WriteFile(keyPath, []byte("private key"), 0600)
+
+	err := runBind([]string{"bob", "--ssh-key", keyPath, "--no-sign"})
+	if err != nil {
+		t.Fatalf("unexpected error binding key: %v", err)
+	}
+
+	store, _ = config.Load()
+	user := store.FindUser("bob")
+	if user.SSHKey != keyPath {
+		t.Errorf("expected bound SSH key to be %s", keyPath)
+	}
+	if !user.SignDisabled {
+		t.Errorf("expected signing to be disabled, got %v", user)
+	}
 }
 
 func TestRunBind_Interactive(t *testing.T) {

@@ -90,6 +90,31 @@ func TestRemoveSSHConfig(t *testing.T) {
 	}
 }
 
+func TestConfigureSigning(t *testing.T) {
+	testKeyPath := "/home/user/.ssh/test_key"
+	
+	if err := git.ConfigureSigning(testKeyPath, "ssh"); err != nil {
+		t.Fatalf("ConfigureSigning() failed: %v", err)
+	}
+
+	if got := git.CurrentSigningKey(); got != testKeyPath {
+		t.Errorf("CurrentSigningKey() = %q, want %q", got, testKeyPath)
+	}
+	if got := git.CurrentSignFormat(); got != "ssh" {
+		t.Errorf("CurrentSignFormat() = %q, want %q", got, "ssh")
+	}
+	if got := git.CurrentCommitGPGSign(); got != "true" {
+		t.Errorf("CurrentCommitGPGSign() = %q, want %q", got, "true")
+	}
+
+	// Clean up
+	git.RemoveSigningConfig()
+	
+	if got := git.CurrentSigningKey(); got != "" {
+		t.Errorf("Expected empty signing key after remove, got %q", got)
+	}
+}
+
 func TestIsInRepo(t *testing.T) {
 	// This test depends on whether we're in a git repo
 	// Just verify it doesn't panic

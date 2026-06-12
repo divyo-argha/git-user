@@ -72,6 +72,26 @@ func TestBindSSHKey(t *testing.T) {
 	}
 }
 
+func TestSigningConfig(t *testing.T) {
+	s := &config.Store{}
+	_ = s.AddUser("eve", "eve@example.com")
+	
+	if err := s.SetSigningKey("eve", "key_123", "ssh"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	u := s.FindUser("eve")
+	if u.SignKey != "key_123" || u.SignFormat != "ssh" || u.SignDisabled {
+		t.Errorf("signing key setup failed: %v", u)
+	}
+
+	if err := s.ToggleSigning("eve", true); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !u.SignDisabled {
+		t.Error("expected sign disabled")
+	}
+}
+
 func TestSaveLoadRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
