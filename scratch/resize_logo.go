@@ -28,9 +28,12 @@ func main() {
 
 	// 1. Process original logo (git-userhub-logo.png)
 	originalPath := filepath.Clean("../logo/git-userhub-logo.png")
-	if err := processImage(originalPath, "SmallPixelLines", outFile); err != nil {
-		fmt.Printf("Error processing original logo: %v\n", err)
-		os.Exit(1)
+	if _, err := os.Stat(originalPath); err == nil {
+		if err := processImage(originalPath, "SmallPixelLines", outFile); err != nil {
+			fmt.Printf("Error processing original logo: %v\n", err)
+		}
+	} else {
+		fmt.Fprintln(outFile, "var SmallPixelLines = []string{}")
 	}
 
 	fmt.Fprintln(outFile)
@@ -61,7 +64,7 @@ func processImage(imagePath, varName string, w io.Writer) error {
 	srcWidth := bounds.Max.X - bounds.Min.X
 	srcHeight := bounds.Max.Y - bounds.Min.Y
 
-	targetWidth := 40
+	targetWidth := 28
 	targetHeight := int(float64(targetWidth) * (float64(srcHeight) / float64(srcWidth)))
 	if targetHeight%2 != 0 {
 		targetHeight++
