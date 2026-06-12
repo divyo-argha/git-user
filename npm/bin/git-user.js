@@ -5,6 +5,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 const tar = require('tar');
 const pkg = require('../package.json');
 
@@ -34,25 +35,71 @@ function getPlatform() {
   };
 }
 
-// Download file from URL
-function download(url, dest) {
+// Download file to memory (for checksums.txt)
+function fetchText(url, redirectCount = 0) {
   return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(dest);
+    if (redirectCount > 3) return reject(new Error('Too many redirects'));
     
-    https.get(url, (response) => {
-      if (response.statusCode === 302 || response.statusCode === 301) {
-        return download(response.headers.location, dest).then(resolve).catch(reject);
+    const parsedUrl = new URL(url);
+    if (parsedUrl.protocol !== 'https:') {
+      return reject(new Error('Only HTTPS is allowed'));
+    }
+
+    https.get(url, { headers: { 'User-Agent': 'git-user-cli' } }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return fetchText(res.headers.location, redirectCount + 1).then(resolve).catch(reject);
+      }
+      if (res.statusCode !== 200) {
+        return reject(new Error(`Failed to fetch: ${res.statusCode} ${url}`));
+      }
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve(data));
+    }).on('error', reject);
+  });
+}
+
+// Download file from URL, and verify hash
+function downloadAndVerify(url, dest, expectedHash, redirectCount = 0) {
+  return new Promise((resolve, reject) => {
+    if (redirectCount > 3) return reject(new Error('Too many redirects'));
+    
+    const parsedUrl = new URL(url);
+    if (parsedUrl.protocol !== 'https:') {
+      return reject(new Error('Only HTTPS is allowed'));
+    }
+
+    const file = fs.createWriteStream(dest);
+    const hash = crypto.createHash('sha256');
+    
+    https.get(url, { headers: { 'User-Agent': 'git-user-cli' } }, (response) => {
+      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        file.close();
+        fs.unlink(dest, () => {});
+        return downloadAndVerify(response.headers.location, dest, expectedHash, redirectCount + 1)
+          .then(resolve)
+          .catch(reject);
       }
       if (response.statusCode !== 200) {
-        reject(new Error(`Failed to download: ${response.statusCode}`));
-        return;
+        file.close();
+        fs.unlink(dest, () => {});
+        return reject(new Error(`Failed to download: ${response.statusCode} ${url}`));
       }
+      
+      response.on('data', chunk => hash.update(chunk));
       response.pipe(file);
+      
       file.on('finish', () => {
         file.close();
+        const actualHash = hash.digest('hex');
+        if (actualHash !== expectedHash) {
+          fs.unlink(dest, () => {});
+          return reject(new Error(`Checksum mismatch! Expected ${expectedHash}, got ${actualHash}`));
+        }
         resolve();
       });
     }).on('error', (err) => {
+      file.close();
       fs.unlink(dest, () => {});
       reject(err);
     });
@@ -71,6 +118,9 @@ function getRelease() {
     };
     
     https.get(options, (res) => {
+      if (res.statusCode !== 200) {
+        return reject(new Error(`GitHub API returned ${res.statusCode} for release v${pkg.version}`));
+      }
       let data = '';
       res.on('data', (chunk) => data += chunk);
       res.on('end', () => {
@@ -116,13 +166,39 @@ async function installAndRun() {
         console.error(`   Looking for a ${osName} binary matching architecture: ${arch}`);
         process.exit(1);
       }
+
+      console.log('🔐 Fetching checksums...');
+      // Fetch checksums.txt from the release assets or release tag
+      // GitHub Releases typically attach checksums.txt if goreleaser is used
+      const checksumAsset = release.assets?.find(a => a.name === 'checksums.txt');
+      let checksumsUrl = '';
+      if (checksumAsset) {
+        checksumsUrl = checksumAsset.browser_download_url;
+      } else {
+        // Fallback pattern if asset list doesn't have it, try direct URL
+        checksumsUrl = `https://github.com/${REPO}/releases/download/v${pkg.version}/checksums.txt`;
+      }
       
-      console.log(`⬇️  Downloading ${asset.name}...`);
+      const checksumsText = await fetchText(checksumsUrl);
+      
+      // Parse checksums.txt to find the hash for our asset
+      const expectedHashLine = checksumsText.split('\n').find(line => line.includes(asset.name));
+      if (!expectedHashLine) {
+        throw new Error(`Checksum for ${asset.name} not found in checksums.txt`);
+      }
+      const expectedHash = expectedHashLine.trim().split(/\s+/)[0];
+      
+      console.log(`⬇️  Downloading ${asset.name} (verifying SHA256 checksum)...`);
       const archivePath = path.join(BIN_DIR, asset.name);
-      await download(asset.browser_download_url, archivePath);
+      await downloadAndVerify(asset.browser_download_url, archivePath, expectedHash);
       
-      console.log('📂 Extracting...');
-      await tar.extract({ file: archivePath, cwd: BIN_DIR });
+      console.log('📂 Extracting securely...');
+      await tar.extract({ 
+        file: archivePath, 
+        cwd: BIN_DIR,
+        filter: (p) => p === `git-user${ext}` || p === `./git-user${ext}`
+      });
+      
       fs.unlinkSync(archivePath);
       
       if (fs.existsSync(binaryPath)) {
