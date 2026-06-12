@@ -64,7 +64,7 @@ func runSwitch(args []string) error {
 	}
 
 	// Snapshot original gitconfig before first ever switch
-	store.SnapshotOriginal(git.CurrentName(), git.CurrentEmail(), git.CurrentSSHCommand())
+	store.SnapshotOriginal(git.CurrentName(), git.CurrentEmail(), git.CurrentSSHCommand(), git.CurrentSigningKey(), git.CurrentSignFormat(), git.CurrentCommitGPGSign())
 
 	// Auto-import original as an identity on first switch if no identities exist yet
 	autoImportOriginalIfNeeded(store)
@@ -141,6 +141,14 @@ func runSwitch(args []string) error {
 		}
 	}
 
+	if !user.SignDisabled && user.SignKey != "" {
+		if err := git.ConfigureSigning(user.SignKey, user.SignFormat); err != nil {
+			ui.Warn(fmt.Sprintf("applying signing config: %v", err))
+		}
+	} else {
+		git.RemoveSigningConfig()
+	}
+
 	if err := store.SetCurrent(name); err != nil {
 		ui.Errorf("%v", err)
 		return err
@@ -152,6 +160,9 @@ func runSwitch(args []string) error {
 	}
 
 	ui.Success(fmt.Sprintf("Switched to %q (%s)", user.Name, user.Email))
+	if !user.SignDisabled && user.SignKey != "" {
+		ui.Success(fmt.Sprintf("Commit Signing: Enabled (%s)", user.SignFormat))
+	}
 
 	if user.SSHKey != "" && isSSHKeyLoaded(user.SSHKey) {
 		if err := verifySSHConnectionWithKey(user.SSHKey); err != nil {
@@ -298,6 +309,16 @@ func runSwitchOriginal() error {
 		}
 	} else {
 		git.RemoveSSHConfig()
+	}
+
+	if o.SignKey != "" || o.CommitGPGSign != "" {
+		if o.SignFormat == "ssh" {
+			git.ConfigureSigning(o.SignKey, "ssh")
+		} else {
+			git.ConfigureSigning(o.SignKey, "gpg")
+		}
+	} else {
+		git.RemoveSigningConfig()
 	}
 
 	store.Current = ""

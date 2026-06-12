@@ -13,6 +13,7 @@ import (
 
 func runBind(args []string) error {
 	var name, sshKeyPath string
+	var noSign bool
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -21,6 +22,8 @@ func runBind(args []string) error {
 				sshKeyPath = args[i+1]
 				i++
 			}
+		case "--no-sign":
+			noSign = true
 		default:
 			name = args[i]
 		}
@@ -44,7 +47,7 @@ func runBind(args []string) error {
 	}
 
 	if sshKeyPath == "" {
-		return interactiveSSHSetup(name, user.Email, store)
+		return interactiveSSHSetup(name, user.Email, store, noSign)
 	}
 
 	expanded := expandPath(sshKeyPath)
@@ -58,6 +61,14 @@ func runBind(args []string) error {
 	if err := store.BindSSHKey(name, expanded); err != nil {
 		ui.Errorf("%v", err)
 		return err
+	}
+
+	if !noSign {
+		if err := store.SetSigningKey(name, expanded, "ssh"); err != nil {
+			ui.Warn(fmt.Sprintf("Failed to enable SSH commit signing: %v", err))
+		}
+	} else {
+		store.ToggleSigning(name, true)
 	}
 
 	if err := config.Save(store); err != nil {
@@ -74,12 +85,21 @@ func runBind(args []string) error {
 		} else {
 			ui.Success("Git SSH config updated")
 		}
+		if !noSign {
+			if err := git.ConfigureSigning(expanded, "ssh"); err != nil {
+				ui.Warn(fmt.Sprintf("Failed to update git signing config: %v", err))
+			} else {
+				ui.Success("Git commit signing enabled (SSH)")
+			}
+		} else {
+			git.RemoveSigningConfig()
+		}
 	}
 
 	return nil
 }
 
-func interactiveSSHSetup(name, email string, store *config.Store) error {
+func interactiveSSHSetup(name, email string, store *config.Store, noSign bool) error {
 	ui.Banner("SSH KEY SETUP: " + name)
 	fmt.Println()
 
@@ -169,6 +189,14 @@ func interactiveSSHSetup(name, email string, store *config.Store) error {
 		return err
 	}
 
+	if !noSign {
+		if err := store.SetSigningKey(name, sshKeyPath, "ssh"); err != nil {
+			ui.Warn(fmt.Sprintf("Failed to enable SSH commit signing: %v", err))
+		}
+	} else {
+		store.ToggleSigning(name, true)
+	}
+
 	if err := config.Save(store); err != nil {
 		ui.Errorf("saving config: %v", err)
 		return err
@@ -177,6 +205,11 @@ func interactiveSSHSetup(name, email string, store *config.Store) error {
 	fmt.Println()
 	ui.Success(fmt.Sprintf("SSH key configured for %q", name))
 	ui.Success(fmt.Sprintf("Key: %s", sshKeyPath))
+	if !noSign {
+		ui.Success("Commit Signing: Enabled")
+	} else {
+		ui.Success("Commit Signing: Disabled")
+	}
 	fmt.Println()
 
 	ui.Info("Testing SSH connection...")

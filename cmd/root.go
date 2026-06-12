@@ -42,6 +42,7 @@ COMMANDS
   completion <shell>         Generate shell completion (bash/zsh/fish)
   hook <install|uninstall>   Manage git pre-commit hooks
   security                   Run security audit
+  sign <name>                Manage commit signing for an identity
   logout                     Sign out and clear active identity
 
 ALIASES
@@ -135,6 +136,8 @@ func Execute() error {
 		return runPassphrase(rest)
 	case "rekey":
 		return runRekey(rest)
+	case "sign":
+		return runSign(rest)
 	case "fix-remote":
 		return runFixRemote(rest)
 	case "export":
@@ -185,7 +188,7 @@ func autoSeedFromGitconfig() {
 		importName = "original"
 	}
 
-	store.SnapshotOriginal(name, email, sshCommand)
+	store.SnapshotOriginal(name, email, sshCommand, git.CurrentSigningKey(), git.CurrentSignFormat(), git.CurrentCommitGPGSign())
 
 	store.Users = append(store.Users, config.User{
 		Name:   importName,

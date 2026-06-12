@@ -18,9 +18,10 @@ func Apply(name, email string) error {
 
 // ClearIdentity removes user.name, user.email, and core.sshCommand from global gitconfig.
 func ClearIdentity() {
-	exec.Command("git", "config", "--global", "--unset", "user.name").Run()
-	exec.Command("git", "config", "--global", "--unset", "user.email").Run()
-	exec.Command("git", "config", "--global", "--unset", "core.sshCommand").Run()
+	exec.Command("git", "config", "--global", "--unset-all", "user.name").Run()
+	exec.Command("git", "config", "--global", "--unset-all", "user.email").Run()
+	exec.Command("git", "config", "--global", "--unset-all", "core.sshCommand").Run()
+	RemoveSigningConfig()
 }
 
 func CurrentName() string {
@@ -38,6 +39,21 @@ func CurrentSSHCommand() string {
 	return out
 }
 
+func CurrentSigningKey() string {
+	out, _ := getConfig("user.signingkey")
+	return out
+}
+
+func CurrentSignFormat() string {
+	out, _ := getConfig("gpg.format")
+	return out
+}
+
+func CurrentCommitGPGSign() string {
+	out, _ := getConfig("commit.gpgsign")
+	return out
+}
+
 func ConfigureSSH(keyPath string) error {
 	val := fmt.Sprintf("ssh -i %q -o IdentitiesOnly=yes", keyPath)
 	return setConfig("core.sshCommand", val)
@@ -48,9 +64,34 @@ func SetSSHCommand(val string) error {
 }
 
 func RemoveSSHConfig() error {
-	cmd := exec.Command("git", "config", "--global", "--unset", "core.sshCommand")
+	cmd := exec.Command("git", "config", "--global", "--unset-all", "core.sshCommand")
 	_ = cmd.Run()
 	return nil
+}
+
+func ConfigureSigning(key, format string) error {
+	if format == "ssh" {
+		if err := setConfig("gpg.format", "ssh"); err != nil {
+			return err
+		}
+	} else if format == "gpg" {
+		// explicitly unset gpg.format so it falls back to default gpg
+		exec.Command("git", "config", "--global", "--unset-all", "gpg.format").Run()
+	}
+
+	if err := setConfig("user.signingkey", key); err != nil {
+		return err
+	}
+	if err := setConfig("commit.gpgsign", "true"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func RemoveSigningConfig() {
+	exec.Command("git", "config", "--global", "--unset-all", "user.signingkey").Run()
+	exec.Command("git", "config", "--global", "--unset-all", "commit.gpgsign").Run()
+	exec.Command("git", "config", "--global", "--unset-all", "gpg.format").Run()
 }
 
 func IsInstalled() bool {
@@ -59,10 +100,10 @@ func IsInstalled() bool {
 }
 
 func setConfig(key, value string) error {
-	cmd := exec.Command("git", "config", "--global", key, value)
+	cmd := exec.Command("git", "config", "--global", "--replace-all", key, value)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("git config --global %s: %w\n%s", key, err, strings.TrimSpace(string(out)))
+		return fmt.Errorf("git config --global --replace-all %s: %w\n%s", key, err, strings.TrimSpace(string(out)))
 	}
 	return nil
 }

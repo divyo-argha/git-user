@@ -81,7 +81,7 @@ func runImportOriginal(args []string) error {
 	})
 
 	// Snapshot the original for --original restore if not already done
-	store.SnapshotOriginal(name, email, sshCommand)
+	store.SnapshotOriginal(name, email, sshCommand, git.CurrentSigningKey(), git.CurrentSignFormat(), git.CurrentCommitGPGSign())
 
 	if err := config.Save(store); err != nil {
 		ui.Errorf("saving config: %v", err)

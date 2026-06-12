@@ -9,17 +9,23 @@ import (
 )
 
 type User struct {
-	Name   string `json:"name"`
-	Email  string `json:"email"`
-	SSHKey string `json:"ssh_key,omitempty"`
-	Source string `json:"source,omitempty"` // "original" or empty (manual)
+	Name         string `json:"name"`
+	Email        string `json:"email"`
+	SSHKey       string `json:"ssh_key,omitempty"`
+	SignKey      string `json:"sign_key,omitempty"`
+	SignFormat   string `json:"sign_format,omitempty"` // "ssh" or "gpg"
+	SignDisabled bool   `json:"sign_disabled,omitempty"`
+	Source       string `json:"source,omitempty"` // "original" or empty (manual)
 }
 
 // OriginalConfig holds the gitconfig state that existed before git-user was first used.
 type OriginalConfig struct {
-	Name      string `json:"name"`
-	Email     string `json:"email"`
-	SSHCommand string `json:"ssh_command,omitempty"`
+	Name         string `json:"name"`
+	Email        string `json:"email"`
+	SSHCommand   string `json:"ssh_command,omitempty"`
+	SignKey      string `json:"sign_key,omitempty"`
+	SignFormat   string `json:"sign_format,omitempty"`
+	CommitGPGSign string `json:"commit_gpgsign,omitempty"`
 }
 
 type Store struct {
@@ -174,6 +180,26 @@ func (s *Store) BindSSHKey(name, keyPath string) error {
 	return nil
 }
 
+func (s *Store) SetSigningKey(name, key, format string) error {
+	u := s.FindUser(name)
+	if u == nil {
+		return fmt.Errorf("user %q not found", name)
+	}
+	u.SignKey = key
+	u.SignFormat = format
+	u.SignDisabled = false
+	return nil
+}
+
+func (s *Store) ToggleSigning(name string, disabled bool) error {
+	u := s.FindUser(name)
+	if u == nil {
+		return fmt.Errorf("user %q not found", name)
+	}
+	u.SignDisabled = disabled
+	return nil
+}
+
 func (s *Store) SetCurrent(name string) error {
 	if s.FindUser(name) == nil {
 		return fmt.Errorf("user %q not found", name)
@@ -191,13 +217,16 @@ func (s *Store) CurrentUser() *User {
 
 // SnapshotOriginal saves the current gitconfig state as the original, if not already saved.
 // Should be called before the first switch.
-func (s *Store) SnapshotOriginal(name, email, sshCommand string) {
+func (s *Store) SnapshotOriginal(name, email, sshCommand, signKey, signFormat, commitGPGSign string) {
 	if s.Original != nil {
 		return // already saved, never overwrite
 	}
 	s.Original = &OriginalConfig{
-		Name:       name,
-		Email:      email,
-		SSHCommand: sshCommand,
+		Name:         name,
+		Email:        email,
+		SSHCommand:   sshCommand,
+		SignKey:      signKey,
+		SignFormat:   signFormat,
+		CommitGPGSign: commitGPGSign,
 	}
 }
