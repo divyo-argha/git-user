@@ -15,7 +15,7 @@ const platforms = [
   { pkg: 'git-userhub-darwin-arm64', os: 'darwin', cpu: 'arm64', assetOS: 'darwin', assetArch: 'arm64', ext: '' },
   { pkg: 'git-userhub-linux-x64', os: 'linux', cpu: 'x64', assetOS: 'linux', assetArch: 'x86_64', ext: '' },
   { pkg: 'git-userhub-linux-arm64', os: 'linux', cpu: 'arm64', assetOS: 'linux', assetArch: 'arm64', ext: '' },
-  { pkg: 'git-userhub-win32-x64', os: 'win32', cpu: 'x64', assetOS: 'windows', assetArch: 'x86_64', ext: '.exe' }
+  { pkg: 'git-userhub-windows-x64', os: 'win32', cpu: 'x64', assetOS: 'windows', assetArch: 'x86_64', ext: '.exe' }
 ];
 
 const PACKAGES_DIR = path.join(__dirname, '..', 'packages');

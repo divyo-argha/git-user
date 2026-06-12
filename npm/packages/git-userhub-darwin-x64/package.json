@@ -1,0 +1,19 @@
+{
+  "name": "git-userhub-darwin-x64",
+  "version": "3.0.5",
+  "description": "The darwin x64 binary for git-userhub",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "bin": {
+    "git-user": "bin/git-user"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/divyo-argha/git-user.git"
+  },
+  "license": "MIT"
+}

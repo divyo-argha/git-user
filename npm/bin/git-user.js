@@ -29,7 +29,8 @@ if (!osName || !archName) {
   process.exit(1);
 }
 
-const pkgName = `git-userhub-${platform}-${arch}`;
+const pkgPlatform = platform === 'win32' ? 'windows' : platform;
+const pkgName = `git-userhub-${pkgPlatform}-${arch}`;
 
 let binaryPath;
 try {
