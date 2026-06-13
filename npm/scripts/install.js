@@ -12,24 +12,24 @@ const VERSION = `v${PKG_JSON.version}`;
 // --- START PINNED HASHES ---
 const PINNED_HASHES = {
     "git-user_darwin_arm64.tar.gz": {
-      "archive": "434850b54bc77e777b7b57416bd029fc3600906addb8036759572d2279081080",
-      "binary": "3210a67ac54cbe675c31ef8c4c9e515262253a006c60205f115063c314c91113"
+      "archive": "92aa0c5ccae91a9b035193a0dd5297d413b5c848fbc82ccc5d94519e3d392341",
+      "binary": "7ddd3e7c559780a7fd27ac1c5a61d9355a7587943dd326a5b7c520c0b4b1da85"
     },
     "git-user_darwin_x86_64.tar.gz": {
-      "archive": "85deb7ccc4d487d78c22453b57061d447ca79101d8192e3c66d92539361fdae8",
-      "binary": "a75202a115d5c2b65581e18f8a71d2273cbac2708bb38fd37a1626141023e733"
+      "archive": "37d0b7afb0c0a7aef1a9b3900591c00817bb69007525e6b243d2c4016a55b0d3",
+      "binary": "853977e2f1801d441d2ff421b07f221d898a95d3a18d9773c4946ddf6fa5b93e"
     },
     "git-user_linux_arm64.tar.gz": {
-      "archive": "e97a1d23ca85228d7097f313f60be86b692a9a4002d91cd691e3e6ccb913a34f",
-      "binary": "eb714726d488b3eb39a1de8b21a8ce48a24eff8bb39ba8a1d332615bcb956e1f"
+      "archive": "507864e86451bc24e7521f5031b55de10ec2c71df770ff3e6912564d888afe10",
+      "binary": "b2976817f655a362aae1a308bd6ff15695cd82879cab6e5a6046626d2c8a3d79"
     },
     "git-user_linux_x86_64.tar.gz": {
-      "archive": "e30e0b709c70fa79bb44dcfb7193157ff626e63664ed704cf35f663cecd321e7",
-      "binary": "3e37645becc5a2928808a41cdadb492106fc2df2ace18be1d11774a3d636ca71"
+      "archive": "a95b617b8efaf61d59c0652a73d21c18bb31406d53e0558a1479e4ee1ff9150d",
+      "binary": "50001ce94eb3ab56467bb3b5b07e237117fa1ce90fee2f9e6b6bf6c8bff4a2a2"
     },
     "git-user_windows_x86_64.tar.gz": {
-      "archive": "32a771b04e588d87dcb1ce7d8dd5303cc8332080686f55688b5054f4c7f0403c",
-      "binary": "570ec56a28741cd5e515aee1b2c18583dd77ea4527b08c68f75d38e80b0bee29"
+      "archive": "df9b2b2fa8c414d58bcfd6653590797716fce92ecdaadc22d539b64a9adfbf0c",
+      "binary": "c7e32093225292c949fc83f777adbae93fa77fcedf44c6749192ae89ceb2fa4b"
     }
   };
 // --- END PINNED HASHES ---
