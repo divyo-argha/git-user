@@ -26,6 +26,7 @@ COMMANDS
   switch --original          Restore the gitconfig state from before git-user was first used
   list                       List all identities
   current                    Show active identity
+  prompt                     Output active identity for terminal integration
   remove <name>              Delete an identity
   edit <name> <email>        Update email
   pubkey                     Show public key for active identity only
@@ -124,6 +125,8 @@ func Execute() error {
 		return runSwitch(rest)
 	case "current":
 		return runCurrent(rest)
+	case "prompt":
+		return runPrompt(rest)
 	case "remove", "rm":
 		return runRemove(rest)
 	case "edit":
