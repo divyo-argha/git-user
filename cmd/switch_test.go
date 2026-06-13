@@ -183,3 +183,40 @@ func TestRunSwitch_ExistingKeyBind(t *testing.T) {
 		t.Errorf("expected user SSH key path to be %s, got %s", dummyKeyPath, user.SSHKey)
 	}
 }
+
+func TestRunSwitch_TempProfile(t *testing.T) {
+	_ = setupTestEnv(t)
+	ui.SelectFn = func(label string, options []string) (int, error) {
+		return 2, nil // Skip SSH setup
+	}
+
+	// 1. Create a permanent user
+	_ = runSwitch([]string{"-c", "perm", "perm@example.com"})
+
+	// 2. Create a temporary user
+	err := runSwitch([]string{"-c", "temp", "temp@example.com", "--temp"})
+	if err != nil {
+		t.Fatalf("unexpected error creating temp profile: %v", err)
+	}
+
+	// Verify temp user is created and active
+	store, _ := config.Load()
+	if store.Current != "temp" {
+		t.Errorf("expected current to be temp, got %s", store.Current)
+	}
+	u := store.FindUser("temp")
+	if u == nil || !u.IsTemporary {
+		t.Errorf("temp user should exist and be marked temporary")
+	}
+
+	// 3. Switch back to perm, temp should be deleted automatically
+	err = runSwitch([]string{"perm"})
+	if err != nil {
+		t.Fatalf("unexpected error switching to perm: %v", err)
+	}
+
+	store, _ = config.Load()
+	if store.FindUser("temp") != nil {
+		t.Errorf("temp user should have been deleted when switching away from it")
+	}
+}

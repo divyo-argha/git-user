@@ -160,3 +160,67 @@ func TestRealSaveLoad(t *testing.T) {
 		t.Errorf("expected empty store on nonexistent file load, got users count %d", len(nonexistent.Users))
 	}
 }
+
+func TestTempProfile(t *testing.T) {
+	dir := t.TempDir()
+	config.SetConfigPath(filepath.Join(dir, "config.json"))
+
+	// Create original temp dir inside test so we don't clobber OS temp
+	oldTemp := os.Getenv("TMPDIR")
+	defer os.Setenv("TMPDIR", oldTemp)
+	os.Setenv("TMPDIR", dir)
+
+	// In test, TempDir() relies on env var or falls back
+	// But os.TempDir() caches its result if we don't manipulate env early enough.
+	// Wait, instead of hacking env vars, let's just make sure the TempConfigPath doesn't overwrite real temp config?
+	// The function `config.TempConfigPath()` uses `os.TempDir()`. If we run tests concurrently, they might collide.
+	// To make this testable, we should add `SetTempConfigPath` to `config` or just allow testing.
+	// Let's just create a store, add a temp user, save, and verify it's written properly.
+	
+	s := &config.Store{}
+	_ = s.AddUser("perm", "perm@example.com")
+	_ = s.AddUser("temp", "temp@example.com")
+	
+	// Mark temp user
+	u := s.FindUser("temp")
+	u.IsTemporary = true
+	
+	if err := config.Save(s); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// Verify perm is in config.json
+	data, _ := os.ReadFile(config.ConfigPath())
+	var stored config.Store
+	if err := json.Unmarshal(data, &stored); err != nil {
+		t.Fatalf("failed to parse config.json: %v", err)
+	}
+	if stored.FindUser("temp") != nil {
+		t.Errorf("temp user should not be in config.json")
+	}
+
+	// Verify temp is in temp config
+	tempData, _ := os.ReadFile(config.TempConfigPath())
+	var tempUsers []config.User
+	if err := json.Unmarshal(tempData, &tempUsers); err != nil {
+		t.Fatalf("failed to parse temp config: %v", err)
+	}
+	if len(tempUsers) != 1 || tempUsers[0].Name != "temp" {
+		t.Errorf("temp config does not contain temp user")
+	}
+
+	// Verify Load merges them
+	loaded, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if loaded.FindUser("perm") == nil || loaded.FindUser("temp") == nil {
+		t.Errorf("Load did not merge users correctly")
+	}
+	if !loaded.FindUser("temp").IsTemporary {
+		t.Errorf("Loaded temp user missing IsTemporary flag")
+	}
+
+	// Cleanup
+	config.DeleteTempConfig()
+}

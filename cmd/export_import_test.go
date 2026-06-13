@@ -161,3 +161,52 @@ func TestRunExportAndImport_Success(t *testing.T) {
 		t.Fatalf("unexpected error re-importing: %v", err)
 	}
 }
+
+func TestExportSkipsTemp(t *testing.T) {
+	tmpDir := setupTestEnv(t)
+	config.SetConfigPath(filepath.Join(tmpDir, "config.json"))
+
+	store, _ := config.Load()
+	_ = store.AddUser("perm", "perm@example.com")
+	_ = store.AddUser("temp", "temp@example.com")
+	
+	u := store.FindUser("temp")
+	u.IsTemporary = true
+	_ = config.Save(store)
+
+	readPassphraseFn = func(prompt string) (string, error) {
+		return "testpassword123", nil
+	}
+
+	err := runExport([]string{"--all"})
+	if err != nil {
+		t.Fatalf("unexpected export error: %v", err)
+	}
+
+	bundleName := "git-user-export-" + time.Now().Format("2006-01-02") + ".bundle"
+	bundlePath := filepath.Join(tmpDir, bundleName)
+
+	if _, err := os.Stat(bundlePath); err != nil {
+		t.Fatalf("export bundle file not found: %s", bundlePath)
+	}
+
+	// Read bundle and verify
+	os.RemoveAll(filepath.Join(tmpDir, "config.json")) // ensure we import to blank
+	config.DeleteTempConfig()
+
+	readPassphraseFn = func(prompt string) (string, error) {
+		return "testpassword123", nil
+	}
+	err = runImport([]string{bundlePath})
+	if err != nil {
+		t.Fatalf("unexpected import error: %v", err)
+	}
+
+	importedStore, _ := config.Load()
+	if importedStore.FindUser("temp") != nil {
+		t.Errorf("temporary profile was exported and imported")
+	}
+	if importedStore.FindUser("perm") == nil {
+		t.Errorf("permanent profile was not imported")
+	}
+}
