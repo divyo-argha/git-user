@@ -445,6 +445,16 @@ git-user remove <TAB>     # → your identity names
 
 ---
 
+## 🎨 Terminal Prompt Integration
+
+You can display your active `git-user` profile directly in your terminal prompt (like Starship, Powerlevel10k, Zsh, or Fish). The `git-user prompt` command is extremely fast and will only output your profile name if you are currently inside a git repository, making it perfect for custom prompt segments!
+
+To avoid automatically modifying your personal shell configurations, we've provided simple, copy-paste instructions for all the popular shells.
+
+👉 **[View the Terminal Integration Guide](./TERMINAL-INTEGRATION.md)**
+
+---
+
 ## 🪝 Pre-commit Hooks
 
 ```bash
