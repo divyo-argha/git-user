@@ -238,10 +238,20 @@ Search for the `POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS` array (usually around line 4
 **Step 3: Define the custom function**
 Scroll **all the way to the bottom** of the file. Right before the very last `}` character, paste this custom function block:
 ```zsh
+  typeset -g POWERLEVEL9K_GITUSER_FOREGROUND=blue
+  typeset -g POWERLEVEL9K_GITUSER_VISUAL_IDENTIFIER_EXPANSION=''
+  
+  function _gituser_cache_update() {
+    export _GIT_USER_PROMPT_CACHE=$(git-user prompt 2>/dev/null)
+  }
+  
+  # Register the precmd hook so it only runs once per prompt, never during terminal resize!
+  autoload -Uz add-zsh-hook
+  add-zsh-hook precmd _gituser_cache_update
+
   function prompt_gituser() {
-    local user=$(git-user prompt 2>/dev/null)
-    if [[ -n "$user" ]]; then
-      p10k segment -f blue -t " $user"
+    if [[ -n "$_GIT_USER_PROMPT_CACHE" ]]; then
+      p10k segment -t "$_GIT_USER_PROMPT_CACHE"
     fi
   }
 ```

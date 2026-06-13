@@ -25,7 +25,12 @@ func runPrompt(_ []string) error {
 
 	// Output the active identity name if there is one
 	if store.Current != "" {
-		fmt.Print(store.Current)
+		u := store.CurrentUser()
+		if u != nil && u.IsTemporary {
+			fmt.Printf("%s (temp)", store.Current)
+		} else {
+			fmt.Print(store.Current)
+		}
 	}
 
 	return nil
