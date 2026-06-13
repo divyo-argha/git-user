@@ -3,7 +3,7 @@ const path = require('path');
 const os = require('os');
 const https = require('https');
 const crypto = require('crypto');
-const { execSync } = require('child_process');
+const { spawnSync } = require('child_process');
 const PKG_JSON = require('../package.json');
 
 const REPO = 'divyo-argha/git-user';
@@ -100,7 +100,10 @@ async function install() {
 
     const binaryNameInArchive = platform === 'win32' ? 'git-user.exe' : 'git-user';
     const binDir = path.join(__dirname, '..', 'bin');
-    execSync(`tar -xzf "${archivePath}" -C "${binDir}"`);
+    const result = spawnSync('tar', ['-xzf', archivePath, '-C', binDir]);
+    if (result.error || result.status !== 0) {
+      throw new Error("Failed to extract tar archive");
+    }
 
     const extractedPath = path.join(__dirname, '..', 'bin', binaryNameInArchive);
     fs.renameSync(extractedPath, finalBinaryPath);

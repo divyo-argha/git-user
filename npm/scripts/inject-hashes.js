@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const crypto = require('crypto');
-const { execSync } = require('child_process');
+const { spawnSync } = require('child_process');
 const PKG_JSON = require('../package.json');
 
 const REPO = 'divyo-argha/git-user';
@@ -55,7 +55,10 @@ async function run() {
       const archiveHash = await computeHash(archivePath);
       
       // Extract to get the binary hash
-      execSync(`tar -xzf "${archivePath}" -C "${__dirname}"`);
+      const result = spawnSync('tar', ['-xzf', archivePath, '-C', __dirname]);
+      if (result.error || result.status !== 0) {
+        throw new Error("Failed to extract tar archive: " + archivePath);
+      }
       const extractedPath = path.join(__dirname, asset.bin);
       
       const binaryHash = await computeHash(extractedPath);
