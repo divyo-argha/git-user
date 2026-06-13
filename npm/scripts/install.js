@@ -3,7 +3,7 @@ const path = require('path');
 const os = require('os');
 const https = require('https');
 const crypto = require('crypto');
-const tar = require('tar');
+const { execSync } = require('child_process');
 const PKG_JSON = require('../package.json');
 
 const REPO = 'divyo-argha/git-user';
@@ -99,11 +99,8 @@ async function install() {
     }
 
     const binaryNameInArchive = platform === 'win32' ? 'git-user.exe' : 'git-user';
-    await tar.extract({ 
-      file: archivePath, 
-      cwd: path.join(__dirname, '..', 'bin'),
-      filter: (p) => p.replace(/^\.\//, '') === binaryNameInArchive
-    });
+    const binDir = path.join(__dirname, '..', 'bin');
+    execSync(`tar -xzf "${archivePath}" -C "${binDir}"`);
 
     const extractedPath = path.join(__dirname, '..', 'bin', binaryNameInArchive);
     fs.renameSync(extractedPath, finalBinaryPath);
@@ -123,8 +120,12 @@ async function install() {
     console.log(`[git-user] Installation and verification complete.\n`);
   } catch (err) {
     console.error(`\n❌ git-user installation failed: ${err.message}`);
-    process.exit(1);
+    throw err;
   }
 }
 
-install();
+if (require.main === module) {
+  install().catch(() => process.exit(1));
+} else {
+  module.exports = install;
+}
