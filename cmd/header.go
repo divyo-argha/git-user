@@ -23,8 +23,15 @@ const headerStyle = "logo"
 const useNewLogo = true
 
 // RenderHeader returns the TUI header block for the main screen.
-func renderHeader(store *config.Store) string {
-	switch headerStyle {
+func renderHeader(store *config.Store, termHeight int) string {
+	style := headerStyle
+	// If the terminal is shorter than 35 lines, the logo will push the UI off the screen
+	// and cause layout tearing. Fallback to the compact text header.
+	if termHeight > 0 && termHeight < 35 {
+		style = "text"
+	}
+
+	switch style {
 	case "logo":
 		return renderLogoHeader(store)
 	default:

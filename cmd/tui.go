@@ -37,37 +37,32 @@ var (
 	styleActivePane = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(tuiCyan).
-			Padding(1, 2).
-			Width(44).
-			Height(14)
+			Padding(0, 2).
+			Width(44)
 
 	styleInactivePane = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(tuiGray).
-			Padding(1, 2).
-			Width(44).
-			Height(14)
+			Padding(0, 2).
+			Width(44)
 
 	styleDetailCard = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(tuiGray).
-			Padding(1, 2).
-			Width(44).
-			Height(14)
+			Padding(0, 2).
+			Width(44)
 
 	styleDetailActiveCard = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(tuiGreen).
-			Padding(1, 2).
-			Width(44).
-			Height(14)
+			Padding(0, 2).
+			Width(44)
 
 	styleDetailActions = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(tuiCyan).
-			Padding(1, 2).
-			Width(44).
-			Height(14)
+			Padding(0, 2).
+			Width(44)
 )
 
 // ── Screen state ──────────────────────────────────────────────────────────────
@@ -110,6 +105,8 @@ const (
 type tuiModel struct {
 	screen           tuiScreen
 	store            *config.Store
+	width            int
+	height           int
 	// main screen
 	activePane       tuiPane
 	identitiesCursor int
@@ -245,6 +242,10 @@ func (m tuiModel) Init() tea.Cmd { return nil }
 
 func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		return m, nil
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -423,10 +424,7 @@ func (m tuiModel) viewMain() string {
 			leftLines = append(leftLines, prefix+item.label)
 		}
 	}
-	// Pad pane content lines
-	for len(leftLines) < 12 {
-		leftLines = append(leftLines, "")
-	}
+	// Padding loop removed
 
 	// Right Pane (Utilities) content
 	var rightLines []string
@@ -446,23 +444,41 @@ func (m tuiModel) viewMain() string {
 			rightLines = append(rightLines, prefix+item.label)
 		}
 	}
-	// Pad pane content lines
-	for len(rightLines) < 12 {
-		rightLines = append(rightLines, "")
+	// Padding loop removed
+
+	leftStr := strings.Join(leftLines, "\n")
+	rightStr := strings.Join(rightLines, "\n")
+
+	var leftRaw, rightRaw string
+	if m.activePane == paneIdentities {
+		leftRaw = styleActivePane.Render(leftStr)
+		rightRaw = styleInactivePane.Render(rightStr)
+	} else {
+		leftRaw = styleInactivePane.Render(leftStr)
+		rightRaw = styleActivePane.Render(rightStr)
+	}
+
+	maxH := lipgloss.Height(leftRaw)
+	if lipgloss.Height(rightRaw) > maxH {
+		maxH = lipgloss.Height(rightRaw)
+	}
+	contentH := maxH - 2 // Subtract top and bottom borders
+	if contentH < 0 {
+		contentH = 0
 	}
 
 	var leftBox, rightBox string
 	if m.activePane == paneIdentities {
-		leftBox = styleActivePane.Render(strings.Join(leftLines, "\n"))
-		rightBox = styleInactivePane.Render(strings.Join(rightLines, "\n"))
+		leftBox = styleActivePane.Height(contentH).Render(leftStr)
+		rightBox = styleInactivePane.Height(contentH).Render(rightStr)
 	} else {
-		leftBox = styleInactivePane.Render(strings.Join(leftLines, "\n"))
-		rightBox = styleActivePane.Render(strings.Join(rightLines, "\n"))
+		leftBox = styleInactivePane.Height(contentH).Render(leftStr)
+		rightBox = styleActivePane.Height(contentH).Render(rightStr)
 	}
 
 	panes := lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "   ", rightBox)
 
-	sb.WriteString("\n" + renderHeader(m.store) + "\n")
+	sb.WriteString("\n" + renderHeader(m.store, m.height) + "\n")
 	sb.WriteString(panes + "\n\n")
 	sb.WriteString(tuiHelp.Render("  Tab/←/→ switch pane  ↑↓ navigate  Enter select  q quit") + "\n")
 	return sb.String()
@@ -530,17 +546,9 @@ func (m tuiModel) viewDetail() string {
 	}
 	profileLines = append(profileLines, fmt.Sprintf("%s\n  %s", tuiDim.Render("ssh-agent Session:"), sessionStr))
 
-	// Pad pane content lines
-	for len(profileLines) < 12 {
-		profileLines = append(profileLines, "")
-	}
+	// Padding loop removed
 
-	var leftBox string
-	if isActive {
-		leftBox = styleDetailActiveCard.Render(strings.Join(profileLines, "\n"))
-	} else {
-		leftBox = styleDetailCard.Render(strings.Join(profileLines, "\n"))
-	}
+
 
 	// Right Pane: Profile Actions
 	var actionLines []string
@@ -564,16 +572,40 @@ func (m tuiModel) viewDetail() string {
 			actionLines = append(actionLines, prefix+item.label)
 		}
 	}
-	// Pad pane content lines
-	for len(actionLines) < 12 {
-		actionLines = append(actionLines, "")
+	// Padding loop removed
+
+	leftStr := strings.Join(profileLines, "\n")
+	rightStr := strings.Join(actionLines, "\n")
+
+	var leftRaw string
+	if isActive {
+		leftRaw = styleDetailActiveCard.Render(leftStr)
+	} else {
+		leftRaw = styleDetailCard.Render(leftStr)
+	}
+	rightRaw := styleDetailActions.Render(rightStr)
+
+	maxH := lipgloss.Height(leftRaw)
+	if lipgloss.Height(rightRaw) > maxH {
+		maxH = lipgloss.Height(rightRaw)
+	}
+	contentH := maxH - 2 // Subtract top and bottom borders
+	if contentH < 0 {
+		contentH = 0
 	}
 
-	rightBox := styleDetailActions.Render(strings.Join(actionLines, "\n"))
+	var leftBox string
+	if isActive {
+		leftBox = styleDetailActiveCard.Height(contentH).Render(leftStr)
+	} else {
+		leftBox = styleDetailCard.Height(contentH).Render(leftStr)
+	}
+
+	rightBox := styleDetailActions.Height(contentH).Render(rightStr)
 
 	panes := lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "   ", rightBox)
 
-	sb.WriteString("\n" + renderHeader(m.store) + "\n")
+	sb.WriteString("\n" + renderHeader(m.store, m.height) + "\n")
 	sb.WriteString(panes + "\n\n")
 	sb.WriteString(tuiHelp.Render("  ↑↓ navigate  Enter select  Esc back  q quit") + "\n")
 	return sb.String()
