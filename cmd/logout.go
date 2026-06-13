@@ -29,6 +29,11 @@ func runLogout(args []string) error {
 	// Clear gitconfig
 	git.ClearIdentity()
 
+	if user.IsTemporary {
+		store.RemoveUser(user.Name, true)
+		ui.Info(fmt.Sprintf("Temporary identity %q deleted.", user.Name))
+	}
+
 	// Clear store.Current
 	store.Current = ""
 	if err := config.Save(store); err != nil {

@@ -17,6 +17,7 @@ func isValidEmail(email string) bool {
 
 func runRegister(args []string) error {
 	var name, email, passphrase string
+	var isTemp bool
 	var err error
 
 	for i := 0; i < len(args); i++ {
@@ -36,6 +37,8 @@ func runRegister(args []string) error {
 				passphrase = args[i+1]
 				i++
 			}
+		case "--temp", "-t":
+			isTemp = true
 		}
 	}
 
@@ -91,6 +94,13 @@ func runRegister(args []string) error {
 	if err := store.AddUser(name, email); err != nil {
 		ui.Errorf("%v", err)
 		return err
+	}
+
+	if isTemp {
+		u := store.FindUser(name)
+		if u != nil {
+			u.IsTemporary = true
+		}
 	}
 
 	fmt.Println()

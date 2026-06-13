@@ -30,7 +30,11 @@ func runExport(args []string) error {
 	// Resolve which identities to export
 	var selected []config.User
 	if args[0] == "--all" {
-		selected = store.Users
+		for _, u := range store.Users {
+			if !u.IsTemporary {
+				selected = append(selected, u)
+			}
+		}
 	} else {
 		for _, name := range args {
 			u := store.FindUser(name)
@@ -38,8 +42,17 @@ func runExport(args []string) error {
 				ui.Errorf("identity %q not found", name)
 				return fmt.Errorf("user not found")
 			}
+			if u.IsTemporary {
+				ui.Warn(fmt.Sprintf("skipping temporary identity %q", name))
+				continue
+			}
 			selected = append(selected, *u)
 		}
+	}
+
+	if len(selected) == 0 {
+		ui.Warn("No eligible identities to export.")
+		return nil
 	}
 
 	fmt.Println()

@@ -16,6 +16,7 @@ type User struct {
 	SignFormat   string `json:"sign_format,omitempty"` // "ssh" or "gpg"
 	SignDisabled bool   `json:"sign_disabled,omitempty"`
 	Source       string `json:"source,omitempty"` // "original" or empty (manual)
+	IsTemporary  bool   `json:"-"`
 }
 
 // OriginalConfig holds the gitconfig state that existed before git-user was first used.
@@ -48,29 +49,68 @@ func ConfigPath() string { return configPath }
 
 func SetConfigPath(path string) { configPath = path }
 
+func TempConfigPath() string {
+	return filepath.Join(os.TempDir(), "git-user-temp.json")
+}
+
+func DeleteTempConfig() {
+	_ = os.Remove(TempConfigPath())
+}
+
 func Load() (*Store, error) {
+	var s Store
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return &Store{}, nil
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("reading config: %w", err)
 		}
-		return nil, fmt.Errorf("reading config: %w", err)
+	} else {
+		if err := json.Unmarshal(data, &s); err != nil {
+			return nil, fmt.Errorf("parsing config: %w", err)
+		}
 	}
 
-	var s Store
-	if err := json.Unmarshal(data, &s); err != nil {
-		return nil, fmt.Errorf("parsing config: %w", err)
+	tempData, err := os.ReadFile(TempConfigPath())
+	if err == nil {
+		var tempUsers []User
+		if err := json.Unmarshal(tempData, &tempUsers); err == nil {
+			for i := range tempUsers {
+				tempUsers[i].IsTemporary = true
+			}
+			s.Users = append(s.Users, tempUsers...)
+		}
 	}
+
 	return &s, nil
 }
 
 func Save(s *Store) error {
+	var permUsers []User
+	var tempUsers []User
+	for _, u := range s.Users {
+		if u.IsTemporary {
+			tempUsers = append(tempUsers, u)
+		} else {
+			permUsers = append(permUsers, u)
+		}
+	}
+
+	if len(tempUsers) > 0 {
+		tempData, _ := json.MarshalIndent(tempUsers, "", "  ")
+		_ = os.WriteFile(TempConfigPath(), tempData, 0600)
+	} else {
+		DeleteTempConfig()
+	}
+
+	sToSave := *s
+	sToSave.Users = permUsers
+
 	dir := filepath.Dir(configPath)
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return fmt.Errorf("creating config directory: %w", err)
 	}
 
-	data, err := json.MarshalIndent(s, "", "  ")
+	data, err := json.MarshalIndent(&sToSave, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encoding config: %w", err)
 	}

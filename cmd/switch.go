@@ -25,6 +25,7 @@ func runSwitch(args []string) error {
 	name := ""
 	email := ""
 	passphrase := ""
+	isTemp := false
 
 	if args[0] == "-c" {
 		createMode = true
@@ -36,6 +37,8 @@ func runSwitch(args []string) error {
 					passphrase = args[i+1]
 					i++
 				}
+			case "--temp", "-t":
+				isTemp = true
 			default:
 				otherArgs = append(otherArgs, args[i])
 			}
@@ -76,7 +79,7 @@ func runSwitch(args []string) error {
 			return fmt.Errorf("user exists")
 		}
 
-		if err := quickRegister(name, email, passphrase, store); err != nil {
+		if err := quickRegister(name, email, passphrase, isTemp, store); err != nil {
 			return err
 		}
 
@@ -93,10 +96,14 @@ func runSwitch(args []string) error {
 
 	// Auto-logout: unload the previous identity's key from ssh-agent
 	if store.Current != "" && store.Current != name {
-		if prev := store.CurrentUser(); prev != nil && prev.SSHKey != "" {
-			if isSSHKeyLoaded(prev.SSHKey) {
+		if prev := store.CurrentUser(); prev != nil {
+			if prev.SSHKey != "" && isSSHKeyLoaded(prev.SSHKey) {
 				_ = removeSSHKey(prev.SSHKey)
 				ui.Info(fmt.Sprintf("Unloaded SSH key for previous identity %q", prev.Name))
+			}
+			if prev.IsTemporary {
+				store.RemoveUser(prev.Name, true)
+				ui.Info(fmt.Sprintf("Temporary identity %q deleted.", prev.Name))
 			}
 		}
 	}
@@ -199,7 +206,7 @@ func runSwitch(args []string) error {
 	return nil
 }
 
-func quickRegister(name, email, passphrase string, store *config.Store) error {
+func quickRegister(name, email, passphrase string, isTemp bool, store *config.Store) error {
 	ui.Banner("QUICK SETUP: " + name)
 	fmt.Println()
 
@@ -219,6 +226,13 @@ func quickRegister(name, email, passphrase string, store *config.Store) error {
 	if err := store.AddUser(name, email); err != nil {
 		ui.Errorf("%v", err)
 		return err
+	}
+
+	if isTemp {
+		u := store.FindUser(name)
+		if u != nil {
+			u.IsTemporary = true
+		}
 	}
 
 	fmt.Println()
