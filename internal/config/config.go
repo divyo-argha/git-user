@@ -50,7 +50,7 @@ func ConfigPath() string { return configPath }
 func SetConfigPath(path string) { configPath = path }
 
 func TempConfigPath() string {
-	return filepath.Join(os.TempDir(), "git-user-temp.json")
+	return filepath.Join(filepath.Dir(configPath), "temp.json")
 }
 
 func DeleteTempConfig() {
@@ -95,6 +95,11 @@ func Save(s *Store) error {
 		}
 	}
 
+	dir := filepath.Dir(configPath)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return fmt.Errorf("creating config directory: %w", err)
+	}
+
 	if len(tempUsers) > 0 {
 		tempData, _ := json.MarshalIndent(tempUsers, "", "  ")
 		_ = os.WriteFile(TempConfigPath(), tempData, 0600)
@@ -104,11 +109,6 @@ func Save(s *Store) error {
 
 	sToSave := *s
 	sToSave.Users = permUsers
-
-	dir := filepath.Dir(configPath)
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return fmt.Errorf("creating config directory: %w", err)
-	}
 
 	data, err := json.MarshalIndent(&sToSave, "", "  ")
 	if err != nil {
