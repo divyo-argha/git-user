@@ -127,7 +127,7 @@ remove <name>               Delete an identity
 edit <name> <email>         Update email
 bind <name>                 Link an SSH key
 pubkey                      Show public key of active identity
-passphrase                  Change passphrase for active identity
+passphrase                  Add, change, or remove (--remove) passphrase for active identity
 rekey <name>                Rotate SSH key
 fix-remote                  Convert HTTPS remotes to SSH
 session start [--ttl <d>]   Load SSH key into ssh-agent

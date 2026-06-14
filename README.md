@@ -198,7 +198,7 @@ There are other tools that try to solve this. Here's how git-user is different:
 ### 🛡️ Security & Passphrases
 - Passphrase-protected keys enforced by default
 - `security` audits every identity: permissions, passphrase, key existence
-- `passphrase` changes passphrase only for the active, unlocked identity
+- `passphrase` add, change, or remove (`--remove`) passphrase security for the active identity
 - All config writes are atomic (temp file + rename) — crash-safe
 - All files stored at `0600` permissions
 
@@ -309,7 +309,7 @@ What happens:
 | `edit <name> <email>` | Update email |
 | `bind <name> [--ssh-key <path>]` | Link an SSH key to an identity |
 | `pubkey` | Show the public key of the active identity |
-| `passphrase` | Add or change passphrase for the active, unlocked identity |
+| `passphrase` | Add, change, or remove (`--remove`) passphrase for the active, unlocked identity |
 | `rekey <name>` | Rotate SSH key (with rollback safety) |
 | `fix-remote` | Convert HTTPS remotes to SSH |
 | `logout` | Sign out, clearing the active identity and restoring a void state |
