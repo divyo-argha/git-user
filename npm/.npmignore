@@ -1,4 +1,5 @@
-scripts/
 test_tar.js
 bin/LICENSE
 bin/README.md
+*.tgz
+bin/git-user-*
