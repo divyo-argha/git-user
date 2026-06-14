@@ -198,7 +198,7 @@ There are other tools that try to solve this. Here's how git-user is different:
 ### 🛡️ Security & Passphrases
 - Passphrase-protected keys enforced by default
 - `security` audits every identity: permissions, passphrase, key existence
-- `passphrase` changes passphrase only for the active, unlocked identity
+- `passphrase` add, change, or remove (`--remove`) passphrase security for the active identity
 - All config writes are atomic (temp file + rename) — crash-safe
 - All files stored at `0600` permissions
 
@@ -309,7 +309,7 @@ What happens:
 | `edit <name> <email>` | Update email |
 | `bind <name> [--ssh-key <path>]` | Link an SSH key to an identity |
 | `pubkey` | Show the public key of the active identity |
-| `passphrase` | Add or change passphrase for the active, unlocked identity |
+| `passphrase` | Add, change, or remove (`--remove`) passphrase for the active, unlocked identity |
 | `rekey <name>` | Rotate SSH key (with rollback safety) |
 | `fix-remote` | Convert HTTPS remotes to SSH |
 | `logout` | Sign out, clearing the active identity and restoring a void state |
@@ -442,6 +442,16 @@ git-user sw<TAB>          # → git-user switch
 git-user switch <TAB>     # → work  personal  client-a
 git-user remove <TAB>     # → your identity names
 ```
+
+---
+
+## 🎨 Terminal Prompt Integration
+
+You can display your active `git-user` profile directly in your terminal prompt (like Starship, Powerlevel10k, Zsh, or Fish). The `git-user prompt` command is extremely fast and will only output your profile name if you are currently inside a git repository, making it perfect for custom prompt segments!
+
+To avoid automatically modifying your personal shell configurations, we've provided simple, copy-paste instructions for all the popular shells.
+
+👉 **[View the Terminal Integration Guide](./TERMINAL-INTEGRATION.md)**
 
 ---
 
