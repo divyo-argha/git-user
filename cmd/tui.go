@@ -192,7 +192,17 @@ func buildDetailItems(user *config.User, store *config.Store) []detailItem {
 	}
 	items = append(items, detailItem{isSep: true})
 
-	items = append(items, detailItem{label: "Change passphrase", key: "passphrase"})
+	if user.SSHKey != "" {
+		protected, err := isSSHKeyPassphraseProtected(user.SSHKey)
+		if err == nil && protected {
+			items = append(items, detailItem{label: "Change passphrase", key: "passphrase"})
+			items = append(items, detailItem{label: "Remove passphrase", key: "passphrase-remove"})
+		} else {
+			items = append(items, detailItem{label: "Add passphrase", key: "passphrase"})
+		}
+	} else {
+		items = append(items, detailItem{label: tuiDim.Render("Add passphrase (bind SSH key first)"), key: "passphrase-locked"})
+	}
 	items = append(items, detailItem{label: "Export this identity", key: "export"})
 	items = append(items, detailItem{isSep: true})
 
@@ -366,7 +376,7 @@ func (m tuiModel) handleDetailEnter() (tea.Model, tea.Cmd) {
 		m.screen = screenMain
 		m.identitiesList = buildIdentitiesList(m.store) // reload
 		return m, nil
-	case "pubkey-locked", "session-na":
+	case "pubkey-locked", "session-na", "passphrase-locked":
 		return m, nil
 	default:
 		m.action = &pendingAction{kind: item.key, name: m.detailName}
@@ -751,6 +761,9 @@ func executeAction(act *pendingAction, store *config.Store) {
 
 	case "passphrase":
 		runPassphrase([]string{act.name})
+
+	case "passphrase-remove":
+		runPassphrase([]string{act.name, "--remove"})
 
 	case "logout":
 		runLogout(nil)

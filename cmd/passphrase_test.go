@@ -43,4 +43,16 @@ func TestChangeSSHKeyPassphrase(t *testing.T) {
 	if err := changeSSHKeyPassphrase(keyPath, "new-secret", "another-secret"); err != nil {
 		t.Fatalf("changing passphrase: %v", err)
 	}
+
+	if err := changeSSHKeyPassphrase(keyPath, "another-secret", ""); err != nil {
+		t.Fatalf("removing passphrase: %v", err)
+	}
+
+	protected, err = isSSHKeyPassphraseProtected(keyPath)
+	if err != nil {
+		t.Fatalf("checking unprotected key: %v", err)
+	}
+	if protected {
+		t.Fatal("key should be unprotected after removing passphrase")
+	}
 }

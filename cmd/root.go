@@ -229,9 +229,11 @@ func printConciseStatus() {
 	if err == nil {
 		defer conn.Close()
 		fmt.Println("  SSH Agent     : \033[1;32mConnected\033[0m")
+		keyCount := 0
 		if fingerprints, errList := loadedSSHKeyFingerprints(); errList == nil {
-			fmt.Printf("  Loaded Keys   : %d\n", len(fingerprints))
+			keyCount = len(fingerprints)
 		}
+		fmt.Printf("  Loaded Keys   : %d\n", keyCount)
 	} else {
 		fmt.Println("  SSH Agent     : \033[1;31mNot reachable\033[0m")
 	}

@@ -12,11 +12,13 @@ import (
 
 func runPassphrase(args []string) error {
 	var name string
-	if len(args) > 1 {
-		ui.Error("usage: git-user passphrase [name]")
-		return fmt.Errorf("unexpected arguments")
-	} else if len(args) == 1 {
-		name = args[0]
+	var remove bool
+	for _, arg := range args {
+		if arg == "--remove" || arg == "-r" {
+			remove = true
+		} else if !strings.HasPrefix(arg, "-") {
+			name = arg
+		}
 	}
 
 	store, err := config.Load()
@@ -66,12 +68,40 @@ func runPassphrase(args []string) error {
 	ui.Info(fmt.Sprintf("Key: %s", user.SSHKey))
 	fmt.Println()
 
+	if remove {
+		if !protected {
+			ui.Warn("This key is not passphrase protected. Nothing to remove.")
+			return nil
+		}
+		ui.Info("Enter the current passphrase to remove passphrase security.")
+		oldPassphrase, err := readPassphrase("Current passphrase: ")
+		if err != nil {
+			return err
+		}
+		if !verifyPassphrase(user.SSHKey, oldPassphrase) {
+			ui.Error("Incorrect passphrase. Access denied.")
+			return fmt.Errorf("incorrect passphrase")
+		}
+
+		if err := changeSSHKeyPassphrase(user.SSHKey, oldPassphrase, ""); err != nil {
+			ui.Error("Could not remove passphrase.")
+			return err
+		}
+		ui.Success(fmt.Sprintf("Passphrase security removed for %q.", user.Name))
+		return nil
+	}
+
 	oldPassphrase := ""
 	if protected {
 		ui.Info("This key already has a passphrase. Enter the current passphrase to change it.")
+		var err error
 		oldPassphrase, err = readPassphrase("Current passphrase: ")
 		if err != nil {
 			return err
+		}
+		if !verifyPassphrase(user.SSHKey, oldPassphrase) {
+			ui.Error("Incorrect passphrase. Access denied.")
+			return fmt.Errorf("incorrect passphrase")
 		}
 	} else {
 		ui.Warn("This key is currently not passphrase protected.")

@@ -100,8 +100,12 @@ func loadedSSHKeyFingerprints() ([]string, error) {
 		}
 	}
 
-	output, errCmd := exec.Command("ssh-add", "-l").Output()
+	output, errCmd := exec.Command("ssh-add", "-l").CombinedOutput()
 	if errCmd != nil {
+		outStr := strings.ToLower(string(output))
+		if strings.Contains(outStr, "no identities") || strings.Contains(outStr, "empty") {
+			return []string{}, nil
+		}
 		return nil, errCmd
 	}
 
