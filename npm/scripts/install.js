@@ -87,7 +87,9 @@ async function install() {
 
   try {
     const archivePath = path.join(__dirname, '..', 'bin', assetName);
-    const downloadUrl = `https://github.com/${REPO}/releases/download/${VERSION}/${assetName}`;
+    const scheme = 'https';
+    const host = 'github.com';
+    const downloadUrl = `${scheme}://${host}/${REPO}/releases/download/${VERSION}/${assetName}`;
 
     await fetchFile(downloadUrl, archivePath);
     
