@@ -46,11 +46,17 @@ async function run() {
   
   try {
     for (const asset of ASSETS) {
-      console.log(`Downloading ${asset.name}...`);
-      const url = `https://github.com/${REPO}/releases/download/${VERSION}/${asset.name}`;
       const archivePath = path.join(__dirname, asset.name);
-      
-      await fetchFile(url, archivePath);
+      const localDistPath = path.join(__dirname, '..', '..', 'dist', asset.name);
+
+      if (fs.existsSync(localDistPath)) {
+        console.log(`Found local build for ${asset.name} in dist/. Using it.`);
+        fs.copyFileSync(localDistPath, archivePath);
+      } else {
+        console.log(`Downloading ${asset.name}...`);
+        const url = `https://github.com/${REPO}/releases/download/${VERSION}/${asset.name}`;
+        await fetchFile(url, archivePath);
+      }
       
       const archiveHash = await computeHash(archivePath);
       
