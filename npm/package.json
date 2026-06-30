@@ -7,7 +7,7 @@
   },
   "scripts": {
     "test": "echo \"No tests yet\" && exit 0",
-    "prepublishOnly": "node scripts/inject-hashes.js"
+    "prepublishOnly": "node scripts/build-binaries.js"
   },
   "keywords": [
     "git",
@@ -22,7 +22,14 @@
   ],
   "author": "Divyo Argha",
   "license": "MIT",
-  "repository": "github:divyo-argha/git-user",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/divyo-argha/git-user.git"
+  },
+  "bugs": {
+    "url": "https://github.com/divyo-argha/git-user/issues"
+  },
+  "homepage": "https://github.com/divyo-argha/git-user#readme",
   "engines": {
     "node": ">=14.0.0"
   },

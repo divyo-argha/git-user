@@ -2,7 +2,4 @@ test_tar.js
 bin/LICENSE
 bin/README.md
 *.tgz
-bin/git-user-*
-scripts/inject-hashes.js
-scripts/README.md
 scripts/LICENSE

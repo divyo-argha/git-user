@@ -1,39 +1,29 @@
 #!/usr/bin/env node
 
-const { spawn } = require('child_process');
-const fs = require('fs');
+const { spawnSync } = require('child_process');
 const path = require('path');
-const os = require('os');
+const fs = require('fs');
 
-const platform = os.platform();
-const arch = os.arch();
+const platform = process.platform;
+const arch = process.arch;
+
 const ext = platform === 'win32' ? '.exe' : '';
+const binPath = path.join(__dirname, `${platform}-${arch}`, `git-user${ext}`);
 
-const finalBinaryName = `git-user-${platform}-${arch}${ext}`;
-const finalBinaryPath = path.join(__dirname, finalBinaryName);
-
-async function run() {
-  if (!fs.existsSync(finalBinaryPath)) {
-    console.log('📦 First run detected. Downloading binary...');
-    const install = require('../scripts/install.js');
-    try {
-      await install();
-    } catch (e) {
-      console.error('❌ Failed to install git-user binary.');
-      process.exit(1);
-    }
-  }
-
-  const child = spawn(finalBinaryPath, process.argv.slice(2), {
-    stdio: 'inherit',
-    shell: false
-  });
-
-  child.on('exit', (code) => process.exit(code || 0));
-  child.on('error', (err) => {
-    console.error('❌ Failed to start git-user:', err.message);
-    process.exit(1);
-  });
+if (!fs.existsSync(binPath)) {
+  console.error(`Unsupported platform or architecture: ${platform}-${arch}`);
+  console.error('git-userhub currently supports macOS, Linux, and Windows on x64 and arm64 architectures.');
+  process.exit(1);
 }
 
-run();
+// Spawn the binary
+const result = spawnSync(binPath, process.argv.slice(2), {
+  stdio: 'inherit'
+});
+
+if (result.error) {
+  console.error('Failed to start git-user:', result.error);
+  process.exit(1);
+}
+
+process.exit(result.status ?? 1);
