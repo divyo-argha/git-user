@@ -183,8 +183,8 @@ There are other tools that try to solve this. Here's how git-user is different:
 <td width="50%" valign="top">
 
 ### 🔐 SSH Key Handling
-- Auto-generate ed25519 keys per identity
-- `pubkey` — print active identity's public key (add to GitHub, GitLab, Bitbucket)
+- `pubkey` — print active identity's public key
+- `pubkey push` — publish key directly to GitHub, GitLab, or Bitbucket (using gh/glab CLIs or API tokens)
 - Bind any existing key to any identity
 - `rekey` rotates keys with automatic backup and rollback
 - `IdentitiesOnly yes` — SSH never leaks the wrong key
