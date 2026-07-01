@@ -30,6 +30,7 @@ COMMANDS
   remove <name>              Delete an identity
   edit <name> <email>        Update email
   pubkey                     Show public key for active identity only
+  pubkey push [platform]     Publish public SSH key directly to GitHub, GitLab, or Bitbucket
   bind <name> [--ssh-key <p>] Add/link SSH key (interactive if no path)
   bind-path <name> <path>    Bind a directory path to an identity for auto-switching
   unbind-path <name> <path>  Unbind a directory path from an identity
@@ -134,6 +135,9 @@ func Execute() error {
 	case "edit":
 		return runEdit(rest)
 	case "pubkey":
+		if len(rest) > 0 && rest[0] == "push" {
+			return runPubkeyPush(rest[1:])
+		}
 		return runPubkey(rest)
 	case "bind":
 		return runBind(rest)

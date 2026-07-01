@@ -183,8 +183,14 @@ func buildDetailItems(user *config.User, store *config.Store) []detailItem {
 
 	if isActive {
 		items = append(items, detailItem{label: "Show public key", key: "pubkey"})
+		if user.SSHKey != "" {
+			items = append(items, detailItem{label: "Publish SSH key to Git platform", key: "pubkey-push"})
+		}
 	} else {
 		items = append(items, detailItem{label: tuiDim.Render("Show public key (switch first)"), key: "pubkey-locked"})
+		if user.SSHKey != "" {
+			items = append(items, detailItem{label: tuiDim.Render("Publish SSH key (switch first)"), key: "pubkey-push-locked"})
+		}
 	}
 	items = append(items, detailItem{label: "Add / replace SSH key", key: "bind"})
 	items = append(items, detailItem{label: "Rotate SSH key", key: "rekey"})
@@ -382,7 +388,7 @@ func (m tuiModel) handleDetailEnter() (tea.Model, tea.Cmd) {
 		m.screen = screenMain
 		m.identitiesList = buildIdentitiesList(m.store) // reload
 		return m, nil
-	case "pubkey-locked", "session-na", "passphrase-locked":
+	case "pubkey-locked", "session-na", "passphrase-locked", "pubkey-push-locked":
 		return m, nil
 	default:
 		m.action = &pendingAction{kind: item.key, name: m.detailName}
@@ -759,6 +765,9 @@ func executeAction(act *pendingAction, store *config.Store) {
 
 	case "pubkey":
 		runPubkey(nil)
+
+	case "pubkey-push":
+		runPubkeyPush(nil)
 
 	case "bind":
 		runBind([]string{act.name})
