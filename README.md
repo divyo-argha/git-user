@@ -224,7 +224,8 @@ There are other tools that try to solve this. Here's how git-user is different:
 <td width="50%" valign="top">
 
 ### 🖥️ Developer Experience
-- Interactive TUI menu (`git-user tui`)
+- Interactive TUI menu (`git-user tui`) with path-binding management
+- Directory-based auto-switching (`bind-path` / `unbind-path`)
 - Shell completions for bash, zsh, fish
 - Pre-commit hooks to block wrong-identity commits
 - `doctor` diagnoses your entire setup in one command
@@ -279,6 +280,28 @@ Each switch: under one second. No config editing. No SSH juggling.
 
 ---
 
+## 📂 Directory-Based Auto-Switching
+
+You can bind specific workspace directories to your Git identities. When you enter those directories (or any subdirectories), Git will automatically switch to the correct identity natively, without requiring any manual switching commands or shell hooks.
+
+```bash
+# Bind the ~/work directory to the 'work' identity
+git-user bind-path work ~/work
+
+# Bind the ~/personal directory to the 'personal' identity
+git-user bind-path personal ~/personal
+```
+
+### How it works
+This utilizes Git's native conditional configuration (`includeIf` directive) inside your global `~/.gitconfig` file. It generates sub-configuration profiles under `~/.git-users/` and links them to the path patterns. Because it is processed natively by Git, **it works seamlessly in VS Code, IntelliJ, Xcode, GitKraken, and command line editors alike** with 0ms performance overhead!
+
+To unbind a path:
+```bash
+git-user unbind-path work ~/work
+```
+
+---
+
 ## 🚪 Logout / Void State
 
 When you are done with your work or leaving a shared machine, you can sign out to clear your active Git identity completely:
@@ -307,6 +330,8 @@ What happens:
 | `remove <name>` | Delete an identity |
 | `edit <name> <email>` | Update email |
 | `bind <name> [--ssh-key <path>]` | Link an SSH key to an identity |
+| `bind-path <name> <path>` | Bind a directory path to an identity for auto-switching |
+| `unbind-path <name> <path>` | Unbind a directory path from an identity |
 | `pubkey` | Show the public key of the active identity |
 | `passphrase` | Add, change, or remove (`--remove`) passphrase for the active, unlocked identity |
 | `rekey <name>` | Rotate SSH key (with rollback safety) |
