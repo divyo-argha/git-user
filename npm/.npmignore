@@ -2,5 +2,5 @@ test_tar.js
 bin/LICENSE
 bin/README.md
 *.tgz
-scripts/LICENSE
+scripts/
 packages/
