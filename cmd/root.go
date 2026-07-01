@@ -31,6 +31,8 @@ COMMANDS
   edit <name> <email>        Update email
   pubkey                     Show public key for active identity only
   bind <name> [--ssh-key <p>] Add/link SSH key (interactive if no path)
+  bind-path <name> <path>    Bind a directory path to an identity for auto-switching
+  unbind-path <name> <path>  Unbind a directory path from an identity
   passphrase                 Add/change passphrase for active, unlocked identity
   rekey <name>               Rotate SSH key
   fix-remote                 Convert HTTPS remotes to SSH
@@ -135,6 +137,10 @@ func Execute() error {
 		return runPubkey(rest)
 	case "bind":
 		return runBind(rest)
+	case "bind-path":
+		return runBindPath(rest)
+	case "unbind-path":
+		return runUnbindPath(rest)
 	case "passphrase":
 		return runPassphrase(rest)
 	case "rekey":
