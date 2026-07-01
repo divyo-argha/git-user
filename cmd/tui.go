@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -204,6 +205,11 @@ func buildDetailItems(user *config.User, store *config.Store) []detailItem {
 		items = append(items, detailItem{label: tuiDim.Render("Add passphrase (bind SSH key first)"), key: "passphrase-locked"})
 	}
 	items = append(items, detailItem{label: "Export this identity", key: "export"})
+	items = append(items, detailItem{isSep: true})
+	items = append(items, detailItem{label: "Bind directory path", key: "bind-path"})
+	if len(user.BindPaths) > 0 {
+		items = append(items, detailItem{label: "Unbind directory path", key: "unbind-path"})
+	}
 	items = append(items, detailItem{isSep: true})
 
 	items = append(items, detailItem{label: tuiDanger.Render("Remove identity"), key: "remove", isDanger: true})
@@ -555,6 +561,23 @@ func (m tuiModel) viewDetail() string {
 		sessionStr = tuiActive.Render("Loaded in agent ✓")
 	}
 	profileLines = append(profileLines, fmt.Sprintf("%s\n  %s", tuiDim.Render("ssh-agent Session:"), sessionStr))
+	profileLines = append(profileLines, "")
+
+	profileLines = append(profileLines, tuiDim.Render("Bound Directories:"))
+	if len(user.BindPaths) > 0 {
+		for _, p := range user.BindPaths {
+			displayPath := p
+			if home, err := os.UserHomeDir(); err == nil && strings.HasPrefix(p, home) {
+				displayPath = "~" + strings.TrimPrefix(p, home)
+			}
+			if len(displayPath) > 38 {
+				displayPath = displayPath[:17] + "..." + displayPath[len(displayPath)-18:]
+			}
+			profileLines = append(profileLines, "  • "+displayPath)
+		}
+	} else {
+		profileLines = append(profileLines, "  None")
+	}
 
 	// Padding loop removed
 
@@ -764,6 +787,40 @@ func executeAction(act *pendingAction, store *config.Store) {
 
 	case "passphrase-remove":
 		runPassphrase([]string{act.name, "--remove"})
+
+	case "bind-path":
+		path, err := ui.Prompt("Directory path to bind:")
+		if err != nil || path == "" {
+			ui.Info("Cancelled")
+			return
+		}
+		runBindPath([]string{act.name, path})
+
+	case "unbind-path":
+		u := store.FindUser(act.name)
+		if u == nil {
+			return
+		}
+		if len(u.BindPaths) == 0 {
+			ui.Info("No paths bound to this identity")
+			return
+		}
+		var path string
+		if len(u.BindPaths) == 1 {
+			path = u.BindPaths[0]
+			if !ui.Confirm(fmt.Sprintf("Unbind directory %q?", path), false) {
+				ui.Info("Cancelled")
+				return
+			}
+		} else {
+			idx, err := ui.Select("Select directory to unbind:", u.BindPaths)
+			if err != nil {
+				ui.Info("Cancelled")
+				return
+			}
+			path = u.BindPaths[idx]
+		}
+		runUnbindPath([]string{act.name, path})
 
 	case "logout":
 		runLogout(nil)
