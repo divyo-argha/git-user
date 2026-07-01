@@ -3,3 +3,4 @@ bin/LICENSE
 bin/README.md
 *.tgz
 scripts/LICENSE
+packages/
