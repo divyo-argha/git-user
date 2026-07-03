@@ -151,6 +151,16 @@ func runRegister(args []string) error {
 		if err := store.BindSSHKey(name, sshKeyPath); err != nil {
 			ui.Errorf("binding SSH key: %v", err)
 		}
+		fmt.Println()
+		if ui.Confirm("Would you like to sign your Git commits automatically using this identity's SSH key?", true) {
+			if err := store.SetSigningKey(name, sshKeyPath, "ssh"); err != nil {
+				ui.Warn(fmt.Sprintf("Failed to enable SSH commit signing: %v", err))
+			} else {
+				ui.Success("Commit signing configured automatically!")
+			}
+		} else {
+			store.ToggleSigning(name, true)
+		}
 	}
 
 	if err := config.Save(store); err != nil {

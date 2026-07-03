@@ -293,6 +293,16 @@ func quickRegister(name, email, passphrase string, isTemp bool, store *config.St
 		if err := store.BindSSHKey(name, sshKeyPath); err != nil {
 			ui.Warn("Could not bind SSH key")
 		}
+		fmt.Println()
+		if ui.Confirm("Would you like to sign your Git commits automatically using this identity's SSH key?", true) {
+			if err := store.SetSigningKey(name, sshKeyPath, "ssh"); err != nil {
+				ui.Warn(fmt.Sprintf("Failed to enable SSH commit signing: %v", err))
+			} else {
+				ui.Success("Commit signing configured automatically!")
+			}
+		} else {
+			store.ToggleSigning(name, true)
+		}
 	}
 
 	if err := config.Save(store); err != nil {
