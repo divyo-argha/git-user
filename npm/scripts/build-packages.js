@@ -62,8 +62,7 @@ for (const target of targets) {
     cpu: [target.nodeArch],
     files: ['bin'],
     publishConfig: {
-      access: 'public',
-      provenance: true
+      access: 'public'
     }
   };
 

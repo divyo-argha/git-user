@@ -54,7 +54,19 @@ jobs:
         run: |
           for dir in npm/packages/git-userhub-*/; do
             echo "Publishing $dir ..."
-            npm publish "$dir" --provenance --access public
+            for i in {1..3}; do
+              if npm publish "$dir" --provenance --access public; then
+                echo "Successfully published $dir"
+                break
+              else
+                if [ $i -eq 3 ]; then
+                  echo "Failed to publish $dir after 3 attempts."
+                  exit 1
+                fi
+                echo "Publish failed. Retrying in 15 seconds (attempt $((i+1)))..."
+                sleep 15
+              fi
+            done
             sleep 5
           done
         env:
