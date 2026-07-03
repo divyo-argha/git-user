@@ -2,9 +2,17 @@
 
 You can display your active `git-user` profile directly in your terminal prompt. The `git-user prompt` command is extremely fast and will only output your profile name if you are currently inside a Git repository.
 
-Because modifying terminal configuration files automatically can be risky, we leave the integration up to you. Follow the detailed step-by-step instructions below for your specific shell or prompt framework.
+## 🚀 Easy Automatic Installation (Recommended)
 
-## 📑 Table of Contents
+Simply run the interactive installer in your terminal:
+```bash
+git-user prompt install
+```
+This command auto-detects your active shell (Zsh, Bash, Fish) or prompt framework (Starship), takes a safe timestamped backup of your config file, and automatically appends/integrates the prompt configuration for you!
+
+---
+
+## 📑 Manual Setup Guide
 - [Starship (Cross-Shell)](#-starship-cross-shell)
 - [Zsh & Oh My Zsh](#-zsh--oh-my-zsh)
 - [Bash](#-bash)

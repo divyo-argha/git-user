@@ -196,6 +196,7 @@ There are other tools that try to solve this. Here's how git-user is different:
 
 ### 🛡️ Security & Passphrases
 - Passphrase-protected keys enforced by default
+- Secure native OS Keychain integration (macOS Keychain, Linux Keyring) to store passphrases safely
 - `security` audits every identity: permissions, passphrase, key existence
 - `passphrase` add, change, or remove (`--remove`) passphrase security for the active identity
 - All config writes are atomic (temp file + rename) — crash-safe
@@ -205,10 +206,10 @@ There are other tools that try to solve this. Here's how git-user is different:
 <td width="50%" valign="top">
 
 ### 🔒 Passphrase-Gated Switching
-- Gated switch: switching to a passphrase-protected profile requires entering the passphrase to unlock the SSH key
-- Seamless ssh-agent management: the SSH key is added automatically on switch
-- Security by default: you cannot act as an identity without verifying the passphrase first
-- Clean logout: sign out at any time to clear active user config completely
+- Gated switch: switching to a passphrase-protected profile automatically retrieves the passphrase from the system Keychain
+- Automatic key unlocking: if stored in the keychain, the key unlocks and loads into `ssh-agent` with zero developer friction
+- Security by default: fall back to terminal manual entry if not in the keychain; you cannot act as an identity without verification
+- Clean logout: sign out at any time to clear active user config completely and unload keys
 
 </td>
 </tr>
@@ -371,7 +372,7 @@ What happens:
 <td width="50%" valign="top">
 
 **What git-user never does**
-- Never stores passphrases
+- Never stores passphrases in plain text (supports secure OS-native Keychain integration)
 - Never sends keys or config anywhere
 - Never modifies your repositories
 - Never overwrites existing identities on import
@@ -471,10 +472,16 @@ git-user remove <TAB>     # → your identity names
 
 ## 🎨 Terminal Prompt Integration
 
-You can display your active `git-user` profile directly in your terminal prompt (like Starship, Powerlevel10k, Zsh, or Fish). The `git-user prompt` command is extremely fast and will only output your profile name if you are currently inside a git repository, making it perfect for custom prompt segments!
+You can display your active `git-user` profile directly in your terminal prompt (like Starship, Zsh, Bash, or Fish).
 
-To avoid automatically modifying your personal shell configurations, we've provided simple, copy-paste instructions for all the popular shells.
+Simply run the interactive installer:
+```bash
+git-user prompt install
+```
 
+This command will auto-detect your shell/prompt framework, take a backup of your profile config, and automatically set up the prompt integration for you!
+
+For manual configuration steps, see:
 👉 **[View the Terminal Integration Guide](./TERMINAL-INTEGRATION.md)**
 
 ---
