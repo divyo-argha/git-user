@@ -335,6 +335,7 @@ What happens:
 | `unbind-path <name> <path>` | Unbind a directory path from an identity |
 | `pubkey` | Show the public key of the active identity |
 | `passphrase` | Add, change, or remove (`--remove`) passphrase for the active, unlocked identity |
+| `sign <name> [--on\|--off]` | Enable/disable automatic Git commit signing for an identity |
 | `rekey <name>` | Rotate SSH key (with rollback safety) |
 | `fix-remote` | Convert HTTPS remotes to SSH |
 | `logout` | Sign out, clearing the active identity and restoring a void state |
@@ -500,6 +501,33 @@ git commit -m "Add feature"
 #   Git config: you@gmail.com
 #   Run: git-user switch work
 ```
+
+---
+
+## 🖋️ Commit Signing (`git-user sign`)
+
+Commit signing ensures the authenticity of your commits. Using SSH keys for commit signing is extremely secure and natively supported by GitHub and GitLab.
+
+### Enable Commit Signing Automatically
+You can choose to enable commit signing during `git-user register` or when creating an identity. To toggle it later:
+
+```bash
+# Enable commit signing for 'work' using their bound SSH key
+git-user sign work --on
+
+# Disable commit signing
+git-user sign work --off
+```
+
+### GitHub / GitLab Setup
+To register your SSH key as a signing key:
+1. Copy your public key: `git-user pubkey`
+2. Go to **Settings** → **SSH and GPG keys** on GitHub (or **Preferences** → **SSH Keys** on GitLab).
+3. Click **New SSH key** (or **Add new key**).
+4. In the **Key type** dropdown (on GitHub), select **Signing Key**.
+5. Paste the key and save!
+
+Your platform will now display a green **"Verified"** badge next to all commits signed by this key.
 
 ---
 

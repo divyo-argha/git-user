@@ -93,6 +93,7 @@ git-user switch work
 | 🔐 **SSH key management** | Auto-generate ed25519 keys, bind existing keys, `pubkey` shows active key only |
 | 🔒 **Temporary sessions** | Use an identity on a shared machine — zero trace left behind |
 | 🛡️ **Security audit** | `git-user security` checks permissions and passphrase protection |
+| 🖋️ **Commit signing** | `git-user sign` configures automatic SSH/GPG commit signing |
 | 🔑 **Keychain integration** | Secure system keychain integration for auto-unlocking passphrase keys |
 | 🎨 **Terminal prompt** | Dynamic prompt indicator (installer command: `git-user prompt install`) |
 | 🚀 **HTTPS → SSH** | `git-user fix-remote` converts remotes for passwordless push |
@@ -130,6 +131,7 @@ edit <name> <email>         Update email
 bind <name>                 Link an SSH key
 pubkey                      Show public key of active identity
 passphrase                  Add, change, or remove (--remove) passphrase for active identity
+sign <name> [--on|--off]    Enable/disable automatic Git commit signing
 rekey <name>                Rotate SSH key
 fix-remote                  Convert HTTPS remotes to SSH
 session start [--ttl <d>]   Load SSH key into ssh-agent
