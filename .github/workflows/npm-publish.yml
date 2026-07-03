@@ -55,6 +55,7 @@ jobs:
           for dir in npm/packages/git-userhub-*/; do
             echo "Publishing $dir ..."
             npm publish "$dir" --provenance --access public
+            sleep 5
           done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
