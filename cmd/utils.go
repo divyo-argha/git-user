@@ -98,9 +98,10 @@ func generateAndDisplayKey(name, email, passphrase string) (string, error) {
 			ui.Errorf("Could not add passphrase: %v", err)
 		} else {
 			ui.Success("Passphrase applied securely!")
+			promptAndStoreKeychain(name, keyPath, passphrase)
 		}
 	} else {
-		checkAndPromptPassphrase(keyPath)
+		checkAndPromptPassphrase(name, keyPath)
 	}
 
 	pubKeyBytes, err := os.ReadFile(keyPath + ".pub")
@@ -170,9 +171,12 @@ func plural(n int) string {
 	return "ies"
 }
 
-func checkAndPromptPassphrase(keyPath string) {
+func checkAndPromptPassphrase(name string, keyPath string) {
 	protected, err := isSSHKeyPassphraseProtected(keyPath)
-	if err == nil && !protected {
+	if err != nil {
+		return
+	}
+	if !protected {
 		fmt.Println()
 		ui.Warn("⚠️  Your SSH key is not passphrase protected.")
 		if ui.Confirm("Would you like to add a passphrase to protect this identity now?", true) {
@@ -182,8 +186,41 @@ func checkAndPromptPassphrase(keyPath string) {
 					ui.Errorf("Could not add passphrase: %v", err)
 				} else {
 					ui.Success("Passphrase added successfully!")
+					promptAndStoreKeychain(name, keyPath, newPassphrase)
 				}
 			}
 		}
+	} else {
+		promptAndStoreKeychain(name, keyPath, "")
+	}
+}
+
+func promptAndStoreKeychain(name, keyPath, passphrase string) {
+	protected, err := isSSHKeyPassphraseProtected(keyPath)
+	if err != nil || !protected {
+		return
+	}
+
+	if !ui.Confirm("Would you like to store the passphrase securely in your system keychain?", true) {
+		return
+	}
+
+	if passphrase == "" {
+		var err error
+		passphrase, err = readPassphrase("Enter the passphrase to save in keychain: ")
+		if err != nil {
+			ui.Errorf("Error reading passphrase: %v", err)
+			return
+		}
+		if !verifyPassphrase(keyPath, passphrase) {
+			ui.Error("Incorrect passphrase. Not saved to keychain.")
+			return
+		}
+	}
+
+	if err := setKeychainPassphrase(name, passphrase); err != nil {
+		ui.Errorf("Could not save passphrase to keychain: %v", err)
+	} else {
+		ui.Success("Passphrase stored securely in system keychain.")
 	}
 }

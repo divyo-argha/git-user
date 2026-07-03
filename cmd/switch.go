@@ -113,13 +113,28 @@ func runSwitch(args []string) error {
 		protected, err := isSSHKeyPassphraseProtected(user.SSHKey)
 		if err == nil && protected && !isSSHKeyLoaded(user.SSHKey) {
 			ui.Info(fmt.Sprintf("Identity %q is protected.", user.Name))
-			passphrase, err := readPassphrase("Passphrase: ")
-			if err != nil {
-				return err
+			var passphrase string
+			var hasStored bool
+			if secret, err := getKeychainPassphrase(user.Name); err == nil && secret != "" {
+				if verifyPassphrase(user.SSHKey, secret) {
+					passphrase = secret
+					hasStored = true
+					ui.Info("Retrieved passphrase securely from system keychain.")
+				} else {
+					ui.Warn("Stored keychain passphrase was incorrect. Stale entry removed.")
+					_ = deleteKeychainPassphrase(user.Name)
+				}
 			}
-			if !verifyPassphrase(user.SSHKey, passphrase) {
-				ui.Error("Incorrect passphrase. Access denied.")
-				return fmt.Errorf("incorrect passphrase")
+			if !hasStored {
+				var err error
+				passphrase, err = readPassphrase("Passphrase: ")
+				if err != nil {
+					return err
+				}
+				if !verifyPassphrase(user.SSHKey, passphrase) {
+					ui.Error("Incorrect passphrase. Access denied.")
+					return fmt.Errorf("incorrect passphrase")
+				}
 			}
 
 			// Load it into agent

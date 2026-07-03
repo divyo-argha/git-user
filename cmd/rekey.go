@@ -74,7 +74,7 @@ func runRekey(args []string) error {
 	}
 
 	ui.Success(fmt.Sprintf("New SSH key created at %s", keyPath))
-	checkAndPromptPassphrase(keyPath)
+	checkAndPromptPassphrase(name, keyPath)
 
 	pubKeyPath := keyPath + ".pub"
 	pubKeyBytes, err := os.ReadFile(pubKeyPath)

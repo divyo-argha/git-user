@@ -88,6 +88,7 @@ func runPassphrase(args []string) error {
 			return err
 		}
 		ui.Success(fmt.Sprintf("Passphrase security removed for %q.", user.Name))
+		_ = deleteKeychainPassphrase(user.Name)
 		return nil
 	}
 
@@ -129,6 +130,7 @@ func runPassphrase(args []string) error {
 	} else {
 		ui.Success(fmt.Sprintf("Passphrase added for %q", user.Name))
 	}
+	promptAndStoreKeychain(user.Name, user.SSHKey, newPassphrase)
 	ui.Info("Use 'git-user session start' to unlock this key for your work session.")
 
 	return nil

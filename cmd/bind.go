@@ -56,7 +56,7 @@ func runBind(args []string) error {
 		return err
 	}
 
-	checkAndPromptPassphrase(expanded)
+	checkAndPromptPassphrase(name, expanded)
 
 	if err := store.BindSSHKey(name, expanded); err != nil {
 		ui.Errorf("%v", err)
@@ -182,7 +182,7 @@ func interactiveSSHSetup(name, email string, store *config.Store, noSign bool) e
 		return fmt.Errorf("no key")
 	}
 
-	checkAndPromptPassphrase(sshKeyPath)
+	checkAndPromptPassphrase(name, sshKeyPath)
 
 	if err := store.BindSSHKey(name, sshKeyPath); err != nil {
 		ui.Errorf("binding SSH key: %v", err)

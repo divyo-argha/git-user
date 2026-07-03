@@ -45,6 +45,8 @@ func runRemove(args []string) error {
 		return err
 	}
 
+	_ = deleteKeychainPassphrase(name)
+
 	if err := config.Save(store); err != nil {
 		ui.Errorf("saving config: %v", err)
 		return err
