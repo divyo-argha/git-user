@@ -120,6 +120,12 @@ func runSwitch(args []string) error {
 			if prev.IsTemporary {
 				store.RemoveUser(prev.Name, true)
 				ui.Info(fmt.Sprintf("Temporary identity %q deleted.", prev.Name))
+				if prev.SSHKey != "" {
+					_ = os.Remove(prev.SSHKey)
+					_ = os.Remove(prev.SSHKey + ".pub")
+					ui.Info(fmt.Sprintf("Temporary SSH key files deleted: %s", prev.SSHKey))
+				}
+				_ = deleteKeychainPassphrase(prev.Name)
 			}
 		}
 	}

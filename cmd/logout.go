@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
@@ -32,6 +33,12 @@ func runLogout(args []string) error {
 	if user.IsTemporary {
 		store.RemoveUser(user.Name, true)
 		ui.Info(fmt.Sprintf("Temporary identity %q deleted.", user.Name))
+		if user.SSHKey != "" {
+			_ = os.Remove(user.SSHKey)
+			_ = os.Remove(user.SSHKey + ".pub")
+			ui.Info(fmt.Sprintf("Temporary SSH key files deleted: %s", user.SSHKey))
+		}
+		_ = deleteKeychainPassphrase(user.Name)
 	}
 
 	// Clear store.Current
