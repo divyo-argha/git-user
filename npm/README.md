@@ -122,7 +122,7 @@ git-user session stop
 
 ```
 register                    Create new identity (guided)
-switch <name>               Switch to an identity
+switch <name> [--local]     Switch identity (global or repository-local override)
 switch -c <name> [email]    Create and switch in one step
 list                        Show all identities
 current                     Show active identity

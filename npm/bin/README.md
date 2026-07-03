@@ -279,6 +279,26 @@ git push  ← just works, every time
 
 Each switch: under one second. No config editing. No SSH juggling.
 
+
+---
+
+## 📂 Local Repository Overrides (`git-user switch -l`)
+
+If you work on different projects in multiple terminal tabs simultaneously, switching your global identity will change the identity for all active shells. To lock an identity to a specific repository locally:
+
+```bash
+# Switch to 'work' profile locally inside the current repository
+git-user switch work --local  # or -l
+```
+
+This writes the configuration (`user.name`, `user.email`, SSH config, and signing variables) directly into the repository's `.git/config` file instead of your global `~/.gitconfig`, keeping other projects/shells unaffected.
+
+To inspect the active local override status:
+```bash
+git-user current
+# → Displays: "Active Identity (Local Override)"
+```
+
 ---
 
 ## 🚪 Logout / Void State
@@ -302,7 +322,7 @@ What happens:
 | Command | Description |
 |---------|-------------|
 | `register` | Create a new identity (guided setup with SSH) |
-| `switch <name>` | Switch to an identity |
+| `switch <name> [--local]` | Switch to an identity (globally, or locally in repository config) |
 | `switch -c <name> [email]` | Create and switch in one command |
 | `list` | Show all identities |
 | `current` | Show active identity |

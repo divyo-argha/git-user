@@ -7,10 +7,14 @@ import (
 )
 
 func Apply(name, email string) error {
-	if err := setConfig("user.name", name); err != nil {
+	return ApplyScope(name, email, false)
+}
+
+func ApplyScope(name, email string, local bool) error {
+	if err := setConfig("user.name", name, local); err != nil {
 		return err
 	}
-	if err := setConfig("user.email", email); err != nil {
+	if err := setConfig("user.email", email, local); err != nil {
 		return err
 	}
 	return nil
@@ -18,80 +22,149 @@ func Apply(name, email string) error {
 
 // ClearIdentity removes user.name, user.email, and core.sshCommand from global gitconfig.
 func ClearIdentity() {
-	exec.Command("git", "config", "--global", "--unset-all", "user.name").Run()
-	exec.Command("git", "config", "--global", "--unset-all", "user.email").Run()
-	exec.Command("git", "config", "--global", "--unset-all", "core.sshCommand").Run()
-	RemoveSigningConfig()
+	ClearIdentityScope(false)
+}
+
+func ClearIdentityScope(local bool) {
+	flag := "--global"
+	if local {
+		flag = "--local"
+	}
+	exec.Command("git", "config", flag, "--unset-all", "user.name").Run()
+	exec.Command("git", "config", flag, "--unset-all", "user.email").Run()
+	exec.Command("git", "config", flag, "--unset-all", "core.sshCommand").Run()
+	RemoveSigningConfigScope(local)
 }
 
 func CurrentName() string {
-	out, _ := getConfig("user.name")
+	out, _ := getConfigResolved("user.name")
+	return out
+}
+
+func CurrentGlobalName() string {
+	out, _ := getConfig("user.name", false)
 	return out
 }
 
 func CurrentEmail() string {
-	out, _ := getConfig("user.email")
+	out, _ := getConfigResolved("user.email")
+	return out
+}
+
+func CurrentGlobalEmail() string {
+	out, _ := getConfig("user.email", false)
 	return out
 }
 
 func CurrentSSHCommand() string {
-	out, _ := getConfig("core.sshCommand")
+	out, _ := getConfigResolved("core.sshCommand")
+	return out
+}
+
+func CurrentGlobalSSHCommand() string {
+	out, _ := getConfig("core.sshCommand", false)
 	return out
 }
 
 func CurrentSigningKey() string {
-	out, _ := getConfig("user.signingkey")
+	out, _ := getConfigResolved("user.signingkey")
+	return out
+}
+
+func CurrentGlobalSigningKey() string {
+	out, _ := getConfig("user.signingkey", false)
 	return out
 }
 
 func CurrentSignFormat() string {
-	out, _ := getConfig("gpg.format")
+	out, _ := getConfigResolved("gpg.format")
+	return out
+}
+
+func CurrentGlobalSignFormat() string {
+	out, _ := getConfig("gpg.format", false)
 	return out
 }
 
 func CurrentCommitGPGSign() string {
-	out, _ := getConfig("commit.gpgsign")
+	out, _ := getConfigResolved("commit.gpgsign")
+	return out
+}
+
+func CurrentGlobalCommitGPGSign() string {
+	out, _ := getConfig("commit.gpgsign", false)
 	return out
 }
 
 func ConfigureSSH(keyPath string) error {
+	return ConfigureSSHScope(keyPath, false)
+}
+
+func ConfigureSSHScope(keyPath string, local bool) error {
 	val := fmt.Sprintf("ssh -i %q -o IdentitiesOnly=yes", keyPath)
-	return setConfig("core.sshCommand", val)
+	return setConfig("core.sshCommand", val, local)
 }
 
 func SetSSHCommand(val string) error {
-	return setConfig("core.sshCommand", val)
+	return SetSSHCommandScope(val, false)
+}
+
+func SetSSHCommandScope(val string, local bool) error {
+	return setConfig("core.sshCommand", val, local)
 }
 
 func RemoveSSHConfig() error {
-	cmd := exec.Command("git", "config", "--global", "--unset-all", "core.sshCommand")
+	return RemoveSSHConfigScope(false)
+}
+
+func RemoveSSHConfigScope(local bool) error {
+	flag := "--global"
+	if local {
+		flag = "--local"
+	}
+	cmd := exec.Command("git", "config", flag, "--unset-all", "core.sshCommand")
 	_ = cmd.Run()
 	return nil
 }
 
 func ConfigureSigning(key, format string) error {
+	return ConfigureSigningScope(key, format, false)
+}
+
+func ConfigureSigningScope(key, format string, local bool) error {
+	flag := "--global"
+	if local {
+		flag = "--local"
+	}
 	if format == "ssh" {
-		if err := setConfig("gpg.format", "ssh"); err != nil {
+		if err := setConfig("gpg.format", "ssh", local); err != nil {
 			return err
 		}
 	} else if format == "gpg" {
-		// explicitly unset gpg.format so it falls back to default gpg
-		exec.Command("git", "config", "--global", "--unset-all", "gpg.format").Run()
+		exec.Command("git", "config", flag, "--unset-all", "gpg.format").Run()
 	}
 
-	if err := setConfig("user.signingkey", key); err != nil {
+	if err := setConfig("user.signingkey", key, local); err != nil {
 		return err
 	}
-	if err := setConfig("commit.gpgsign", "true"); err != nil {
+	if err := setConfig("commit.gpgsign", "true", local); err != nil {
 		return err
 	}
 	return nil
 }
 
 func RemoveSigningConfig() {
-	exec.Command("git", "config", "--global", "--unset-all", "user.signingkey").Run()
-	exec.Command("git", "config", "--global", "--unset-all", "commit.gpgsign").Run()
-	exec.Command("git", "config", "--global", "--unset-all", "gpg.format").Run()
+	RemoveSigningConfigScope(false)
+}
+
+func RemoveSigningConfigScope(local bool) {
+	flag := "--global"
+	if local {
+		flag = "--local"
+	}
+	exec.Command("git", "config", flag, "--unset-all", "user.signingkey").Run()
+	exec.Command("git", "config", flag, "--unset-all", "commit.gpgsign").Run()
+	exec.Command("git", "config", flag, "--unset-all", "gpg.format").Run()
 }
 
 func IsInstalled() bool {
@@ -99,22 +172,44 @@ func IsInstalled() bool {
 	return err == nil
 }
 
-func setConfig(key, value string) error {
-	cmd := exec.Command("git", "config", "--global", "--replace-all", key, value)
+func setConfig(key, value string, local bool) error {
+	flag := "--global"
+	if local {
+		flag = "--local"
+	}
+	cmd := exec.Command("git", "config", flag, "--replace-all", key, value)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("git config --global --replace-all %s: %w\n%s", key, err, strings.TrimSpace(string(out)))
+		return fmt.Errorf("git config %s --replace-all %s: %w\n%s", flag, key, err, strings.TrimSpace(string(out)))
 	}
 	return nil
 }
 
-func getConfig(key string) (string, error) {
-	cmd := exec.Command("git", "config", "--global", key)
+func getConfig(key string, local bool) (string, error) {
+	flag := "--global"
+	if local {
+		flag = "--local"
+	}
+	cmd := exec.Command("git", "config", flag, key)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+func getConfigResolved(key string) (string, error) {
+	cmd := exec.Command("git", "config", key)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+func HasLocalOverride() bool {
+	out, err := getConfig("user.name", true)
+	return err == nil && out != ""
 }
 
 func IsInRepo() bool {

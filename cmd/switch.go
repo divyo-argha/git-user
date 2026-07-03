@@ -11,9 +11,25 @@ import (
 )
 
 func runSwitch(args []string) error {
+	localMode := false
+	var filteredArgs []string
+	for _, a := range args {
+		if a == "--local" || a == "-l" {
+			localMode = true
+		} else {
+			filteredArgs = append(filteredArgs, a)
+		}
+	}
+	args = filteredArgs
+
 	if len(args) < 1 {
-		ui.Error("usage: git-user switch [-c] <name> [email]")
+		ui.Error("usage: git-user switch [-c] <name> [email] [--local]")
 		return fmt.Errorf("missing arguments")
+	}
+
+	if localMode && !git.IsInRepo() {
+		ui.Error("Not inside a Git repository. --local can only be used within a Git repository.")
+		return fmt.Errorf("not in repository")
 	}
 
 	// Handle restore to original pre-git-user state
@@ -148,42 +164,72 @@ func runSwitch(args []string) error {
 		}
 	}
 
-	if err := git.Apply(user.Name, user.Email); err != nil {
-		ui.Errorf("applying git config: %v", err)
-		return err
-	}
+	if localMode {
+		if err := git.ApplyScope(user.Name, user.Email, true); err != nil {
+			ui.Errorf("applying local git config: %v", err)
+			return err
+		}
 
-	if user.SSHKey != "" {
-		if err := git.ConfigureSSH(user.SSHKey); err != nil {
-			ui.Warn(fmt.Sprintf("applying SSH config: %v", err))
+		if user.SSHKey != "" {
+			if err := git.ConfigureSSHScope(user.SSHKey, true); err != nil {
+				ui.Warn(fmt.Sprintf("applying local SSH config: %v", err))
+			}
+		} else {
+			if err := git.RemoveSSHConfigScope(true); err != nil {
+				ui.Warn(fmt.Sprintf("removing local SSH config: %v", err))
+			}
+		}
+
+		if !user.SignDisabled && user.SignKey != "" {
+			if err := git.ConfigureSigningScope(user.SignKey, user.SignFormat, true); err != nil {
+				ui.Warn(fmt.Sprintf("applying local signing config: %v", err))
+			}
+		} else {
+			git.RemoveSigningConfigScope(true)
+		}
+
+		ui.Success(fmt.Sprintf("Locally switched to %q (%s) for the current repository", user.Name, user.Email))
+		if !user.SignDisabled && user.SignKey != "" {
+			ui.Success(fmt.Sprintf("Commit Signing: Enabled (%s)", user.SignFormat))
 		}
 	} else {
-		if err := git.RemoveSSHConfig(); err != nil {
-			ui.Warn(fmt.Sprintf("removing SSH config: %v", err))
+		if err := git.Apply(user.Name, user.Email); err != nil {
+			ui.Errorf("applying git config: %v", err)
+			return err
 		}
-	}
 
-	if !user.SignDisabled && user.SignKey != "" {
-		if err := git.ConfigureSigning(user.SignKey, user.SignFormat); err != nil {
-			ui.Warn(fmt.Sprintf("applying signing config: %v", err))
+		if user.SSHKey != "" {
+			if err := git.ConfigureSSH(user.SSHKey); err != nil {
+				ui.Warn(fmt.Sprintf("applying SSH config: %v", err))
+			}
+		} else {
+			if err := git.RemoveSSHConfig(); err != nil {
+				ui.Warn(fmt.Sprintf("removing SSH config: %v", err))
+			}
 		}
-	} else {
-		git.RemoveSigningConfig()
-	}
 
-	if err := store.SetCurrent(name); err != nil {
-		ui.Errorf("%v", err)
-		return err
-	}
+		if !user.SignDisabled && user.SignKey != "" {
+			if err := git.ConfigureSigning(user.SignKey, user.SignFormat); err != nil {
+				ui.Warn(fmt.Sprintf("applying signing config: %v", err))
+			}
+		} else {
+			git.RemoveSigningConfig()
+		}
 
-	if err := config.Save(store); err != nil {
-		ui.Errorf("saving config: %v", err)
-		return err
-	}
+		if err := store.SetCurrent(name); err != nil {
+			ui.Errorf("%v", err)
+			return err
+		}
 
-	ui.Success(fmt.Sprintf("Switched to %q (%s)", user.Name, user.Email))
-	if !user.SignDisabled && user.SignKey != "" {
-		ui.Success(fmt.Sprintf("Commit Signing: Enabled (%s)", user.SignFormat))
+		if err := config.Save(store); err != nil {
+			ui.Errorf("saving config: %v", err)
+			return err
+		}
+
+		ui.Success(fmt.Sprintf("Switched to %q (%s)", user.Name, user.Email))
+		if !user.SignDisabled && user.SignKey != "" {
+			ui.Success(fmt.Sprintf("Commit Signing: Enabled (%s)", user.SignFormat))
+		}
 	}
 
 	if user.SSHKey != "" && isSSHKeyLoaded(user.SSHKey) {
