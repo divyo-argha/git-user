@@ -500,9 +500,15 @@ func (m tuiModel) viewMain() string {
 
 	panes := lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "   ", rightBox)
 
-	sb.WriteString("\n" + renderHeader(m.store, m.height) + "\n")
-	sb.WriteString(panes + "\n\n")
-	sb.WriteString(tuiHelp.Render("  Tab/←/→ switch pane  ↑↓ navigate  Enter select  q quit") + "\n")
+	sb.WriteString("\n")
+	sb.WriteString(renderHeader(m.store, m.height))
+	sb.WriteString("\n")
+
+	sb.WriteString(panes)
+	sb.WriteString("\n\n")
+
+	sb.WriteString(tuiHelp.Render("  Tab/←/→ switch pane  ↑↓ navigate  Enter select  q quit"))
+	sb.WriteString("\n")
 	return sb.String()
 }
 
@@ -644,9 +650,14 @@ func (m tuiModel) viewDetail() string {
 
 	panes := lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "   ", rightBox)
 
-	sb.WriteString("\n" + renderHeader(m.store, m.height) + "\n")
-	sb.WriteString(panes + "\n\n")
-	sb.WriteString(tuiHelp.Render("  ↑↓ navigate  Enter select  Esc back  q quit") + "\n")
+	sb.WriteString("\n")
+	sb.WriteString(renderHeader(m.store, m.height))
+	sb.WriteString("\n")
+	sb.WriteString(panes)
+	sb.WriteString("\n\n")
+	sb.WriteString(tuiHelp.Render("  ↑↓ navigate  Enter select  Esc back  q quit"))
+	sb.WriteString("\n")
+	
 	return sb.String()
 }
 
@@ -883,7 +894,9 @@ func handleUnknownArg(name string) bool {
 	}
 	// Check exact match first
 	if store.FindUser(name) != nil {
-		launchTUI(name)
+		if err := runTuiForIdentity(name); err != nil {
+			ui.Errorf("TUI error: %v", err)
+		}
 		return true
 	}
 	// Suggest similar names

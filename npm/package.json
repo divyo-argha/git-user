@@ -5,9 +5,13 @@
   "bin": {
     "git-user": "bin/git-user.js"
   },
+  "files": [
+    "bin/git-user.js",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
-    "test": "echo \"No tests yet\" && exit 0",
-    "prepublishOnly": "node scripts/build-packages.js"
+    "test": "echo \"No tests yet\" && exit 0"
   },
   "keywords": [
     "git",
@@ -20,7 +24,10 @@
     "cli",
     "developer-tools"
   ],
-  "author": "Divyo Argha",
+  "author": {
+    "name": "Divyo Argha",
+    "url": "https://github.com/divyo-argha"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -30,6 +37,10 @@
     "url": "https://github.com/divyo-argha/git-user/issues"
   },
   "homepage": "https://github.com/divyo-argha/git-user#readme",
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/divyo-argha"
+  },
   "engines": {
     "node": ">=14.0.0"
   },
@@ -39,6 +50,10 @@
     "git-userhub-linux-arm64": "^3.3.0",
     "git-userhub-linux-x64": "^3.3.0",
     "git-userhub-win32-x64": "^3.3.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "config": {
     "repo": "divyo-argha/git-user"

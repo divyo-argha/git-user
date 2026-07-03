@@ -31,12 +31,12 @@ for (const target of targets) {
   const pkgName = `git-userhub-${target.nodeOs}-${target.nodeArch}`;
   const pkgDir = path.join(packagesDir, pkgName);
   const pkgBinDir = path.join(pkgDir, 'bin');
-  
+
   fs.mkdirSync(pkgBinDir, { recursive: true });
-  
+
   const outPath = path.join(pkgBinDir, `git-user${target.ext}`);
   console.log(`Compiling binary for ${pkgName}...`);
-  
+
   try {
     execSync(`GOOS=${target.os} GOARCH=${target.arch} go build -ldflags="-s -w -X main.version=${version} -X main.date=${date}" -o "${outPath}" .`, {
       cwd: rootDir,
@@ -46,30 +46,39 @@ for (const target of targets) {
     console.error(`Failed to compile binary for ${pkgName}:`, error.message);
     process.exit(1);
   }
-  
-  // Write package.json for sub-package
+
+  // Write package.json for sub-package with full security-relevant metadata
   const subPkgJson = {
     name: pkgName,
     version: version,
     description: `Platform-specific binary of git-userhub for ${target.nodeOs} ${target.nodeArch}`,
-    repository: mainPkg.repository,
+    author: mainPkg.author,
     license: mainPkg.license,
+    repository: mainPkg.repository,
+    bugs: mainPkg.bugs,
+    homepage: mainPkg.homepage,
+    engines: mainPkg.engines,
     os: [target.nodeOs],
-    cpu: [target.nodeArch]
+    cpu: [target.nodeArch],
+    files: ['bin'],
+    publishConfig: {
+      access: 'public',
+      provenance: true
+    }
   };
-  
+
   fs.writeFileSync(
     path.join(pkgDir, 'package.json'),
     JSON.stringify(subPkgJson, null, 2) + '\n'
   );
-  
+
   // Copy LICENSE and README if they exist
   const licensePath = path.join(rootDir, 'LICENSE');
   if (fs.existsSync(licensePath)) {
     fs.copyFileSync(licensePath, path.join(pkgDir, 'LICENSE'));
   }
-  
-  const readmeContent = `# ${pkgName}\n\nPlatform-specific binary package of \`git-userhub\` for ${target.nodeOs} ${target.nodeArch}.\n`;
+
+  const readmeContent = `# ${pkgName}\n\nPlatform-specific binary package of \`git-userhub\` for ${target.nodeOs} ${target.nodeArch}.\n\nThis package is installed automatically by \`git-userhub\` as an optional dependency.\nDo not install this package directly.\n\nSee the main package for full documentation: https://github.com/divyo-argha/git-user\n`;
   fs.writeFileSync(path.join(pkgDir, 'README.md'), readmeContent);
 }
 

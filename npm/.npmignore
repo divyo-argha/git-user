@@ -1,6 +1,18 @@
+# Build artifacts
+*.tgz
+packages/
+
+# Build scripts (not needed by consumers)
+scripts/
+
+# Development files
+node_modules/
+*.log
+.DS_Store
+
+# Test utilities
 test_tar.js
+
+# Redundant copies (kept in root only)
 bin/LICENSE
 bin/README.md
-*.tgz
-scripts/
-packages/
