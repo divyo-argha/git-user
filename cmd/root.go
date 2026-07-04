@@ -48,6 +48,8 @@ COMMANDS
   security                   Run security audit
   sign <name>                Manage commit signing for an identity
   logout                     Sign out and clear active identity
+  clone <repo-url> [dir]     Clone repository and auto-configure local identity
+  stats                      Audit and show commit author identity stats
 
 ALIASES
 
@@ -171,6 +173,10 @@ func Execute() error {
 		return runSecurityCheck(rest)
 	case "logout", "lo", "signout":
 		return runLogout(rest)
+	case "clone":
+		return runClone(rest)
+	case "stats":
+		return runStats(rest)
 	default:
 		// Try as identity name → detail view
 		if handleUnknownArg(sub) {
