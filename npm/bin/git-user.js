@@ -22,7 +22,7 @@
  * are read. The binary path is resolved from the installed package only.
  */
 
-const { spawnSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -48,25 +48,20 @@ try {
   }
 }
 
-// Verify the binary exists before attempting to spawn it
+// Verify the binary exists before attempting to execute it
 if (!fs.existsSync(binPath)) {
   console.error(`Error: Platform-specific binary not found at: ${binPath}`);
   console.error(`Try reinstalling: npm install -g git-userhub`);
   process.exit(1);
 }
 
-// Spawn the binary, inheriting stdio so it behaves as a native CLI tool
-const result = spawnSync(binPath, process.argv.slice(2), {
-  stdio: 'inherit'
-});
-
-if (result.error) {
-  if (result.error.code === 'ENOENT') {
-    console.error(`Error: Platform-specific binary not found at: ${binPath}`);
-  } else {
-    console.error('Failed to start git-user:', result.error.message || result.error);
+try {
+  execFileSync(binPath, process.argv.slice(2), { stdio: 'inherit' });
+} catch (execErr) {
+  if (execErr.status !== undefined) {
+    process.exit(execErr.status);
   }
+  console.error(execErr);
   process.exit(1);
 }
 
-process.exit(typeof result.status === 'number' ? result.status : 1);
