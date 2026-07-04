@@ -9,10 +9,19 @@ import (
 )
 
 func TestRunStats_NotInRepo(t *testing.T) {
-	setupTestEnv(t)
+	tmpDir := setupTestEnv(t)
 
-	// Since setupTestEnv creates a temp dir which is not a git repo initially, we run stats there
-	err := runStats([]string{})
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current working directory: %v", err)
+	}
+	err = os.Chdir(tmpDir)
+	if err != nil {
+		t.Fatalf("failed to change directory: %v", err)
+	}
+	defer os.Chdir(oldWd)
+
+	err = runStats([]string{})
 	if err == nil {
 		t.Fatal("expected error running stats outside a repository, got nil")
 	}
