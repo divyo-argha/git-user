@@ -33,10 +33,16 @@ type OriginalConfig struct {
 	CommitGPGSign string `json:"commit_gpgsign,omitempty"`
 }
 
+type SyncConfig struct {
+	RepoURL    string `json:"repo_url,omitempty"`
+	DeviceName string `json:"device_name,omitempty"`
+}
+
 type Store struct {
 	Current  string          `json:"current"`
 	Users    []User          `json:"users"`
 	Original *OriginalConfig `json:"original,omitempty"`
+	Sync     *SyncConfig     `json:"sync,omitempty"`
 }
 
 var configPath string

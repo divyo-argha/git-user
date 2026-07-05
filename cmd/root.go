@@ -51,6 +51,7 @@ COMMANDS
   clone <repo-url> [dir]     Clone repository and auto-configure local identity
   stats                      Audit and show commit author identity stats
   config <identity> [set|unset|list] Manage custom git configurations for an identity
+  sync                       Synchronize identities across devices using a private repository
 
 ALIASES
 
@@ -180,6 +181,8 @@ func Execute() error {
 		return runStats(rest)
 	case "config":
 		return runConfig(rest)
+	case "sync":
+		return runSync(rest)
 	default:
 		// Try as identity name → detail view
 		if handleUnknownArg(sub) {
