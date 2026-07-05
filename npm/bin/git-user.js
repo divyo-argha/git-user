@@ -55,6 +55,19 @@ if (!fs.existsSync(binPath)) {
   process.exit(1);
 }
 
+// Ensure binary is executable on non-Windows platforms
+if (platform !== 'win32') {
+  try {
+    const stats = fs.statSync(binPath);
+    // Check if executable by user (0o100)
+    if (!(stats.mode & 64)) {
+      fs.chmodSync(binPath, 0o755);
+    }
+  } catch (err) {
+    // Ignore error if stat/chmod fails; let execution fail with standard error
+  }
+}
+
 try {
   execFileSync(binPath, process.argv.slice(2), { stdio: 'inherit' });
 } catch (execErr) {

@@ -43,7 +43,15 @@ jobs:
           node -e "
             const fs = require('fs');
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            pkg.version = '${{ steps.version.outputs.VERSION }}';
+            const version = '${{ steps.version.outputs.VERSION }}';
+            pkg.version = version;
+            if (pkg.optionalDependencies) {
+              for (const dep of Object.keys(pkg.optionalDependencies)) {
+                if (dep.startsWith('git-userhub-')) {
+                  pkg.optionalDependencies[dep] = '^' + version;
+                }
+              }
+            }
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
           "
 
