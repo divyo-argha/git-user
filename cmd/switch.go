@@ -194,6 +194,15 @@ func runSwitch(args []string) error {
 			git.RemoveSigningConfigScope(true)
 		}
 
+		if prev := store.CurrentUser(); prev != nil {
+			for k := range prev.CustomConfig {
+				_ = unsetActiveCustomConfig(k, true)
+			}
+		}
+		for k, v := range user.CustomConfig {
+			_ = applyActiveCustomConfig(k, v, true)
+		}
+
 		ui.Success(fmt.Sprintf("Locally switched to %q (%s) for the current repository", user.Name, user.Email))
 		if !user.SignDisabled && user.SignKey != "" {
 			ui.Success(fmt.Sprintf("Commit Signing: Enabled (%s)", user.SignFormat))
@@ -220,6 +229,15 @@ func runSwitch(args []string) error {
 			}
 		} else {
 			git.RemoveSigningConfig()
+		}
+
+		if prev := store.CurrentUser(); prev != nil {
+			for k := range prev.CustomConfig {
+				_ = unsetActiveCustomConfig(k, false)
+			}
+		}
+		for k, v := range user.CustomConfig {
+			_ = applyActiveCustomConfig(k, v, false)
 		}
 
 		if err := store.SetCurrent(name); err != nil {
@@ -410,6 +428,14 @@ func runSwitchOriginal() error {
 		}
 	} else {
 		git.RemoveSigningConfig()
+	}
+
+	if store.Current != "" {
+		if prev := store.CurrentUser(); prev != nil {
+			for k := range prev.CustomConfig {
+				_ = unsetActiveCustomConfig(k, false)
+			}
+		}
 	}
 
 	store.Current = ""

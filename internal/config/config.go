@@ -17,9 +17,10 @@ type User struct {
 	SignKey      string   `json:"sign_key,omitempty"`
 	SignFormat   string   `json:"sign_format,omitempty"` // "ssh" or "gpg"
 	SignDisabled bool     `json:"sign_disabled,omitempty"`
-	Source       string   `json:"source,omitempty"` // "original" or empty (manual)
-	BindPaths    []string `json:"bind_paths,omitempty"`
-	IsTemporary  bool     `json:"-"`
+	Source       string            `json:"source,omitempty"` // "original" or empty (manual)
+	BindPaths    []string          `json:"bind_paths,omitempty"`
+	CustomConfig map[string]string `json:"custom_config,omitempty"`
+	IsTemporary  bool              `json:"-"`
 }
 
 // OriginalConfig holds the gitconfig state that existed before git-user was first used.
@@ -369,6 +370,12 @@ func syncIncludeIfs(s *Store) error {
 		err := os.WriteFile(snippetPath, []byte(sb.String()), 0600)
 		if err != nil {
 			return fmt.Errorf("writing snippet file %s: %w", snippetPath, err)
+		}
+
+		if len(u.CustomConfig) > 0 {
+			for k, v := range u.CustomConfig {
+				_ = exec.Command("git", "config", "--file", snippetPath, k, v).Run()
+			}
 		}
 	}
 
