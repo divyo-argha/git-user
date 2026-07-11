@@ -9,6 +9,11 @@ import (
 	"github.com/divyo-argha/git-user/logo"
 )
 
+var (
+	tuiDim  = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
+	tuiBold = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Bold(true)
+)
+
 // ── Header style selector ─────────────────────────────────────────────────────
 //
 // Switch between header styles by changing this constant:
