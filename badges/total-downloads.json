@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "label": "total downloads",
+  "label": "npm downloads",
   "message": "5096",
   "color": "brightgreen"
 }
