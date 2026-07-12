@@ -7,7 +7,8 @@ const targets = [
   { os: 'darwin', arch: 'arm64', nodeOs: 'darwin', nodeArch: 'arm64', ext: '' },
   { os: 'linux', arch: 'amd64', nodeOs: 'linux', nodeArch: 'x64', ext: '' },
   { os: 'linux', arch: 'arm64', nodeOs: 'linux', nodeArch: 'arm64', ext: '' },
-  { os: 'windows', arch: 'amd64', nodeOs: 'win32', nodeArch: 'x64', ext: '.exe' }
+  { os: 'windows', arch: 'amd64', nodeOs: 'win32', nodeArch: 'x64', ext: '.exe' },
+  { os: 'windows', arch: 'arm64', nodeOs: 'win32', nodeArch: 'arm64', ext: '.exe' }
 ];
 
 const npmDir = path.join(__dirname, '..');

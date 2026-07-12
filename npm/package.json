@@ -49,6 +49,7 @@
     "git-userhub-darwin-x64": "^4.0.0",
     "git-userhub-linux-arm64": "^4.0.0",
     "git-userhub-linux-x64": "^4.0.0",
+    "git-userhub-win32-arm64": "^4.0.0",
     "git-userhub-win32-x64": "^4.0.0"
   },
   "publishConfig": {
