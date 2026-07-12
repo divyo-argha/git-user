@@ -22,6 +22,7 @@ builds:
       - -X main.commit={{.Commit}}
       - -X main.date={{.Date}}
     binary: git-user
+    main: ./cmd/git-user
 
 archives:
   - format: tar.gz

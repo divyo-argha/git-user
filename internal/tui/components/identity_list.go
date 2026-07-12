@@ -23,12 +23,12 @@ type IdentityItem struct {
 
 // IdentityList is a scrollable, filterable list of identities.
 type IdentityList struct {
-	items      []IdentityItem
-	filtered   []int
-	cursor     int
-	filter     string
-	filtering  bool
-	theme      theme.Theme
+	items     []IdentityItem
+	filtered  []int
+	cursor    int
+	filter    string
+	filtering bool
+	theme     theme.Theme
 }
 
 // NewIdentityList creates an identity list from a config store.
@@ -87,7 +87,7 @@ func (l *IdentityList) Selected() *IdentityItem {
 	return &l.items[idx]
 }
 
-func (l *IdentityList) Cursor() int     { return l.cursor }
+func (l *IdentityList) Cursor() int       { return l.cursor }
 func (l *IdentityList) IsFiltering() bool { return l.filtering }
 
 func (l *IdentityList) SetFilter(query string) {

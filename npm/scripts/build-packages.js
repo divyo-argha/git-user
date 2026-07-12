@@ -39,7 +39,7 @@ for (const target of targets) {
   console.log(`Compiling binary for ${pkgName}...`);
 
   try {
-    execSync(`GOOS=${target.os} GOARCH=${target.arch} go build -ldflags="-s -w -X main.version=${version} -X main.date=${date}" -o "${outPath}" .`, {
+    execSync(`GOOS=${target.os} GOARCH=${target.arch} go build -ldflags="-s -w -X main.version=${version} -X main.date=${date}" -o "${outPath}" ./cmd/git-user`, {
       cwd: rootDir,
       stdio: 'inherit'
     });

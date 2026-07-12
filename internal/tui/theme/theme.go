@@ -7,15 +7,15 @@ import "github.com/charmbracelet/lipgloss"
 
 type Theme struct {
 	// Semantic colors
-	Primary     lipgloss.Color // Cyan — main accent, active borders, highlights
-	Secondary   lipgloss.Color // Green — success states, active identity
-	Accent      lipgloss.Color // Magenta — decorative touches
-	Danger      lipgloss.Color // Red — destructive actions, errors
-	Warning     lipgloss.Color // Yellow/Orange — warnings
-	Muted       lipgloss.Color // Gray — disabled, separators, dim text
-	Text        lipgloss.Color // White — primary text
-	TextDim     lipgloss.Color // Lighter gray — secondary text
-	Background  lipgloss.Color // For cards and panels (not terminal bg)
+	Primary    lipgloss.Color // Cyan — main accent, active borders, highlights
+	Secondary  lipgloss.Color // Green — success states, active identity
+	Accent     lipgloss.Color // Magenta — decorative touches
+	Danger     lipgloss.Color // Red — destructive actions, errors
+	Warning    lipgloss.Color // Yellow/Orange — warnings
+	Muted      lipgloss.Color // Gray — disabled, separators, dim text
+	Text       lipgloss.Color // White — primary text
+	TextDim    lipgloss.Color // Lighter gray — secondary text
+	Background lipgloss.Color // For cards and panels (not terminal bg)
 
 	// Derived styles (computed once)
 	styles themeStyles
@@ -86,19 +86,19 @@ func (t Theme) buildStyles() themeStyles {
 
 // ── Style Accessors ───────────────────────────────────────────────────────────
 
-func (t Theme) Bold() lipgloss.Style       { return t.styles.Bold }
-func (t Theme) Dim() lipgloss.Style        { return t.styles.Dim }
-func (t Theme) ItalicStyle() lipgloss.Style { return t.styles.Italic }
-func (t Theme) SuccessStyle() lipgloss.Style { return t.styles.Success }
-func (t Theme) ErrorStyle() lipgloss.Style  { return t.styles.Error }
-func (t Theme) WarningStyle() lipgloss.Style { return t.styles.Warning }
-func (t Theme) InfoStyle() lipgloss.Style   { return t.styles.Info }
-func (t Theme) DangerText() lipgloss.Style  { return t.styles.DangerText }
-func (t Theme) Selected() lipgloss.Style    { return t.styles.Selected }
-func (t Theme) Active() lipgloss.Style      { return t.styles.Active }
-func (t Theme) PaneTitle() lipgloss.Style   { return t.styles.PaneTitle }
+func (t Theme) Bold() lipgloss.Style          { return t.styles.Bold }
+func (t Theme) Dim() lipgloss.Style           { return t.styles.Dim }
+func (t Theme) ItalicStyle() lipgloss.Style   { return t.styles.Italic }
+func (t Theme) SuccessStyle() lipgloss.Style  { return t.styles.Success }
+func (t Theme) ErrorStyle() lipgloss.Style    { return t.styles.Error }
+func (t Theme) WarningStyle() lipgloss.Style  { return t.styles.Warning }
+func (t Theme) InfoStyle() lipgloss.Style     { return t.styles.Info }
+func (t Theme) DangerText() lipgloss.Style    { return t.styles.DangerText }
+func (t Theme) Selected() lipgloss.Style      { return t.styles.Selected }
+func (t Theme) Active() lipgloss.Style        { return t.styles.Active }
+func (t Theme) PaneTitle() lipgloss.Style     { return t.styles.PaneTitle }
 func (t Theme) SectionHeader() lipgloss.Style { return t.styles.SectionHeader }
-func (t Theme) Separator() lipgloss.Style   { return t.styles.Separator }
+func (t Theme) Separator() lipgloss.Style     { return t.styles.Separator }
 
 // ── Dynamic Pane Styles ───────────────────────────────────────────────────────
 // These accept width/height so they adapt to terminal size.

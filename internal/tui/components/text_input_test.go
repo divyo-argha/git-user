@@ -26,7 +26,7 @@ func TestTextInput(t *testing.T) {
 	// Test update via KeyMsg
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'w'}}
 	updated, _ := input.Update(msg)
-	
+
 	// 'w' is appended because we aren't fully managing the internal cursor state in this simple test,
 	// but the textinput package handles append when focused or just running.
 	// Oh wait, it won't append if it's not focused!

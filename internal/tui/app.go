@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"github.com/divyo-argha/git-user/internal/tui/core"
+	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"strings"
 	"time"
 
@@ -21,7 +23,7 @@ type pendingAction struct {
 // App is the root tea.Model that coordinates all screens.
 type App struct {
 	store       *config.Store
-	screenStack []Screen
+	screenStack []core.Screen
 	statusBar   components.StatusBar
 	helpBar     components.HelpBar
 	toast       components.Toast
@@ -35,11 +37,11 @@ type App struct {
 }
 
 // NewApp creates the root app model.
-func NewApp(store *config.Store, initialScreen Screen) *App {
+func NewApp(store *config.Store, initialScreen core.Screen) *App {
 	th := theme.DefaultTheme()
 	return &App{
 		store:       store,
-		screenStack: []Screen{initialScreen},
+		screenStack: []core.Screen{initialScreen},
 		statusBar:   components.NewStatusBar(store, th),
 		helpBar:     components.NewHelpBar(th),
 		toast:       components.NewToast(th),
@@ -47,14 +49,14 @@ func NewApp(store *config.Store, initialScreen Screen) *App {
 	}
 }
 
-func (a *App) activeScreen() Screen {
+func (a *App) activeScreen() core.Screen {
 	if len(a.screenStack) == 0 {
 		return nil
 	}
 	return a.screenStack[len(a.screenStack)-1]
 }
 
-func (a *App) pushScreen(s Screen) tea.Cmd {
+func (a *App) pushScreen(s core.Screen) tea.Cmd {
 	a.screenStack = append(a.screenStack, s)
 	a.helpBar.SetText(s.ShortHelp())
 	return s.Init()
@@ -73,7 +75,7 @@ func (a *App) popScreen() {
 
 func (a *App) Init() tea.Cmd {
 	cmds := []tea.Cmd{
-		CheckAgentCmd(),
+		core.CheckAgentCmd(),
 	}
 	if s := a.activeScreen(); s != nil {
 		cmds = append(cmds, s.Init())
@@ -89,11 +91,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.height = msg.Height
 		return a, nil
 
-	case AgentStatusMsg:
+	case core.AgentStatusMsg:
 		a.statusBar.SetAgentStatus(msg.Connected, msg.KeyCount)
 		return a, nil
 
-	case StoreRefreshedMsg:
+	case core.StoreRefreshedMsg:
 		if msg.Err == nil && msg.Store != nil {
 			a.store = msg.Store
 			a.statusBar.SetStore(msg.Store)
@@ -105,31 +107,31 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
-	case ToastMsg:
+	case core.ToastMsg:
 		a.toast.Show(msg.Text, msg.Style)
-		return a, ToastTimerCmd(msg.Duration)
+		return a, core.ToastTimerCmd(msg.Duration)
 
-	case ToastExpiredMsg:
+	case core.ToastExpiredMsg:
 		a.toast.Hide()
 		return a, nil
 
-	case ScreenPushMsg:
+	case core.ScreenPushMsg:
 		cmd := a.pushScreen(msg.Screen)
 		return a, cmd
 
-	case ScreenPopMsg:
+	case core.ScreenPopMsg:
 		a.popScreen()
-		return a, RefreshStoreCmd()
+		return a, core.RefreshStoreCmd()
 
-	case ConfirmResultMsg:
+	case core.ConfirmResultMsg:
 		a.popScreen()
 		return a.handleConfirmResult(msg)
 
-	case FormResultMsg:
+	case core.FormResultMsg:
 		a.popScreen()
 		return a.handleFormResult(msg)
 
-	case ActionResultMsg:
+	case core.ActionResultMsg:
 		return a.handleAction(msg)
 
 	default:
@@ -176,7 +178,7 @@ func (a *App) View() string {
 
 // ── Action Handling ───────────────────────────────────────────────────────────
 
-func (a *App) handleAction(msg ActionResultMsg) (tea.Model, tea.Cmd) {
+func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 	switch msg.Kind {
 	case "quit":
 		a.quit = true
@@ -184,11 +186,11 @@ func (a *App) handleAction(msg ActionResultMsg) (tea.Model, tea.Cmd) {
 
 	case "register":
 		return a, func() tea.Msg {
-			return ScreenPushMsg{Screen: NewForm(
+			return core.ScreenPushMsg{Screen: screens.NewForm(
 				"Register New Identity",
 				"Enter profile name and email address",
 				"register",
-				[]FormInput{
+				[]screens.FormInput{
 					{Label: "Profile Name:", Placeholder: "e.g. work"},
 					{Label: "Email Address:", Placeholder: "e.g. you@company.com"},
 				},
@@ -202,11 +204,11 @@ func (a *App) handleAction(msg ActionResultMsg) (tea.Model, tea.Cmd) {
 
 	case "rename":
 		return a, func() tea.Msg {
-			return ScreenPushMsg{Screen: NewForm(
+			return core.ScreenPushMsg{Screen: screens.NewForm(
 				"Rename Identity",
 				"Enter new profile name for "+msg.Name,
 				"rename:"+msg.Name,
-				[]FormInput{
+				[]screens.FormInput{
 					{Label: "New Name:", Value: msg.Name},
 				},
 				a.theme,
@@ -220,11 +222,11 @@ func (a *App) handleAction(msg ActionResultMsg) (tea.Model, tea.Cmd) {
 			currentEmail = u.Email
 		}
 		return a, func() tea.Msg {
-			return ScreenPushMsg{Screen: NewForm(
+			return core.ScreenPushMsg{Screen: screens.NewForm(
 				"Change Email",
 				"Enter new email address for "+msg.Name,
 				"email:"+msg.Name,
-				[]FormInput{
+				[]screens.FormInput{
 					{Label: "New Email:", Value: currentEmail},
 				},
 				a.theme,
@@ -245,7 +247,7 @@ func (a *App) handleAction(msg ActionResultMsg) (tea.Model, tea.Cmd) {
 
 	case "unbind":
 		return a, func() tea.Msg {
-			return ScreenPushMsg{Screen: NewConfirm(
+			return core.ScreenPushMsg{Screen: screens.NewConfirm(
 				fmt.Sprintf("Remove SSH key binding from %q? (file not deleted)", msg.Name),
 				"unbind:"+msg.Name,
 				a.theme,
@@ -286,7 +288,7 @@ func (a *App) handleAction(msg ActionResultMsg) (tea.Model, tea.Cmd) {
 
 	case "remove":
 		return a, func() tea.Msg {
-			return ScreenPushMsg{Screen: NewConfirm(
+			return core.ScreenPushMsg{Screen: screens.NewConfirm(
 				fmt.Sprintf("Remove identity %q? This cannot be undone.", msg.Name),
 				"remove:"+msg.Name,
 				a.theme,
@@ -317,9 +319,9 @@ func (a *App) handleAction(msg ActionResultMsg) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-func (a *App) handleConfirmResult(msg ConfirmResultMsg) (tea.Model, tea.Cmd) {
+func (a *App) handleConfirmResult(msg core.ConfirmResultMsg) (tea.Model, tea.Cmd) {
 	if !msg.Confirmed {
-		return a, ShowToastCmd("Cancelled", theme.ToastStyleInfo, 2*time.Second)
+		return a, core.ShowToastCmd("Cancelled", theme.ToastStyleInfo, 2*time.Second)
 	}
 
 	parts := strings.SplitN(msg.Context, ":", 2)
@@ -342,7 +344,7 @@ func (a *App) handleConfirmResult(msg ConfirmResultMsg) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-func (a *App) handleFormResult(msg FormResultMsg) (tea.Model, tea.Cmd) {
+func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 	if len(msg.Values) == 0 {
 		return a, nil
 	}
@@ -357,21 +359,21 @@ func (a *App) handleFormResult(msg FormResultMsg) (tea.Model, tea.Cmd) {
 	switch action {
 	case "register":
 		if msg.Values[0] == "" || msg.Values[1] == "" {
-			return a, ShowToastCmd("Profile name and email are required", theme.ToastStyleError, 3*time.Second)
+			return a, core.ShowToastCmd("Profile name and email are required", theme.ToastStyleError, 3*time.Second)
 		}
 		a.action = &pendingAction{kind: "register", name: msg.Values[0], arg: msg.Values[1]}
 		return a, tea.Quit
 
 	case "rename":
 		if msg.Values[0] == "" {
-			return a, ShowToastCmd("New name cannot be empty", theme.ToastStyleError, 3*time.Second)
+			return a, core.ShowToastCmd("New name cannot be empty", theme.ToastStyleError, 3*time.Second)
 		}
 		a.action = &pendingAction{kind: "rename", name: name, arg: msg.Values[0]}
 		return a, tea.Quit
 
 	case "email":
 		if msg.Values[0] == "" {
-			return a, ShowToastCmd("New email cannot be empty", theme.ToastStyleError, 3*time.Second)
+			return a, core.ShowToastCmd("New email cannot be empty", theme.ToastStyleError, 3*time.Second)
 		}
 		a.action = &pendingAction{kind: "email", name: name, arg: msg.Values[0]}
 		return a, tea.Quit

@@ -4,30 +4,32 @@ import (
 	"testing"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/tui/core"
+	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 )
 
 func TestAppStack(t *testing.T) {
 	store := &config.Store{}
 	th := theme.DefaultTheme()
-	startScreen := NewDashboard(store, th)
+	startScreen := screens.NewDashboard(store, th)
 	app := NewApp(store, startScreen)
 
 	if len(app.screenStack) != 1 {
 		t.Errorf("Expected stack length 1, got %d", len(app.screenStack))
 	}
 
-	// Push Screen
-	testScreen := NewConfirm("test", "ctx", th)
-	updated, _ := app.Update(ScreenPushMsg{Screen: testScreen})
+	// Push core.Screen
+	testScreen := screens.NewConfirm("test", "ctx", th)
+	updated, _ := app.Update(core.ScreenPushMsg{Screen: testScreen})
 	app = updated.(*App)
 
 	if len(app.screenStack) != 2 {
 		t.Errorf("Expected stack length 2 after push, got %d", len(app.screenStack))
 	}
 
-	// Pop Screen
-	updated, _ = app.Update(ScreenPopMsg{})
+	// Pop core.Screen
+	updated, _ = app.Update(core.ScreenPopMsg{})
 	app = updated.(*App)
 
 	if len(app.screenStack) != 1 {
@@ -35,7 +37,7 @@ func TestAppStack(t *testing.T) {
 	}
 
 	// Action Result
-	updated, cmd := app.Update(ActionResultMsg{Kind: "switch", Name: "work"})
+	updated, cmd := app.Update(core.ActionResultMsg{Kind: "switch", Name: "work"})
 	app = updated.(*App)
 	if app.action == nil {
 		t.Errorf("Expected action to be set")

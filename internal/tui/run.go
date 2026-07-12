@@ -3,6 +3,8 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/tui/core"
+	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 )
 
@@ -11,17 +13,17 @@ import (
 // If kind is empty, the user quit without selecting an action.
 func Run(store *config.Store, startDetail string) (kind, name, arg string, err error) {
 	th := theme.DefaultTheme()
-	var initialScreen Screen
+	var initialScreen core.Screen
 
 	if startDetail != "" {
 		user := store.FindUser(startDetail)
 		if user != nil {
-			initialScreen = NewDetail(store, startDetail, th)
+			initialScreen = screens.NewDetail(store, startDetail, th)
 		} else {
-			initialScreen = NewDashboard(store, th)
+			initialScreen = screens.NewDashboard(store, th)
 		}
 	} else {
-		initialScreen = NewDashboard(store, th)
+		initialScreen = screens.NewDashboard(store, th)
 	}
 
 	app := NewApp(store, initialScreen)
