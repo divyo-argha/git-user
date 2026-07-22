@@ -1,0 +1,14 @@
+# Socket Security Configuration
+# https://socket.dev/docs/config
+
+version: 2
+
+project:
+  name: git-user
+
+# Defer / ignore expected native code alerts for pre-compiled Go binaries bundled
+# in platform-specific optional dependency subpackages (git-userhub-*).
+# Binary provenance is cryptographically attested via Sigstore & GitHub Actions OIDC.
+issueRules:
+  nativeCode: false
+  installScripts: false

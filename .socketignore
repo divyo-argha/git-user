@@ -1,0 +1,2 @@
+# Socket.dev ignore pattern rules
+npm/packages/git-userhub-*
