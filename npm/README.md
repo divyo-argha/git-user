@@ -10,7 +10,7 @@
 
   <p>
     <a href="https://www.npmjs.com/package/git-userhub"><img src="https://img.shields.io/npm/v/git-userhub?style=flat&color=CB3837&logo=npm&logoColor=white" alt="npm version" /></a>
-    <a href="https://www.npmjs.com/package/git-userhub"><img src="https://img.shields.io/npm/dt/git-userhub?style=flat&color=CB3837&logo=npm&logoColor=white&label=total%20downloads" alt="total downloads" /></a>
+    <a href="https://github.com/divyo-argha/git-user"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/divyo-argha/git-user/main/badges/total-downloads.json" alt="Total Downloads" /></a>
     <a href="https://github.com/divyo-argha/git-user/releases"><img src="https://img.shields.io/github/v/release/divyo-argha/git-user?style=flat&color=00FFAA&label=latest" alt="Latest Release" /></a>
     <a href="https://github.com/divyo-argha/git-user/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-22c55e?style=flat" alt="MIT" /></a>
   </p>
