@@ -26,7 +26,7 @@ func runDoctor(args []string) error {
 		issues++
 	} else if store.Current == "" {
 		ui.Warn("No active identity set")
-		ui.Info("  Fix: Run 'git user switch <name>' to activate an identity")
+		ui.Info("  Fix: Run 'git-user switch <name>' to activate an identity")
 		issues++
 	} else {
 		user := store.FindUser(store.Current)
@@ -42,11 +42,11 @@ func runDoctor(args []string) error {
 
 			if strings.TrimSpace(string(gitName)) != user.Name {
 				ui.Warn(fmt.Sprintf("Git name mismatch: expected %q, got %q", user.Name, strings.TrimSpace(string(gitName))))
-				ui.Info("  Fix: Run 'git user switch " + user.Name + "' to resync")
+				ui.Info("  Fix: Run 'git-user switch " + user.Name + "' to resync")
 				issues++
 			} else if strings.TrimSpace(string(gitEmail)) != user.Email {
 				ui.Warn(fmt.Sprintf("Git email mismatch: expected %q, got %q", user.Email, strings.TrimSpace(string(gitEmail))))
-				ui.Info("  Fix: Run 'git user switch " + user.Name + "' to resync")
+				ui.Info("  Fix: Run 'git-user switch " + user.Name + "' to resync")
 				issues++
 			} else {
 				ui.Success("Git config in sync")
@@ -57,7 +57,7 @@ func runDoctor(args []string) error {
 				info, err := os.Stat(user.SSHKey)
 				if os.IsNotExist(err) {
 					ui.Error(fmt.Sprintf("SSH key file not found: %s", user.SSHKey))
-					ui.Info("  Fix: Generate a new key with 'git user rekey " + user.Name + "'")
+					ui.Info("  Fix: Generate a new key with 'git-user rekey " + user.Name + "'")
 					issues++
 				} else if err != nil {
 					ui.Error(fmt.Sprintf("Error checking SSH key: %v", err))
@@ -91,7 +91,7 @@ func runDoctor(args []string) error {
 				}
 			} else {
 				ui.Warn("No SSH key configured for this identity")
-				ui.Info("  Fix: Run 'git user bind " + user.Name + " --ssh-key <path>' or 'git user rekey " + user.Name + "'")
+				ui.Info("  Fix: Run 'git-user bind " + user.Name + " --ssh-key <path>' or 'git-user rekey " + user.Name + "'")
 				issues++
 			}
 		}
@@ -109,7 +109,7 @@ func runDoctor(args []string) error {
 	ui.Info("Checking ssh-keygen availability...")
 	if _, err := exec.LookPath("ssh-keygen"); err != nil {
 		ui.Warn("ssh-keygen not found on PATH")
-		ui.Info("  This is needed for 'git user register' and 'git user rekey'")
+		ui.Info("  This is needed for 'git-user register' and 'git-user rekey'")
 		issues++
 	} else {
 		ui.Success("ssh-keygen is available")

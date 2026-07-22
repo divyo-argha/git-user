@@ -27,7 +27,7 @@ esac
 echo "Detected platform: $PLATFORM ($ARCHITECTURE)"
 
 # Get the latest release URL
-LATEST_URL=$(curl -s https://api.github.com/repos/$REPO/releases/latest | grep "browser_download_url.*${PLATFORM}_${ARCHITECTURE}.tar.gz" | cut -d '"' -f 4)
+LATEST_URL=$(curl -s https://api.github.com/repos/$REPO/releases/latest | grep -i "browser_download_url.*${PLATFORM}_${ARCHITECTURE}.tar.gz" | cut -d '"' -f 4)
 
 if [ -z "$LATEST_URL" ]; then
     echo "Error: Could not find a release for $PLATFORM $ARCHITECTURE"

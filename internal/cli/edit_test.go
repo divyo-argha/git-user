@@ -104,3 +104,16 @@ func TestRunEdit_SuccessActiveUser(t *testing.T) {
 		t.Errorf("expected git user.email to have been updated to alice-new@example.com, got %s", git.CurrentEmail())
 	}
 }
+
+func TestRunEdit_SameEmail(t *testing.T) {
+	setupTestEnv(t)
+
+	store, _ := config.Load()
+	_ = store.AddUser("alice", "alice@example.com")
+	_ = config.Save(store)
+
+	err := runEdit([]string{"alice", "alice@example.com"})
+	if err != nil {
+		t.Fatalf("expected editing with same email to succeed, got error: %v", err)
+	}
+}

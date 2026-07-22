@@ -7,7 +7,7 @@ DATE     := $(shell date -u +'%Y-%m-%d')
 
 build:
 	@mkdir -p $(BUILD_DIR)
-	go build -ldflags="-s -w -X main.version=$(VERSION) -X main.date=$(DATE)" -o $(BUILD_DIR)/$(BINARY) .
+	go build -ldflags="-s -w -X main.version=$(VERSION) -X main.date=$(DATE)" -o $(BUILD_DIR)/$(BINARY) ./cmd/git-user
 	@echo "Binary built: $(BUILD_DIR)/$(BINARY)"
 
 # Install to /usr/local/bin so 'git user' works as a subcommand

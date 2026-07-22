@@ -28,9 +28,17 @@ func runEdit(args []string) error {
 		return err
 	}
 
-	if store.IsEmailTaken(newEmail) {
-		ui.Errorf("Email already in use — each identity must have a unique email to prevent impersonation.")
-		return fmt.Errorf("email exists")
+	user := store.FindUser(name)
+	if user == nil {
+		ui.Errorf("identity %q not found", name)
+		return fmt.Errorf("user not found")
+	}
+
+	for _, u := range store.Users {
+		if u.Name != name && u.Email == newEmail {
+			ui.Errorf("Email already in use — each identity must have a unique email to prevent impersonation.")
+			return fmt.Errorf("email exists")
+		}
 	}
 
 	if err := store.UpdateUser(name, newEmail); err != nil {
