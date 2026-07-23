@@ -49,17 +49,37 @@ func TestActionMenu(t *testing.T) {
 
 func TestSystemActions(t *testing.T) {
 	th := theme.DefaultTheme()
-	m := SystemActions(th)
+
+	// Without fix-remote
+	m := SystemActions(th, false)
 
 	// Ensure system actions contains quit
 	foundQuit := false
+	foundFixRemote := false
 	for _, item := range m.items {
 		if item.Key == "quit" {
 			foundQuit = true
-			break
+		}
+		if item.Key == "fix-remote" {
+			foundFixRemote = true
 		}
 	}
 	if !foundQuit {
 		t.Errorf("SystemActions is missing quit action")
+	}
+	if foundFixRemote {
+		t.Errorf("SystemActions should NOT include fix-remote when showFixRemote=false")
+	}
+
+	// With fix-remote
+	m2 := SystemActions(th, true)
+	foundFixRemote2 := false
+	for _, item := range m2.items {
+		if item.Key == "fix-remote" {
+			foundFixRemote2 = true
+		}
+	}
+	if !foundFixRemote2 {
+		t.Errorf("SystemActions should include fix-remote when showFixRemote=true")
 	}
 }

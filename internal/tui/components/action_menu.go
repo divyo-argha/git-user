@@ -30,22 +30,31 @@ func NewActionMenu(items []ActionItem, th theme.Theme) ActionMenu {
 }
 
 // SystemActions returns the default system utilities action list.
-func SystemActions(th theme.Theme) ActionMenu {
+// showFixRemote controls whether the "Fix remotes (HTTPS → SSH)" entry is
+// included; pass true only when the current repo has HTTPS remotes that need
+// converting.
+func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 	items := []ActionItem{
 		{Label: "Quick Actions", IsSection: true},
 		{Label: "Sign out (logout)", Key: "logout"},
-		{Label: "Fix remotes (HTTPS → SSH)", Key: "fix-remote"},
-		{IsSection: true, Label: "Diagnostics"},
-		{Label: "Security audit", Key: "security"},
-		{Label: "Doctor (health check)", Key: "doctor"},
-		{IsSection: true, Label: "Import / Export"},
-		{Label: "Export all identities", Key: "export-all"},
-		{Label: "Import identities", Key: "import"},
-		{Label: "Import original gitconfig", Key: "import-original"},
-		{IsSection: true, Label: "System"},
-		{Label: "Update git-user", Key: "update"},
-		{Label: "Quit", Key: "quit"},
 	}
+
+	if showFixRemote {
+		items = append(items, ActionItem{Label: "Fix remotes (HTTPS → SSH)", Key: "fix-remote"})
+	}
+
+	items = append(items,
+		ActionItem{IsSection: true, Label: "Diagnostics"},
+		ActionItem{Label: "Security audit", Key: "security"},
+		ActionItem{Label: "Doctor (health check)", Key: "doctor"},
+		ActionItem{IsSection: true, Label: "Import / Export"},
+		ActionItem{Label: "Export all identities", Key: "export-all"},
+		ActionItem{Label: "Import identities", Key: "import"},
+		ActionItem{Label: "Import original gitconfig", Key: "import-original"},
+		ActionItem{IsSection: true, Label: "System"},
+		ActionItem{Label: "Update git-user", Key: "update"},
+		ActionItem{Label: "Quit", Key: "quit"},
+	)
 	return NewActionMenu(items, th)
 }
 

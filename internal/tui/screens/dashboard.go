@@ -4,6 +4,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/tui/components"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
@@ -31,7 +32,7 @@ func NewDashboard(store *config.Store, th theme.Theme) *Dashboard {
 	return &Dashboard{
 		store:      store,
 		identities: components.NewIdentityList(store, th),
-		actions:    components.SystemActions(th),
+		actions:    components.SystemActions(th, git.HasHTTPSRemotes()),
 		activePane: PaneIdentities,
 		theme:      th,
 	}

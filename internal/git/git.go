@@ -247,6 +247,26 @@ func ListRemotes() ([]string, error) {
 	return remotes, nil
 }
 
+// HasHTTPSRemotes returns true if the current repo has at least one remote
+// whose URL starts with "https://". Returns false when not in a repo, when
+// there are no remotes, or when all remotes already use SSH.
+func HasHTTPSRemotes() bool {
+	remotes, err := ListRemotes()
+	if err != nil || len(remotes) == 0 {
+		return false
+	}
+	for _, remote := range remotes {
+		url, err := GetRemoteURL(remote)
+		if err != nil {
+			continue
+		}
+		if strings.HasPrefix(url, "https://") {
+			return true
+		}
+	}
+	return false
+}
+
 func ConvertHTTPSToSSH(httpsURL string) (string, bool) {
 	if !strings.HasPrefix(httpsURL, "https://") {
 		return httpsURL, false
