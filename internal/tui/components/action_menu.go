@@ -35,7 +35,6 @@ func NewActionMenu(items []ActionItem, th theme.Theme) ActionMenu {
 // converting.
 func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 	items := []ActionItem{
-		{Label: "Quick Actions", IsSection: true},
 		{Label: "Sign out (logout)", Key: "logout"},
 	}
 
@@ -47,9 +46,7 @@ func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 		ActionItem{IsSection: true, Label: "Diagnostics"},
 		ActionItem{Label: "Security audit", Key: "security"},
 		ActionItem{Label: "Doctor (health check)", Key: "doctor"},
-		ActionItem{IsSection: true, Label: "Import / Export"},
 		ActionItem{Label: "Import / Export…", Key: "import-export"},
-		ActionItem{IsSection: true, Label: "System"},
 		ActionItem{Label: "Update git-user", Key: "update"},
 		ActionItem{Label: "Quit", Key: "quit"},
 	)
@@ -87,6 +84,39 @@ func (m *ActionMenu) prevSelectable(from int) int {
 		}
 	}
 	return from
+}
+
+// PreferredWidth returns the natural rendered width of the widest line in this
+// menu, including the title "System Utilities" header. The caller can use this
+// to size the right pane exactly to fit the content instead of half the terminal.
+// minWidth / maxWidth clamp the result.
+func (m *ActionMenu) PreferredWidth(minWidth, maxWidth int) int {
+	// Account for border (1 each side) + padding (2 each side from Padding(0,2)) = 6 extra
+	const boxOverhead = 6
+
+	widest := len("System Utilities") // title is always present
+	for _, item := range m.items {
+		var lineLen int
+		if item.IsSection {
+			// "  ── Label ──" — 2 spaces + 3 + label + 3
+			lineLen = 2 + 3 + len(item.Label) + 3
+		} else {
+			// "▶ Label" (cursor) or "  Label" (normal) — longest form is with cursor prefix
+			lineLen = 2 + len(item.Label)
+		}
+		if lineLen > widest {
+			widest = lineLen
+		}
+	}
+
+	w := widest + boxOverhead
+	if w < minWidth {
+		w = minWidth
+	}
+	if w > maxWidth {
+		w = maxWidth
+	}
+	return w
 }
 
 // View renders the action menu.

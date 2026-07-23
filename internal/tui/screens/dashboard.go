@@ -199,23 +199,31 @@ func (d *Dashboard) handleEnter() (core.Screen, tea.Cmd) {
 }
 
 func (d *Dashboard) View(width, height int) string {
-	paneWidth := theme.PaneWidth(width)
 	contentH := height - 4
 
 	if theme.IsSingleColumn(width) {
+		paneWidth := theme.PaneWidth(width)
 		return d.viewSingleColumn(paneWidth, contentH)
 	}
 
-	leftContent := d.identities.View(paneWidth, contentH, d.activePane == PaneIdentities)
-	rightContent := d.actions.View(paneWidth, contentH, d.activePane == PaneActions)
+	// Right pane: sized to fit its own content, not half the terminal.
+	rightWidth := d.actions.PreferredWidth(28, 48)
+	// Left pane: all remaining space minus the gap.
+	leftWidth := width - rightWidth - theme.PaneGap
+	if leftWidth < 20 {
+		leftWidth = 20
+	}
+
+	leftContent := d.identities.View(leftWidth, contentH, d.activePane == PaneIdentities)
+	rightContent := d.actions.View(rightWidth, contentH, d.activePane == PaneActions)
 
 	var leftBox, rightBox string
 	if d.activePane == PaneIdentities {
-		leftBox = d.theme.PulsingActivePane(paneWidth, contentH, d.animFrame).Render(leftContent)
-		rightBox = d.theme.InactivePane(paneWidth, contentH).Render(rightContent)
+		leftBox = d.theme.PulsingActivePane(leftWidth, contentH, d.animFrame).Render(leftContent)
+		rightBox = d.theme.InactivePane(rightWidth, contentH).Render(rightContent)
 	} else {
-		leftBox = d.theme.InactivePane(paneWidth, contentH).Render(leftContent)
-		rightBox = d.theme.PulsingActivePane(paneWidth, contentH, d.animFrame).Render(rightContent)
+		leftBox = d.theme.InactivePane(leftWidth, contentH).Render(leftContent)
+		rightBox = d.theme.PulsingActivePane(rightWidth, contentH, d.animFrame).Render(rightContent)
 	}
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "   ", rightBox)
