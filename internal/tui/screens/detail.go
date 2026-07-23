@@ -32,6 +32,8 @@ type Detail struct {
 	keyLoadedChecked    bool
 	passphraseProtected bool
 	passphraseChecked   bool
+	platformStatuses    map[string]string // "checking", "connected", "not_added", "network_error"
+	platformUsernames   map[string]string
 }
 
 func NewDetail(store *config.Store, name string, th theme.Theme) *Detail {
@@ -41,11 +43,13 @@ func NewDetail(store *config.Store, name string, th theme.Theme) *Detail {
 		actions = buildDetailActions(user, store, th)
 	}
 	return &Detail{
-		store:      store,
-		name:       name,
-		actions:    actions,
-		activePane: DetailPaneActions,
-		theme:      th,
+		store:             store,
+		name:              name,
+		actions:           actions,
+		activePane:        DetailPaneActions,
+		theme:             th,
+		platformStatuses:  map[string]string{"GitHub": "checking", "GitLab": "checking", "Bitbucket": "checking"},
+		platformUsernames: make(map[string]string),
 	}
 }
 
@@ -105,8 +109,15 @@ func (d *Detail) Init() tea.Cmd {
 		return tea.Batch(
 			core.CheckKeyLoadedCmd(user.SSHKey),
 			core.CheckKeyPassphraseCmd(user.SSHKey),
+			core.CheckPlatformConnectionCmd(user.SSHKey, "GitHub", "git@github.com", []string{"Hi ", "successfully authenticated"}),
+			core.CheckPlatformConnectionCmd(user.SSHKey, "GitLab", "git@gitlab.com", []string{"Welcome to GitLab", "successfully authenticated"}),
+			core.CheckPlatformConnectionCmd(user.SSHKey, "Bitbucket", "git@bitbucket.org", []string{"logged in as", "successfully authenticated"}),
 		)
 	}
+	// If no SSH key exists, mark them as not added immediately
+	d.platformStatuses["GitHub"] = "not_added"
+	d.platformStatuses["GitLab"] = "not_added"
+	d.platformStatuses["Bitbucket"] = "not_added"
 	return nil
 }
 
@@ -133,6 +144,11 @@ func (d *Detail) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	case core.KeyPassphraseMsg:
 		d.passphraseChecked = true
 		d.passphraseProtected = msg.Protected
+	case core.PlatformConnectionMsg:
+		d.platformStatuses[msg.Platform] = msg.Status
+		if msg.Username != "" {
+			d.platformUsernames[msg.Platform] = msg.Username
+		}
 	case tea.KeyMsg:
 		return d.handleKey(msg)
 	}
@@ -282,6 +298,29 @@ func (d *Detail) renderProfileCard(user *config.User, width int) string {
 		}
 	}
 	lines = append(lines, fmt.Sprintf("%s\n  %s", d.theme.Dim().Render("ssh-agent Session:"), sessionStr))
+	lines = append(lines, "")
+
+	// ── Platform Connections ──────────────────────────────────────────────
+	lines = append(lines, d.theme.Dim().Render("Platform Connections:"))
+	platformsList := []string{"GitHub", "GitLab", "Bitbucket"}
+	for _, p := range platformsList {
+		status := d.platformStatuses[p]
+		var statusStr string
+		switch status {
+		case "checking":
+			statusStr = d.theme.Dim().Render("checking...")
+		case "connected":
+			username := d.platformUsernames[p]
+			statusStr = d.theme.Active().Render(fmt.Sprintf("Connected ✓ (%s)", username))
+		case "not_added":
+			statusStr = d.theme.Dim().Render("Not added")
+		case "network_error":
+			statusStr = d.theme.WarningStyle().Render("Network error ⚠ (stale state)")
+		default:
+			statusStr = d.theme.Dim().Render("Not configured")
+		}
+		lines = append(lines, fmt.Sprintf("  • %-10s %s", p+":", statusStr))
+	}
 	lines = append(lines, "")
 
 	if !user.SignDisabled && user.SignKey != "" {

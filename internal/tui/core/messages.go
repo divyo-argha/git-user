@@ -83,6 +83,15 @@ type FormResultMsg struct {
 	Values  []string
 }
 
+// ── Platform Check Messages ──────────────────────────────────────────────────
+
+// PlatformConnectionMsg reports the status of connection checks for a platform.
+type PlatformConnectionMsg struct {
+	Platform string // "GitHub", "GitLab", "Bitbucket"
+	Username string
+	Status   string // "checking", "connected", "not_added", "network_error"
+}
+
 // ── Generic Action Result ─────────────────────────────────────────────────────
 
 // ActionResultMsg is a generic result for any action.
