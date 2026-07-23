@@ -78,6 +78,7 @@ func runExport(args []string) error {
 	}
 
 	var identities []bundle.Identity
+	passphraseSkipped := 0
 	for _, u := range selected {
 		id := bundle.Identity{Name: u.Name, Email: u.Email}
 		if u.SSHKey != "" {
@@ -85,12 +86,27 @@ func runExport(args []string) error {
 			if err != nil {
 				ui.Warn(fmt.Sprintf("Could not read private key for %q: %v. Exporting without SSH key.", u.Name, err))
 			} else {
-				id.PrivateKey = privKey
-				// Public key is optional but try to read it
-				id.PublicKey, _ = os.ReadFile(u.SSHKey + ".pub")
+				// Skip passphrase-protected keys — they cannot be safely bundled
+				// without knowing the passphrase, which we don't prompt for here.
+				protected, err := isSSHKeyPassphraseProtected(u.SSHKey)
+				if err == nil && protected {
+					ui.Warn(fmt.Sprintf("Skipping SSH key for %q: key is passphrase-protected and cannot be bundled safely.", u.Name))
+					passphraseSkipped++
+				} else {
+					id.PrivateKey = privKey
+					// Public key is optional but try to read it
+					id.PublicKey, _ = os.ReadFile(u.SSHKey + ".pub")
+				}
 			}
 		}
 		identities = append(identities, id)
+	}
+
+	if passphraseSkipped > 0 {
+		fmt.Println()
+		ui.Warn(fmt.Sprintf("%d identit%s will be exported without SSH keys (passphrase-protected).", passphraseSkipped, plural(passphraseSkipped)))
+		ui.Info("To include these keys, remove their passphrase first: git-user passphrase <name> --remove")
+		fmt.Println()
 	}
 
 	ui.Info("Encrypting… (this takes a few seconds)")

@@ -314,6 +314,18 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		a.action = &pendingAction{kind: "export", name: msg.Name}
 		return a, tea.Quit
 
+	case "import-export":
+		return a, func() tea.Msg {
+			return core.ScreenPushMsg{Screen: screens.NewImportExport(a.store, a.theme)}
+		}
+
+	case "export-current":
+		if a.store.Current == "" {
+			return a, core.ShowToastCmd("No active identity — switch to one first", theme.ToastStyleError, 3*time.Second)
+		}
+		a.action = &pendingAction{kind: "export-current", name: a.store.Current}
+		return a, tea.Quit
+
 	case "export-all":
 		a.action = &pendingAction{kind: "export-all"}
 		return a, tea.Quit

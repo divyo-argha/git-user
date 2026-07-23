@@ -49,3 +49,8 @@ func ConfirmHelp() string {
 func FilterHelp() string {
 	return "  Type to filter  Enter select  Esc clear filter"
 }
+
+// ImportExportHelp returns the help text for the Import/Export sub-screen.
+func ImportExportHelp() string {
+	return "  ↑/↓/j/k navigate  Enter select  Esc back"
+}

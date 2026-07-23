@@ -166,6 +166,13 @@ func executeAction(kind string, name string, arg string, store *config.Store) {
 	case "export":
 		runExport([]string{name})
 
+	case "export-current":
+		if name != "" {
+			runExport([]string{name})
+		} else {
+			ui.Error("No active identity to export")
+		}
+
 	case "export-all":
 		runExport([]string{"--all"})
 
