@@ -32,9 +32,8 @@ const useNewLogo = true
 // RenderHeader returns the TUI header block for the main screen.
 func renderHeader(store *config.Store, termHeight int) string {
 	style := headerStyle
-	// If the terminal is shorter than 35 lines, the logo will push the UI off the screen
-	// and cause layout tearing. Fallback to the compact text header.
-	if termHeight > 0 && termHeight < 35 {
+	// If terminal is under 15 lines, use text fallback
+	if termHeight > 0 && termHeight < 15 {
 		style = "text"
 	}
 
@@ -49,24 +48,22 @@ func renderHeader(store *config.Store, termHeight int) string {
 // ── Logo header ───────────────────────────────────────────────────────────────
 
 func renderLogoHeader(store *config.Store) string {
-	var logoLines []string
-	if useNewLogo {
-		logoLines = logo.NewSmallPixelLines
-	} else {
-		logoLines = logo.SmallPixelLines
-	}
+	logoLines := logo.GetTrimmedLogo()
 	logoH := len(logoLines)
 
-	nameStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FFAA")).Bold(true)
-	tagStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#666688")).Italic(true)
-	dotStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF99"))
-	actName := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF99")).Bold(true)
-	actEmail := lipgloss.NewStyle().Foreground(lipgloss.Color("#8888AA"))
-	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#777799"))
+	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#7AA2F7")).Bold(true)
+	badgeStyle := lipgloss.NewStyle().Background(lipgloss.Color("#2E3440")).Foreground(lipgloss.Color("#7AA2F7")).Padding(0, 1).Bold(true)
+	tagStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#787C99")).Italic(true)
+	dotStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#9ECE6A"))
+	actName := lipgloss.NewStyle().Foreground(lipgloss.Color("#9ECE6A")).Bold(true)
+	actEmail := lipgloss.NewStyle().Foreground(lipgloss.Color("#787C99"))
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#7AA2F7")).Bold(true)
+
+	topTitle := lipgloss.JoinHorizontal(lipgloss.Center, titleStyle.Render("⚡ GIT-USER"), "  ", badgeStyle.Render("v1.0"))
 
 	rightLines := []string{
-		nameStyle.Render("GIT-USER"),
-		tagStyle.Render("switch git identities in one command"),
+		topTitle,
+		tagStyle.Render("switch git identities & ssh keys in one command"),
 		"",
 	}
 
@@ -81,13 +78,13 @@ func renderLogoHeader(store *config.Store) string {
 		} else {
 			rightLines = append(rightLines, fmt.Sprintf("%s  %s",
 				labelStyle.Render("Active profile :"),
-				lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555")).Render(store.Current+" (missing)"),
+				lipgloss.NewStyle().Foreground(lipgloss.Color("#F7768E")).Render(store.Current+" (missing)"),
 			))
 		}
 	} else {
 		rightLines = append(rightLines, fmt.Sprintf("%s  %s",
 			labelStyle.Render("Active profile :"),
-			lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")).Render("None (logged out)"),
+			lipgloss.NewStyle().Foreground(lipgloss.Color("#565F89")).Render("None (logged out)"),
 		))
 	}
 
@@ -96,18 +93,19 @@ func renderLogoHeader(store *config.Store) string {
 	if err == nil {
 		conn.Close()
 		_ = client
-		agentStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF66")).Render("Connected")
+		agentStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#9ECE6A")).Bold(true).Render("Connected")
 		keyCount := 0
 		if fingerprints, errList := ssh.LoadedSSHKeyFingerprints(); errList == nil {
 			keyCount = len(fingerprints)
 		}
-		rightLines = append(rightLines, fmt.Sprintf("%s  %s (%d keys loaded)",
+		countStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#787C99")).Render(fmt.Sprintf("(%d keys loaded)", keyCount))
+		rightLines = append(rightLines, fmt.Sprintf("%s  %s %s",
 			labelStyle.Render("SSH Agent      :"),
 			agentStr,
-			keyCount,
+			countStr,
 		))
 	} else {
-		agentStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555")).Render("Not reachable")
+		agentStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#F7768E")).Render("Not reachable")
 		rightLines = append(rightLines, fmt.Sprintf("%s  %s",
 			labelStyle.Render("SSH Agent      :"),
 			agentStr,

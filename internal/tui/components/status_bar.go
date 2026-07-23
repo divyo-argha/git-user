@@ -36,25 +36,28 @@ func (s *StatusBar) SetAgentStatus(connected bool, keyCount int) {
 
 // View renders the status bar.
 func (s StatusBar) View(width, termHeight int) string {
-	if termHeight > 0 && termHeight < 35 {
+	if termHeight > 0 && termHeight < 15 {
 		return s.viewCompact()
 	}
 	return s.viewFull()
 }
 
 func (s StatusBar) viewFull() string {
-	logoLines := logo.NewSmallPixelLines
+	logoLines := logo.GetTrimmedLogo()
 
-	nameStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FFAA")).Bold(true)
-	tagStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#666688")).Italic(true)
-	dotStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF99"))
-	actName := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF99")).Bold(true)
-	actEmail := lipgloss.NewStyle().Foreground(lipgloss.Color("#8888AA"))
-	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#777799"))
+	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#7AA2F7")).Bold(true)
+	badgeStyle := lipgloss.NewStyle().Background(lipgloss.Color("#2E3440")).Foreground(lipgloss.Color("#7AA2F7")).Padding(0, 1).Bold(true)
+	tagStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#787C99")).Italic(true)
+	dotStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#9ECE6A"))
+	actName := lipgloss.NewStyle().Foreground(lipgloss.Color("#9ECE6A")).Bold(true)
+	actEmail := lipgloss.NewStyle().Foreground(lipgloss.Color("#787C99"))
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#7AA2F7")).Bold(true)
+
+	topTitle := lipgloss.JoinHorizontal(lipgloss.Center, titleStyle.Render("⚡ GIT-USER"), "  ", badgeStyle.Render("v1.0"))
 
 	rightLines := []string{
-		nameStyle.Render("GIT-USER"),
-		tagStyle.Render("switch git identities in one command"),
+		topTitle,
+		tagStyle.Render("switch git identities & ssh keys in one command"),
 		"",
 	}
 
@@ -68,26 +71,27 @@ func (s StatusBar) viewFull() string {
 		} else {
 			rightLines = append(rightLines, fmt.Sprintf("%s  %s",
 				labelStyle.Render("Active profile :"),
-				lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555")).Render(s.store.Current+" (missing)"),
+				lipgloss.NewStyle().Foreground(lipgloss.Color("#F7768E")).Render(s.store.Current+" (missing)"),
 			))
 		}
 	} else {
 		rightLines = append(rightLines, fmt.Sprintf("%s  %s",
 			labelStyle.Render("Active profile :"),
-			lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")).Render("None (logged out)"),
+			lipgloss.NewStyle().Foreground(lipgloss.Color("#565F89")).Render("None (logged out)"),
 		))
 	}
 
 	if s.agentChecked {
 		if s.agentConnected {
-			agentStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF66")).Render("Connected")
-			rightLines = append(rightLines, fmt.Sprintf("%s  %s (%d keys loaded)",
+			agentStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#9ECE6A")).Bold(true).Render("Connected")
+			countStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#787C99")).Render(fmt.Sprintf("(%d keys loaded)", s.agentKeyCount))
+			rightLines = append(rightLines, fmt.Sprintf("%s  %s %s",
 				labelStyle.Render("SSH Agent      :"),
 				agentStr,
-				s.agentKeyCount,
+				countStr,
 			))
 		} else {
-			agentStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555")).Render("Not reachable")
+			agentStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#F7768E")).Render("Not reachable")
 			rightLines = append(rightLines, fmt.Sprintf("%s  %s",
 				labelStyle.Render("SSH Agent      :"),
 				agentStr,
@@ -96,7 +100,7 @@ func (s StatusBar) viewFull() string {
 	} else {
 		rightLines = append(rightLines, fmt.Sprintf("%s  %s",
 			labelStyle.Render("SSH Agent      :"),
-			lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")).Render("checking..."),
+			lipgloss.NewStyle().Foreground(lipgloss.Color("#565F89")).Render("checking..."),
 		))
 	}
 
