@@ -1,8 +1,11 @@
 <div align="center">
   <br />
   <img src="logo/gu_logo.png" alt="git-user" width="130" height="130" style="border-radius:26px" />
-  <!-- <br /><br /> -->
-  <h1>git-user</h1>
+  <pre style="line-height: 1.25; font-weight: bold; background: none; border: none; padding: 0; display: inline-block; text-align: left; font-family: monospace;">
+  <span style="color: #F97316;">▄▀▀ █ ▀█▀</span>       <span style="color: #E2E8F0;">█ █ ▀▀▀ █▀▀ █▀▄</span>
+  <span style="color: #F97316;">█ ▄ █  █</span>   <span style="color: #94A3B8;">▄▄▄</span>  <span style="color: #E2E8F0;">█ █ ▀▀▄ █▀  █▀▀</span>
+  <span style="color: #F97316;">▀▀▀ ▀  ▀</span>        <span style="color: #E2E8F0;">▀▀▀ ▀▀▀ ▀▀▀ ▀ ▀</span>
+  </pre>
 
   <p>
     <strong>One command to rule all your Git identities.</strong><br />
