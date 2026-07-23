@@ -23,12 +23,14 @@ type IdentityItem struct {
 
 // IdentityList is a scrollable, filterable list of identities.
 type IdentityList struct {
-	items     []IdentityItem
-	filtered  []int
-	cursor    int
-	filter    string
-	filtering bool
-	theme     theme.Theme
+	items      []IdentityItem
+	filtered   []int
+	cursor     int
+	filter     string
+	filtering  bool
+	theme      theme.Theme
+	introTick  int  // how many items have fully appeared (staggered reveal)
+	introDone  bool // true once all items are revealed
 }
 
 // NewIdentityList creates an identity list from a config store.
@@ -66,6 +68,23 @@ func (l *IdentityList) Refresh(store *config.Store) {
 		l.cursor = max(0, len(l.filtered)-1)
 	}
 }
+
+// TickIntro advances the staggered-reveal animation by one step.
+// Call once per animation frame. Returns true while animation is still
+// running so the caller knows when to stop requesting redraws.
+func (l *IdentityList) TickIntro() bool {
+	if l.introDone {
+		return false
+	}
+	l.introTick++
+	if l.introTick >= len(l.filtered) {
+		l.introDone = true
+	}
+	return !l.introDone
+}
+
+// IntroComplete returns true once all items have been revealed.
+func (l *IdentityList) IntroComplete() bool { return l.introDone }
 
 func (l *IdentityList) CursorUp() {
 	if l.cursor > 0 {
@@ -200,6 +219,19 @@ func (l IdentityList) View(width, height int, isActive bool) string {
 		idx := l.filtered[vi]
 		item := l.items[idx]
 		isCursor := vi == l.cursor
+
+		// ── Staggered reveal ────────────────────────────────────────────────
+		// While the intro animation is running, items above introTick are
+		// shown in full; items at or beyond introTick are dim placeholders.
+		if !l.introDone && vi >= l.introTick {
+			dot := l.theme.Dim().Render("  · ")
+			name := l.theme.Dim().Render(item.Name)
+			if item.IsAction {
+				name = l.theme.Dim().Render("Register new identity")
+			}
+			lines = append(lines, dot+name)
+			continue
+		}
 
 		if item.IsAction {
 			label := l.theme.InfoStyle().Render("+ Register new identity")

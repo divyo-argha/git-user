@@ -37,11 +37,9 @@ type App struct {
 	action *pendingAction
 }
 
-type AnimTickMsg time.Time
-
 func animateTickCmd() tea.Cmd {
 	return tea.Tick(time.Millisecond*50, func(t time.Time) tea.Msg {
-		return AnimTickMsg(t)
+		return core.AnimTickMsg(t)
 	})
 }
 
@@ -96,7 +94,7 @@ func (a *App) Init() tea.Cmd {
 
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case AnimTickMsg:
+	case core.AnimTickMsg:
 		a.animFrame++
 		if s := a.activeScreen(); s != nil {
 			newScreen, cmd := s.Update(msg)

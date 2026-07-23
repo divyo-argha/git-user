@@ -170,7 +170,7 @@ func runRegister(args []string) error {
 
 	fmt.Println()
 	ui.Divider()
-	ui.Success(fmt.Sprintf("Identity created: %s (%s)", name, email))
+	ui.AnimatedSuccess(fmt.Sprintf("Identity created: %s (%s)", name, email))
 	if sshKeyPath != "" {
 		ui.Success(fmt.Sprintf("SSH key configured: %s", sshKeyPath))
 	}

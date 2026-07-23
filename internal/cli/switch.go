@@ -205,7 +205,7 @@ func runSwitch(args []string) error {
 			_ = applyActiveCustomConfig(k, v, true)
 		}
 
-		ui.Success(fmt.Sprintf("Locally switched to %q (%s) for the current repository", user.Name, user.Email))
+		ui.AnimatedSuccess(fmt.Sprintf("Locally switched to %q (%s) for the current repository", user.Name, user.Email))
 		if !user.SignDisabled && user.SignKey != "" {
 			ui.Success(fmt.Sprintf("Commit Signing: Enabled (%s)", user.SignFormat))
 		}
@@ -252,7 +252,7 @@ func runSwitch(args []string) error {
 			return err
 		}
 
-		ui.Success(fmt.Sprintf("Switched to %q (%s)", user.Name, user.Email))
+		ui.AnimatedSuccess(fmt.Sprintf("Switched to %q (%s)", user.Name, user.Email))
 		if !user.SignDisabled && user.SignKey != "" {
 			ui.Success(fmt.Sprintf("Commit Signing: Enabled (%s)", user.SignFormat))
 		}

@@ -7,6 +7,13 @@ import (
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 )
 
+// ── Animation ─────────────────────────────────────────────────────────────────
+
+// AnimTickMsg is fired on every animation frame (50 ms by default).
+// Defined here in core so both the app layer and individual screens can
+// type-switch on it without creating a circular import.
+type AnimTickMsg time.Time
+
 // ── Store / Data Messages ─────────────────────────────────────────────────────
 
 // StoreRefreshedMsg is sent after config.Load() completes.

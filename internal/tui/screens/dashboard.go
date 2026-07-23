@@ -49,6 +49,10 @@ func (d *Dashboard) ShortHelp() string {
 
 func (d *Dashboard) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
+	case core.AnimTickMsg:
+		d.animFrame++
+		d.identities.TickIntro()
+		return d, nil
 	case core.StoreRefreshedMsg:
 		if msg.Err == nil && msg.Store != nil {
 			d.store = msg.Store
