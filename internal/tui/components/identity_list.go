@@ -127,16 +127,19 @@ func (l *IdentityList) applyFilter() {
 	}
 }
 
-// View renders the identity list.
+// View renders the identity list, clipped to height so it never overflows the pane.
 func (l IdentityList) View(width, height int, isActive bool) string {
 	var lines []string
 
 	lines = append(lines, l.theme.PaneTitle().Render("Git Identities"))
 	lines = append(lines, l.theme.SeparatorLine(width-6))
 
+	// Header rows already consumed (title + separator).
+	headerRows := 2
 	if l.filtering {
 		filterLine := l.theme.InfoStyle().Render("🔍 ") + l.filter + l.theme.Dim().Render("│")
 		lines = append(lines, filterLine)
+		headerRows++
 	}
 
 	if len(l.items) <= 1 {
@@ -147,7 +150,54 @@ func (l IdentityList) View(width, height int, isActive bool) string {
 		lines = append(lines, "")
 	}
 
-	for vi, idx := range l.filtered {
+	total := len(l.filtered)
+	if total == 0 {
+		return strings.Join(lines, "\n")
+	}
+
+	// How many item rows fit in the remaining pane height?
+	// Reserve 2 rows for potential top/bottom indicators.
+	availRows := height - headerRows - 2
+	if availRows < 1 {
+		availRows = 1
+	}
+
+	// Compute the scroll window [windowStart, windowStart+visibleCount).
+	visibleCount := availRows
+	if visibleCount > total {
+		visibleCount = total
+	}
+
+	// Keep cursor inside the window.
+	windowStart := l.cursor - visibleCount + 1
+	if windowStart < 0 {
+		windowStart = 0
+	}
+	if l.cursor < windowStart {
+		windowStart = l.cursor
+	}
+	windowEnd := windowStart + visibleCount
+	if windowEnd > total {
+		windowEnd = total
+		windowStart = windowEnd - visibleCount
+		if windowStart < 0 {
+			windowStart = 0
+		}
+	}
+
+	hiddenAbove := windowStart
+	hiddenBelow := total - windowEnd
+
+	// Top scroll indicator
+	if hiddenAbove > 0 {
+		lines = append(lines, l.theme.Dim().Render(fmt.Sprintf("  ▲ %d more above", hiddenAbove)))
+	} else {
+		lines = append(lines, "") // blank spacer keeps layout stable
+	}
+
+	// Visible items
+	for vi := windowStart; vi < windowEnd; vi++ {
+		idx := l.filtered[vi]
 		item := l.items[idx]
 		isCursor := vi == l.cursor
 
@@ -165,6 +215,11 @@ func (l IdentityList) View(width, height int, isActive bool) string {
 
 		line := l.renderIdentityLine(item, isCursor, isActive)
 		lines = append(lines, line)
+	}
+
+	// Bottom scroll indicator
+	if hiddenBelow > 0 {
+		lines = append(lines, l.theme.Dim().Render(fmt.Sprintf("  ▼ %d more below", hiddenBelow)))
 	}
 
 	return strings.Join(lines, "\n")
