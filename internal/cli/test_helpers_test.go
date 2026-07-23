@@ -17,9 +17,10 @@ func setupTestEnv(t *testing.T) string {
 	t.Helper()
 	tmpDir := t.TempDir()
 
-	// Redirect HOME and config path
+	// Redirect HOME and config path, and isolate SSH agent
 	oldHome := os.Getenv("HOME")
 	os.Setenv("HOME", tmpDir)
+	t.Setenv("SSH_AUTH_SOCK", "")
 
 	configFilePath := filepath.Join(tmpDir, ".git-users", "config.json")
 	config.SetConfigPath(configFilePath)
