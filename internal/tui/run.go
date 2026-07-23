@@ -27,7 +27,7 @@ func Run(store *config.Store, startDetail string) (kind, name, arg string, err e
 	}
 
 	app := NewApp(store, initialScreen)
-	p := tea.NewProgram(app, tea.WithAltScreen())
+	p := tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion())
 
 	finalRaw, err := p.Run()
 	if err != nil {

@@ -27,6 +27,7 @@ type App struct {
 	statusBar   components.StatusBar
 	helpBar     components.HelpBar
 	toast       components.Toast
+	animFrame   uint64
 	width       int
 	height      int
 	theme       theme.Theme
@@ -34,6 +35,14 @@ type App struct {
 	// For actions that must run outside the TUI
 	quit   bool
 	action *pendingAction
+}
+
+type AnimTickMsg time.Time
+
+func animateTickCmd() tea.Cmd {
+	return tea.Tick(time.Millisecond*50, func(t time.Time) tea.Msg {
+		return AnimTickMsg(t)
+	})
 }
 
 // NewApp creates the root app model.
@@ -76,6 +85,7 @@ func (a *App) popScreen() {
 func (a *App) Init() tea.Cmd {
 	cmds := []tea.Cmd{
 		core.CheckAgentCmd(),
+		animateTickCmd(),
 	}
 	if s := a.activeScreen(); s != nil {
 		cmds = append(cmds, s.Init())
@@ -86,6 +96,15 @@ func (a *App) Init() tea.Cmd {
 
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case AnimTickMsg:
+		a.animFrame++
+		if s := a.activeScreen(); s != nil {
+			newScreen, cmd := s.Update(msg)
+			a.screenStack[len(a.screenStack)-1] = newScreen
+			return a, tea.Batch(cmd, animateTickCmd())
+		}
+		return a, animateTickCmd()
+
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
 		a.height = msg.Height
@@ -133,6 +152,24 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case core.ActionResultMsg:
 		return a.handleAction(msg)
+
+	case tea.KeyMsg:
+		if msg.String() == "ctrl+p" {
+			return a, a.pushScreen(screens.NewCommandPalette(a.theme))
+		}
+		if msg.String() == "?" {
+			if _, isPalette := a.activeScreen().(*screens.CommandPalette); !isPalette {
+				if _, isHelp := a.activeScreen().(*screens.HelpModal); !isHelp {
+					return a, a.pushScreen(screens.NewHelpModal(a.theme))
+				}
+				}
+		}
+		if s := a.activeScreen(); s != nil {
+			newScreen, cmd := s.Update(msg)
+			a.screenStack[len(a.screenStack)-1] = newScreen
+			return a, cmd
+		}
+		return a, nil
 
 	default:
 		if s := a.activeScreen(); s != nil {
@@ -183,6 +220,9 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 	case "quit":
 		a.quit = true
 		return a, tea.Quit
+
+	case "help":
+		return a, a.pushScreen(screens.NewHelpModal(a.theme))
 
 	case "register":
 		return a, func() tea.Msg {

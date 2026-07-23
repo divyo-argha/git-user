@@ -139,6 +139,14 @@ func (l IdentityList) View(width, height int, isActive bool) string {
 		lines = append(lines, filterLine)
 	}
 
+	if len(l.items) <= 1 {
+		lines = append(lines, "")
+		lines = append(lines, l.theme.WarningStyle().Render("  💡 Welcome to git-user!"))
+		lines = append(lines, l.theme.Dim().Render("  No custom profiles registered yet."))
+		lines = append(lines, l.theme.Dim().Render("  Select '+ Register new identity' below or press Ctrl+P."))
+		lines = append(lines, "")
+	}
+
 	for vi, idx := range l.filtered {
 		item := l.items[idx]
 		isCursor := vi == l.cursor
@@ -167,20 +175,18 @@ func (l IdentityList) renderIdentityLine(item IdentityItem, isCursor, isActive b
 	if item.IsActive {
 		prefix = l.theme.Active().Render("● ")
 	} else {
-		prefix = "○ "
+		prefix = l.theme.Dim().Render("○ ")
 	}
 
 	var badges []string
 	if item.HasSSHKey {
-		badges = append(badges, l.theme.SuccessStyle().Render("✓SSH"))
-	} else {
-		badges = append(badges, l.theme.Dim().Render("○SSH"))
+		badges = append(badges, l.theme.PillBadge().Render("🔑 SSH"))
 	}
 	if item.HasSigning {
-		badges = append(badges, l.theme.SuccessStyle().Render("✓Sign"))
+		badges = append(badges, l.theme.PillBadge().Render("🔏 SIGN"))
 	}
 	if item.BindCount > 0 {
-		badges = append(badges, l.theme.Dim().Render(fmt.Sprintf("%d paths", item.BindCount)))
+		badges = append(badges, l.theme.Dim().Render(fmt.Sprintf("📁 %d paths", item.BindCount)))
 	}
 
 	badgeStr := ""
@@ -190,7 +196,7 @@ func (l IdentityList) renderIdentityLine(item IdentityItem, isCursor, isActive b
 
 	nameStr := item.Name
 	if item.IsActive {
-		nameStr = l.theme.Active().Render(item.Name) + "  " + l.theme.Dim().Render(item.Email) + "  " + l.theme.Active().Render("[active]")
+		nameStr = l.theme.Active().Render(item.Name) + "  " + l.theme.Dim().Render(item.Email) + "  " + l.theme.PillActive().Render("ACTIVE")
 	} else {
 		nameStr = item.Name + "  " + l.theme.Dim().Render(item.Email)
 	}
@@ -202,9 +208,9 @@ func (l IdentityList) renderIdentityLine(item IdentityItem, isCursor, isActive b
 	fullLine := prefix + nameStr + badgeStr
 
 	if isCursor && isActive {
-		return l.theme.Selected().Render("▶ " + stripAnsi(fullLine))
+		return l.theme.Selected().Render("❯ ") + fullLine
 	} else if isCursor && !isActive {
-		return l.theme.Dim().Render("▶ " + stripAnsi(fullLine))
+		return l.theme.Dim().Render("❯ ") + fullLine
 	}
 	return "  " + fullLine
 }

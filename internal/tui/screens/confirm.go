@@ -114,8 +114,11 @@ func (c *Confirm) View(width, height int) string {
 	if padLeft < 0 {
 		padLeft = 0
 	}
+	padStr := strings.Repeat(" ", padLeft)
 	for _, line := range strings.Split(box, "\n") {
-		sb.WriteString(strings.Repeat(" ", padLeft) + line + "\n")
+		sb.WriteString(padStr)
+		sb.WriteString(line)
+		sb.WriteByte('\n')
 	}
 
 	return sb.String()

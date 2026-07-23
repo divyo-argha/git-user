@@ -46,18 +46,18 @@ type themeStyles struct {
 	Separator lipgloss.Style
 }
 
-// DefaultTheme returns the standard git-user color scheme.
+// DefaultTheme returns the standard git-user color scheme (Tokyo Night inspired).
 func DefaultTheme() Theme {
 	t := Theme{
-		Primary:    lipgloss.Color("#00FFFF"),
-		Secondary:  lipgloss.Color("#00FF00"),
-		Accent:     lipgloss.Color("#FF00FF"),
-		Danger:     lipgloss.Color("#FF5555"),
-		Warning:    lipgloss.Color("#FFAA00"),
-		Muted:      lipgloss.Color("#555555"),
-		Text:       lipgloss.Color("#FFFFFF"),
-		TextDim:    lipgloss.Color("#888899"),
-		Background: lipgloss.Color("#1a1a2e"),
+		Primary:    lipgloss.Color("#7AA2F7"), // Soft Blue / Cyan Accent
+		Secondary:  lipgloss.Color("#9ECE6A"), // Emerald Green / Active
+		Accent:     lipgloss.Color("#BB9AF7"), // Soft Purple / Selector
+		Danger:     lipgloss.Color("#F7768E"), // Rose Red
+		Warning:    lipgloss.Color("#E0AF68"), // Warm Amber
+		Muted:      lipgloss.Color("#565F89"), // Deep Gray
+		Text:       lipgloss.Color("#C0CAF5"), // Ice Blue White
+		TextDim:    lipgloss.Color("#787C99"), // Dimmed Text
+		Background: lipgloss.Color("#1F2335"), // Card Background
 	}
 	t.styles = t.buildStyles()
 	return t
@@ -74,7 +74,7 @@ func (t Theme) buildStyles() themeStyles {
 		Info:       lipgloss.NewStyle().Foreground(t.Primary),
 		DangerText: lipgloss.NewStyle().Foreground(t.Danger),
 
-		Selected: lipgloss.NewStyle().Foreground(t.Primary).Bold(true),
+		Selected: lipgloss.NewStyle().Foreground(t.Accent).Bold(true),
 		Active:   lipgloss.NewStyle().Foreground(t.Secondary).Bold(true),
 
 		PaneTitle:     lipgloss.NewStyle().Foreground(t.Primary).Bold(true),
@@ -102,6 +102,18 @@ func (t Theme) Separator() lipgloss.Style     { return t.styles.Separator }
 
 // ── Dynamic Pane Styles ───────────────────────────────────────────────────────
 // These accept width/height so they adapt to terminal size.
+
+var pulseColors = []string{"#7AA2F7", "#89B4FA", "#B4BEFE", "#89B4FA"}
+
+func (t Theme) PulsingActivePane(width, height int, frame uint64) lipgloss.Style {
+	c := pulseColors[frame%uint64(len(pulseColors))]
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(c)).
+		Padding(0, 2).
+		Width(width).
+		Height(height)
+}
 
 func (t Theme) ActivePane(width, height int) lipgloss.Style {
 	return lipgloss.NewStyle().
@@ -146,6 +158,31 @@ func (t Theme) ActionPane(width, height int) lipgloss.Style {
 		Padding(0, 2).
 		Width(width).
 		Height(height)
+}
+
+// ── Component Badges & Keycaps ─────────────────────────────────────────────────
+
+func (t Theme) PillActive() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(t.Secondary).
+		Foreground(lipgloss.Color("#15161E")).
+		Padding(0, 1).
+		Bold(true)
+}
+
+func (t Theme) PillBadge() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(t.Background).
+		Foreground(t.Primary).
+		Padding(0, 1)
+}
+
+func (t Theme) Keycap() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(lipgloss.Color("#2E3440")).
+		Foreground(t.Primary).
+		Padding(0, 1).
+		Bold(true)
 }
 
 // ── Toast Style Type ──────────────────────────────────────────────────────────

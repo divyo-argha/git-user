@@ -23,6 +23,7 @@ type Dashboard struct {
 	activePane  Pane
 	filterInput string
 	filtering   bool
+	animFrame   uint64
 	theme       theme.Theme
 }
 
@@ -52,11 +53,39 @@ func (d *Dashboard) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			d.store = msg.Store
 			d.identities.Refresh(msg.Store)
 		}
+	case tea.MouseMsg:
+		return d.handleMouse(msg)
 	case tea.KeyMsg:
 		if d.filtering {
 			return d.handleFilterKey(msg)
 		}
 		return d.handleKey(msg)
+	}
+	return d, nil
+}
+
+func (d *Dashboard) handleMouse(msg tea.MouseMsg) (core.Screen, tea.Cmd) {
+	switch msg.Button {
+	case tea.MouseButtonLeft:
+		if msg.Action == tea.MouseActionPress {
+			if msg.X < 40 {
+				d.activePane = PaneIdentities
+			} else {
+				d.activePane = PaneActions
+			}
+		}
+	case tea.MouseButtonWheelUp:
+		if d.activePane == PaneIdentities {
+			d.identities.CursorUp()
+		} else {
+			d.actions.CursorUp()
+		}
+	case tea.MouseButtonWheelDown:
+		if d.activePane == PaneIdentities {
+			d.identities.CursorDown()
+		} else {
+			d.actions.CursorDown()
+		}
 	}
 	return d, nil
 }
@@ -181,11 +210,11 @@ func (d *Dashboard) View(width, height int) string {
 
 	var leftBox, rightBox string
 	if d.activePane == PaneIdentities {
-		leftBox = d.theme.ActivePane(paneWidth, contentH).Render(leftContent)
+		leftBox = d.theme.PulsingActivePane(paneWidth, contentH, d.animFrame).Render(leftContent)
 		rightBox = d.theme.InactivePane(paneWidth, contentH).Render(rightContent)
 	} else {
 		leftBox = d.theme.InactivePane(paneWidth, contentH).Render(leftContent)
-		rightBox = d.theme.ActivePane(paneWidth, contentH).Render(rightContent)
+		rightBox = d.theme.PulsingActivePane(paneWidth, contentH, d.animFrame).Render(rightContent)
 	}
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "   ", rightBox)
