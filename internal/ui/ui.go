@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/divyo-argha/git-user/logo"
 )
 
 type tea_Model = tea.Model
@@ -88,21 +89,10 @@ func IsTTY() bool {
 	return (fi.Mode() & os.ModeCharDevice) != 0
 }
 
-// PrintLogo prints the ASCII art git-user logo to stdout.
+// PrintLogo prints the git-user design logo to stdout.
 func PrintLogo() {
-	logo := `
-
-  ██████╗ ██╗████████╗      ██╗   ██╗███████╗███████╗██████╗
- ██╔════╝ ██║╚══██╔══╝      ██║   ██║██╔════╝██╔════╝██╔══██╗
- ██║  ███╗██║   ██║   █████╗██║   ██║███████╗█████╗  ██████╔╝
- ██║   ██║██║   ██║   ╚════╝██║   ██║╚════██║██╔══╝  ██╔══██╗
- ╚██████╔╝██║   ██║         ╚██████╔╝███████║███████╗██║  ██║
-  ╚═════╝ ╚═╝   ╚═╝          ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚═╝
-
-        Elevate Your Git Experience
-`
-	style := lipgloss.NewStyle().Foreground(white).Bold(true)
-	fmt.Println(style.Render(logo))
+	lines := logo.GetTrimmedLogo()
+	fmt.Println(strings.Join(lines, "\n"))
 }
 
 // Success prints a green ✔ message.

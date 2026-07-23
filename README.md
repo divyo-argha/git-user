@@ -1,6 +1,6 @@
 <div align="center">
   <br />
-  <img src="img/git-user-logo-clean.png" alt="git-user" width="120" height="120" style="border-radius:26px" />
+  <img src="logo/gu_logo.png" alt="git-user" width="130" height="130" style="border-radius:26px" />
   <!-- <br /><br /> -->
   <h1>git-user</h1>
 

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"github.com/divyo-argha/git-user/internal/ssh"
 	"os"
 	"strings"
 
@@ -233,34 +232,8 @@ func printConciseStatus() {
 		return
 	}
 
-	fmt.Println("git-user — manage multiple Git identities")
+	fmt.Println(renderHeader(store, 30))
 	fmt.Println()
-
-	// Active Identity
-	if store.Current != "" {
-		if u := store.CurrentUser(); u != nil {
-			fmt.Printf("  Active Profile: \033[1;32m%s\033[0m (%s)\n", u.Name, u.Email)
-		} else {
-			fmt.Printf("  Active Profile: \033[1;31m%s (missing)\033[0m\n", store.Current)
-		}
-	} else {
-		fmt.Println("  Active Profile: \033[1;30mNone (logged out)\033[0m")
-	}
-
-	// SSH Agent Connection
-	_, conn, err := ssh.GetAgentClient()
-	if err == nil {
-		defer conn.Close()
-		fmt.Println("  SSH Agent     : \033[1;32mConnected\033[0m")
-		keyCount := 0
-		if fingerprints, errList := ssh.LoadedSSHKeyFingerprints(); errList == nil {
-			keyCount = len(fingerprints)
-		}
-		fmt.Printf("  Loaded Keys   : %d\n", keyCount)
-	} else {
-		fmt.Println("  SSH Agent     : \033[1;31mNot reachable\033[0m")
-	}
-
-	fmt.Println("\nRun in an interactive terminal to open the TUI dashboard.")
+	fmt.Println("Run in an interactive terminal to open the TUI dashboard.")
 	fmt.Println("Run `git-user --help` to view all available commands.")
 }
