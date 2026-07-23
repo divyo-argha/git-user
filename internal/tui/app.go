@@ -271,6 +271,33 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			)}
 		}
 
+	case "toggle-sign":
+		user := a.store.FindUser(msg.Name)
+		if user != nil {
+			if !user.SignDisabled && user.SignKey != "" {
+				// Turn off
+				a.store.ToggleSigning(user.Name, true)
+			} else {
+				// Turn on (autodetect key format, or fallback if none)
+				if user.SSHKey != "" {
+					a.store.SetSigningKey(user.Name, user.SSHKey, "ssh")
+				} else {
+					// Toggle simple disable state
+					a.store.ToggleSigning(user.Name, !user.SignDisabled)
+				}
+			}
+			config.Save(a.store)
+			// Trigger git sync if this is the active identity
+			if a.store.Current == user.Name {
+				// Use cli's git helper logic on TUI loop exit or reload if needed.
+				// Since we're inside TUI, we reload the store state.
+				return a, func() tea.Msg {
+					return core.StoreRefreshedMsg{Store: a.store}
+				}
+			}
+		}
+		return a, nil
+
 	case "pubkey":
 		a.action = &pendingAction{kind: "pubkey", name: msg.Name}
 		return a, tea.Quit
