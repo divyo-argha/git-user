@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
+	"github.com/divyo-argha/git-user/internal/version"
 	"github.com/divyo-argha/git-user/logo"
 )
 
@@ -53,7 +54,7 @@ func (s StatusBar) viewFull() string {
 	actEmail := lipgloss.NewStyle().Foreground(lipgloss.Color("#787C99"))
 	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#7AA2F7")).Bold(true)
 
-	topTitle := lipgloss.JoinHorizontal(lipgloss.Center, titleStyle.Render("⚡ GIT-USER"), "  ", badgeStyle.Render("v1.0"))
+	topTitle := lipgloss.JoinHorizontal(lipgloss.Center, titleStyle.Render("⚡ GIT-USER"), "  ", badgeStyle.Render(version.Version))
 
 	rightLines := []string{
 		topTitle,

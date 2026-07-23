@@ -7,11 +7,11 @@ import (
 	"github.com/divyo-argha/git-user/internal/cli"
 	"github.com/divyo-argha/git-user/internal/identity"
 	"github.com/divyo-argha/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/version"
 )
 
 var (
-	version = "dev"
-	date    = "unknown"
+	buildVersion = "dev"
 )
 
 func main() {
@@ -37,7 +37,11 @@ func main() {
 }
 
 func printVersion() {
-	fmt.Printf("git-user %s\n", version)
+	v := buildVersion
+	if v == "dev" || v == "" {
+		v = version.Version
+	}
+	fmt.Printf("git-user %s\n", v)
 }
 
 func checkOrphanedKeys() {
