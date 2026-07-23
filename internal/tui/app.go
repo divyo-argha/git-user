@@ -283,6 +283,10 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		a.action = &pendingAction{kind: "bind", name: msg.Name}
 		return a, tea.Quit
 
+	case "check-ssh":
+		a.action = &pendingAction{kind: "check-ssh", name: msg.Name}
+		return a, tea.Quit
+
 	case "unbind":
 		return a, func() tea.Msg {
 			return core.ScreenPushMsg{Screen: screens.NewConfirm(

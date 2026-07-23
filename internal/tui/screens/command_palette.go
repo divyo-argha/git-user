@@ -97,9 +97,11 @@ func (cp *CommandPalette) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 				if selected.ActionKind == "quit" {
 					return cp, tea.Quit
 				}
-				return cp, func() tea.Msg {
-					return core.ActionResultMsg{Kind: selected.ActionKind}
-				}
+				kind := selected.ActionKind
+				return cp, tea.Batch(
+					func() tea.Msg { return core.ScreenPopMsg{} },
+					func() tea.Msg { return core.ActionResultMsg{Kind: kind} },
+				)
 			}
 		default:
 			if len(msg.String()) == 1 {

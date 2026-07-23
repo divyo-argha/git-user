@@ -101,6 +101,20 @@ func executeAction(kind string, name string, arg string, store *config.Store) {
 	case "bind":
 		runBind([]string{name})
 
+	case "check-ssh":
+		store, _ := config.Load()
+		if u := store.FindUser(name); u != nil && u.SSHKey != "" {
+			ui.Banner(fmt.Sprintf("CHECKING SSH CONNECTION: %s", name))
+			if err := verifySSHConnectionWithKey(u.SSHKey); err != nil {
+				ui.Warn("SSH verification failed. Make sure your public key is added to GitHub/GitLab.")
+			} else {
+				ui.Success("SSH connection verified successfully!")
+			}
+		} else {
+			ui.Warn(fmt.Sprintf("No SSH key bound to identity %q", name))
+			ui.Info("Bind a key first using: git-user bind " + name)
+		}
+
 	case "unbind":
 		u := store.FindUser(name)
 		if u == nil {

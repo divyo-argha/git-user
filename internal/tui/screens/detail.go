@@ -14,10 +14,19 @@ import (
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 )
 
+type DetailPane int
+
+const (
+	DetailPaneProfile DetailPane = iota
+	DetailPaneActions
+)
+
 type Detail struct {
 	store               *config.Store
 	name                string
 	actions             components.ActionMenu
+	activePane          DetailPane
+	animFrame           uint64
 	theme               theme.Theme
 	keyLoaded           bool
 	keyLoadedChecked    bool
@@ -32,10 +41,11 @@ func NewDetail(store *config.Store, name string, th theme.Theme) *Detail {
 		actions = buildDetailActions(user, store, th)
 	}
 	return &Detail{
-		store:   store,
-		name:    name,
-		actions: actions,
-		theme:   th,
+		store:      store,
+		name:       name,
+		actions:    actions,
+		activePane: DetailPaneActions,
+		theme:      th,
 	}
 }
 
@@ -65,6 +75,7 @@ func buildDetailActions(user *config.User, store *config.Store, th theme.Theme) 
 			items = append(items, components.ActionItem{Label: "🚀 Publish SSH key (switch first)", Key: "pubkey-push-locked", Disabled: true})
 		}
 	}
+	items = append(items, components.ActionItem{Label: "⚡ Check SSH connection", Key: "check-ssh"})
 	items = append(items, components.ActionItem{Label: "🔗 Add / replace SSH key", Key: "bind"})
 	items = append(items, components.ActionItem{Label: "🔄 Rotate SSH key", Key: "rekey"})
 	if user.SSHKey != "" {
@@ -74,13 +85,11 @@ func buildDetailActions(user *config.User, store *config.Store, th theme.Theme) 
 		items = append(items, components.ActionItem{Label: "🔒 Add passphrase (bind SSH key first)", Key: "passphrase-locked", Disabled: true})
 	}
 
-	items = append(items, components.ActionItem{Label: "Paths", IsSection: true})
+	items = append(items, components.ActionItem{Label: "Paths & Export", IsSection: true})
 	items = append(items, components.ActionItem{Label: "📁 Bind directory path", Key: "bind-path"})
 	if len(user.BindPaths) > 0 {
 		items = append(items, components.ActionItem{Label: "📁 Unbind directory path", Key: "unbind-path"})
 	}
-
-	items = append(items, components.ActionItem{Label: "Export", IsSection: true})
 	items = append(items, components.ActionItem{Label: "📤 Export this identity", Key: "export"})
 	items = append(items, components.ActionItem{Label: "Danger Zone", IsSection: true})
 	items = append(items, components.ActionItem{Label: "🗑  Remove identity", Key: "remove", IsDanger: true})
@@ -107,6 +116,9 @@ func (d *Detail) ShortHelp() string { return core.DetailHelp() }
 
 func (d *Detail) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
+	case core.AnimTickMsg:
+		d.animFrame++
+		return d, nil
 	case core.StoreRefreshedMsg:
 		if msg.Err == nil && msg.Store != nil {
 			d.store = msg.Store
@@ -133,12 +145,28 @@ func (d *Detail) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		return d, tea.Quit
 	case core.KeyEsc:
 		return d, func() tea.Msg { return core.ScreenPopMsg{} }
+	case core.KeyTab:
+		if d.activePane == DetailPaneProfile {
+			d.activePane = DetailPaneActions
+		} else {
+			d.activePane = DetailPaneProfile
+		}
+	case core.KeyLeft, core.KeyH:
+		d.activePane = DetailPaneProfile
+	case core.KeyRight, core.KeyL:
+		d.activePane = DetailPaneActions
 	case core.KeyUp, core.KeyK:
-		d.actions.CursorUp()
+		if d.activePane == DetailPaneActions {
+			d.actions.CursorUp()
+		}
 	case core.KeyDown, core.KeyJ:
-		d.actions.CursorDown()
+		if d.activePane == DetailPaneActions {
+			d.actions.CursorDown()
+		}
 	case core.KeyEnter:
-		return d.handleEnter()
+		if d.activePane == DetailPaneActions {
+			return d.handleEnter()
+		}
 	}
 	return d, nil
 }
@@ -167,28 +195,36 @@ func (d *Detail) View(width, height int) string {
 		return "identity not found\n"
 	}
 
-	paneWidth := theme.PaneWidth(width)
 	contentH := height - 4
+	if theme.IsSingleColumn(width) {
+		paneWidth := theme.PaneWidth(width)
+		rightContent := d.actions.View(paneWidth, contentH, true)
+		return d.theme.ActionPane(paneWidth, contentH).Render(rightContent)
+	}
 
-	leftContent := d.renderProfileCard(user, paneWidth)
-	rightContent := d.actions.View(paneWidth, contentH, true)
+	// Right pane: sized to fit its natural content (clamped 28..48)
+	rightWidth := d.actions.PreferredWidth(28, 48)
+	// Left pane: consumes all remaining width
+	leftWidth := width - rightWidth - theme.PaneGap
+	if leftWidth < 20 {
+		leftWidth = 20
+	}
 
-	isActive := user.Name == d.store.Current
+	leftContent := d.renderProfileCard(user, leftWidth)
+	rightContent := d.actions.View(rightWidth, contentH, d.activePane == DetailPaneActions)
 
 	var leftBox, rightBox string
-	if isActive {
-		leftBox = d.theme.DetailCardActive(paneWidth, contentH).Render(leftContent)
+	if d.activePane == DetailPaneProfile {
+		leftBox = d.theme.PulsingActivePane(leftWidth, contentH, d.animFrame).Render(leftContent)
+		rightBox = d.theme.InactivePane(rightWidth, contentH).Render(rightContent)
 	} else {
-		leftBox = d.theme.DetailCardInactive(paneWidth, contentH).Render(leftContent)
-	}
-	rightBox = d.theme.ActionPane(paneWidth, contentH).Render(rightContent)
-
-	if theme.IsSingleColumn(width) {
-		return rightBox
+		leftBox = d.theme.InactivePane(leftWidth, contentH).Render(leftContent)
+		rightBox = d.theme.PulsingActivePane(rightWidth, contentH, d.animFrame).Render(rightContent)
 	}
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "   ", rightBox)
 }
+
 
 func (d *Detail) renderProfileCard(user *config.User, width int) string {
 	var lines []string

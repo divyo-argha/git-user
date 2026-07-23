@@ -32,7 +32,7 @@ func DashboardHelp() string {
 
 // DetailHelp returns the help text for the detail screen.
 func DetailHelp() string {
-	return "  ↑/↓/j/k navigate  Enter select  Esc back  q quit"
+	return "  Tab/←/→ switch pane  ↑/↓/j/k navigate  Enter select  Esc back  q quit"
 }
 
 // FormHelp returns the help text for inline forms.
