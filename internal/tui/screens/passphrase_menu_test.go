@@ -32,6 +32,17 @@ func TestPassphraseMenu(t *testing.T) {
 		t.Errorf("Expected core.ScreenPopMsg on Esc, got %T", msg)
 	}
 
+	// Test mode toggling (passphrase-mode)
+	pm.actions.FindAndSetCursorByKey("passphrase-mode")
+	_, cmd = pm.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatalf("Expected toast command on mode toggle")
+	}
+	u := store.FindUser("work")
+	if u.GetPassphraseMode() != "login" {
+		t.Errorf("Expected mode to cycle to login, got %s", u.GetPassphraseMode())
+	}
+
 	// Test navigation and selecting passphrase-set action
 	pm.actions.FindAndSetCursorByKey("passphrase-set")
 	_, cmd = pm.Update(tea.KeyMsg{Type: tea.KeyEnter})

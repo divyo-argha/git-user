@@ -16,11 +16,22 @@ func runPassphrase(args []string) error {
 	var name string
 	var remove bool
 	var set bool
-	for _, arg := range args {
+	var verify bool
+	var modeVal string
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
 		if arg == "--remove" || arg == "-r" {
 			remove = true
 		} else if arg == "--set" || arg == "-s" {
 			set = true
+		} else if arg == "--verify" || arg == "-v" {
+			verify = true
+		} else if (arg == "--mode" || arg == "-m") && i+1 < len(args) {
+			modeVal = args[i+1]
+			i++
+		} else if strings.HasPrefix(arg, "--mode=") {
+			modeVal = strings.TrimPrefix(arg, "--mode=")
 		} else if !strings.HasPrefix(arg, "-") {
 			name = arg
 		}
@@ -61,10 +72,52 @@ func runPassphrase(args []string) error {
 		return err
 	}
 
+	if modeVal != "" {
+		modeVal = strings.ToLower(modeVal)
+		switch modeVal {
+		case "keychain", "persistent":
+			modeVal = "persistent"
+		case "agent", "login":
+			modeVal = "login"
+		case "ask", "everytime":
+			modeVal = "everytime"
+		default:
+			ui.Errorf("Invalid passphrase behavior mode %q. Options: persistent, login, everytime", modeVal)
+			return fmt.Errorf("invalid mode")
+		}
+		user.PassphraseMode = modeVal
+		_ = config.Save(store)
+		if modeVal == "login" || modeVal == "everytime" {
+			_ = keyring.DeleteKeychainPassphrase(user.Name)
+		}
+		if modeVal == "everytime" {
+			_ = ssh.RemoveSSHKey(user.SSHKey)
+		}
+		ui.Success(fmt.Sprintf("Passphrase behavior for %q set to: %s", user.Name, modeVal))
+		return nil
+	}
+
 	protected, err := isSSHKeyPassphraseProtected(user.SSHKey)
 	if err != nil {
 		ui.Errorf("Could not inspect SSH key: %v", err)
 		return err
+	}
+
+	if verify {
+		if !protected {
+			ui.Info("This SSH key is not passphrase protected.")
+			return nil
+		}
+		testPass, err := readPassphrase("Passphrase to test: ")
+		if err != nil {
+			return err
+		}
+		if ssh.VerifyPassphrase(user.SSHKey, testPass) {
+			ui.Success("Passphrase verified successfully!")
+			return nil
+		}
+		ui.Error("Incorrect passphrase.")
+		return fmt.Errorf("incorrect passphrase")
 	}
 
 	ui.Banner("SSH KEY PASSPHRASE")

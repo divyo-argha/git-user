@@ -144,6 +144,9 @@ func executeAction(kind string, name string, arg string, store *config.Store) {
 	case "passphrase-remove":
 		runPassphrase([]string{name, "--remove"})
 
+	case "passphrase-verify":
+		runPassphrase([]string{name, "--verify"})
+
 	case "bind-path":
 		path, err := ui.Prompt("Directory path to bind:")
 		if err != nil || path == "" {

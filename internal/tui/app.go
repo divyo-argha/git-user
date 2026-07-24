@@ -338,6 +338,10 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		a.action = &pendingAction{kind: "passphrase-remove", name: msg.Name}
 		return a, tea.Quit
 
+	case "passphrase-verify":
+		a.action = &pendingAction{kind: "passphrase-verify", name: msg.Name}
+		return a, tea.Quit
+
 	case "bind-path":
 		a.action = &pendingAction{kind: "bind-path", name: msg.Name}
 		return a, tea.Quit

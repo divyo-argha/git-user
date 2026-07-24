@@ -11,16 +11,24 @@ import (
 )
 
 type User struct {
-	Name         string   `json:"name"`
-	Email        string   `json:"email"`
-	SSHKey       string   `json:"ssh_key,omitempty"`
-	SignKey      string   `json:"sign_key,omitempty"`
-	SignFormat   string   `json:"sign_format,omitempty"` // "ssh" or "gpg"
-	SignDisabled bool     `json:"sign_disabled,omitempty"`
-	Source       string            `json:"source,omitempty"` // "original" or empty (manual)
-	BindPaths    []string          `json:"bind_paths,omitempty"`
-	CustomConfig map[string]string `json:"custom_config,omitempty"`
-	IsTemporary  bool              `json:"-"`
+	Name           string            `json:"name"`
+	Email          string            `json:"email"`
+	SSHKey         string            `json:"ssh_key,omitempty"`
+	SignKey        string            `json:"sign_key,omitempty"`
+	SignFormat     string            `json:"sign_format,omitempty"` // "ssh" or "gpg"
+	SignDisabled   bool              `json:"sign_disabled,omitempty"`
+	PassphraseMode string            `json:"passphrase_mode,omitempty"` // "persistent", "login", "everytime"
+	Source         string            `json:"source,omitempty"`          // "original" or empty (manual)
+	BindPaths      []string          `json:"bind_paths,omitempty"`
+	CustomConfig   map[string]string `json:"custom_config,omitempty"`
+	IsTemporary    bool              `json:"-"`
+}
+
+func (u *User) GetPassphraseMode() string {
+	if u.PassphraseMode == "" {
+		return "persistent"
+	}
+	return u.PassphraseMode
 }
 
 // OriginalConfig holds the gitconfig state that existed before git-user was first used.

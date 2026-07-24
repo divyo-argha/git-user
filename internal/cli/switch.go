@@ -119,6 +119,9 @@ func runSwitch(args []string) error {
 				_ = ssh.RemoveSSHKey(prev.SSHKey)
 				ui.Info(fmt.Sprintf("Unloaded SSH key for previous identity %q", prev.Name))
 			}
+			if prev.GetPassphraseMode() == "everytime" && prev.SSHKey != "" {
+				_ = ssh.RemoveSSHKey(prev.SSHKey)
+			}
 			if prev.IsTemporary {
 				store.RemoveUser(prev.Name, true)
 				ui.Info(fmt.Sprintf("Temporary identity %q deleted.", prev.Name))
@@ -134,21 +137,26 @@ func runSwitch(args []string) error {
 
 	// Passphrase gate
 	if user.SSHKey != "" {
+		mode := user.GetPassphraseMode()
 		protected, err := isSSHKeyPassphraseProtected(user.SSHKey)
 		if err == nil && protected && !ssh.IsSSHKeyLoaded(user.SSHKey) {
-			ui.Info(fmt.Sprintf("Identity %q is protected.", user.Name))
+			ui.Info(fmt.Sprintf("Identity %q is protected (mode: %s).", user.Name, mode))
 			var passphrase string
 			var hasStored bool
-			if secret, err := keyring.GetKeychainPassphrase(user.Name); err == nil && secret != "" {
-				if ssh.VerifyPassphrase(user.SSHKey, secret) {
-					passphrase = secret
-					hasStored = true
-					ui.Info("Retrieved passphrase securely from system keychain.")
-				} else {
-					ui.Warn("Stored keychain passphrase was incorrect. Stale entry removed.")
-					_ = keyring.DeleteKeychainPassphrase(user.Name)
+
+			if mode == "persistent" {
+				if secret, err := keyring.GetKeychainPassphrase(user.Name); err == nil && secret != "" {
+					if ssh.VerifyPassphrase(user.SSHKey, secret) {
+						passphrase = secret
+						hasStored = true
+						ui.Info("Retrieved passphrase securely from system keychain.")
+					} else {
+						ui.Warn("Stored keychain passphrase was incorrect. Stale entry removed.")
+						_ = keyring.DeleteKeychainPassphrase(user.Name)
+					}
 				}
 			}
+
 			if !hasStored {
 				var err error
 				passphrase, err = readPassphrase("Passphrase: ")
@@ -158,6 +166,9 @@ func runSwitch(args []string) error {
 				if !ssh.VerifyPassphrase(user.SSHKey, passphrase) {
 					ui.Error("Incorrect passphrase. Access denied.")
 					return fmt.Errorf("incorrect passphrase")
+				}
+				if mode == "persistent" {
+					promptAndStoreKeychain(user.Name, user.SSHKey, passphrase)
 				}
 			}
 
