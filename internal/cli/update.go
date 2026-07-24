@@ -8,11 +8,13 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/version"
 )
 
 func RunUpdate() error {
@@ -23,6 +25,20 @@ func RunUpdate() error {
 	// Resolve symlinks (e.g. npm bin wrapper points to real binary)
 	if resolved, err := filepath.EvalSymlinks(execPath); err == nil {
 		execPath = resolved
+	}
+
+	// Handle npm-installed packages
+	if isNpmInstall(execPath) {
+		ui.Info("Detected npm installation. Updating git-userhub via npm...")
+		npmCmd := exec.Command("npm", "install", "-g", "git-userhub@latest")
+		npmCmd.Stdout = os.Stdout
+		npmCmd.Stderr = os.Stderr
+		if err := npmCmd.Run(); err != nil {
+			ui.Info("If updating failed, try running manually: npm install -g git-userhub@latest")
+			return fmt.Errorf("npm update failed: %w", err)
+		}
+		ui.Success("✨ git-userhub updated via npm to latest version")
+		return nil
 	}
 
 	ui.Info(fmt.Sprintf("Updating git-user from %s...", execPath))
@@ -46,6 +62,12 @@ func RunUpdate() error {
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
 		return fmt.Errorf("parsing release info: %w", err)
+	}
+
+	// Compare remote version against currently installed version
+	if !isNewerVersion(release.TagName, version.Version) {
+		ui.Success(fmt.Sprintf("git-user is already up to date (%s). Latest GitHub release: %s", version.Version, release.TagName))
+		return nil
 	}
 
 	// Map runtime values to release asset naming
@@ -188,4 +210,46 @@ func extractBinary(archivePath, binaryName string) (string, error) {
 	}
 
 	return "", fmt.Errorf("binary %q not found in archive", binaryName)
+}
+
+func isNpmInstall(execPath string) bool {
+	lower := strings.ToLower(execPath)
+	return strings.Contains(lower, "node_modules") ||
+		strings.Contains(lower, "git-userhub") ||
+		strings.Contains(lower, ".npm") ||
+		strings.Contains(lower, "nvm")
+}
+
+func parseVersion(v string) (int, int, int) {
+	v = strings.TrimPrefix(v, "v")
+	v = strings.TrimPrefix(v, "V")
+	parts := strings.Split(v, ".")
+	var major, minor, patch int
+	if len(parts) > 0 {
+		fmt.Sscanf(parts[0], "%d", &major)
+	}
+	if len(parts) > 1 {
+		fmt.Sscanf(parts[1], "%d", &minor)
+	}
+	if len(parts) > 2 {
+		patchStr := parts[2]
+		if idx := strings.IndexAny(patchStr, "-+"); idx != -1 {
+			patchStr = patchStr[:idx]
+		}
+		fmt.Sscanf(patchStr, "%d", &patch)
+	}
+	return major, minor, patch
+}
+
+func isNewerVersion(remoteTag, currentVersion string) bool {
+	rMaj, rMin, rPat := parseVersion(remoteTag)
+	cMaj, cMin, cPat := parseVersion(currentVersion)
+
+	if rMaj != cMaj {
+		return rMaj > cMaj
+	}
+	if rMin != cMin {
+		return rMin > cMin
+	}
+	return rPat > cPat
 }
