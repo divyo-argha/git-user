@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -128,9 +129,13 @@ func ParseSSHKeyFingerprint(line string) (string, error) {
 	return fields[1], nil
 }
 
-// addSSHKeyWithPassphrase adds the SSH key to the agent using the provided passphrase.
+// AddSSHKeyWithPassphrase adds the SSH key to the agent using the provided passphrase.
 // It tries in-process parsing and loading first, and falls back to a secure SSH_ASKPASS execution.
 func AddSSHKeyWithPassphrase(keyPath, passphrase string) error {
+	if runtime.GOOS == "darwin" {
+		_ = EnsureMacOSKeychainConfigured()
+	}
+
 	data, err := os.ReadFile(keyPath)
 	if err == nil {
 		var privKey interface{}
@@ -150,6 +155,9 @@ func AddSSHKeyWithPassphrase(keyPath, passphrase string) error {
 					Comment:    keyPath,
 				})
 				if errAdd == nil {
+					if runtime.GOOS == "darwin" {
+						_ = addKeyToMacOSKeychain(keyPath, passphrase)
+					}
 					return nil
 				}
 			}
@@ -161,7 +169,13 @@ func AddSSHKeyWithPassphrase(keyPath, passphrase string) error {
 		return fmt.Errorf("getting executable path: %w", err)
 	}
 
-	cmd := exec.Command("ssh-add", keyPath)
+	// Try with --apple-use-keychain / -K on macOS
+	args := []string{keyPath}
+	if runtime.GOOS == "darwin" {
+		args = []string{"--apple-use-keychain", keyPath}
+	}
+
+	cmd := exec.Command("ssh-add", args...)
 	env := os.Environ()
 
 	env = append(env, "GIT_USER_ASKPASS_MODE=true")
@@ -181,9 +195,78 @@ func AddSSHKeyWithPassphrase(keyPath, passphrase string) error {
 	}
 
 	cmd.Env = env
-	out, err := cmd.CombinedOutput()
+	if out, err := cmd.CombinedOutput(); err != nil {
+		_ = out
+		// Fallback to standard ssh-add keyPath
+		cmdFallback := exec.Command("ssh-add", keyPath)
+		cmdFallback.Env = env
+		outFallback, errFallback := cmdFallback.CombinedOutput()
+		if errFallback != nil {
+			return fmt.Errorf("ssh-add failed: %v, output: %s", errFallback, string(outFallback))
+		}
+	}
+	if runtime.GOOS == "darwin" {
+		_ = addKeyToMacOSKeychain(keyPath, passphrase)
+	}
+	return nil
+}
+
+func EnsureMacOSKeychainConfigured() error {
+	if runtime.GOOS != "darwin" {
+		return nil
+	}
+	home, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("ssh-add failed: %v, output: %s", err, string(out))
+		return err
+	}
+	sshDir := filepath.Join(home, ".ssh")
+	_ = os.MkdirAll(sshDir, 0700)
+	configPath := filepath.Join(sshDir, "config")
+
+	content := ""
+	if data, err := os.ReadFile(configPath); err == nil {
+		content = string(data)
+	}
+
+	if strings.Contains(content, "UseKeychain yes") && strings.Contains(content, "Host *") {
+		return nil
+	}
+
+	block := "Host *\n  AddKeysToAgent yes\n  UseKeychain yes\n\n"
+	newContent := block + content
+	return os.WriteFile(configPath, []byte(newContent), 0600)
+}
+
+func addKeyToMacOSKeychain(keyPath, passphrase string) error {
+	if runtime.GOOS != "darwin" {
+		return nil
+	}
+	for _, flag := range []string{"--apple-use-keychain", "-K"} {
+		cmd := exec.Command("ssh-add", flag, keyPath)
+		if passphrase != "" {
+			exe, err := os.Executable()
+			if err == nil {
+				env := os.Environ()
+				env = append(env, "GIT_USER_ASKPASS_MODE=true")
+				env = append(env, "GIT_USER_PASSPHRASE="+passphrase)
+				env = append(env, "SSH_ASKPASS="+exe)
+				env = append(env, "SSH_ASKPASS_REQUIRE=force")
+				hasDisplay := false
+				for _, e := range env {
+					if strings.HasPrefix(e, "DISPLAY=") {
+						hasDisplay = true
+						break
+					}
+				}
+				if !hasDisplay {
+					env = append(env, "DISPLAY=dummy:0")
+				}
+				cmd.Env = env
+			}
+		}
+		if _, err := cmd.CombinedOutput(); err == nil {
+			return nil
+		}
 	}
 	return nil
 }
