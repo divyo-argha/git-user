@@ -77,7 +77,7 @@ func (m *ActionMenu) Selected() *ActionItem {
 
 func (m *ActionMenu) nextSelectable(from int) int {
 	for i := from + 1; i < len(m.items); i++ {
-		if !m.items[i].IsSection && !m.items[i].Disabled {
+		if !m.items[i].IsSection && !m.items[i].Disabled && m.items[i].Key != "" {
 			return i
 		}
 	}
@@ -89,12 +89,13 @@ func (m *ActionMenu) nextSelectable(from int) int {
 
 func (m *ActionMenu) prevSelectable(from int) int {
 	for i := from - 1; i >= 0; i-- {
-		if !m.items[i].IsSection && !m.items[i].Disabled {
+		if !m.items[i].IsSection && !m.items[i].Disabled && m.items[i].Key != "" {
 			return i
 		}
 	}
 	return from
 }
+
 
 // PreferredWidth returns the natural rendered width of the widest line in this
 // menu, including the title header. The caller can use this

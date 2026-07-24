@@ -120,7 +120,7 @@ func (d *Detail) refreshActions() {
 		default:
 			statusStr = d.theme.Dim().Render("Not configured")
 		}
-		items = append(items, components.ActionItem{Label: fmt.Sprintf("%-13s: %s", p, statusStr), Key: "check-ssh", Disabled: user.SSHKey == ""})
+		items = append(items, components.ActionItem{Label: fmt.Sprintf("%-13s: %s", p, statusStr), Key: ""})
 	}
 
 	// ── COMMIT SIGNING ────────────────────────────────────────────────────────
