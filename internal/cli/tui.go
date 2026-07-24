@@ -132,10 +132,14 @@ func executeAction(kind string, name string, arg string, store *config.Store) {
 		ui.Success("SSH key removed from identity")
 
 	case "rekey":
-		runRekey([]string{name})
+		if arg != "" {
+			runRekey([]string{name, arg})
+		} else {
+			runRekey([]string{name})
+		}
 
-	case "passphrase":
-		runPassphrase([]string{name})
+	case "passphrase", "passphrase-set":
+		runPassphrase([]string{name, "--set"})
 
 	case "passphrase-remove":
 		runPassphrase([]string{name, "--remove"})

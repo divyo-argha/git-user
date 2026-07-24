@@ -5,18 +5,27 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
 func runRekey(args []string) error {
-	if len(args) < 1 {
-		ui.Error("usage: git-user rekey <name>")
-		return fmt.Errorf("missing name")
+	var name string
+	var force bool
+	for _, arg := range args {
+		if arg == "--force" || arg == "-f" || arg == "--yes" || arg == "-y" {
+			force = true
+		} else if !strings.HasPrefix(arg, "-") {
+			name = arg
+		}
 	}
 
-	name := args[0]
+	if name == "" {
+		ui.Error("usage: git-user rekey <name> [--force]")
+		return fmt.Errorf("missing name")
+	}
 
 	store, err := config.Load()
 	if err != nil {
@@ -28,6 +37,16 @@ func runRekey(args []string) error {
 	if user == nil {
 		ui.Errorf("identity %q not found", name)
 		return fmt.Errorf("user not found")
+	}
+
+	if !force {
+		ui.Warn(fmt.Sprintf("⚠️ WARNING: Rotating SSH key for identity %q will generate a new key pair.", user.Name))
+		ui.Warn("Your current SSH key will be backed up, but it will NO LONGER WORK until updated on platforms.")
+		ui.Warn("You MUST update your public key on GitHub/GitLab/Bitbucket after rotation.")
+		if !ui.Confirm(fmt.Sprintf("Are you sure you want to rotate the SSH key for %q?", user.Name), false) {
+			ui.Info("SSH key rotation cancelled.")
+			return nil
+		}
 	}
 
 	ui.Info(fmt.Sprintf("Rotating SSH key for identity: %s (%s)", user.Name, user.Email))

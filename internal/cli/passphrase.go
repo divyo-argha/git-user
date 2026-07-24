@@ -15,9 +15,12 @@ import (
 func runPassphrase(args []string) error {
 	var name string
 	var remove bool
+	var set bool
 	for _, arg := range args {
 		if arg == "--remove" || arg == "-r" {
 			remove = true
+		} else if arg == "--set" || arg == "-s" {
+			set = true
 		} else if !strings.HasPrefix(arg, "-") {
 			name = arg
 		}
@@ -69,6 +72,25 @@ func runPassphrase(args []string) error {
 	ui.Info(fmt.Sprintf("Identity: %s (%s)", user.Name, user.Email))
 	ui.Info(fmt.Sprintf("Key: %s", user.SSHKey))
 	fmt.Println()
+
+	if !set && !remove {
+		if protected {
+			ui.Info(fmt.Sprintf("SSH key for %q is currently passphrase protected.", user.Name))
+			idx, err := ui.Select("Select passphrase action:", []string{"🔒 Set / Change Passphrase", "🔓 Remove Passphrase"})
+			if err != nil {
+				ui.Info("Cancelled")
+				return nil
+			}
+			if idx == 1 {
+				remove = true
+			} else {
+				set = true
+			}
+			fmt.Println()
+		} else {
+			set = true
+		}
+	}
 
 	if remove {
 		if !protected {

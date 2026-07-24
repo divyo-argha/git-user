@@ -317,11 +317,25 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "rekey":
-		a.action = &pendingAction{kind: "rekey", name: msg.Name}
-		return a, tea.Quit
+		return a, func() tea.Msg {
+			return core.ScreenPushMsg{Screen: screens.NewConfirm(
+				fmt.Sprintf("Rotate SSH key for %q? WARNING: Replaces key pair; requires re-uploading public key.", msg.Name),
+				"rekey:"+msg.Name,
+				a.theme,
+			)}
+		}
 
 	case "passphrase":
-		a.action = &pendingAction{kind: "passphrase", name: msg.Name}
+		return a, func() tea.Msg {
+			return core.ScreenPushMsg{Screen: screens.NewPassphraseMenu(a.store, msg.Name, a.theme)}
+		}
+
+	case "passphrase-set":
+		a.action = &pendingAction{kind: "passphrase-set", name: msg.Name}
+		return a, tea.Quit
+
+	case "passphrase-remove":
+		a.action = &pendingAction{kind: "passphrase-remove", name: msg.Name}
 		return a, tea.Quit
 
 	case "bind-path":
@@ -412,6 +426,9 @@ func (a *App) handleConfirmResult(msg core.ConfirmResultMsg) (tea.Model, tea.Cmd
 		return a, tea.Quit
 	case "unbind":
 		a.action = &pendingAction{kind: "unbind", name: name}
+		return a, tea.Quit
+	case "rekey":
+		a.action = &pendingAction{kind: "rekey", name: name, arg: "--force"}
 		return a, tea.Quit
 	}
 
