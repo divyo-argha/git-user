@@ -37,8 +37,6 @@ func (h HelpBar) View(width int) string {
 			formatted = append(formatted, h.theme.ItalicStyle().Render(p))
 		}
 	}
-	// Append permanent quick help indicators
-	formatted = append(formatted, h.theme.Keycap().Render("Ctrl+P")+" "+h.theme.Dim().Render("Search"), h.theme.Keycap().Render("?")+" "+h.theme.Dim().Render("Help"))
 
 	return strings.Join(formatted, "   ")
 }

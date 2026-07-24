@@ -18,14 +18,12 @@ const (
 )
 
 type Dashboard struct {
-	store       *config.Store
-	identities  components.IdentityList
-	actions     components.ActionMenu
-	activePane  Pane
-	filterInput string
-	filtering   bool
-	animFrame   uint64
-	theme       theme.Theme
+	store      *config.Store
+	identities components.IdentityList
+	actions    components.ActionMenu
+	activePane Pane
+	animFrame  uint64
+	theme      theme.Theme
 }
 
 func NewDashboard(store *config.Store, th theme.Theme) *Dashboard {
@@ -41,9 +39,6 @@ func NewDashboard(store *config.Store, th theme.Theme) *Dashboard {
 func (d *Dashboard) Init() tea.Cmd { return nil }
 func (d *Dashboard) Title() string { return "Dashboard" }
 func (d *Dashboard) ShortHelp() string {
-	if d.filtering {
-		return core.FilterHelp()
-	}
 	return core.DashboardHelp()
 }
 
@@ -61,9 +56,6 @@ func (d *Dashboard) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	case tea.MouseMsg:
 		return d.handleMouse(msg)
 	case tea.KeyMsg:
-		if d.filtering {
-			return d.handleFilterKey(msg)
-		}
 		return d.handleKey(msg)
 	}
 	return d, nil
@@ -123,50 +115,12 @@ func (d *Dashboard) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		} else {
 			d.actions.CursorDown()
 		}
-	case core.KeyFilter:
-		d.filtering = true
-		d.filterInput = ""
-		d.identities.SetFilter("")
-		d.activePane = PaneIdentities
 	case core.KeyEnter:
 		return d.handleEnter()
 	}
 	return d, nil
 }
 
-func (d *Dashboard) handleFilterKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
-	switch msg.String() {
-	case core.KeyEsc:
-		d.filtering = false
-		d.filterInput = ""
-		d.identities.ClearFilter()
-		return d, nil
-	case core.KeyEnter:
-		d.filtering = false
-		return d.handleEnter()
-	case core.KeyUp, core.KeyK:
-		d.identities.CursorUp()
-	case core.KeyDown, core.KeyJ:
-		d.identities.CursorDown()
-	case "backspace":
-		if len(d.filterInput) > 0 {
-			d.filterInput = d.filterInput[:len(d.filterInput)-1]
-			d.identities.SetFilter(d.filterInput)
-		} else {
-			d.filtering = false
-			d.identities.ClearFilter()
-		}
-	case core.KeyCtrlC:
-		return d, tea.Quit
-	default:
-		key := msg.String()
-		if len(key) == 1 {
-			d.filterInput += key
-			d.identities.SetFilter(d.filterInput)
-		}
-	}
-	return d, nil
-}
 
 func (d *Dashboard) handleEnter() (core.Screen, tea.Cmd) {
 	if d.activePane == PaneIdentities {

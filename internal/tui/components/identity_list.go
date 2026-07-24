@@ -21,16 +21,14 @@ type IdentityItem struct {
 	ActionKey  string
 }
 
-// IdentityList is a scrollable, filterable list of identities.
+// IdentityList is a scrollable list of identities.
 type IdentityList struct {
-	items      []IdentityItem
-	filtered   []int
-	cursor     int
-	filter     string
-	filtering  bool
-	theme      theme.Theme
-	introTick  int  // how many items have fully appeared (staggered reveal)
-	introDone  bool // true once all items are revealed
+	items     []IdentityItem
+	filtered  []int
+	cursor    int
+	theme     theme.Theme
+	introTick int  // how many items have fully appeared (staggered reveal)
+	introDone bool // true once all items are revealed
 }
 
 // NewIdentityList creates an identity list from a config store.
@@ -42,6 +40,7 @@ func NewIdentityList(store *config.Store, th theme.Theme) IdentityList {
 	}
 	return IdentityList{items: items, filtered: filtered, theme: th}
 }
+
 
 func buildIdentityItems(store *config.Store) []IdentityItem {
 	var items []IdentityItem
@@ -107,42 +106,11 @@ func (l *IdentityList) Selected() *IdentityItem {
 }
 
 func (l *IdentityList) Cursor() int       { return l.cursor }
-func (l *IdentityList) IsFiltering() bool { return l.filtering }
-
-func (l *IdentityList) SetFilter(query string) {
-	l.filter = query
-	l.filtering = query != ""
-	l.applyFilter()
-}
-
-func (l *IdentityList) ClearFilter() {
-	l.filter = ""
-	l.filtering = false
-	l.applyFilter()
-}
 
 func (l *IdentityList) applyFilter() {
-	if l.filter == "" {
-		l.filtered = make([]int, len(l.items))
-		for i := range l.items {
-			l.filtered[i] = i
-		}
-		return
-	}
-
-	query := strings.ToLower(l.filter)
-	l.filtered = l.filtered[:0]
-	for i, item := range l.items {
-		if item.IsAction {
-			continue
-		}
-		if strings.Contains(strings.ToLower(item.Name), query) ||
-			strings.Contains(strings.ToLower(item.Email), query) {
-			l.filtered = append(l.filtered, i)
-		}
-	}
-	if l.cursor >= len(l.filtered) {
-		l.cursor = max(0, len(l.filtered)-1)
+	l.filtered = make([]int, len(l.items))
+	for i := range l.items {
+		l.filtered[i] = i
 	}
 }
 
@@ -155,17 +123,12 @@ func (l IdentityList) View(width, height int, isActive bool) string {
 
 	// Header rows already consumed (title + separator).
 	headerRows := 2
-	if l.filtering {
-		filterLine := l.theme.InfoStyle().Render("🔍 ") + l.filter + l.theme.Dim().Render("│")
-		lines = append(lines, filterLine)
-		headerRows++
-	}
 
 	if len(l.items) <= 1 {
 		lines = append(lines, "")
 		lines = append(lines, l.theme.WarningStyle().Render("  💡 Welcome to git-user!"))
 		lines = append(lines, l.theme.Dim().Render("  No custom profiles registered yet."))
-		lines = append(lines, l.theme.Dim().Render("  Select '+ Register new identity' below or press Ctrl+P."))
+		lines = append(lines, l.theme.Dim().Render("  Select '+ Register new identity' below."))
 		lines = append(lines, "")
 	}
 
@@ -178,6 +141,7 @@ func (l IdentityList) View(width, height int, isActive bool) string {
 	// Reserve 2 rows for potential top/bottom indicators.
 	availRows := height - headerRows - 2
 	if availRows < 1 {
+
 		availRows = 1
 	}
 

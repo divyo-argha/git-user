@@ -153,17 +153,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.handleAction(msg)
 
 	case tea.KeyMsg:
-		if msg.String() == "ctrl+p" {
-			return a, a.pushScreen(screens.NewCommandPalette(a.theme))
-		}
-		if msg.String() == "?" {
-			if _, isPalette := a.activeScreen().(*screens.CommandPalette); !isPalette {
-				if _, isHelp := a.activeScreen().(*screens.HelpModal); !isHelp {
-					return a, a.pushScreen(screens.NewHelpModal(a.theme))
-				}
-				}
-		}
 		if s := a.activeScreen(); s != nil {
+
 			newScreen, cmd := s.Update(msg)
 			a.screenStack[len(a.screenStack)-1] = newScreen
 			return a, cmd
@@ -219,9 +210,6 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 	case "quit":
 		a.quit = true
 		return a, tea.Quit
-
-	case "help":
-		return a, a.pushScreen(screens.NewHelpModal(a.theme))
 
 	case "register":
 		return a, func() tea.Msg {

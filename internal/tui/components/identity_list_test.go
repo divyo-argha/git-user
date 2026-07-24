@@ -38,21 +38,6 @@ func TestIdentityList(t *testing.T) {
 		t.Errorf("Expected cursor at 2, got %d", list.Cursor())
 	}
 
-	// Test Filtering
-	list.SetFilter("wo")
-	// "work" should match
-	if len(list.filtered) != 1 {
-		t.Errorf("Expected 1 filtered item, got %d", len(list.filtered))
-	}
-	if list.Selected().Name != "work" {
-		t.Errorf("Expected 'work' to be selected, got %s", list.Selected().Name)
-	}
-
-	// Test clear filter
-	list.ClearFilter()
-	if len(list.filtered) != 4 {
-		t.Errorf("Expected 4 items after clear, got %d", len(list.filtered))
-	}
 
 	// Test Refresh
 	store.Users = []config.User{

@@ -56,19 +56,6 @@ func TestDashboard(t *testing.T) {
 		t.Errorf("Expected pushed screen to be Detail")
 	}
 
-	// Test filtering
-	updated, _ = dash.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
-	dash = updated.(*Dashboard)
-	if !dash.filtering {
-		t.Errorf("Expected filtering to be true after '/'")
-	}
-
-	// Exit filtering
-	updated, _ = dash.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	dash = updated.(*Dashboard)
-	if dash.filtering {
-		t.Errorf("Expected filtering to be false after esc")
-	}
 
 	// Quitting
 	_, cmd = dash.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
