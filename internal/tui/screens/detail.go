@@ -247,11 +247,12 @@ func (d *Detail) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 
 
 func (d *Detail) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
+	if core.IsEscKey(msg) || msg.String() == "b" || msg.String() == "B" {
+		return d, func() tea.Msg { return core.ScreenPopMsg{} }
+	}
 	switch msg.String() {
 	case core.KeyCtrlC, core.KeyQuit:
 		return d, tea.Quit
-	case core.KeyEsc:
-		return d, func() tea.Msg { return core.ScreenPopMsg{} }
 	case "s", "S":
 		user := d.store.FindUser(d.name)
 		if user != nil && user.Name != d.store.Current {

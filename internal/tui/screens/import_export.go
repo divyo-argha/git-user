@@ -38,6 +38,11 @@ var importExportOptions = []importExportOption{
 		key:   "import-original",
 		desc:  "Import identity from your original ~/.gitconfig backup",
 	},
+	{
+		label: "←   Back",
+		key:   "back",
+		desc:  "Return to previous menu",
+	},
 }
 
 // ImportExport is the sub-screen for import/export operations.
@@ -65,12 +70,12 @@ func (s *ImportExport) ShortHelp() string { return core.ImportExportHelp() }
 func (s *ImportExport) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if core.IsEscKey(msg) || msg.String() == "b" || msg.String() == "B" {
+			return s, func() tea.Msg { return core.ScreenPopMsg{} }
+		}
 		switch msg.String() {
 		case core.KeyCtrlC:
 			return s, tea.Quit
-
-		case core.KeyEsc, core.KeyQuit:
-			return s, func() tea.Msg { return core.ScreenPopMsg{} }
 
 		case core.KeyUp, core.KeyK:
 			if s.cursor > 0 {
@@ -84,6 +89,9 @@ func (s *ImportExport) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 
 		case core.KeyEnter:
 			opt := importExportOptions[s.cursor]
+			if opt.key == "back" {
+				return s, func() tea.Msg { return core.ScreenPopMsg{} }
+			}
 			return s, func() tea.Msg {
 				return core.ActionResultMsg{Kind: opt.key}
 			}

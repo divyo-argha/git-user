@@ -35,11 +35,12 @@ func (c *Confirm) ShortHelp() string { return core.ConfirmHelp() }
 func (c *Confirm) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case core.KeyEsc:
+		if core.IsEscKey(msg) || msg.String() == "b" || msg.String() == "B" {
 			return c, func() tea.Msg {
 				return core.ConfirmResultMsg{Confirmed: false, Context: c.context}
 			}
+		}
+		switch msg.String() {
 
 		case core.KeyLeft, core.KeyH:
 			c.cursor = 0

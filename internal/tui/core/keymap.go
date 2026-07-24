@@ -1,5 +1,7 @@
 package core
 
+import tea "github.com/charmbracelet/bubbletea"
+
 // Keymap defines all keybindings for the TUI in a central place.
 // Screens reference these constants for consistent behavior.
 
@@ -22,6 +24,11 @@ const (
 	KeyFilter = "/"
 	KeyHelp   = "?"
 )
+
+// IsEscKey checks if a tea.KeyMsg is an Escape key event across all terminal types.
+func IsEscKey(msg tea.KeyMsg) bool {
+	return msg.Type == tea.KeyEsc || msg.Type == tea.KeyEscape || msg.String() == "esc" || msg.String() == "\x1b"
+}
 
 // ── Help Text Builders ────────────────────────────────────────────────────────
 

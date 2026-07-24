@@ -115,11 +115,12 @@ func (pm *PassphraseMenu) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 }
 
 func (pm *PassphraseMenu) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
+	if core.IsEscKey(msg) || msg.String() == "b" || msg.String() == "B" {
+		return pm, func() tea.Msg { return core.ScreenPopMsg{} }
+	}
 	switch msg.String() {
 	case core.KeyCtrlC, core.KeyQuit:
 		return pm, tea.Quit
-	case core.KeyEsc:
-		return pm, func() tea.Msg { return core.ScreenPopMsg{} }
 	case core.KeyUp, core.KeyK:
 		pm.actions.CursorUp()
 	case core.KeyDown, core.KeyJ:

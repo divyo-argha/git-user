@@ -67,11 +67,12 @@ func (f *Form) ShortHelp() string { return f.help }
 func (f *Form) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if core.IsEscKey(msg) {
+			return f, func() tea.Msg { return core.ScreenPopMsg{} }
+		}
 		switch msg.String() {
 		case core.KeyCtrlC:
 			return f, tea.Quit
-		case core.KeyEsc:
-			return f, func() tea.Msg { return core.ScreenPopMsg{} }
 		case core.KeyEnter:
 			if f.cursor == len(f.inputs)-1 {
 				// Form complete
