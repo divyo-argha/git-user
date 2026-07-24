@@ -51,22 +51,47 @@ func (d *Detail) refreshActions() {
 
 	var items []components.ActionItem
 
-	// ── PROFILE INFO (Interactive Items) ──────────────────────────────────────
+	if !isActive {
+		items = append(items, components.ActionItem{Label: "Identity Overview", IsSection: true})
+		nameVal := "○ " + user.Name
+		if user.Source == "original" {
+			nameVal += " " + d.theme.SuccessStyle().Render("(original)")
+		}
+		items = append(items, components.ActionItem{Label: fmt.Sprintf("Profile Name : %s", nameVal), Key: "rename"})
+		items = append(items, components.ActionItem{Label: fmt.Sprintf("Email Address: %s", user.Email), Key: "email"})
+		items = append(items, components.ActionItem{Label: fmt.Sprintf("Status       : %s", d.theme.Dim().Render("○ Inactive Profile (Switch to view security details)")), Key: ""})
+
+		items = append(items, components.ActionItem{Label: "Primary Action", IsSection: true})
+		items = append(items, components.ActionItem{Label: "⚡ Switch to this identity", Key: "switch"})
+
+		items = append(items, components.ActionItem{Label: "Management Options", IsSection: true})
+		items = append(items, components.ActionItem{Label: "📤 Export this identity", Key: "export"})
+		items = append(items, components.ActionItem{Label: "🗑  Remove identity", Key: "remove", IsDanger: true})
+
+		items = append(items, components.ActionItem{Label: "", IsSection: true})
+		items = append(items, components.ActionItem{Label: "← Back", Key: "back"})
+
+		title := fmt.Sprintf("Identity Overview: %s (Inactive)", d.name)
+		d.actions = components.NewActionMenu(title, items, d.theme)
+		if prevKey != "" {
+			d.actions.FindAndSetCursorByKey(prevKey)
+		} else {
+			d.actions.FindAndSetCursorByKey("switch")
+		}
+		return
+	}
+
+	// ── PROFILE INFO (Active Profile Only) ──────────────────────────────────────
 	items = append(items, components.ActionItem{Label: "Identity Details", IsSection: true})
 
-	nameVal := user.Name
-	if isActive {
-		nameVal = d.theme.Active().Render("● "+user.Name) + " [active]"
-	} else {
-		nameVal = "○ " + user.Name
-	}
+	nameVal := d.theme.Active().Render("● "+user.Name) + " [active]"
 	if user.Source == "original" {
 		nameVal += " " + d.theme.SuccessStyle().Render("(original)")
 	}
 	items = append(items, components.ActionItem{Label: fmt.Sprintf("Profile Name : %s", nameVal), Key: "rename"})
 	items = append(items, components.ActionItem{Label: fmt.Sprintf("Email Address: %s", user.Email), Key: "email"})
 
-	// ── SSH & SECURITY STATUS (Interactive Items) ─────────────────────────────
+	// ── SSH & SECURITY STATUS ─────────────────────────────────────────────────
 	items = append(items, components.ActionItem{Label: "SSH & Security", IsSection: true})
 
 	sshKeyStr := d.theme.Dim().Render("None")
@@ -101,7 +126,7 @@ func (d *Detail) refreshActions() {
 	}
 	items = append(items, components.ActionItem{Label: fmt.Sprintf("Agent Status : %s", sessionStr), Key: "check-ssh", Disabled: user.SSHKey == ""})
 
-	// ── PLATFORMS (Interactive check trigger) ──────────────────────────────────
+	// ── PLATFORMS ─────────────────────────────────────────────────────────────
 	items = append(items, components.ActionItem{Label: "Verified Platforms", IsSection: true})
 	platformsList := []string{"GitHub", "GitLab", "Bitbucket"}
 	for _, p := range platformsList {
@@ -132,16 +157,11 @@ func (d *Detail) refreshActions() {
 	}
 	items = append(items, components.ActionItem{Label: fmt.Sprintf("Commit Signing: %s", signingLabel), Key: "toggle-sign"})
 
-	// ── DOCKER / CLI UTILITIES / EXPORTS ──────────────────────────────────────
+	// ── UTILITIES ─────────────────────────────────────────────────────────────
 	items = append(items, components.ActionItem{Label: "Utilities", IsSection: true})
-	if !isActive {
-		items = append(items, components.ActionItem{Label: "⚡ Switch to this identity", Key: "switch"})
-	}
-	if isActive {
-		items = append(items, components.ActionItem{Label: "🔑 Show public key", Key: "pubkey"})
-		if user.SSHKey != "" {
-			items = append(items, components.ActionItem{Label: "🚀 Publish SSH key to platform", Key: "pubkey-push"})
-		}
+	items = append(items, components.ActionItem{Label: "🔑 Show public key", Key: "pubkey"})
+	if user.SSHKey != "" {
+		items = append(items, components.ActionItem{Label: "🚀 Publish SSH key to platform", Key: "pubkey-push"})
 	}
 	items = append(items, components.ActionItem{Label: "🔄 Rotate SSH key", Key: "rekey"})
 	if user.SSHKey != "" {
@@ -166,7 +186,7 @@ func (d *Detail) refreshActions() {
 
 func (d *Detail) Init() tea.Cmd {
 	user := d.store.FindUser(d.name)
-	if user != nil && user.SSHKey != "" {
+	if user != nil && user.Name == d.store.Current && user.SSHKey != "" {
 		return tea.Batch(
 			core.CheckKeyLoadedCmd(user.SSHKey),
 			core.CheckKeyPassphraseCmd(user.SSHKey),
@@ -175,7 +195,7 @@ func (d *Detail) Init() tea.Cmd {
 			core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "Bitbucket", "git@bitbucket.org", []string{"logged in as", "successfully authenticated"}),
 		)
 	}
-	// If no SSH key exists, mark them as not added immediately
+	// If inactive or no SSH key exists, mark as not added
 	d.platformStatuses["GitHub"] = "not_added"
 	d.platformStatuses["GitLab"] = "not_added"
 	d.platformStatuses["Bitbucket"] = "not_added"
@@ -230,6 +250,13 @@ func (d *Detail) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		return d, tea.Quit
 	case core.KeyEsc:
 		return d, func() tea.Msg { return core.ScreenPopMsg{} }
+	case "s", "S":
+		user := d.store.FindUser(d.name)
+		if user != nil && user.Name != d.store.Current {
+			return d, func() tea.Msg {
+				return core.ActionResultMsg{Kind: "switch", Name: d.name}
+			}
+		}
 	case core.KeyUp, core.KeyK:
 		d.actions.CursorUp()
 	case core.KeyDown, core.KeyJ:

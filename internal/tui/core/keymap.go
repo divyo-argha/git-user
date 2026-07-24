@@ -27,12 +27,12 @@ const (
 
 // DashboardHelp returns the help text for the main dashboard.
 func DashboardHelp() string {
-	return "  Tab/←/→ switch pane  ↑/↓/j/k navigate  Enter select  q quit"
+	return "  Tab/←/→ switch pane  ↑/↓ navigate  s switch profile  Enter select  q quit"
 }
 
 // DetailHelp returns the help text for the detail screen.
 func DetailHelp() string {
-	return "  ↑/↓/j/k navigate  Enter select/interact  Esc back  q quit"
+	return "  ↑/↓ navigate  s switch profile  Enter select  Esc back  q quit"
 }
 
 // FormHelp returns the help text for inline forms.

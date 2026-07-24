@@ -99,6 +99,15 @@ func (d *Dashboard) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		} else {
 			d.activePane = PaneIdentities
 		}
+	case "s", "S":
+		if d.activePane == PaneIdentities {
+			item := d.identities.Selected()
+			if item != nil && !item.IsAction && !item.IsActive {
+				return d, func() tea.Msg {
+					return core.ActionResultMsg{Kind: "switch", Name: item.Name}
+				}
+			}
+		}
 	case core.KeyLeft, core.KeyH:
 		d.activePane = PaneIdentities
 	case core.KeyRight, core.KeyL:
