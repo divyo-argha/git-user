@@ -20,11 +20,12 @@ type ActionMenu struct {
 	items  []ActionItem
 	cursor int
 	theme  theme.Theme
+	Title  string
 }
 
 // NewActionMenu creates an action menu from a list of items.
-func NewActionMenu(items []ActionItem, th theme.Theme) ActionMenu {
-	m := ActionMenu{items: items, theme: th}
+func NewActionMenu(title string, items []ActionItem, th theme.Theme) ActionMenu {
+	m := ActionMenu{Title: title, items: items, theme: th}
 	m.cursor = m.nextSelectable(-1)
 	return m
 }
@@ -50,13 +51,22 @@ func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 		ActionItem{Label: "Update git-user", Key: "update"},
 		ActionItem{Label: "Quit", Key: "quit"},
 	)
-	return NewActionMenu(items, th)
+	return NewActionMenu("System Utilities", items, th)
 }
 
 func (m *ActionMenu) CursorUp()    { m.cursor = m.prevSelectable(m.cursor) }
 func (m *ActionMenu) CursorDown()  { m.cursor = m.nextSelectable(m.cursor) }
 func (m *ActionMenu) Cursor() int  { return m.cursor }
 func (m *ActionMenu) ResetCursor() { m.cursor = m.nextSelectable(-1) }
+
+func (m *ActionMenu) FindAndSetCursorByKey(key string) {
+	for i, item := range m.items {
+		if !item.IsSection && item.Key == key {
+			m.cursor = i
+			return
+		}
+	}
+}
 
 func (m *ActionMenu) Selected() *ActionItem {
 	if m.cursor < 0 || m.cursor >= len(m.items) {
@@ -87,14 +97,18 @@ func (m *ActionMenu) prevSelectable(from int) int {
 }
 
 // PreferredWidth returns the natural rendered width of the widest line in this
-// menu, including the title "System Utilities" header. The caller can use this
+// menu, including the title header. The caller can use this
 // to size the right pane exactly to fit the content instead of half the terminal.
 // minWidth / maxWidth clamp the result.
 func (m *ActionMenu) PreferredWidth(minWidth, maxWidth int) int {
 	// Account for border (1 each side) + padding (2 each side from Padding(0,2)) = 6 extra
 	const boxOverhead = 6
 
-	widest := len("System Utilities") // title is always present
+	title := m.Title
+	if title == "" {
+		title = "System Utilities"
+	}
+	widest := len(title)
 	for _, item := range m.items {
 		var lineLen int
 		if item.IsSection {
@@ -123,7 +137,11 @@ func (m *ActionMenu) PreferredWidth(minWidth, maxWidth int) int {
 func (m ActionMenu) View(width, height int, isActive bool) string {
 	var lines []string
 
-	lines = append(lines, m.theme.PaneTitle().Render("System Utilities"))
+	title := m.Title
+	if title == "" {
+		title = "System Utilities"
+	}
+	lines = append(lines, m.theme.PaneTitle().Render(title))
 	lines = append(lines, m.theme.SeparatorLine(width-6))
 
 	for i, item := range m.items {

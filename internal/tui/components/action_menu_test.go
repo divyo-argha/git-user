@@ -18,7 +18,7 @@ func TestActionMenu(t *testing.T) {
 		{Label: "Item 4", Key: "item4"},
 	}
 
-	m := NewActionMenu(items, th)
+	m := NewActionMenu("Test Menu", items, th)
 
 	// Initial cursor should skip Section 1 and be on Item 1
 	if m.Cursor() != 1 {

@@ -44,6 +44,11 @@ func (d *Detail) refreshActions() {
 	}
 	isActive := user.Name == d.store.Current
 
+	var prevKey string
+	if selected := d.actions.Selected(); selected != nil {
+		prevKey = selected.Key
+	}
+
 	var items []components.ActionItem
 
 	// ── PROFILE INFO (Interactive Items) ──────────────────────────────────────
@@ -64,34 +69,34 @@ func (d *Detail) refreshActions() {
 	// ── SSH & SECURITY STATUS (Interactive Items) ─────────────────────────────
 	items = append(items, components.ActionItem{Label: "SSH & Security", IsSection: true})
 
-	sshKeyStr := "None"
+	sshKeyStr := d.theme.Dim().Render("None")
 	if user.SSHKey != "" {
 		sshKeyStr = filepath.Base(user.SSHKey)
 	}
 	items = append(items, components.ActionItem{Label: fmt.Sprintf("SSH Key File : %s", sshKeyStr), Key: "bind"})
 
-	passphraseStr := "Unknown"
+	passphraseStr := d.theme.Dim().Render("Unknown")
 	if user.SSHKey != "" {
 		if d.passphraseChecked {
 			if d.passphraseProtected {
-				passphraseStr = "Passphrase Protected ✓"
+				passphraseStr = d.theme.SuccessStyle().Render("Passphrase Protected ✓")
 			} else {
-				passphraseStr = "No Passphrase ⚠"
+				passphraseStr = d.theme.ErrorStyle().Render("No Passphrase ⚠")
 			}
 		} else {
-			passphraseStr = "checking..."
+			passphraseStr = d.theme.Dim().Render("checking...")
 		}
 	}
 	items = append(items, components.ActionItem{Label: fmt.Sprintf("Passphrase   : %s", passphraseStr), Key: "passphrase", Disabled: user.SSHKey == ""})
 
-	sessionStr := "not loaded"
+	sessionStr := d.theme.Dim().Render("not loaded")
 	if user.SSHKey != "" {
 		if d.keyLoadedChecked {
 			if d.keyLoaded {
-				sessionStr = "Loaded in agent ✓"
+				sessionStr = d.theme.SuccessStyle().Render("Loaded in agent ✓")
 			}
 		} else {
-			sessionStr = "checking..."
+			sessionStr = d.theme.Dim().Render("checking...")
 		}
 	}
 	items = append(items, components.ActionItem{Label: fmt.Sprintf("Agent Status : %s", sessionStr), Key: "check-ssh", Disabled: user.SSHKey == ""})
@@ -104,16 +109,16 @@ func (d *Detail) refreshActions() {
 		var statusStr string
 		switch status {
 		case "checking":
-			statusStr = "checking..."
+			statusStr = d.theme.Dim().Render("checking...")
 		case "connected":
 			username := d.platformUsernames[p]
-			statusStr = fmt.Sprintf("Connected ✓ (%s)", username)
+			statusStr = d.theme.SuccessStyle().Render(fmt.Sprintf("Connected ✓ (%s)", username))
 		case "not_added":
-			statusStr = "Not added"
+			statusStr = d.theme.Dim().Render("Not added")
 		case "network_error":
-			statusStr = "Network error ⚠ (stale state)"
+			statusStr = d.theme.WarningStyle().Render("Network error ⚠ (stale state)")
 		default:
-			statusStr = "Not configured"
+			statusStr = d.theme.Dim().Render("Not configured")
 		}
 		items = append(items, components.ActionItem{Label: fmt.Sprintf("%-13s: %s", p, statusStr), Key: "check-ssh", Disabled: user.SSHKey == ""})
 	}
@@ -121,9 +126,9 @@ func (d *Detail) refreshActions() {
 	// ── COMMIT SIGNING ────────────────────────────────────────────────────────
 	items = append(items, components.ActionItem{Label: "Git Config Options", IsSection: true})
 
-	signingLabel := "Disabled"
+	signingLabel := d.theme.Dim().Render("Disabled")
 	if !user.SignDisabled && user.SignKey != "" {
-		signingLabel = fmt.Sprintf("Enabled (%s)", user.SignFormat)
+		signingLabel = d.theme.SuccessStyle().Render(fmt.Sprintf("Enabled (%s)", user.SignFormat))
 	}
 	items = append(items, components.ActionItem{Label: fmt.Sprintf("Commit Signing: %s", signingLabel), Key: "toggle-sign"})
 
@@ -152,7 +157,11 @@ func (d *Detail) refreshActions() {
 	items = append(items, components.ActionItem{Label: "", IsSection: true})
 	items = append(items, components.ActionItem{Label: "← Back", Key: "back"})
 
-	d.actions = components.NewActionMenu(items, d.theme)
+	title := fmt.Sprintf("Identity Details: %s", d.name)
+	d.actions = components.NewActionMenu(title, items, d.theme)
+	if prevKey != "" {
+		d.actions.FindAndSetCursorByKey(prevKey)
+	}
 }
 
 func (d *Detail) Init() tea.Cmd {
@@ -161,9 +170,9 @@ func (d *Detail) Init() tea.Cmd {
 		return tea.Batch(
 			core.CheckKeyLoadedCmd(user.SSHKey),
 			core.CheckKeyPassphraseCmd(user.SSHKey),
-			core.CheckPlatformConnectionCmd(user.SSHKey, "GitHub", "git@github.com", []string{"Hi ", "successfully authenticated"}),
-			core.CheckPlatformConnectionCmd(user.SSHKey, "GitLab", "git@gitlab.com", []string{"Welcome to GitLab", "successfully authenticated"}),
-			core.CheckPlatformConnectionCmd(user.SSHKey, "Bitbucket", "git@bitbucket.org", []string{"logged in as", "successfully authenticated"}),
+			core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "GitHub", "git@github.com", []string{"Hi ", "successfully authenticated"}),
+			core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "GitLab", "git@gitlab.com", []string{"Welcome to GitLab", "successfully authenticated"}),
+			core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "Bitbucket", "git@bitbucket.org", []string{"logged in as", "successfully authenticated"}),
 		)
 	}
 	// If no SSH key exists, mark them as not added immediately
@@ -178,6 +187,7 @@ func (d *Detail) Title() string { return "Identity: " + d.name }
 func (d *Detail) ShortHelp() string { return core.DetailHelp() }
 
 func (d *Detail) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
+	user := d.store.FindUser(d.name)
 	switch msg := msg.(type) {
 	case core.AnimTickMsg:
 		d.animFrame++
@@ -188,24 +198,31 @@ func (d *Detail) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			d.refreshActions()
 		}
 	case core.KeyLoadedMsg:
-		d.keyLoadedChecked = true
-		d.keyLoaded = msg.Loaded
-		d.refreshActions()
-	case core.KeyPassphraseMsg:
-		d.passphraseChecked = true
-		d.passphraseProtected = msg.Protected
-		d.refreshActions()
-	case core.PlatformConnectionMsg:
-		d.platformStatuses[msg.Platform] = msg.Status
-		if msg.Username != "" {
-			d.platformUsernames[msg.Platform] = msg.Username
+		if user != nil && msg.Path == user.SSHKey {
+			d.keyLoadedChecked = true
+			d.keyLoaded = msg.Loaded
+			d.refreshActions()
 		}
-		d.refreshActions()
+	case core.KeyPassphraseMsg:
+		if user != nil && msg.Path == user.SSHKey {
+			d.passphraseChecked = true
+			d.passphraseProtected = msg.Protected
+			d.refreshActions()
+		}
+	case core.PlatformConnectionMsg:
+		if msg.ProfileName == d.name {
+			d.platformStatuses[msg.Platform] = msg.Status
+			if msg.Username != "" {
+				d.platformUsernames[msg.Platform] = msg.Username
+			}
+			d.refreshActions()
+		}
 	case tea.KeyMsg:
 		return d.handleKey(msg)
 	}
 	return d, nil
 }
+
 
 func (d *Detail) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 	switch msg.String() {

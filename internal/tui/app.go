@@ -2,14 +2,15 @@ package tui
 
 import (
 	"fmt"
-	"github.com/divyo-argha/git-user/internal/tui/core"
-	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/tui/components"
+	"github.com/divyo-argha/git-user/internal/tui/core"
+	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 )
 
@@ -277,26 +278,30 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			if !user.SignDisabled && user.SignKey != "" {
 				// Turn off
 				a.store.ToggleSigning(user.Name, true)
+				if a.store.Current == user.Name {
+					git.RemoveSigningConfig()
+				}
 			} else {
 				// Turn on (autodetect key format, or fallback if none)
 				if user.SSHKey != "" {
 					a.store.SetSigningKey(user.Name, user.SSHKey, "ssh")
+					if a.store.Current == user.Name {
+						_ = git.ConfigureSigning(user.SSHKey, "ssh")
+					}
 				} else {
 					// Toggle simple disable state
 					a.store.ToggleSigning(user.Name, !user.SignDisabled)
+					if a.store.Current == user.Name {
+						if !user.SignDisabled {
+							git.RemoveSigningConfig()
+						}
+					}
 				}
 			}
 			config.Save(a.store)
-			// Trigger git sync if this is the active identity
-			if a.store.Current == user.Name {
-				// Use cli's git helper logic on TUI loop exit or reload if needed.
-				// Since we're inside TUI, we reload the store state.
-				return a, func() tea.Msg {
-					return core.StoreRefreshedMsg{Store: a.store}
-				}
-			}
 		}
-		return a, nil
+		return a, core.RefreshStoreCmd()
+
 
 	case "pubkey":
 		a.action = &pendingAction{kind: "pubkey", name: msg.Name}

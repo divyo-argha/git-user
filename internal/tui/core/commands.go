@@ -151,7 +151,7 @@ type KeyPassphraseMsg struct {
 }
 
 // CheckPlatformConnectionCmd runs ssh -T against a Git host and returns auth status.
-func CheckPlatformConnectionCmd(keyPath, platform, host string, successPatterns []string) tea.Cmd {
+func CheckPlatformConnectionCmd(profileName, keyPath, platform, host string, successPatterns []string) tea.Cmd {
 	return func() tea.Msg {
 		args := []string{"-T", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=4", "-o", "ConnectionAttempts=1"}
 		if keyPath != "" {
@@ -172,8 +172,9 @@ func CheckPlatformConnectionCmd(keyPath, platform, host string, successPatterns 
 		// Also parse standard connection failed strings.
 		if err != nil && (strings.Contains(out, "Connection timed out") || strings.Contains(out, "Connection refused") || strings.Contains(out, "Could not resolve hostname")) {
 			return PlatformConnectionMsg{
-				Platform: platform,
-				Status:   "network_error",
+				ProfileName: profileName,
+				Platform:    platform,
+				Status:      "network_error",
 			}
 		}
 
@@ -182,19 +183,22 @@ func CheckPlatformConnectionCmd(keyPath, platform, host string, successPatterns 
 				// Try to extract username
 				username := extractUsername(out, platform)
 				return PlatformConnectionMsg{
-					Platform: platform,
-					Status:   "connected",
-					Username: username,
+					ProfileName: profileName,
+					Platform:    platform,
+					Status:      "connected",
+					Username:    username,
 				}
 			}
 		}
 
 		return PlatformConnectionMsg{
-			Platform: platform,
-			Status:   "not_added",
+			ProfileName: profileName,
+			Platform:    platform,
+			Status:      "not_added",
 		}
 	}
 }
+
 
 func extractUsername(output, platform string) string {
 	switch platform {
