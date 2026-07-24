@@ -8,6 +8,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/version"
 )
 
 const usage = `git-user — manage multiple Git identities
@@ -118,6 +119,11 @@ func Execute() error {
 
 	if args[0] == "--update" || args[0] == "update" {
 		return RunUpdate()
+	}
+
+	if args[0] == "--version" || args[0] == "-v" {
+		fmt.Printf("git-user %s\n", version.Version)
+		return nil
 	}
 
 	sub := args[0]

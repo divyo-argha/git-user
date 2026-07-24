@@ -102,7 +102,7 @@ func runClone(args []string) error {
 	// Execute git clone
 	cloneArgs := []string{"clone", repoURL}
 	if len(passArgs) > 1 {
-		cloneArgs = append(cloneArgs, passArgs[1])
+		cloneArgs = append(cloneArgs, passArgs[1:]...)
 	}
 
 	cmd := exec.Command("git", cloneArgs...)

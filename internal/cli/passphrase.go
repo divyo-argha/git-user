@@ -214,7 +214,8 @@ func runPassphrase(args []string) error {
 		ui.Success(fmt.Sprintf("Passphrase added for %q", user.Name))
 	}
 	promptAndStoreKeychain(user.Name, user.SSHKey, newPassphrase)
-	ui.Info("Use 'git-user session start' to unlock this key for your work session.")
+	ui.Info("Run 'ssh-add " + user.SSHKey + "' to load the key into your SSH agent for this session.")
+	ui.Info("To change how the key is unlocked, use: git-user passphrase --mode <persistent|login|everytime>")
 
 	return nil
 }

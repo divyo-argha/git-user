@@ -29,8 +29,7 @@ func runPubkey(args []string) error {
 
 	// Security check: only allow viewing active identity's key
 	if name != store.Current {
-		ui.Error("access denied: you can only view the public key of the active identity")
-		ui.Info(fmt.Sprintf("Switch first: git-user switch %s", name))
+		ui.Errorf("To view %s's public key, switch first: git-user switch %s", name, name)
 		return fmt.Errorf("access denied")
 	}
 
