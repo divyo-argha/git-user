@@ -29,16 +29,7 @@ func RunUpdate() error {
 
 	// Handle npm-installed packages
 	if isNpmInstall(execPath) {
-		ui.Info("Detected npm installation. Updating git-userhub via npm...")
-		npmCmd := exec.Command("npm", "install", "-g", "git-userhub@latest")
-		npmCmd.Stdout = os.Stdout
-		npmCmd.Stderr = os.Stderr
-		if err := npmCmd.Run(); err != nil {
-			ui.Info("If updating failed, try running manually: npm install -g git-userhub@latest")
-			return fmt.Errorf("npm update failed: %w", err)
-		}
-		ui.Success("✨ git-userhub updated via npm to latest version")
-		return nil
+		return handleNpmUpdate()
 	}
 
 	ui.Info(fmt.Sprintf("Updating git-user from %s...", execPath))
@@ -210,6 +201,37 @@ func extractBinary(archivePath, binaryName string) (string, error) {
 	}
 
 	return "", fmt.Errorf("binary %q not found in archive", binaryName)
+}
+
+func handleNpmUpdate() error {
+	ui.Info("Detected npm installation. Checking registry for updates...")
+
+	req, _ := http.NewRequest("GET", "https://registry.npmjs.org/git-userhub/latest", nil)
+	req.Header.Set("User-Agent", "git-user-updater")
+	resp, err := http.DefaultClient.Do(req)
+	if err == nil && resp.StatusCode == http.StatusOK {
+		defer resp.Body.Close()
+		var npmPkg struct {
+			Version string `json:"version"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&npmPkg); err == nil && npmPkg.Version != "" {
+			if !isNewerVersion(npmPkg.Version, version.Version) {
+				ui.Success(fmt.Sprintf("git-user is already up to date (%s). Latest npm version: %s", version.Version, npmPkg.Version))
+				return nil
+			}
+		}
+	}
+
+	ui.Info("Updating git-userhub via npm...")
+	npmCmd := exec.Command("npm", "install", "-g", "git-userhub@latest")
+	if _, err := npmCmd.CombinedOutput(); err != nil {
+		ui.Warn("Automatic npm update could not be completed.")
+		ui.Info("To update manually, run: npm install -g git-userhub@latest")
+		return nil
+	}
+
+	ui.Success("✨ git-userhub updated via npm to latest version")
+	return nil
 }
 
 func isNpmInstall(execPath string) bool {
