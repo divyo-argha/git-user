@@ -93,11 +93,17 @@ func runPassphrase(args []string) error {
 	}
 
 	if remove {
+		if store.Current != user.Name {
+			ui.Warn(fmt.Sprintf("You must be switched to profile %q (active profile) to remove its passphrase.", user.Name))
+			ui.Info(fmt.Sprintf("Run 'git-user switch %s' first.", user.Name))
+			return fmt.Errorf("must be active identity to remove passphrase")
+		}
+
 		if !protected {
 			ui.Warn("This key is not passphrase protected. Nothing to remove.")
 			return nil
 		}
-		ui.Info("Enter the current passphrase to remove passphrase security.")
+		ui.Info("Enter current passphrase to confirm passphrase removal.")
 		oldPassphrase, err := readPassphrase("Current passphrase: ")
 		if err != nil {
 			return err

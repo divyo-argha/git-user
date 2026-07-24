@@ -58,6 +58,7 @@ func (m *ActionMenu) CursorUp()    { m.cursor = m.prevSelectable(m.cursor) }
 func (m *ActionMenu) CursorDown()  { m.cursor = m.nextSelectable(m.cursor) }
 func (m *ActionMenu) Cursor() int  { return m.cursor }
 func (m *ActionMenu) ResetCursor() { m.cursor = m.nextSelectable(-1) }
+func (m *ActionMenu) Items() []ActionItem { return m.items }
 
 func (m *ActionMenu) FindAndSetCursorByKey(key string) {
 	for i, item := range m.items {

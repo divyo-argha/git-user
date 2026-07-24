@@ -12,7 +12,8 @@ import (
 func TestPassphraseMenu(t *testing.T) {
 	th := theme.DefaultTheme()
 	store := &config.Store{
-		Users: []config.User{{Name: "work", Email: "work@company.com", SSHKey: "/path/to/key"}},
+		Current: "work",
+		Users:   []config.User{{Name: "work", Email: "work@company.com", SSHKey: "/path/to/key"}},
 	}
 
 	pm := NewPassphraseMenu(store, "work", th)
@@ -49,7 +50,7 @@ func TestPassphraseMenu(t *testing.T) {
 		t.Errorf("Expected core.ActionResultMsg on Enter, got %T", msg)
 	}
 
-	// Test selecting passphrase-remove action
+	// Test selecting passphrase-remove action on active profile
 	pm.actions.FindAndSetCursorByKey("passphrase-remove")
 	_, cmd = pm.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
@@ -62,5 +63,31 @@ func TestPassphraseMenu(t *testing.T) {
 		}
 	} else {
 		t.Errorf("Expected core.ActionResultMsg on Enter, got %T", msg)
+	}
+
+	// Test selecting passphrase-remove on non-active profile shows toast
+	storeInactive := &config.Store{
+		Current: "personal",
+		Users:   []config.User{{Name: "work", Email: "work@company.com", SSHKey: "/path/to/key"}},
+	}
+	pmInactive := NewPassphraseMenu(storeInactive, "work", th)
+	pmInactive.actions.FindAndSetCursorByKey("passphrase-remove")
+	_, cmd = pmInactive.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatalf("Expected toast command on non-active profile passphrase-remove")
+	}
+	msg = cmd()
+	if toastMsg, ok := msg.(core.ToastMsg); ok {
+		if toastMsg.Text == "" {
+			t.Errorf("Expected non-empty toast error message")
+		}
+	} else {
+		t.Errorf("Expected ToastMsg on non-active profile passphrase-remove, got %T", msg)
+	}
+
+	// Test View rendering
+	viewStr := pm.View(80, 24)
+	if viewStr == "" {
+		t.Errorf("View rendered empty string")
 	}
 }
