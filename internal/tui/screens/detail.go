@@ -161,9 +161,25 @@ func (d *Detail) refreshActions() {
 
 	// ── UTILITIES ─────────────────────────────────────────────────────────────
 	items = append(items, components.ActionItem{Label: "Utilities", IsSection: true})
-	items = append(items, components.ActionItem{Label: "🔑 Show public key", Key: "pubkey"})
+	if isActive {
+		items = append(items, components.ActionItem{Label: "🔑 Show public key", Key: "pubkey"})
+	} else {
+		items = append(items, components.ActionItem{
+			Label:    d.theme.Dim().Render("🔑 Show public key (switch to this identity first)"),
+			Key:      "pubkey-locked",
+			Disabled: true,
+		})
+	}
 	if user.SSHKey != "" {
-		items = append(items, components.ActionItem{Label: "🚀 Publish SSH key to platform", Key: "pubkey-push"})
+		if isActive {
+			items = append(items, components.ActionItem{Label: "🚀 Publish SSH key to platform", Key: "pubkey-push"})
+		} else {
+			items = append(items, components.ActionItem{
+				Label:    d.theme.Dim().Render("🚀 Publish SSH key to platform (switch to this identity first)"),
+				Key:      "pubkey-push-locked",
+				Disabled: true,
+			})
+		}
 	}
 	items = append(items, components.ActionItem{Label: "🔄 Rotate SSH key", Key: "rekey"})
 	if user.SSHKey != "" {
