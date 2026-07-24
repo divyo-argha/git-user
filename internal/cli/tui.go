@@ -6,6 +6,8 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/keyring"
+	"github.com/divyo-argha/git-user/internal/ssh"
 	"github.com/divyo-argha/git-user/internal/tui"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
@@ -109,6 +111,17 @@ func executeAction(kind string, name string, arg string, store *config.Store) {
 				ui.Warn("SSH verification failed. Make sure your public key is added to GitHub/GitLab.")
 			} else {
 				ui.Success("SSH connection verified successfully!")
+				if !ssh.IsSSHKeyLoaded(u.SSHKey) {
+					var passphrase string
+					if secret, err := keyring.GetKeychainPassphrase(u.Name); err == nil && secret != "" {
+						passphrase = secret
+					}
+					if ssh.EnsureSSHAgent() == nil {
+						if err := ssh.AddSSHKeyWithPassphrase(u.SSHKey, passphrase); err == nil {
+							ui.Success("SSH key loaded into agent cache ✓")
+						}
+					}
+				}
 			}
 		} else {
 			ui.Warn(fmt.Sprintf("No SSH key bound to identity %q", name))

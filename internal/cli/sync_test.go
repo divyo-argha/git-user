@@ -73,6 +73,7 @@ func TestRunSync_SetupAndSync(t *testing.T) {
 	oldHome := os.Getenv("HOME")
 	os.Setenv("HOME", tmpDir2)
 	configFilePath2 := filepath.Join(tmpDir2, ".git-users", "config.json")
+	t.Setenv("GIT_USER_CONFIG", configFilePath2)
 	config.SetConfigPath(configFilePath2)
 
 	// Clean sync dir for second environment

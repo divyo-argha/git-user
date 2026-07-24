@@ -114,17 +114,19 @@ func (d *Detail) refreshActions() {
 	}
 	items = append(items, components.ActionItem{Label: fmt.Sprintf("Passphrase   : %s", passphraseStr), Key: "passphrase", Disabled: user.SSHKey == ""})
 
-	sessionStr := d.theme.Dim().Render("not loaded")
+	sessionStr := d.theme.Dim().Render("Test Connection ⚡")
 	if user.SSHKey != "" {
 		if d.keyLoadedChecked {
 			if d.keyLoaded {
 				sessionStr = d.theme.SuccessStyle().Render("Loaded in agent ✓")
+			} else {
+				sessionStr = d.theme.Dim().Render("Test Connection ⚡")
 			}
 		} else {
 			sessionStr = d.theme.Dim().Render("checking...")
 		}
 	}
-	items = append(items, components.ActionItem{Label: fmt.Sprintf("Agent Status : %s", sessionStr), Key: "check-ssh", Disabled: user.SSHKey == ""})
+	items = append(items, components.ActionItem{Label: fmt.Sprintf("SSH Connection: %s", sessionStr), Key: "check-ssh", Disabled: user.SSHKey == ""})
 
 	// ── PLATFORMS ─────────────────────────────────────────────────────────────
 	items = append(items, components.ActionItem{Label: "Verified Platforms", IsSection: true})

@@ -63,12 +63,17 @@ func init() {
 	configPath = filepath.Join(home, ".git-users", "config.json")
 }
 
-func ConfigPath() string { return configPath }
+func ConfigPath() string {
+	if env := os.Getenv("GIT_USER_CONFIG"); env != "" {
+		return env
+	}
+	return configPath
+}
 
 func SetConfigPath(path string) { configPath = path }
 
 func TempConfigPath() string {
-	return filepath.Join(filepath.Dir(configPath), "temp.json")
+	return filepath.Join(filepath.Dir(ConfigPath()), "temp.json")
 }
 
 func DeleteTempConfig() {
@@ -76,8 +81,9 @@ func DeleteTempConfig() {
 }
 
 func Load() (*Store, error) {
+	cPath := ConfigPath()
 	var s Store
-	data, err := os.ReadFile(configPath)
+	data, err := os.ReadFile(cPath)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("reading config: %w", err)
@@ -103,6 +109,7 @@ func Load() (*Store, error) {
 }
 
 func Save(s *Store) error {
+	cPath := ConfigPath()
 	var permUsers []User
 	var tempUsers []User
 	for _, u := range s.Users {
@@ -113,7 +120,7 @@ func Save(s *Store) error {
 		}
 	}
 
-	dir := filepath.Dir(configPath)
+	dir := filepath.Dir(cPath)
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return fmt.Errorf("creating config directory: %w", err)
 	}
@@ -152,7 +159,7 @@ func Save(s *Store) error {
 		os.Remove(tmpName)
 		return fmt.Errorf("setting permissions: %w", err)
 	}
-	if err := os.Rename(tmpName, configPath); err != nil {
+	if err := os.Rename(tmpName, cPath); err != nil {
 		os.Remove(tmpName)
 		return fmt.Errorf("saving config: %w", err)
 	}

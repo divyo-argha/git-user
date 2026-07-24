@@ -10,6 +10,7 @@ import (
 )
 
 func TestPassphraseMenu(t *testing.T) {
+	t.Setenv("GIT_USER_CONFIG", t.TempDir()+"/config.json")
 	th := theme.DefaultTheme()
 	store := &config.Store{
 		Current: "work",
