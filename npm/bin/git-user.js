@@ -29,6 +29,10 @@ const fs = require('fs');
 const platform = process.platform;
 const arch = process.arch;
 
+const supportedPlatforms = ['darwin', 'linux', 'win32'];
+const supportedArchs = ['x64', 'arm64'];
+const isSupportedPlatform = supportedPlatforms.includes(platform) && supportedArchs.includes(arch);
+
 const ext = platform === 'win32' ? '.exe' : '';
 const packageName = `git-userhub-${platform}-${arch}`;
 
@@ -42,8 +46,14 @@ try {
     const localPkgPath = require.resolve(`../packages/${packageName}/package.json`);
     binPath = path.join(path.dirname(localPkgPath), 'bin', `git-user${ext}`);
   } catch (err) {
-    console.error(`Unsupported platform or architecture: ${platform}-${arch}`);
-    console.error('git-userhub currently supports macOS, Linux, and Windows on x64 and arm64 architectures.');
+    if (!isSupportedPlatform) {
+      console.error(`Unsupported platform or architecture: ${platform}-${arch}`);
+      console.error('git-userhub currently supports macOS, Linux, and Windows on x64 and arm64 architectures.');
+    } else {
+      console.error(`Error: Platform-specific binary package "${packageName}" is not installed.`);
+      console.error('This usually occurs when optional dependencies are skipped during npm installation or when subpackages have not yet been published to the npm registry.');
+      console.error('Try reinstalling with: npm install -g git-userhub --force');
+    }
     process.exit(1);
   }
 }
