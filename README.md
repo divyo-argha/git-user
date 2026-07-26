@@ -349,14 +349,17 @@ What happens:
 | `register` | Create a new identity (guided setup with SSH) |
 | `switch <name> [--local]` | Switch to an identity (globally, or locally in repository config) |
 | `switch -c <name> [email]` | Create and switch in one command |
+| `switch --original` | Restore the gitconfig state from before git-user was first used |
 | `list` | Show all identities |
 | `current` | Show active identity |
+| `prompt` | Output active identity for terminal integration |
 | `remove <name>` | Delete an identity |
 | `edit <name> <email>` | Update email |
 | `bind <name> [--ssh-key <path>]` | Link an SSH key to an identity |
 | `bind-path <name> <path>` | Bind a directory path to an identity for auto-switching |
 | `unbind-path <name> <path>` | Unbind a directory path from an identity |
 | `pubkey` | Show the public key of the active identity |
+| `pubkey push [platform]` | Publish public SSH key directly to GitHub, GitLab, or Bitbucket |
 | `passphrase` | Add, change, or remove (`--remove`) passphrase for the active, unlocked identity |
 | `sign <name> [--on\|--off]` | Enable/disable automatic Git commit signing for an identity |
 | `rekey <name>` | Rotate SSH key (with rollback safety) |
@@ -365,7 +368,12 @@ What happens:
 | `security` | Audit all identities for security issues |
 | `export --all` | Export all identities + SSH keys (AES-256 encrypted) |
 | `export <name> [name...]` | Export specific identities |
+| `import-original [name]` | Import original gitconfig identity into git-user |
 | `import <file>` | Import from an encrypted bundle |
+| `clone <repo-url> [dir]` | Clone repository and auto-configure local identity |
+| `stats` | Audit and show commit author identity stats |
+| `config <id> [set\|unset\|list]`| Manage custom git configurations for an identity |
+| `sync` | Synchronize identities across devices using a private repository |
 | `doctor` | Run a full health check |
 | `tui` | Interactive menu |
 | `completion <shell>` | Shell completions (bash/zsh/fish) |

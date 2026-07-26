@@ -6,8 +6,8 @@ Security fixes are applied to the latest stable release only.
 
 | Version | Status              |
 |---------|---------------------|
-| 3.x     | Actively maintained |
-| < 3.0   | End of life         |
+| 4.x     | Actively maintained |
+| < 4.0   | End of life         |
 
 ---
 
