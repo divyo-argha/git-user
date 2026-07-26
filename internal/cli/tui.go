@@ -67,6 +67,18 @@ func executeAction(kind string, name string, arg string, store *config.Store) {
 			runRegister(nil)
 		}
 
+	case "register-temp":
+		if name != "" && arg != "" {
+			// Use switch -c --temp which calls quickRegister with isTemp=true
+			ui.Banner("CREATING TEMPORARY PROFILE")
+			fmt.Println()
+			ui.Info("This profile will be automatically deleted when you switch away or log out.")
+			fmt.Println()
+			if err := runSwitch([]string{"-c", name, arg, "--temp"}); err != nil {
+				ui.Errorf("creating temporary profile: %v", err)
+			}
+		}
+
 	case "switch":
 		runSwitch([]string{name})
 
@@ -131,10 +143,6 @@ func executeAction(kind string, name string, arg string, store *config.Store) {
 	case "unbind":
 		u := store.FindUser(name)
 		if u == nil {
-			return
-		}
-		if !ui.Confirm(fmt.Sprintf("Remove SSH key binding from %q? (file not deleted)", name), false) {
-			ui.Info("Cancelled")
 			return
 		}
 		u.SSHKey = ""
@@ -222,10 +230,6 @@ func executeAction(kind string, name string, arg string, store *config.Store) {
 		runImportOriginal(nil)
 
 	case "remove":
-		if !ui.Confirm(fmt.Sprintf("Remove identity %q? This cannot be undone.", name), false) {
-			ui.Info("Cancelled")
-			return
-		}
 		runRemove([]string{name})
 
 	case "fix-remote":

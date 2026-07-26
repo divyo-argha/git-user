@@ -89,8 +89,8 @@ func RunUpdate() error {
 		return fmt.Errorf("no binary found for %s/%s in release %s", goos, goarch, release.TagName)
 	}
 
-	// Download to temp file
-	tmpFile, err := os.CreateTemp("", "git-user-update-*")
+	// Download to temp file (must be in same dir as binary for cross-device rename safety)
+	tmpFile, err := os.CreateTemp(filepath.Dir(execPath), "git-user-update-*")
 	if err != nil {
 		return fmt.Errorf("creating temp file: %w", err)
 	}
@@ -186,7 +186,7 @@ func extractBinary(archivePath, binaryName string) (string, error) {
 
 		// Match by base name to handle paths like ./git-user or git-user
 		if filepath.Base(hdr.Name) == binaryName {
-			out, err := os.CreateTemp("", "git-user-new-*")
+			out, err := os.CreateTemp(filepath.Dir(archivePath), "git-user-new-*")
 			if err != nil {
 				return "", err
 			}

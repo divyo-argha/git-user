@@ -271,17 +271,22 @@ func ConvertHTTPSToSSH(httpsURL string) (string, bool) {
 	if !strings.HasPrefix(httpsURL, "https://") {
 		return httpsURL, false
 	}
-	
+
 	httpsURL = strings.TrimPrefix(httpsURL, "https://")
 	httpsURL = strings.TrimSuffix(httpsURL, ".git")
-	
+
 	parts := strings.SplitN(httpsURL, "/", 2)
 	if len(parts) != 2 {
 		return "", false
 	}
-	
+
 	host := parts[0]
 	path := parts[1]
-	
+
+	// Strip embedded credentials (user:token@host → host)
+	if atIdx := strings.LastIndex(host, "@"); atIdx >= 0 {
+		host = host[atIdx+1:]
+	}
+
 	return fmt.Sprintf("git@%s:%s.git", host, path), true
 }

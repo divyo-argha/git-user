@@ -48,6 +48,8 @@ func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 		ActionItem{Label: "Security audit", Key: "security"},
 		ActionItem{Label: "Doctor (health check)", Key: "doctor"},
 		ActionItem{Label: "Import / Export…", Key: "import-export"},
+		ActionItem{IsSection: true, Label: "Profiles"},
+		ActionItem{Label: "⏱ Create temporary profile", Key: "register-temp"},
 		ActionItem{Label: "Update git-user", Key: "update"},
 		ActionItem{Label: "Quit", Key: "quit"},
 	)

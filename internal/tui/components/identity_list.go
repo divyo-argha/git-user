@@ -10,15 +10,16 @@ import (
 
 // IdentityItem represents a single item in the identity list.
 type IdentityItem struct {
-	Name       string
-	Email      string
-	IsActive   bool
-	IsOriginal bool
-	HasSSHKey  bool
-	HasSigning bool
-	BindCount  int
-	IsAction   bool
-	ActionKey  string
+	Name        string
+	Email       string
+	IsActive    bool
+	IsOriginal  bool
+	IsTemporary bool
+	HasSSHKey   bool
+	HasSigning  bool
+	BindCount   int
+	IsAction    bool
+	ActionKey   string
 }
 
 // IdentityList is a scrollable list of identities.
@@ -46,13 +47,14 @@ func buildIdentityItems(store *config.Store) []IdentityItem {
 	var items []IdentityItem
 	for _, u := range store.Users {
 		items = append(items, IdentityItem{
-			Name:       u.Name,
-			Email:      u.Email,
-			IsActive:   u.Name == store.Current,
-			IsOriginal: u.Source == "original",
-			HasSSHKey:  u.SSHKey != "",
-			HasSigning: !u.SignDisabled && u.SignKey != "",
-			BindCount:  len(u.BindPaths),
+			Name:        u.Name,
+			Email:       u.Email,
+			IsActive:    u.Name == store.Current,
+			IsOriginal:  u.Source == "original",
+			IsTemporary: u.IsTemporary,
+			HasSSHKey:   u.SSHKey != "",
+			HasSigning:  !u.SignDisabled && u.SignKey != "",
+			BindCount:   len(u.BindPaths),
 		})
 	}
 	items = append(items, IdentityItem{IsAction: true, ActionKey: "register"})
@@ -254,6 +256,9 @@ func (l IdentityList) renderIdentityLine(item IdentityItem, isCursor, isActive b
 
 	if item.IsOriginal {
 		nameStr += "  " + l.theme.SuccessStyle().Render("(original)")
+	}
+	if item.IsTemporary {
+		nameStr += "  " + l.theme.WarningStyle().Render("⏱ TEMP")
 	}
 
 	fullLine := prefix + nameStr + badgeStr

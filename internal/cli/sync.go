@@ -111,10 +111,26 @@ func runSync(args []string) error {
 		}
 	}
 
-	// Pull from remote
+	// Pull from remote — auto-recover if syncDir was deleted
 	ui.Info("Fetching latest updates from sync remote...")
-	// We run pull, ignoring errors if remote branch doesn't exist yet (e.g. first sync)
-	_ = runGitInDir(syncDir, "pull", "origin", "main")
+	if _, statErr := os.Stat(syncDir); os.IsNotExist(statErr) {
+		ui.Warn("Sync directory not found. Re-cloning from configured remote...")
+		if err := os.MkdirAll(filepath.Dir(syncDir), 0700); err != nil {
+			ui.Errorf("creating parent directory: %v", err)
+			return err
+		}
+		cloneCmd := exec.Command("git", "clone", store.Sync.RepoURL, syncDir)
+		cloneCmd.Stdout = os.Stdout
+		cloneCmd.Stderr = os.Stderr
+		if err := cloneCmd.Run(); err != nil {
+			ui.Errorf("re-cloning sync repo failed: %v", err)
+			return fmt.Errorf("sync repo re-clone failed: %w", err)
+		}
+		ui.Success("Sync directory restored.")
+	} else {
+		// We run pull, ignoring errors if remote branch doesn't exist yet (e.g. first sync)
+		_ = runGitInDir(syncDir, "pull", "origin", "main")
+	}
 
 	bundlePath := filepath.Join(syncDir, "backup.bundle")
 	var remoteIdentities []bundle.Identity

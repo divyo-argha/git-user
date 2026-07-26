@@ -225,6 +225,20 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			)}
 		}
 
+	case "register-temp":
+		return a, func() tea.Msg {
+			return core.ScreenPushMsg{Screen: screens.NewForm(
+				"Create Temporary Profile",
+				"Profile is deleted automatically when you switch away or log out",
+				"register-temp",
+				[]screens.FormInput{
+					{Label: "Profile Name:", Placeholder: "e.g. client-work"},
+					{Label: "Email Address:", Placeholder: "e.g. you@client.com"},
+				},
+				a.theme,
+			)}
+		}
+
 	case "switch":
 		a.action = &pendingAction{kind: "switch", name: msg.Name}
 		return a, tea.Quit
@@ -457,6 +471,13 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 			return a, core.ShowToastCmd("Profile name and email are required", theme.ToastStyleError, 3*time.Second)
 		}
 		a.action = &pendingAction{kind: "register", name: msg.Values[0], arg: msg.Values[1]}
+		return a, tea.Quit
+
+	case "register-temp":
+		if msg.Values[0] == "" || msg.Values[1] == "" {
+			return a, core.ShowToastCmd("Profile name and email are required", theme.ToastStyleError, 3*time.Second)
+		}
+		a.action = &pendingAction{kind: "register-temp", name: msg.Values[0], arg: msg.Values[1]}
 		return a, tea.Quit
 
 	case "rename":

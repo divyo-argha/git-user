@@ -325,7 +325,7 @@ func (s *Store) UnbindPathFromUser(name, path string) error {
 		return fmt.Errorf("user %q not found", name)
 	}
 	found := false
-	filtered := u.BindPaths[:0]
+	var filtered []string
 	for _, p := range u.BindPaths {
 		if p == path {
 			found = true
