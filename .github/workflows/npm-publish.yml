@@ -21,6 +21,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Configure Git safe directory
+        run: git config --global --add safe.directory '*'
+
       - name: Verify NPM_TOKEN secret
         run: |
           if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
