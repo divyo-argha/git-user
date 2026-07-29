@@ -57,6 +57,12 @@ func setupTestEnv(t *testing.T) string {
 	ui.ConfirmFn = func(question string, defaultYes bool) bool {
 		return defaultYes
 	}
+	ui.SelectFn = func(label string, options []string) (int, error) {
+		return 0, nil
+	}
+	readPassphraseFn = func(prompt string) (string, error) {
+		return "", nil
+	}
 
 	// Reset mocked functions and restore HOME on cleanup
 	t.Cleanup(func() {

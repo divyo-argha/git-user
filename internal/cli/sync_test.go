@@ -14,6 +14,10 @@ import (
 func TestRunSync_SetupAndSync(t *testing.T) {
 	tmpDir := setupTestEnv(t)
 
+	// Configure git user.name and user.email globally for the test environment to allow commits during sync
+	_ = exec.Command("git", "config", "--global", "user.name", "Test User").Run()
+	_ = exec.Command("git", "config", "--global", "user.email", "test@example.com").Run()
+
 	// Create a mock remote git repo to serve as the backup target
 	remoteRepoDir := filepath.Join(tmpDir, "remote-backup-repo")
 	err := os.Mkdir(remoteRepoDir, 0755)
