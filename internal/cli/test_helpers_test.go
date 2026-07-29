@@ -23,10 +23,8 @@ func setupTestEnv(t *testing.T) string {
 	os.Setenv("HOME", tmpDir)
 	t.Setenv("SSH_AUTH_SOCK", "")
 
-	// Configure safe directory and default identity on the redirected HOME environment
+	// Configure safe directory on the redirected HOME environment
 	_ = exec.Command("git", "config", "--global", "--add", "safe.directory", "*").Run()
-	_ = exec.Command("git", "config", "--global", "user.name", "Test User").Run()
-	_ = exec.Command("git", "config", "--global", "user.email", "test@example.com").Run()
 
 	configFilePath := filepath.Join(tmpDir, ".git-users", "config.json")
 	config.SetConfigPath(configFilePath)
