@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -21,6 +22,9 @@ func setupTestEnv(t *testing.T) string {
 	oldHome := os.Getenv("HOME")
 	os.Setenv("HOME", tmpDir)
 	t.Setenv("SSH_AUTH_SOCK", "")
+
+	// Configure safe directory on the redirected HOME environment
+	_ = exec.Command("git", "config", "--global", "--add", "safe.directory", "*").Run()
 
 	configFilePath := filepath.Join(tmpDir, ".git-users", "config.json")
 	config.SetConfigPath(configFilePath)

@@ -3,6 +3,7 @@ package cli
 import (
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -72,6 +73,7 @@ func TestRunSync_SetupAndSync(t *testing.T) {
 	tmpDir2 := t.TempDir()
 	oldHome := os.Getenv("HOME")
 	os.Setenv("HOME", tmpDir2)
+	_ = exec.Command("git", "config", "--global", "--add", "safe.directory", "*").Run()
 	configFilePath2 := filepath.Join(tmpDir2, ".git-users", "config.json")
 	t.Setenv("GIT_USER_CONFIG", configFilePath2)
 	config.SetConfigPath(configFilePath2)
