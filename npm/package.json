@@ -49,8 +49,8 @@
     "git-userhub-darwin-arm64": "4.5.2",
     "git-userhub-linux-x64": "4.5.2",
     "git-userhub-linux-arm64": "4.5.2",
-    "git-userhub-win32-x64": "4.5.2",
-    "git-userhub-win32-arm64": "4.5.2"
+    "git-userhub-windows-x64": "4.5.2",
+    "git-userhub-windows-arm64": "4.5.2"
   },
   "publishConfig": {
     "access": "public"

@@ -34,7 +34,8 @@ const supportedArchs = ['x64', 'arm64'];
 const isSupportedPlatform = supportedPlatforms.includes(platform) && supportedArchs.includes(arch);
 
 const ext = platform === 'win32' ? '.exe' : '';
-const packageName = `git-userhub-${platform}-${arch}`;
+const pkgPlatform = platform === 'win32' ? 'windows' : platform;
+const packageName = `git-userhub-${pkgPlatform}-${arch}`;
 
 let binPath;
 try {
