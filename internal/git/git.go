@@ -290,3 +290,26 @@ func ConvertHTTPSToSSH(httpsURL string) (string, bool) {
 
 	return fmt.Sprintf("git@%s:%s.git", host, path), true
 }
+
+// CurrentBranch returns the name of the currently checked out branch.
+func CurrentBranch() string {
+	out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// CurrentRepoName returns the directory name of the current git repository root.
+func CurrentRepoName() string {
+	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return ""
+	}
+	top := strings.TrimSpace(string(out))
+	if top == "" {
+		return ""
+	}
+	return top[strings.LastIndex(top, "/")+1:]
+}
+

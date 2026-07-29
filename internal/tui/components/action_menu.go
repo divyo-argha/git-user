@@ -36,22 +36,23 @@ func NewActionMenu(title string, items []ActionItem, th theme.Theme) ActionMenu 
 // converting.
 func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 	items := []ActionItem{
-		{Label: "Sign out (logout)", Key: "logout"},
+		{IsSection: true, Label: "⚡ Quick Actions"},
+		{Label: "🚪 Sign out (logout)", Key: "logout"},
 	}
 
 	if showFixRemote {
-		items = append(items, ActionItem{Label: "Fix remotes (HTTPS → SSH)", Key: "fix-remote"})
+		items = append(items, ActionItem{Label: "🔗 Fix remotes (HTTPS → SSH)", Key: "fix-remote"})
 	}
 
 	items = append(items,
-		ActionItem{IsSection: true, Label: "Diagnostics"},
-		ActionItem{Label: "Security audit", Key: "security"},
-		ActionItem{Label: "Doctor (health check)", Key: "doctor"},
-		ActionItem{Label: "Import / Export…", Key: "import-export"},
-		ActionItem{IsSection: true, Label: "Profiles"},
+		ActionItem{IsSection: true, Label: "🛡 Security & Health"},
+		ActionItem{Label: "🔒 Security audit", Key: "security"},
+		ActionItem{Label: "🩺 Doctor (health check)", Key: "doctor"},
+		ActionItem{Label: "📦 Import / Export bundles…", Key: "import-export"},
+		ActionItem{IsSection: true, Label: "👤 Profiles & System"},
 		ActionItem{Label: "⏱ Create temporary profile", Key: "register-temp"},
-		ActionItem{Label: "Update git-user", Key: "update"},
-		ActionItem{Label: "Quit", Key: "quit"},
+		ActionItem{Label: "🔄 Update git-user", Key: "update"},
+		ActionItem{Label: "❌ Quit", Key: "quit"},
 	)
 	return NewActionMenu("System Utilities", items, th)
 }

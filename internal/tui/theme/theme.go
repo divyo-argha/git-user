@@ -177,10 +177,41 @@ func (t Theme) PillBadge() lipgloss.Style {
 		Padding(0, 1)
 }
 
+func (t Theme) PillWarning() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(t.Warning).
+		Foreground(lipgloss.Color("#15161E")).
+		Padding(0, 1).
+		Bold(true)
+}
+
+func (t Theme) PillDanger() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(t.Danger).
+		Foreground(lipgloss.Color("#15161E")).
+		Padding(0, 1).
+		Bold(true)
+}
+
+func (t Theme) PillMuted() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Background(t.Muted).
+		Foreground(t.Text).
+		Padding(0, 1)
+}
+
+func (t Theme) HUDBox(width int) lipgloss.Style {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(t.Primary).
+		Padding(0, 1).
+		Width(width)
+}
+
 func (t Theme) Keycap() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Background(lipgloss.Color("#2E3440")).
-		Foreground(t.Primary).
+		Foreground(t.Accent).
 		Padding(0, 1).
 		Bold(true)
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 	"github.com/divyo-argha/git-user/internal/version"
 	"github.com/divyo-argha/git-user/logo"
@@ -95,6 +96,19 @@ func (s StatusBar) viewFull() string {
 		infoLines = append(infoLines, fmt.Sprintf("  %s  %s",
 			labelStyle.Render("SSH Agent      :"),
 			lipgloss.NewStyle().Foreground(lipgloss.Color("#565F89")).Render("checking..."),
+		))
+	}
+
+	repoName := git.CurrentRepoName()
+	branch := git.CurrentBranch()
+	if repoName != "" {
+		repoStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#BB9AF7")).Bold(true).Render("📁 " + repoName)
+		if branch != "" {
+			repoStr += " " + lipgloss.NewStyle().Foreground(lipgloss.Color("#787C99")).Render("("+branch+")")
+		}
+		infoLines = append(infoLines, fmt.Sprintf("  %s  %s",
+			labelStyle.Render("Repository     :"),
+			repoStr,
 		))
 	}
 

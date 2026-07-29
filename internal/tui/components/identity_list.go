@@ -249,24 +249,24 @@ func (l IdentityList) renderIdentityLine(item IdentityItem, isCursor, isActive b
 
 	nameStr := item.Name
 	if item.IsActive {
-		nameStr = l.theme.Active().Render(item.Name) + "  " + l.theme.Dim().Render(item.Email) + "  " + l.theme.PillActive().Render("ACTIVE")
+		nameStr = l.theme.Active().Render(item.Name) + "  " + l.theme.Dim().Render("<"+item.Email+">") + "  " + l.theme.PillActive().Render("● ACTIVE")
 	} else {
-		nameStr = item.Name + "  " + l.theme.Dim().Render(item.Email)
+		nameStr = l.theme.Bold().Render(item.Name) + "  " + l.theme.Dim().Render("<"+item.Email+">")
 	}
 
 	if item.IsOriginal {
 		nameStr += "  " + l.theme.SuccessStyle().Render("(original)")
 	}
 	if item.IsTemporary {
-		nameStr += "  " + l.theme.WarningStyle().Render("⏱ TEMP")
+		nameStr += "  " + l.theme.PillWarning().Render("⏱ TEMP")
 	}
 
 	fullLine := prefix + nameStr + badgeStr
 
 	if isCursor && isActive {
-		return l.theme.Selected().Render("❯ ") + fullLine
+		return l.theme.Selected().Render("▶ ") + fullLine
 	} else if isCursor && !isActive {
-		return l.theme.Dim().Render("❯ ") + fullLine
+		return l.theme.Dim().Render("▶ ") + fullLine
 	}
 	return "  " + fullLine
 }
