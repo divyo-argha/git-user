@@ -19,9 +19,19 @@ func TestConvertHTTPSToSSH(t *testing.T) {
 		{"git@github.com:user/repo.git", "git@github.com:user/repo.git", false},
 		// no .git suffix
 		{"https://github.com/user/repo", "git@github.com:user/repo.git", true},
+		// embedded credentials
+		{"https://user:token@github.com/foo/bar.git", "git@github.com:user/repo.git", true}, // Note: we'll test the actual host parsing
 	}
 
 	for _, c := range cases {
+		// Skip mock credential test checking since it expects a specific format
+		if c.input == "https://user:token@github.com/foo/bar.git" {
+			got, changed := git.ConvertHTTPSToSSH(c.input)
+			if !changed || got != "git@github.com:foo/bar.git" {
+				t.Errorf("ConvertHTTPSToSSH(%q): got %q, want %q", c.input, got, "git@github.com:foo/bar.git")
+			}
+			continue
+		}
 		got, changed := git.ConvertHTTPSToSSH(c.input)
 		if changed != c.changed {
 			t.Errorf("ConvertHTTPSToSSH(%q): changed=%v, want %v", c.input, changed, c.changed)
@@ -29,6 +39,19 @@ func TestConvertHTTPSToSSH(t *testing.T) {
 		if got != c.want {
 			t.Errorf("ConvertHTTPSToSSH(%q): got %q, want %q", c.input, got, c.want)
 		}
+	}
+}
+
+func TestCurrentBranchAndRepo(t *testing.T) {
+	// Since we are running in a Git repository, these should return correct non-empty values
+	branch := git.CurrentBranch()
+	if branch == "" {
+		t.Errorf("Expected non-empty current branch name")
+	}
+
+	repoName := git.CurrentRepoName()
+	if repoName != "git-user" {
+		t.Errorf("Expected current repo name 'git-user', got %q", repoName)
 	}
 }
 
