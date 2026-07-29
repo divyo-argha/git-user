@@ -66,7 +66,13 @@ func TestRunPubkey_Success(t *testing.T) {
 	ui.SelectFn = func(label string, options []string) (int, error) {
 		return 0, nil // Auto-generate
 	}
-	err := runSwitch([]string{"-c", "alice", "alice@example.com"})
+	ui.PromptFn = func(label string) (string, error) {
+		return "", nil
+	}
+	readPassphraseFn = func(prompt string) (string, error) {
+		return "testpass", nil
+	}
+	err := runSwitch([]string{"-c", "alice", "alice@example.com", "--passphrase", "testpass"})
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)
 	}
