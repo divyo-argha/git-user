@@ -23,11 +23,18 @@ func setupTestEnv(t *testing.T) string {
 	os.Setenv("HOME", tmpDir)
 	t.Setenv("SSH_AUTH_SOCK", "")
 
-	// Configure safe directory on the redirected HOME environment
+	// Configure safe directory and default identity on the redirected HOME environment
 	_ = exec.Command("git", "config", "--global", "--add", "safe.directory", "*").Run()
+	_ = exec.Command("git", "config", "--global", "user.name", "Test User").Run()
+	_ = exec.Command("git", "config", "--global", "user.email", "test@example.com").Run()
 
 	configFilePath := filepath.Join(tmpDir, ".git-users", "config.json")
 	config.SetConfigPath(configFilePath)
+
+	// Save original keyring functions
+	oldKeyringGet := keyring.KeyringGet
+	oldKeyringSet := keyring.KeyringSet
+	oldKeyringDelete := keyring.KeyringDelete
 
 	// Mock keyring library
 	mockKeyring := make(map[string]string)
@@ -60,9 +67,9 @@ func setupTestEnv(t *testing.T) string {
 		ui.SelectFn = nil
 		ui.ConfirmFn = nil
 		readPassphraseFn = nil
-		keyring.KeyringGet = keyring.KeyringGet
-		keyring.KeyringSet = keyring.KeyringSet
-		keyring.KeyringDelete = keyring.KeyringDelete
+		keyring.KeyringGet = oldKeyringGet
+		keyring.KeyringSet = oldKeyringSet
+		keyring.KeyringDelete = oldKeyringDelete
 	})
 
 	return tmpDir
