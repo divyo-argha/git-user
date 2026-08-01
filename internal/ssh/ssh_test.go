@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -279,6 +280,14 @@ func TestSSHKeyFingerprintErrors(t *testing.T) {
 }
 
 func TestEnsureMacOSKeychainConfigured(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		err := EnsureMacOSKeychainConfigured()
+		if err != nil {
+			t.Errorf("EnsureMacOSKeychainConfigured failed on non-darwin: %v", err)
+		}
+		return
+	}
+
 	originalHome := os.Getenv("HOME")
 	defer os.Setenv("HOME", originalHome)
 
