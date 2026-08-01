@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"golang.org/x/crypto/ssh"
@@ -214,3 +215,108 @@ func TestWithMockedAgent(t *testing.T) {
 		t.Errorf("Expected key to be unloaded after RemoveSSHKey")
 	}
 }
+
+func TestEnsureSSHAgentError(t *testing.T) {
+	// Temporarily clean/mock env to be empty
+	originalAuthSock := os.Getenv("SSH_AUTH_SOCK")
+	os.Setenv("SSH_AUTH_SOCK", "")
+	defer os.Setenv("SSH_AUTH_SOCK", originalAuthSock)
+
+	// Since we are running on mac (GOOS=darwin), it should warn and return an error
+	err := EnsureSSHAgent()
+	if err == nil {
+		t.Error("Expected error when SSH_AUTH_SOCK is empty")
+	}
+}
+
+func TestGetAgentClientError(t *testing.T) {
+	originalAuthSock := os.Getenv("SSH_AUTH_SOCK")
+	os.Setenv("SSH_AUTH_SOCK", "")
+	defer os.Setenv("SSH_AUTH_SOCK", originalAuthSock)
+
+	_, _, err := GetAgentClient()
+	if err == nil || !strings.Contains(err.Error(), "SSH_AUTH_SOCK not set") {
+		t.Errorf("Expected 'SSH_AUTH_SOCK not set' error, got %v", err)
+	}
+
+	// Invalid socket path should cause dial failure
+	os.Setenv("SSH_AUTH_SOCK", "/nonexistent/path/socket.sock")
+	_, _, err = GetAgentClient()
+	if err == nil {
+		t.Error("Expected error for invalid socket dial")
+	}
+}
+
+func TestSSHKeyFingerprintErrors(t *testing.T) {
+	_, err := SSHKeyFingerprint("nonexistent-key")
+	if err == nil {
+		t.Error("Expected error for nonexistent key")
+	}
+
+	// Create a temp file with invalid public key data
+	tmpDir, err := os.MkdirTemp("", "ssh-key-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create tmp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	invalidKey := filepath.Join(tmpDir, "invalid_key")
+	err = os.WriteFile(invalidKey, []byte("not-pem-data"), 0600)
+	if err != nil {
+		t.Fatalf("Failed to write invalid key: %v", err)
+	}
+
+	err = os.WriteFile(invalidKey+".pub", []byte("not-authorized-key"), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write invalid pub key: %v", err)
+	}
+
+	// This should fail to parse, and fall back to ssh-keygen which will fail, returning an error
+	_, err = SSHKeyFingerprint(invalidKey)
+	if err == nil {
+		t.Error("Expected error for invalid key files")
+	}
+}
+
+func TestEnsureMacOSKeychainConfigured(t *testing.T) {
+	originalHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", originalHome)
+
+	tmpDir, err := os.MkdirTemp("", "ssh-home-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp home dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	os.Setenv("HOME", tmpDir)
+
+	err = EnsureMacOSKeychainConfigured()
+	if err != nil {
+		t.Fatalf("EnsureMacOSKeychainConfigured failed: %v", err)
+	}
+
+	configPath := filepath.Join(tmpDir, ".ssh", "config")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("Failed to read created ssh config: %v", err)
+	}
+
+	if !strings.Contains(string(data), "UseKeychain yes") {
+		t.Errorf("Expected config to contain UseKeychain yes, got %s", string(data))
+	}
+
+	// Run again to ensure idempotency (should not duplicate or error)
+	err = EnsureMacOSKeychainConfigured()
+	if err != nil {
+		t.Errorf("Subsequent run failed: %v", err)
+	}
+}
+
+func TestAddKeyToMacOSKeychain(t *testing.T) {
+	// Call it with an invalid file, it should fall through and return nil
+	err := addKeyToMacOSKeychain("nonexistent-key", "some-pass")
+	if err != nil {
+		t.Errorf("addKeyToMacOSKeychain failed: %v", err)
+	}
+}
+

@@ -51,15 +51,16 @@ graph LR
 ### Release 4 (v4.4.2): Test Coverage Push
 > **Focus:** Raise test coverage across low-covered packages. Target: 60%+ average.
 
-- [ ] **`internal/keyring`**: Add mocked keyring storage backend tests (`SetKeychainPassphrase`, `GetKeychainPassphrase`, `DeleteKeychainPassphrase`).
-- [ ] **`internal/ssh`**: Add unit tests for `VerifyPassphrase` and `IsSSHKeyLoaded` with temporary keyfiles.
-- [ ] **`internal/tui`**: Expand app state and screen navigation tests in `app_test.go`.
-- [ ] **`internal/git`**: Test `ConvertHTTPSToSSH` with embedded credential strings.
+- [x] **`internal/keyring`**: Add mocked keyring storage backend tests (`SetKeychainPassphrase`, `GetKeychainPassphrase`, `DeleteKeychainPassphrase`).
+- [x] **`internal/ssh`**: Add unit tests for `VerifyPassphrase` and `IsSSHKeyLoaded` with temporary keyfiles.
+- [x] **`internal/tui`**: Expand app state and screen navigation tests in `app_test.go`.
+- [x] **`internal/git`**: Test `ConvertHTTPSToSSH` with embedded credential strings.
 
 ---
 
-### Release 5 (v4.5.0): Milestone Release & Final Audit
+## 📦 Release 5 (v4.5.0): Milestone Release & Final Audit
 > **Focus:** Release readiness, cross-platform builds, final release notes.
 
-- [ ] **Cross-Platform Verification**: Verify goreleaser snapshot build compiles cleanly for all 6 target platforms.
-- [ ] **Release Notes & Tags**: Finalize release changelogs and prepare tags.
+- [x] **Cross-Platform Verification**: Verify goreleaser snapshot build compiles cleanly for all 6 target platforms.
+- [x] **Release Notes & Tags**: Finalize release changelogs and prepare tags.
+
