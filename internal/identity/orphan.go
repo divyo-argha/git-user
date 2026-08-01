@@ -3,6 +3,7 @@ package identity
 import (
 	"fmt"
 	"os"
+	"syscall"
 	"time"
 )
 
@@ -104,7 +105,7 @@ func isProcessRunning(pid int) bool {
 	}
 
 	// Send signal 0 (null signal) to check if process exists
-	err = process.Signal(os.Signal(nil))
+	err = process.Signal(syscall.Signal(0))
 	if err != nil {
 		// Process doesn't exist or we don't have permission
 		return false
