@@ -226,6 +226,23 @@ func (s *Store) RemoveUser(name string, force bool) error {
 	return nil
 }
 
+// RenameUser renames an identity to a new unique name, keeping the current
+// active selection in sync. It returns an error if the target name is taken.
+func (s *Store) RenameUser(name, newName string) error {
+	if s.FindUser(name) == nil {
+		return fmt.Errorf("user %q not found", name)
+	}
+	if name != newName && s.FindUser(newName) != nil {
+		return fmt.Errorf("user %q already exists", newName)
+	}
+	u := s.FindUser(name)
+	u.Name = newName
+	if s.Current == name {
+		s.Current = newName
+	}
+	return nil
+}
+
 func (s *Store) UpdateUser(name, newEmail string) error {
 	u := s.FindUser(name)
 	if u == nil {

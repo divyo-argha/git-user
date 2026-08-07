@@ -23,7 +23,7 @@ func TestWantsHelp(t *testing.T) {
 }
 
 func TestCommandUsageHasEntries(t *testing.T) {
-	commands := []string{"register", "switch", "list", "remove", "passphrase", "export", "import", "clone", "stats", "config", "sync", "hook"}
+	commands := []string{"register", "switch", "list", "remove", "passphrase", "export", "import", "clone", "stats", "config", "sync", "hook", "rename"}
 	for _, c := range commands {
 		if commandUsage(c) == "" {
 			t.Errorf("commandUsage(%q) is empty", c)

@@ -185,16 +185,16 @@ func opLogout(store *config.Store) (opResult, error) {
 
 // opRename renames an identity.
 func opRename(store *config.Store, name, newName string) error {
-	if store.FindUser(newName) != nil {
-		return fmt.Errorf("identity %q already exists", newName)
+	if err := store.RenameUser(name, newName); err != nil {
+		return err
 	}
-	u := store.FindUser(name)
-	if u == nil {
-		return fmt.Errorf("identity %q not found", name)
-	}
-	u.Name = newName
-	if store.Current == name {
-		store.Current = newName
+	if store.Current == newName {
+		u := store.FindUser(newName)
+		if u != nil {
+			if err := git.Apply(u.Name, u.Email); err != nil {
+				return fmt.Errorf("re-applying git config: %w", err)
+			}
+		}
 	}
 	return config.Save(store)
 }

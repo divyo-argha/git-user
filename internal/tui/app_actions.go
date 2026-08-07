@@ -20,6 +20,34 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		a.quit = true
 		return a, tea.Quit
 
+	case "firstrun-skip":
+		// Mark the prompt as shown so it never appears again, then return to
+		// the dashboard.
+		a.store.ImportPrompted = true
+		_ = config.Save(a.store)
+		return a, core.RefreshStoreCmd()
+
+	case "firstrun-import":
+		// Reuse the standard import-original flow (name + email form prefilled
+		// with the detected original identity).
+		name := ""
+		email := ""
+		if a.store.Original != nil {
+			name, email = a.store.Original.Name, a.store.Original.Email
+		}
+		if name == "" || email == "" {
+			name = git.CurrentName()
+			email = git.CurrentEmail()
+		}
+		if email == "" {
+			email = name
+			name = ""
+		}
+		return a, pushCmd(screens.NewForm("Import Original Identity", "Import your existing ~/.gitconfig identity (you pick the name)", "import-original", []screens.FormInput{
+			{Label: "Profile Name:", Value: name, Placeholder: "e.g. original"},
+			{Label: "Email Address:", Value: email, Placeholder: "e.g. you@example.com"},
+		}, a.theme))
+
 	case "register", "register-temp":
 		title := "Register New Identity"
 		help := "Enter profile name and email address"

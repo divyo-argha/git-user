@@ -53,6 +53,51 @@ func (a *App) handleOptionResult(msg core.OptionResultMsg) (tea.Model, tea.Cmd) 
 			})
 		}
 
+	case "import-resolve-name":
+		fields := strings.SplitN(data, "|", 2)
+		name := ""
+		email := ""
+		if len(fields) > 0 {
+			name = fields[0]
+		}
+		if len(fields) > 1 {
+			email = fields[1]
+		}
+		switch msg.Choice {
+		case "diff-name":
+			// Prompt for a fresh, unique profile name (keep the email).
+			return a, pushCmd(screens.NewForm("Import Under a Different Name", fmt.Sprintf("The name %q is taken — choose a unique one", name), "import-original-name:"+email, []screens.FormInput{
+				{Label: "Profile Name:", Placeholder: "e.g. original-2"},
+			}, a.theme))
+		case "rename-conflict":
+			// Rename the conflicting profile (name) to a free name, then import
+			// the original under the desired name.
+			return a, pushCmd(screens.NewForm("Rename Conflicting Profile", fmt.Sprintf("New name for the existing profile %q to free up %q", name, name), fmt.Sprintf("import-rename-conflict:%s|%s", name, email), []screens.FormInput{
+				{Label: "New Name:", Placeholder: "e.g. " + name + "-work"},
+			}, a.theme))
+		default:
+			return a, core.ShowToastCmd("Cancelled", theme.ToastStyleInfo, 2*time.Second)
+		}
+
+	case "import-resolve-email":
+		fields := strings.SplitN(data, "|", 2)
+		name := ""
+		if len(fields) > 0 {
+			name = fields[0]
+		}
+		switch msg.Choice {
+		case "diff-email":
+			return a, pushCmd(screens.NewForm("Import With a Different Email", "The email is already in use — choose a different one", "import-original-email:"+name, []screens.FormInput{
+				{Label: "Email Address:", Placeholder: "e.g. you+work@example.com"},
+			}, a.theme))
+		case "diff-name":
+			return a, pushCmd(screens.NewForm("Import Under a Different Name", "Choose a unique profile name", "import-original-name:", []screens.FormInput{
+				{Label: "Profile Name:", Placeholder: "e.g. original"},
+			}, a.theme))
+		default:
+			return a, core.ShowToastCmd("Cancelled", theme.ToastStyleInfo, 2*time.Second)
+		}
+
 	case "push-platform":
 		platform := msg.Choice
 		return a, a.runTaskCmd("pubkey-push", platform, func() (opResult, error) {

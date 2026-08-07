@@ -23,6 +23,12 @@ func Run(store *config.Store, startDetail string) error {
 			// App.Init on the active screen.
 			app.pushScreen(screens.NewDetail(store, startDetail, th))
 		}
+	} else {
+		if name, email, ok := firstRunOriginalIdentity(store); ok {
+			// First-run onboarding: offer to import the existing git identity
+			// inside the TUI instead of prompting on the plain terminal.
+			app.pushScreen(screens.NewFirstRun(store, name, email, th))
+		}
 	}
 
 	p := tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion())

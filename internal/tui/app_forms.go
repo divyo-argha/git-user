@@ -151,12 +151,46 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 		if name == "" {
 			return a, core.ShowToastCmd("Profile name is required", theme.ToastStyleError, 3*time.Second)
 		}
-		if email == "" {
+		return a.startOriginalImport(name, email)
+
+	case "import-original-name":
+		// User chose to import under a different (unique) name; keep email.
+		name := msg.Values[0]
+		if name == "" {
+			return a, core.ShowToastCmd("Profile name is required", theme.ToastStyleError, 3*time.Second)
+		}
+		return a.startOriginalImport(name, rest)
+
+	case "import-original-email":
+		// User chose a new email too; name is carried in the context.
+		if msg.Values[0] == "" {
 			return a, core.ShowToastCmd("Email is required", theme.ToastStyleError, 3*time.Second)
 		}
-		return a, a.runTaskCmd("import-original", "", func() (opResult, error) {
-			return opImportOriginal(a.store, name, email)
-		})
+		return a.startOriginalImport(rest, msg.Values[0])
+
+	case "import-rename-conflict":
+		// Rename the conflicting profile to a free name, then import the
+		// original identity under the freed-up desired name.
+		fields := strings.SplitN(rest, "|", 2)
+		conflictName := ""
+		email := ""
+		if len(fields) > 0 {
+			conflictName = fields[0]
+		}
+		if len(fields) > 1 {
+			email = fields[1]
+		}
+		newName := msg.Values[0]
+		if newName == "" || newName == conflictName {
+			return a, core.ShowToastCmd("Please enter a different name for the conflicting profile", theme.ToastStyleError, 3*time.Second)
+		}
+		if a.store.IsNameTaken(newName) {
+			return a, core.ShowToastCmd(fmt.Sprintf("Name %q is also taken — choose another", newName), theme.ToastStyleError, 3*time.Second)
+		}
+		if err := opRename(a.store, conflictName, newName); err != nil {
+			return a, core.ShowToastCmd(fmt.Sprintf("Renaming failed: %v", err), theme.ToastStyleError, 3*time.Second)
+		}
+		return a.startOriginalImport(conflictName, email)
 
 	case "push-cred:github", "push-cred:gitlab":
 		platform := strings.TrimPrefix(action, "push-cred:")
@@ -276,4 +310,52 @@ func field(fields []string, i int) string {
 		return fields[i]
 	}
 	return ""
+}
+
+// startOriginalImport begins importing the original identity under the given
+// name/email. It detects conflicts and routes the user to resolve them (pick a
+// unique name, pick a new email, or rename the conflicting profile) entirely
+// within the TUI before performing the actual import.
+func (a *App) startOriginalImport(name, email string) (tea.Model, tea.Cmd) {
+	if a.store.IsNameTaken(name) {
+		conflicting := name
+		return a, pushCmd(screens.NewOptions(
+			fmt.Sprintf("Identity %q already exists", name),
+			core.OptionsHelp(),
+			fmt.Sprintf("import-resolve-name:%s|%s", name, email),
+			[]screens.Option{
+				{Label: "Import using a different name", Key: "diff-name"},
+				{Label: fmt.Sprintf("Rename conflicting profile %q, then import", conflicting), Key: "rename-conflict"},
+				{Label: "Cancel", Key: ""},
+			},
+			a.theme,
+		))
+	}
+
+	if email == "" {
+		return a, core.ShowToastCmd("Email is required", theme.ToastStyleError, 3*time.Second)
+	}
+	if !isValidEmail(email) {
+		return a, core.ShowToastCmd("Invalid email format", theme.ToastStyleError, 3*time.Second)
+	}
+	if a.store.IsEmailTaken(email) {
+		// The original identity's email is already used by a registered
+		// profile — but the original identity is being imported precisely to
+		// keep it. Allow choosing a different email, or pick another name.
+		return a, pushCmd(screens.NewOptions(
+			"Email already in use",
+			core.OptionsHelp(),
+			fmt.Sprintf("import-resolve-email:%s|%s", name, email),
+			[]screens.Option{
+				{Label: "Use a different email", Key: "diff-email"},
+				{Label: "Import using a different name", Key: "diff-name"},
+				{Label: "Cancel", Key: ""},
+			},
+			a.theme,
+		))
+	}
+
+	return a, a.runTaskCmd("import-original", "", func() (opResult, error) {
+		return opImportOriginal(a.store, name, email)
+	})
 }

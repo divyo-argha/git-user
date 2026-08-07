@@ -23,10 +23,18 @@ func setGitConfig(name, email string) {
 }
 
 func TestShouldPromptFirstRunImport(t *testing.T) {
-	// Interactive setup commands should be allowed to prompt.
-	for _, sub := range []string{"", "tui", "-i", "--interactive", "register", "reg", "switch", "sw"} {
+	// Interactive CLI setup commands should be allowed to prompt.
+	for _, sub := range []string{"register", "reg", "switch", "sw"} {
 		if !shouldPromptFirstRunImport(sub) {
 			t.Errorf("shouldPromptFirstRunImport(%q) = false, want true", sub)
+		}
+	}
+
+	// The TUI launcher must NOT prompt on the plain terminal — the import
+	// question is asked inside the TUI itself.
+	for _, sub := range []string{"", "tui", "-i", "--interactive"} {
+		if shouldPromptFirstRunImport(sub) {
+			t.Errorf("shouldPromptFirstRunImport(%q) = true, want false (TUI asks internally)", sub)
 		}
 	}
 

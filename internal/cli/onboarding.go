@@ -12,16 +12,14 @@ import (
 // onboardingPromptCommands is the allowlist of interactive entry points that may
 // show the first-run import prompt. Read-only/system commands (list, current,
 // doctor, prompt, completion, ...) never ask, so automation and shell
-// integrations are never interrupted.
+// integrations are never interrupted. The interactive TUI launcher (no args,
+// "tui", "-i", "--interactive") is intentionally excluded: the TUI asks the
+// import question itself inside the UI so the user never leaves the TUI.
 var onboardingPromptCommands = map[string]bool{
-	"":                 true, // no args → interactive TUI
-	"tui":              true,
-	"-i":               true,
-	"--interactive":    true,
-	"register":         true,
-	"reg":              true,
-	"switch":           true,
-	"sw":               true,
+	"register": true,
+	"reg":      true,
+	"switch":   true,
+	"sw":       true,
 }
 
 // shouldPromptFirstRunImport reports whether a command may trigger the
@@ -99,7 +97,9 @@ func maybePromptFirstRunImport() error {
 
 	if store.FindUser(importName) != nil {
 		ui.Errorf("Identity %q already exists — nothing was imported.", importName)
-		ui.Info("Import it with a different name: git-user import-original <name>")
+		ui.Info("Resolve this by either:")
+		ui.Info("  • importing under a different name: git-user import-original <unique-name>")
+		ui.Info("  • renaming the conflicting profile first: git-user rename " + importName + " <new-name>, then: git-user import-original " + importName)
 		return config.Save(store)
 	}
 

@@ -29,6 +29,7 @@ COMMANDS
   prompt                     Output active identity for terminal integration
   remove <name>              Delete an identity
   edit <name> <email>        Update email
+  rename <old-name> <new-name> Rename an identity
   pubkey                     Show public key for active identity only
   pubkey push [platform]     Publish public SSH key directly to GitHub, GitLab, or Bitbucket
   bind <name> [--ssh-key <p>] Add/link SSH key (interactive if no path)
@@ -167,6 +168,8 @@ func Execute() error {
 		return runRemove(rest)
 	case "edit":
 		return runEdit(rest)
+	case "rename":
+		return runRename(rest)
 	case "pubkey":
 		if len(rest) > 0 && rest[0] == "push" {
 			return runPubkeyPush(rest[1:])

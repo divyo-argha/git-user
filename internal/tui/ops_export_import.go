@@ -220,6 +220,7 @@ func opImportOriginal(store *config.Store, name, email string) (opResult, error)
 	})
 	store.Current = name
 	store.SnapshotOriginal(origName, origEmail, sshCommand, git.CurrentSigningKey(), git.CurrentSignFormat(), git.CurrentCommitGPGSign())
+	store.ImportPrompted = true
 	if err := config.Save(store); err != nil {
 		return opResult{}, err
 	}

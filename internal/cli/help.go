@@ -61,6 +61,10 @@ Flags:
 		"edit": `Usage: git-user edit <name> <email>
 
 Update an identity's email address.`,
+		"rename": `Usage: git-user rename <old-name> <new-name>
+
+Rename an identity. The active git config user.name is updated automatically
+when the active identity is renamed. Useful for resolving an import conflict.`,
 		"pubkey": `Usage: git-user pubkey [push [platform]]
 
 Show the public SSH key for the active identity.
