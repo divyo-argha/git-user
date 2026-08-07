@@ -7,10 +7,9 @@ import (
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 )
 
-// Run launches the TUI and returns the pending action (if any) when the TUI exits.
-// The returned values are: kind (action key), name (identity name), arg (extra argument).
-// If kind is empty, the user quit without selecting an action.
-func Run(store *config.Store, startDetail string) (kind, name, arg string, err error) {
+// Run launches the TUI. Every operation completes inside the TUI itself, so it
+// only returns when the user quits (nil error) or when the program fails.
+func Run(store *config.Store, startDetail string) error {
 	th := theme.DefaultTheme()
 
 	// The dashboard is always the root of the navigation stack so that Esc / the
@@ -28,16 +27,6 @@ func Run(store *config.Store, startDetail string) (kind, name, arg string, err e
 
 	p := tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion())
 
-	finalRaw, err := p.Run()
-	if err != nil {
-		return "", "", "", err
-	}
-
-	final := finalRaw.(*App)
-	if final.Quit() || final.action == nil {
-		return "", "", "", nil
-	}
-
-	k, n, a := final.PendingAction()
-	return k, n, a, nil
+	_, err := p.Run()
+	return err
 }

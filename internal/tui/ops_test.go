@@ -166,6 +166,47 @@ func TestOpRemoveInactiveWhileSignedOut(t *testing.T) {
 	}
 }
 
+func TestOpImportOriginalValidation(t *testing.T) {
+	withTempConfig(t)
+	store := &config.Store{
+		Current: "",
+		Users: []config.User{
+			{Name: "work", Email: "work@corp.com"},
+		},
+	}
+
+	// Duplicate name.
+	if _, err := opImportOriginal(store, "work", "orig@x.com"); err == nil {
+		t.Error("expected error for duplicate name")
+	}
+	// Duplicate email.
+	if _, err := opImportOriginal(store, "orig", "work@corp.com"); err == nil {
+		t.Error("expected error for duplicate email")
+	}
+	// Invalid email.
+	if _, err := opImportOriginal(store, "orig", "not-an-email"); err == nil {
+		t.Error("expected error for invalid email")
+	}
+	// Already imported original source.
+	store.Users = append(store.Users, config.User{Name: "orig", Email: "orig@x.com", Source: "original"})
+	if _, err := opImportOriginal(store, "orig2", "orig2@x.com"); err == nil {
+		t.Error("expected error when the original identity was already imported")
+	}
+
+	// Valid import.
+	store.Users = store.Users[:1]
+	if _, err := opImportOriginal(store, "orig", "orig@x.com"); err != nil {
+		t.Fatalf("opImportOriginal valid import: %v", err)
+	}
+	u := store.FindUser("orig")
+	if u == nil || u.Source != "original" {
+		t.Error("expected imported identity tagged as original")
+	}
+	if store.Current != "orig" {
+		t.Errorf("expected imported identity to be active, got %q", store.Current)
+	}
+}
+
 func TestOpRegisterFinishNoKey(t *testing.T) {
 	withTempConfig(t)
 	store := &config.Store{}

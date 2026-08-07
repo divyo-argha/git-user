@@ -51,7 +51,7 @@ func (o *Options) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			}
 		}
 		switch msg.String() {
-		case core.KeyCtrlC:
+		case core.KeyCtrlC, core.KeyQuit:
 			return o, tea.Quit
 		case core.KeyUp, core.KeyK:
 			if o.cursor > 0 {

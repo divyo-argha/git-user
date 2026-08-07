@@ -27,7 +27,7 @@ func launchTUI(startDetail string) error {
 		return err
 	}
 
-	if _, _, _, err := tui.Run(store, startDetail); err != nil {
+	if err := tui.Run(store, startDetail); err != nil {
 		return err
 	}
 	return nil

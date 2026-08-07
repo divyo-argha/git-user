@@ -16,14 +16,6 @@ import (
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 )
 
-// pendingAction is retained for backward compatibility with Run()'s signature.
-// No in-TUI flow sets it anymore: every operation now completes inside the TUI.
-type pendingAction struct {
-	kind string
-	name string
-	arg  string
-}
-
 // App is the root tea.Model that coordinates all screens.
 type App struct {
 	store       *config.Store
@@ -36,8 +28,7 @@ type App struct {
 	height      int
 	theme       theme.Theme
 
-	quit         bool
-	action       *pendingAction
+	quit          bool
 	removeKeyPath string // SSH key path captured before removing an identity
 }
 
@@ -280,11 +271,9 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		return a.handleToggleSign(msg.Name)
 
 	case "pubkey":
-		res, err := opPubkey(a.store, msg.Name)
-		if err != nil {
-			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 4*time.Second)
-		}
-		return a, pushCmd(screens.NewReport("Public Key", res.detail, a.theme))
+		return a, a.runTaskCmd("pubkey", msg.Name, func() (opResult, error) {
+			return opPubkey(a.store, msg.Name)
+		})
 
 	case "pubkey-push":
 		return a, pushCmd(screens.NewOptions(
@@ -677,6 +666,8 @@ func titleForKind(kind string) string {
 		return "Original Identity Imported"
 	case "check-ssh":
 		return "SSH Connection Check"
+	case "pubkey":
+		return "Public Key"
 	case "security":
 		return "Security Audit"
 	case "doctor":
@@ -1012,10 +1003,3 @@ func field(fields []string, i int) string {
 // ── Results ───────────────────────────────────────────────────────────────────
 
 func (a *App) Quit() bool { return a.quit }
-
-func (a *App) PendingAction() (kind, name, arg string) {
-	if a.action == nil {
-		return "", "", ""
-	}
-	return a.action.kind, a.action.name, a.action.arg
-}

@@ -351,7 +351,7 @@ func syncIncludeIfs(s *Store) error {
 		return nil
 	}
 
-	configDir := filepath.Dir(configPath)
+	configDir := filepath.Dir(ConfigPath())
 
 	// Clean up old profile snippet files
 	files, err := os.ReadDir(configDir)

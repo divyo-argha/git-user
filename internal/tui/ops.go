@@ -505,6 +505,10 @@ func opRekey(store *config.Store, name, passphrase string) (opResult, error) {
 	hasOldKey := false
 	if _, err := os.Stat(keyPath); err == nil {
 		hasOldKey = true
+		// Unload the old key from the agent so the rotated fingerprint doesn't linger.
+		if ssh.IsSSHKeyLoaded(keyPath) {
+			_ = ssh.RemoveSSHKey(keyPath)
+		}
 		if err := os.Rename(keyPath, backupPath); err != nil {
 			return opResult{}, fmt.Errorf("backing up key: %w", err)
 		}
@@ -523,6 +527,8 @@ func opRekey(store *config.Store, name, passphrase string) (opResult, error) {
 	}
 	if passphrase != "" {
 		_ = keyring.SetKeychainPassphrase(name, passphrase)
+	} else {
+		_ = keyring.DeleteKeychainPassphrase(name)
 	}
 
 	if err := store.BindSSHKey(name, keyPath); err != nil {
@@ -825,6 +831,12 @@ func opImportOriginal(store *config.Store, name, email string) (opResult, error)
 	}
 	if email == "" {
 		return opResult{}, fmt.Errorf("email is required")
+	}
+	if !isValidEmail(email) {
+		return opResult{}, fmt.Errorf("invalid email format: %q", email)
+	}
+	if store.IsEmailTaken(email) {
+		return opResult{}, fmt.Errorf("email %q is already used by another identity", email)
 	}
 
 	sshKey := extractSSHKeyFromCommand(sshCommand)

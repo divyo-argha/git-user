@@ -74,7 +74,7 @@ func (s *ImportExport) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			return s, func() tea.Msg { return core.ScreenPopMsg{} }
 		}
 		switch msg.String() {
-		case core.KeyCtrlC:
+		case core.KeyCtrlC, core.KeyQuit:
 			return s, tea.Quit
 
 		case core.KeyUp, core.KeyK:
