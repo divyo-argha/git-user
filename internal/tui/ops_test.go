@@ -143,6 +143,29 @@ func TestOpUnbindAndRemove(t *testing.T) {
 	}
 }
 
+func TestOpRemoveInactiveWhileSignedOut(t *testing.T) {
+	withTempConfig(t)
+	store := &config.Store{
+		Current: "",
+		Users: []config.User{
+			{Name: "home", Email: "home@personal.com"},
+		},
+	}
+	key, err := opRemove(store, "home")
+	if err != nil {
+		t.Fatalf("opRemove: %v", err)
+	}
+	if key != "" {
+		t.Errorf("expected no key path, got %q", key)
+	}
+	if store.FindUser("home") != nil {
+		t.Error("expected user to be removed")
+	}
+	if store.Current != "" {
+		t.Errorf("expected Current to remain empty, got %q", store.Current)
+	}
+}
+
 func TestOpRegisterFinishNoKey(t *testing.T) {
 	withTempConfig(t)
 	store := &config.Store{}

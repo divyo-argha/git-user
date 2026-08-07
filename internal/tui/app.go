@@ -610,6 +610,9 @@ func (a *App) handleTaskResult(msg core.TaskResultMsg) (tea.Model, tea.Cmd) {
 			first = fmt.Sprintf("Switched to %q", msg.Name)
 		}
 		cmds = append(cmds, core.ShowToastCmd(first, theme.ToastStyleSuccess, 3*time.Second))
+		if msg.ShowReport {
+			cmds = append(cmds, pushCmd(screens.NewReport(titleForKind(msg.Kind), msg.Detail, a.theme)))
+		}
 		if git.HasHTTPSRemotes() {
 			cmds = append(cmds, pushCmd(screens.NewConfirm(
 				"This repo uses HTTPS remotes. Convert to SSH for passwordless push?",

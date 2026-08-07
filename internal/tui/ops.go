@@ -210,7 +210,7 @@ func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
 		report += "⚠ " + w + "\n"
 	}
 
-	return opResult{detail: report, showReport: false}, nil
+	return opResult{detail: report, showReport: len(warnings) > 0}, nil
 }
 
 // applyUserSSHConfig mirrors the CLI logic for core.sshCommand.
@@ -310,11 +310,12 @@ func opRemove(store *config.Store, name string) (string, error) {
 		return "", fmt.Errorf("identity %q not found", name)
 	}
 	sshKey := user.SSHKey
+	wasActive := store.Current == name
 	if err := store.RemoveUser(name, true); err != nil {
 		return "", err
 	}
 	_ = keyring.DeleteKeychainPassphrase(name)
-	if store.Current == "" {
+	if wasActive {
 		git.ClearIdentity()
 	}
 	if err := config.Save(store); err != nil {

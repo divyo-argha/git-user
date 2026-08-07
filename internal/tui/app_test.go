@@ -184,6 +184,68 @@ func TestAppMessagesAndLifecycle(t *testing.T) {
 	}
 }
 
+func TestHandleTaskResultSwitchShowsReportWhenWarnings(t *testing.T) {
+	store := &config.Store{Users: []config.User{{Name: "work", Email: "work@corp.com"}}}
+	th := theme.DefaultTheme()
+	app := NewApp(store, screens.NewDashboard(store, th))
+
+	collect := func(cmd tea.Cmd) []tea.Msg {
+		var msgs []tea.Msg
+		var walk func(c tea.Cmd)
+		walk = func(c tea.Cmd) {
+			if c == nil {
+				return
+			}
+			m := c()
+			if m == nil {
+				return
+			}
+			msgs = append(msgs, m)
+			if b, ok := m.(tea.BatchMsg); ok {
+				for _, inner := range b {
+					walk(inner)
+				}
+			}
+		}
+		walk(cmd)
+		return msgs
+	}
+	reportPushed := func(msgs []tea.Msg) bool {
+		for _, m := range msgs {
+			if push, ok := m.(core.ScreenPushMsg); ok {
+				if _, ok := push.Screen.(*screens.Report); ok {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	// With warnings the switch result surfaces a Report screen.
+	_, cmd := app.handleTaskResult(core.TaskResultMsg{
+		Kind:       "switch",
+		Name:       "work",
+		Success:    true,
+		Detail:     "Switched to \"work\" (work@corp.com)\n⚠ Bound SSH key not found: /nope",
+		ShowReport: true,
+	})
+	if !reportPushed(collect(cmd)) {
+		t.Error("expected a Report screen to be pushed when a switch produces warnings")
+	}
+
+	// Without warnings only the toast is shown.
+	_, cmd = app.handleTaskResult(core.TaskResultMsg{
+		Kind:       "switch",
+		Name:       "work",
+		Success:    true,
+		Detail:     "Switched to \"work\" (work@corp.com)",
+		ShowReport: false,
+	})
+	if reportPushed(collect(cmd)) {
+		t.Error("expected no Report screen when a switch has no warnings")
+	}
+}
+
 func TestAppDetailedHandlers(t *testing.T) {
 	store := &config.Store{
 		Current: "work",
