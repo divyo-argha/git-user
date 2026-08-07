@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -32,10 +31,9 @@ func opClone(store *config.Store, repoURL, destDir, identity string, bind bool) 
 	if destDir != "" {
 		args = append(args, destDir)
 	}
-	cmd := exec.Command("git", args...)
-	out, err := cmd.CombinedOutput()
+	out, err := runCaptured("", "git", args...)
 	if err != nil {
-		return opResult{}, fmt.Errorf("git clone failed: %v\n%s", err, strings.TrimSpace(string(out)))
+		return opResult{}, fmt.Errorf("git clone failed: %v\n%s", err, strings.TrimSpace(out))
 	}
 
 	absPath, err := filepath.Abs(destDir)
@@ -101,10 +99,8 @@ func configureRepoLocal(repoPath string, u *config.User) error {
 	}
 
 	for _, c := range commands {
-		cmd := exec.Command("git", c...)
-		cmd.Dir = repoPath
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed running git %v: %w", c, err)
+		if out, err := runCaptured(repoPath, "git", c...); err != nil {
+			return fmt.Errorf("failed running git %v: %w\n%s", c, err, strings.TrimSpace(out))
 		}
 	}
 	return nil

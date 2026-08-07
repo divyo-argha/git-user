@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/keyring"
@@ -146,7 +145,8 @@ func applyActiveCustomConfig(key, value string, local bool) error {
 	if local {
 		scope = "--local"
 	}
-	return exec.Command("git", "config", scope, key, value).Run()
+	_, err := runCaptured("", "git", "config", scope, key, value)
+	return err
 }
 
 func unsetActiveCustomConfig(key string, local bool) error {
@@ -154,7 +154,8 @@ func unsetActiveCustomConfig(key string, local bool) error {
 	if local {
 		scope = "--local"
 	}
-	return exec.Command("git", "config", scope, "--unset-all", key).Run()
+	_, err := runCaptured("", "git", "config", scope, "--unset-all", key)
+	return err
 }
 
 // opLogout signs out of the current identity.

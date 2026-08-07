@@ -1,8 +1,10 @@
 package tui
 
 import (
+	"bytes"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -27,6 +29,20 @@ var (
 )
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
+
+// runCaptured runs a command with its output captured so nothing leaks to the
+// terminal while the TUI is on the alternate screen. Git is forced into
+// non-interactive mode so it never blocks on a credential prompt.
+func runCaptured(dir, name string, args ...string) (string, error) {
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+	err := cmd.Run()
+	return buf.String(), err
+}
 
 func expandPath(path string) string {
 	if strings.HasPrefix(path, "~/") {

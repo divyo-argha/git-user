@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/divyo-argha/git-user/internal/bundle"
@@ -65,6 +66,7 @@ func opSync(store *config.Store, repoURL, passphrase string) (opResult, error) {
 			return opResult{}, fmt.Errorf("creating parent directory: %v", err)
 		}
 		cloneCmd := exec.Command("git", "clone", store.Sync.RepoURL, syncDir)
+		cloneCmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 		if out, err := cloneCmd.CombinedOutput(); err != nil {
 			return opResult{}, fmt.Errorf("re-cloning sync repo failed: %v\n%s", err, string(out))
 		}
@@ -159,17 +161,14 @@ func opSync(store *config.Store, repoURL, passphrase string) (opResult, error) {
 
 func runCmdsInDir(dir string, cmds ...[]string) error {
 	for _, c := range cmds {
-		cmd := exec.Command("git", c...)
-		cmd.Dir = dir
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed running git %v: %w", c, err)
+		if out, err := runCaptured(dir, "git", c...); err != nil {
+			return fmt.Errorf("failed running git %v: %w\n%s", c, err, strings.TrimSpace(out))
 		}
 	}
 	return nil
 }
 
 func runGitInDir(dir string, args ...string) error {
-	cmd := exec.Command("git", args...)
-	cmd.Dir = dir
-	return cmd.Run()
+	_, err := runCaptured(dir, "git", args...)
+	return err
 }

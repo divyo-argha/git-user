@@ -35,7 +35,7 @@ func opPushKey(store *config.Store, platform string) (opResult, error) {
 	switch platform {
 	case "github":
 		if _, err := exec.LookPath("gh"); err == nil {
-			if exec.Command("gh", "auth", "status").Run() == nil {
+			if _, authErr := runCaptured("", "gh", "auth", "status"); authErr == nil {
 				addCmd := exec.Command("gh", "ssh-key", "add", pubKeyPath, "--title", fmt.Sprintf("git-user: %s", user.Name))
 				if out, err := addCmd.CombinedOutput(); err == nil {
 					return opResult{detail: "SSH key successfully added to GitHub via gh CLI!"}, nil
@@ -47,7 +47,7 @@ func opPushKey(store *config.Store, platform string) (opResult, error) {
 		return opResult{}, ErrNeedsCredential
 	case "gitlab":
 		if _, err := exec.LookPath("glab"); err == nil {
-			if exec.Command("glab", "auth", "status").Run() == nil {
+			if _, authErr := runCaptured("", "glab", "auth", "status"); authErr == nil {
 				addCmd := exec.Command("glab", "ssh-key", "add", pubKeyPath, "--title", fmt.Sprintf("git-user: %s", user.Name))
 				if out, err := addCmd.CombinedOutput(); err == nil {
 					return opResult{detail: "SSH key successfully added to GitLab via glab CLI!"}, nil
