@@ -1,6 +1,8 @@
 package screens
 
 import (
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/divyo-argha/git-user/internal/config"
@@ -92,7 +94,9 @@ func (d *Dashboard) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 	case core.KeyCtrlC, core.KeyQuit:
 		return d, tea.Quit
 	case core.KeyEsc:
-		return d, tea.Quit
+		// Root screen: there is nothing to go back to. Never exit the TUI on
+		// Esc here; guide the user to the documented quit keys instead.
+		return d, core.ShowToastCmd("At the main menu — press q or select Quit to exit", theme.ToastStyleInfo, 2*time.Second)
 	case core.KeyTab:
 		if d.activePane == PaneIdentities {
 			d.activePane = PaneActions
