@@ -164,7 +164,7 @@ func Divider() {
 // ── Identity Cards ────────────────────────────────────────────────────────────
 
 // UserRow prints a single identity card.
-func UserRow(name, email, sshKey string, active bool, isOriginal bool) {
+func UserRow(name, email, sshKey string, active bool) {
 	badge := ""
 	cardStyle := styleCardInactive
 	nameStyle := lipgloss.NewStyle().Bold(true).Foreground(colText)
@@ -175,15 +175,9 @@ func UserRow(name, email, sshKey string, active bool, isOriginal bool) {
 		nameStyle = lipgloss.NewStyle().Bold(true).Foreground(colSecond)
 	}
 
-	originalTag := ""
-	if isOriginal {
-		originalTag = "  " + lipgloss.NewStyle().Foreground(colSecond).Render("(original)")
-	}
-
-	content := fmt.Sprintf("%s%s%s\n%s",
+	content := fmt.Sprintf("%s%s\n%s",
 		badge,
 		nameStyle.Render(name),
-		originalTag,
 		styleDim.Render(email),
 	)
 

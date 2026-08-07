@@ -54,9 +54,6 @@ func (d *Detail) refreshActions() {
 	if !isActive {
 		items = append(items, components.ActionItem{Label: "Identity Overview", IsSection: true})
 		nameVal := "○ " + user.Name
-		if user.Source == "original" {
-			nameVal += " " + d.theme.SuccessStyle().Render("(original)")
-		}
 		items = append(items, components.ActionItem{Label: fmt.Sprintf("Profile Name : %s", nameVal), Key: "rename"})
 		items = append(items, components.ActionItem{Label: fmt.Sprintf("Email Address: %s", user.Email), Key: "email"})
 		items = append(items, components.ActionItem{Label: fmt.Sprintf("Status       : %s", d.theme.Dim().Render("○ Inactive Profile (Switch to view security details)")), Key: ""})
@@ -85,9 +82,6 @@ func (d *Detail) refreshActions() {
 	items = append(items, components.ActionItem{Label: "Identity Details", IsSection: true})
 
 	nameVal := d.theme.Active().Render("● "+user.Name) + " [active]"
-	if user.Source == "original" {
-		nameVal += " " + d.theme.SuccessStyle().Render("(original)")
-	}
 	items = append(items, components.ActionItem{Label: fmt.Sprintf("Profile Name : %s", nameVal), Key: "rename"})
 	items = append(items, components.ActionItem{Label: fmt.Sprintf("Email Address: %s", user.Email), Key: "email"})
 

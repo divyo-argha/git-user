@@ -13,7 +13,6 @@ type IdentityItem struct {
 	Name        string
 	Email       string
 	IsActive    bool
-	IsOriginal  bool
 	IsTemporary bool
 	HasSSHKey   bool
 	HasSigning  bool
@@ -50,7 +49,6 @@ func buildIdentityItems(store *config.Store) []IdentityItem {
 			Name:        u.Name,
 			Email:       u.Email,
 			IsActive:    u.Name == store.Current,
-			IsOriginal:  u.Source == "original",
 			IsTemporary: u.IsTemporary,
 			HasSSHKey:   u.SSHKey != "",
 			HasSigning:  !u.SignDisabled && u.SignKey != "",
@@ -254,9 +252,6 @@ func (l IdentityList) renderIdentityLine(item IdentityItem, isCursor, isActive b
 		nameStr = l.theme.Bold().Render(item.Name) + "  " + l.theme.Dim().Render("<"+item.Email+">")
 	}
 
-	if item.IsOriginal {
-		nameStr += "  " + l.theme.SuccessStyle().Render("(original)")
-	}
 	if item.IsTemporary {
 		nameStr += "  " + l.theme.PillWarning().Render("⏱ TEMP")
 	}

@@ -113,19 +113,23 @@ func maybePromptFirstRunImport() error {
 		Source:     "original",
 	})
 
+	// The imported identity stays active: the gitconfig already holds it, so we
+	// keep it as-is and simply record it as the current profile.
+	store.Current = importName
+
 	if err := config.Save(store); err != nil {
 		ui.Errorf("saving config: %v", err)
 		return err
 	}
 
 	fmt.Println()
-	ui.Success(fmt.Sprintf("Imported your existing identity as %q", importName))
+	ui.Success(fmt.Sprintf("Imported your existing identity as %q and set it active", importName))
 	ui.Info(fmt.Sprintf("  name:  %s", name))
 	ui.Info(fmt.Sprintf("  email: %s", email))
 	if sshCommand != "" {
 		ui.Info(fmt.Sprintf("  SSH: preserving core.sshCommand: %s", sshCommand))
 	}
 	fmt.Println()
-	ui.Info(fmt.Sprintf("Switch to it any time with: git-user switch %s", importName))
+	ui.Info(fmt.Sprintf("It stays your active identity. Switch away with: git-user switch %s", importName))
 	return nil
 }

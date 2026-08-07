@@ -90,6 +90,10 @@ func runImportOriginal(args []string) error {
 		Source:     "original",
 	})
 
+	// The imported identity stays active: the gitconfig already holds it, so we
+	// keep it as-is and simply record it as the current profile.
+	store.Current = importName
+
 	// Snapshot the original for --original restore if not already done
 	store.SnapshotOriginal(name, email, sshCommand, git.CurrentSigningKey(), git.CurrentSignFormat(), git.CurrentCommitGPGSign())
 
@@ -99,7 +103,7 @@ func runImportOriginal(args []string) error {
 	}
 
 	fmt.Println()
-	ui.Success(fmt.Sprintf("Imported original identity as %q", importName))
+	ui.Success(fmt.Sprintf("Imported original identity as %q and set it active", importName))
 	ui.Info(fmt.Sprintf("  Email: %s", email))
 	if sshKey != "" {
 		ui.Info(fmt.Sprintf("  SSH Key: %s", sshKey))
@@ -108,7 +112,7 @@ func runImportOriginal(args []string) error {
 		ui.Info(fmt.Sprintf("  SSH Command: %s", sshCommand))
 	}
 	fmt.Println()
-	ui.Info(fmt.Sprintf("Switch to it: git-user switch %s", importName))
+	ui.Info(fmt.Sprintf("It stays your active identity. Switch away with: git-user switch %s", importName))
 	ui.Info("Or restore raw original: git-user switch --original")
 
 	return nil

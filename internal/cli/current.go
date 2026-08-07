@@ -49,7 +49,7 @@ func runCurrent(_ []string) error {
 		ui.Banner("Active Identity")
 	}
 
-	ui.UserRow(u.Name, u.Email, u.SSHKey, true, u.Source == "original")
+	ui.UserRow(u.Name, u.Email, u.SSHKey, true)
 
 	if !isLocalOverride {
 		gitName := git.CurrentName()
