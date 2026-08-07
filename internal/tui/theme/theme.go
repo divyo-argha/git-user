@@ -260,6 +260,10 @@ const (
 	MinTermWidth = 60
 	// PaneGap is the horizontal gap between side-by-side panes.
 	PaneGap = 3
+	// PaneBorder is the number of border columns a pane style adds beyond the
+	// width it is requested with (lipgloss Width excludes the 1-column border
+	// on each side).
+	PaneBorder = 2
 	// StatusBarHeight is the number of lines reserved for the status bar.
 	StatusBarHeight = 5
 	// HelpBarHeight is the number of lines reserved for the help footer.

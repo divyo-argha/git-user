@@ -175,8 +175,9 @@ func (d *Dashboard) View(width, height int) string {
 
 	// Right pane: sized to fit its own content, not half the terminal.
 	rightWidth := d.actions.PreferredWidth(28, 48)
-	// Left pane: all remaining space minus the gap.
-	leftWidth := width - rightWidth - theme.PaneGap
+	// Left pane: all remaining space minus the gap and the border columns each
+	// pane style adds on top of its requested Width (PaneBorder per pane).
+	leftWidth := width - rightWidth - theme.PaneGap - 2*theme.PaneBorder
 	if leftWidth < 20 {
 		leftWidth = 20
 	}
