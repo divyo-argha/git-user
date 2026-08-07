@@ -65,6 +65,41 @@ func (a *App) handleOptionResult(msg core.OptionResultMsg) (tea.Model, tea.Cmd) 
 			err := opUnbindPath(a.store, name, msg.Choice)
 			return opResult{detail: fmt.Sprintf("Unbound directory %q", msg.Choice)}, err
 		})
+
+	case "clone-identity":
+		fields := strings.Split(data, "|")
+		repoURL := fields[0]
+		destDir := ""
+		if len(fields) > 1 {
+			destDir = fields[1]
+		}
+		identity := msg.Choice
+		return a, a.runTaskCmd("clone", "", func() (opResult, error) {
+			return opClone(a.store, repoURL, destDir, identity, false)
+		})
+
+	case "hook":
+		return a, a.runTaskCmd("hook", msg.Choice, func() (opResult, error) {
+			return opHook(msg.Choice)
+		})
+
+	case "config-action":
+		name := data
+		switch msg.Choice {
+		case "list":
+			return a, a.runTaskCmd("config", name, func() (opResult, error) {
+				return opConfigList(a.store, name)
+			})
+		case "set":
+			return a, pushCmd(screens.NewForm("Set Config Key", "Custom git config key to set for "+name, "config-set:"+name, []screens.FormInput{
+				{Label: "Key:", Placeholder: "e.g. init.defaultBranch"},
+				{Label: "Value:", Placeholder: "e.g. main"},
+			}, a.theme))
+		case "unset":
+			return a, pushCmd(screens.NewForm("Unset Config Key", "Custom git config key to remove for "+name, "config-unset:"+name, []screens.FormInput{
+				{Label: "Key:", Placeholder: "e.g. init.defaultBranch"},
+			}, a.theme))
+		}
 	}
 
 	return a, nil

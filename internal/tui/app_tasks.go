@@ -21,9 +21,7 @@ func (a *App) handleTaskResult(msg core.TaskResultMsg) (tea.Model, tea.Cmd) {
 		a.removeKeyPath = ""
 		switch {
 		case errors.Is(msg.Err, ErrNeedsPassphrase):
-			cmds = append(cmds, pushCmd(screens.NewForm("Unlock SSH Key", fmt.Sprintf("Enter the passphrase for identity %q", msg.Name), "switch-pass:"+msg.Name, []screens.FormInput{
-				{Label: "Passphrase:", IsPassword: true},
-			}, a.theme)))
+			cmds = append(cmds, a.switchPassphraseFormCmd(msg.Name))
 		case errors.Is(msg.Err, ErrNeedsCredential):
 			cmds = append(cmds, a.credentialFormCmd(msg.Name))
 		default:
@@ -128,6 +126,16 @@ func titleForKind(kind string) string {
 		return "Remote Conversion"
 	case "pubkey-push":
 		return "Publish SSH Key"
+	case "clone":
+		return "Clone Repository"
+	case "stats":
+		return "Commit Identity Stats"
+	case "sync":
+		return "Sync"
+	case "hook":
+		return "Git Hooks"
+	case "config":
+		return "Custom Git Config"
 	}
 	return "Result"
 }

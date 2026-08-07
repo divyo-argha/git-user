@@ -52,6 +52,10 @@ func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 		ActionItem{Label: "📦 Import / Export bundles…", Key: "import-export"},
 		ActionItem{IsSection: true, Label: "👤 Profiles & System"},
 		ActionItem{Label: "⏱ Create temporary profile", Key: "register-temp"},
+		ActionItem{Label: "📥 Clone repository", Key: "clone"},
+		ActionItem{Label: "📊 Commit identity stats", Key: "stats"},
+		ActionItem{Label: "🪝 Git hooks", Key: "hook"},
+		ActionItem{Label: "🔄 Sync identities", Key: "sync"},
 		ActionItem{Label: "🔄 Update git-user", Key: "update"},
 		ActionItem{Label: "❌ Quit", Key: "quit"},
 	)

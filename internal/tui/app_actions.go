@@ -34,9 +34,7 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 
 	case "switch":
 		if needsPassphraseForSwitch(a.store, msg.Name) {
-			return a, pushCmd(screens.NewForm("Unlock SSH Key", fmt.Sprintf("Enter the passphrase for identity %q", msg.Name), "switch-pass:"+msg.Name, []screens.FormInput{
-				{Label: "Passphrase:", IsPassword: true},
-			}, a.theme))
+			return a, a.switchPassphraseFormCmd(msg.Name)
 		}
 		return a, a.runTaskCmd("switch", msg.Name, func() (opResult, error) {
 			return opSwitch(a.store, msg.Name, "")
@@ -244,11 +242,98 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			return opDoctor(a.store)
 		})
 
+	case "stats":
+		return a, a.runTaskCmd("stats", "", func() (opResult, error) {
+			return opStats(a.store)
+		})
+
+	case "clone":
+		return a, pushCmd(screens.NewForm("Clone Repository", "Clone a repository and configure the local identity", "clone", []screens.FormInput{
+			{Label: "Repository URL:", Placeholder: "git@github.com:user/repo.git"},
+			{Label: "Destination Dir:", Placeholder: "Optional, defaults to repo name"},
+		}, a.theme))
+
+	case "clone-identity":
+		return a.handleCloneIdentity(msg.Name)
+
+	case "hook":
+		return a, pushCmd(screens.NewOptions(
+			"Git Hooks",
+			core.OptionsHelp(),
+			"hook",
+			[]screens.Option{
+				{Label: "Install pre-commit hook", Key: "install"},
+				{Label: "Uninstall pre-commit hook", Key: "uninstall"},
+				{Label: "Check identity (used by hook)", Key: "check"},
+				{Label: "Cancel", Key: ""},
+			},
+			a.theme,
+		))
+
+	case "sync":
+		if a.store.Sync != nil && a.store.Sync.RepoURL != "" {
+			return a, pushCmd(screens.NewForm("Sync Identities", "Enter the sync passphrase to decrypt the bundle", "sync-pass", []screens.FormInput{
+				{Label: "Passphrase:", IsPassword: true},
+			}, a.theme))
+		}
+		return a, pushCmd(screens.NewForm("Configure Sync", "Keep identities synchronized across devices using a private git repository", "sync-setup", []screens.FormInput{
+			{Label: "Repository URL:", Placeholder: "git@github.com:user/sync.git"},
+			{Label: "Passphrase:", IsPassword: true},
+			{Label: "Confirm Passphrase:", IsPassword: true},
+		}, a.theme))
+
+	case "config":
+		return a.handleConfigAction(msg.Name)
+
 	case "update":
 		return a, core.ShowToastCmd("Updating replaces the running binary — run 'git-user update' in your terminal", theme.ToastStyleInfo, 5*time.Second)
 	}
 
 	return a, nil
+}
+
+// handleCloneIdentity picks which identity to use for a clone.
+func (a *App) handleCloneIdentity(name string) (tea.Model, tea.Cmd) {
+	parts := strings.SplitN(name, "|", 2)
+	repoURL := parts[0]
+	destDir := ""
+	if len(parts) > 1 {
+		destDir = parts[1]
+	}
+	if len(a.store.Users) == 0 {
+		return a, core.ShowToastCmd("No registered identities — register one first", theme.ToastStyleError, 3*time.Second)
+	}
+	var opts []screens.Option
+	for _, u := range a.store.Users {
+		opts = append(opts, screens.Option{Label: fmt.Sprintf("%s (%s)", u.Name, u.Email), Key: u.Name})
+	}
+	opts = append(opts, screens.Option{Label: "Cancel", Key: ""})
+	return a, pushCmd(screens.NewOptions(
+		"Select identity for this repository",
+		core.OptionsHelp(),
+		fmt.Sprintf("clone-identity:%s|%s", repoURL, destDir),
+		opts,
+		a.theme,
+	))
+}
+
+// handleConfigAction shows the custom config management menu for an identity.
+func (a *App) handleConfigAction(name string) (tea.Model, tea.Cmd) {
+	if a.store.FindUser(name) == nil {
+		return a, core.ShowToastCmd("identity not found", theme.ToastStyleError, 3*time.Second)
+	}
+	return a, pushCmd(screens.NewOptions(
+		fmt.Sprintf("Custom Git Config: %s", name),
+		core.OptionsHelp(),
+		"config-action:"+name,
+		[]screens.Option{
+			{Label: "List config keys", Key: "list"},
+			{Label: "Set a config key", Key: "set"},
+			{Label: "Unset a config key", Key: "unset"},
+			{Label: "Cancel", Key: ""},
+		},
+		a.theme,
+	))
 }
 
 func (a *App) pushExportForm(names []string) tea.Cmd {
@@ -259,6 +344,13 @@ func (a *App) pushExportForm(names []string) tea.Cmd {
 	return pushCmd(screens.NewForm("Export Identities", "Encrypt identities into a bundle file", context, []screens.FormInput{
 		{Label: "Encryption Passphrase:", IsPassword: true},
 		{Label: "Confirm Passphrase:", IsPassword: true},
+	}, a.theme))
+}
+
+// switchPassphraseFormCmd prompts for the SSH key passphrase during a switch.
+func (a *App) switchPassphraseFormCmd(name string) tea.Cmd {
+	return pushCmd(screens.NewForm("Passphrase", "", "switch-pass:"+name, []screens.FormInput{
+		{Label: "Passphrase:", IsPassword: true},
 	}, a.theme))
 }
 

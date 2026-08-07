@@ -223,6 +223,49 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 		return a, a.runTaskCmd("switch", rest, func() (opResult, error) {
 			return opSwitch(a.store, rest, msg.Values[0])
 		})
+
+	case "clone":
+		if msg.Values[0] == "" {
+			return a, core.ShowToastCmd("Repository URL is required", theme.ToastStyleError, 3*time.Second)
+		}
+		repoURL := msg.Values[0]
+		destDir := msg.Values[1]
+		return a.handleCloneIdentity(fmt.Sprintf("%s|%s", repoURL, destDir))
+
+	case "sync-setup":
+		if msg.Values[0] == "" {
+			return a, core.ShowToastCmd("Repository URL is required", theme.ToastStyleError, 3*time.Second)
+		}
+		if msg.Values[1] == "" {
+			return a, core.ShowToastCmd("Passphrase is required", theme.ToastStyleError, 3*time.Second)
+		}
+		if msg.Values[1] != msg.Values[2] {
+			return a, core.ShowToastCmd("Passphrases do not match", theme.ToastStyleError, 3*time.Second)
+		}
+		return a, a.runTaskCmd("sync", "", func() (opResult, error) {
+			return opSync(a.store, msg.Values[0], msg.Values[1])
+		})
+
+	case "sync-pass":
+		return a, a.runTaskCmd("sync", "", func() (opResult, error) {
+			return opSync(a.store, "", msg.Values[0])
+		})
+
+	case "config-set":
+		if msg.Values[0] == "" {
+			return a, core.ShowToastCmd("Config key is required", theme.ToastStyleError, 3*time.Second)
+		}
+		return a, a.runTaskCmd("config", rest, func() (opResult, error) {
+			return opConfigSet(a.store, rest, msg.Values[0], msg.Values[1])
+		})
+
+	case "config-unset":
+		if msg.Values[0] == "" {
+			return a, core.ShowToastCmd("Config key is required", theme.ToastStyleError, 3*time.Second)
+		}
+		return a, a.runTaskCmd("config", rest, func() (opResult, error) {
+			return opConfigUnset(a.store, rest, msg.Values[0])
+		})
 	}
 
 	return a, nil

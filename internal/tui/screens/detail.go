@@ -179,6 +179,7 @@ func (d *Detail) refreshActions() {
 	if user.SSHKey != "" {
 		items = append(items, components.ActionItem{Label: "🗑  Remove SSH key", Key: "unbind"})
 	}
+	items = append(items, components.ActionItem{Label: "⚙  Custom git config", Key: "config"})
 	items = append(items, components.ActionItem{Label: "📤 Export this identity", Key: "export"})
 
 	// ── DANGER ZONE ───────────────────────────────────────────────────────────

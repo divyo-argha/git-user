@@ -119,9 +119,19 @@ func Execute() error {
 		return runTui()
 	}
 
-	if args[0] == "--help" || args[0] == "-h" || args[0] == "help" {
+	if args[0] == "--help" || args[0] == "-h" {
 		ui.PrintLogo()
 		fmt.Print(usage)
+		return nil
+	}
+
+	if args[0] == "help" {
+		if len(args) > 1 {
+			runSubcommandHelp(args[1])
+		} else {
+			ui.PrintLogo()
+			fmt.Print(usage)
+		}
 		return nil
 	}
 
@@ -136,6 +146,11 @@ func Execute() error {
 
 	sub = args[0]
 	rest := args[1:]
+
+	if wantsHelp(rest) {
+		runSubcommandHelp(sub)
+		return nil
+	}
 
 	switch sub {
 	case "register", "reg":
