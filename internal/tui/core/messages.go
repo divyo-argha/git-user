@@ -103,3 +103,25 @@ type ActionResultMsg struct {
 	Message string
 	Err     error
 }
+
+// ── Options / Choice ──────────────────────────────────────────────────────────
+
+// OptionResultMsg is returned by a generic option/choice screen. An empty
+// Choice means the user cancelled (Esc).
+type OptionResultMsg struct {
+	Context string
+	Choice  string
+}
+
+// ── In-TUI Background Operations ──────────────────────────────────────────────
+
+// TaskResultMsg is the result of an operation run as a background command
+// inside the TUI (switch, logout, export, import, security audit, etc.).
+type TaskResultMsg struct {
+	Kind       string // action kind that produced this result
+	Name       string // identity name if applicable
+	Success    bool
+	Detail     string // report text (shown on a Report screen when ShowReport)
+	ShowReport bool   // push a Report screen with Detail
+	Err        error
+}

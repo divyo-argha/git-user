@@ -1,13 +1,9 @@
 package cli
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
-	"github.com/divyo-argha/git-user/internal/git"
-	"github.com/divyo-argha/git-user/internal/keyring"
-	"github.com/divyo-argha/git-user/internal/ssh"
 	"github.com/divyo-argha/git-user/internal/tui"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
@@ -22,230 +18,19 @@ func runTuiForIdentity(name string) error {
 	return launchTUI(name)
 }
 
+// launchTUI runs the TUI once. Every operation (switch, register, logout, export,
+// import, security audit, …) now completes inside the TUI itself, so the TUI only
+// returns when the user explicitly quits — there is no relaunch loop.
 func launchTUI(startDetail string) error {
-	for {
-		store, err := config.Load()
-		if err != nil {
-			return err
-		}
-
-		kind, name, arg, err := tui.Run(store, startDetail)
-		if err != nil {
-			return err
-		}
-
-		if kind == "" || kind == "quit" {
-			return nil
-		}
-
-		// Execute action outside TUI (needs terminal I/O)
-		fmt.Println()
-		executeAction(kind, name, arg, store)
-		fmt.Println()
-
-		// After remove, go back to main
-		if kind == "remove" {
-			startDetail = ""
-		} else if name != "" {
-			startDetail = name
-		} else {
-			startDetail = ""
-		}
-
-		// Prompt to return
-		fmt.Print(tuiDim.Render("  Press Enter to return to menu..."))
-		fmt.Scanln()
+	store, err := config.Load()
+	if err != nil {
+		return err
 	}
-}
 
-func executeAction(kind string, name string, arg string, store *config.Store) {
-	switch kind {
-	case "register":
-		if name != "" && arg != "" {
-			runRegister([]string{name, arg})
-		} else {
-			runRegister(nil)
-		}
-
-	case "register-temp":
-		if name != "" && arg != "" {
-			// Use switch -c --temp which calls quickRegister with isTemp=true
-			ui.Banner("CREATING TEMPORARY PROFILE")
-			fmt.Println()
-			ui.Info("This profile will be automatically deleted when you switch away or log out.")
-			fmt.Println()
-			if err := runSwitch([]string{"-c", name, arg, "--temp"}); err != nil {
-				ui.Errorf("creating temporary profile: %v", err)
-			}
-		}
-
-	case "switch":
-		runSwitch([]string{name})
-
-	case "rename":
-		if arg != "" {
-			newName := arg
-			if store.FindUser(newName) != nil {
-				ui.Errorf("Identity %q already exists", newName)
-				return
-			}
-			u := store.FindUser(name)
-			if u == nil {
-				return
-			}
-			u.Name = newName
-			if store.Current == name {
-				store.Current = newName
-			}
-			config.Save(store)
-			ui.Success(fmt.Sprintf("Renamed %q → %q", name, newName))
-		}
-
-	case "email":
-		if arg != "" {
-			runEdit([]string{name, arg})
-		}
-
-	case "pubkey":
-		runPubkey(nil)
-
-	case "pubkey-push":
-		runPubkeyPush(nil)
-
-	case "bind":
-		runBind([]string{name})
-
-	case "check-ssh":
-		store, _ := config.Load()
-		if u := store.FindUser(name); u != nil && u.SSHKey != "" {
-			ui.Banner(fmt.Sprintf("CHECKING SSH CONNECTION: %s", name))
-			if err := verifySSHConnectionWithKey(u.SSHKey); err != nil {
-				ui.Warn("SSH verification failed. Make sure your public key is added to GitHub/GitLab.")
-			} else {
-				ui.Success("SSH connection verified successfully!")
-				if !ssh.IsSSHKeyLoaded(u.SSHKey) {
-					var passphrase string
-					if secret, err := keyring.GetKeychainPassphrase(u.Name); err == nil && secret != "" {
-						passphrase = secret
-					}
-					if ssh.EnsureSSHAgent() == nil {
-						if err := ssh.AddSSHKeyWithPassphrase(u.SSHKey, passphrase); err == nil {
-							ui.Success("SSH key loaded into agent cache ✓")
-						}
-					}
-				}
-			}
-		} else {
-			ui.Warn(fmt.Sprintf("No SSH key bound to identity %q", name))
-			ui.Info("Bind a key first using: git-user bind " + name)
-		}
-
-	case "unbind":
-		u := store.FindUser(name)
-		if u == nil {
-			return
-		}
-		u.SSHKey = ""
-		config.Save(store)
-		if store.Current == name {
-			git.RemoveSSHConfig()
-		}
-		ui.Success("SSH key removed from identity")
-
-	case "rekey":
-		if arg != "" {
-			runRekey([]string{name, arg})
-		} else {
-			runRekey([]string{name})
-		}
-
-	case "passphrase", "passphrase-set":
-		runPassphrase([]string{name, "--set"})
-
-	case "passphrase-remove":
-		runPassphrase([]string{name, "--remove"})
-
-	case "passphrase-verify":
-		runPassphrase([]string{name, "--verify"})
-
-	case "bind-path":
-		path, err := ui.Prompt("Directory path to bind:")
-		if err != nil || path == "" {
-			ui.Info("Cancelled")
-			return
-		}
-		runBindPath([]string{name, path})
-
-	case "unbind-path":
-		u := store.FindUser(name)
-		if u == nil {
-			return
-		}
-		if len(u.BindPaths) == 0 {
-			ui.Info("No paths bound to this identity")
-			return
-		}
-		var path string
-		if len(u.BindPaths) == 1 {
-			path = u.BindPaths[0]
-			if !ui.Confirm(fmt.Sprintf("Unbind directory %q?", path), false) {
-				ui.Info("Cancelled")
-				return
-			}
-		} else {
-			idx, err := ui.Select("Select directory to unbind:", u.BindPaths)
-			if err != nil {
-				ui.Info("Cancelled")
-				return
-			}
-			path = u.BindPaths[idx]
-		}
-		runUnbindPath([]string{name, path})
-
-	case "logout":
-		runLogout(nil)
-
-	case "export":
-		runExport([]string{name})
-
-	case "export-current":
-		if name != "" {
-			runExport([]string{name})
-		} else {
-			ui.Error("No active identity to export")
-		}
-
-	case "export-all":
-		runExport([]string{"--all"})
-
-	case "import":
-		path, err := ui.Prompt("Path to bundle file:")
-		if err != nil || path == "" {
-			ui.Info("Cancelled")
-			return
-		}
-		runImport([]string{path})
-
-	case "import-original":
-		runImportOriginal(nil)
-
-	case "remove":
-		runRemove([]string{name})
-
-	case "fix-remote":
-		runFixRemote(nil)
-
-	case "security":
-		runSecurityCheck(nil)
-
-	case "doctor":
-		runDoctor(nil)
-
-	case "update":
-		if err := RunUpdate(); err != nil {
-			ui.Errorf("Update failed: %v", err)
-		}
+	if _, _, _, err := tui.Run(store, startDetail); err != nil {
+		return err
 	}
+	return nil
 }
 
 // handleUnknownArg checks if arg is an identity name and opens detail view,

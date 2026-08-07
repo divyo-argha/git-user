@@ -61,3 +61,8 @@ func FilterHelp() string {
 func ImportExportHelp() string {
 	return "  ↑/↓/j/k navigate  Enter select  Esc back"
 }
+
+// OptionsHelp returns the help text for generic option/choice screens.
+func OptionsHelp() string {
+	return "  ↑/↓/j/k navigate  Enter select  Esc cancel"
+}

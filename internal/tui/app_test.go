@@ -38,17 +38,17 @@ func TestAppStack(t *testing.T) {
 		t.Errorf("Expected stack length 1 after pop, got %d", len(app.screenStack))
 	}
 
-	// Action Result
+	// Switch now runs entirely in-TUI: no pendingAction, no tea.Quit.
 	updated, cmd := app.Update(core.ActionResultMsg{Kind: "switch", Name: "work"})
 	app = updated.(*App)
-	if app.action == nil {
-		t.Errorf("Expected action to be set")
+	if app.action != nil {
+		t.Errorf("Expected no pending action for in-TUI switch")
 	}
-	if app.action.kind != "switch" || app.action.name != "work" {
-		t.Errorf("Expected action kind 'switch' and name 'work'")
+	if app.Quit() {
+		t.Errorf("Expected app not to quit for in-TUI switch")
 	}
 	if cmd == nil {
-		t.Errorf("Expected tea.Quit cmd")
+		t.Errorf("Expected a task cmd for switch")
 	}
 }
 
@@ -84,18 +84,33 @@ func TestAppMessagesAndLifecycle(t *testing.T) {
 		t.Errorf("Expected toast to be hidden")
 	}
 
-	// Send FormResultMsg
-	updated, _ = app.Update(core.FormResultMsg{Context: "register", Values: []string{"work", "work@corp.com"}})
+	// FormResultMsg for register now pushes the SSH setup options screen
+	// instead of exiting to the terminal.
+	updated, cmd := app.Update(core.FormResultMsg{Context: "register", Values: []string{"work", "work@corp.com"}})
 	app = updated.(*App)
-	if app.action == nil || app.action.kind != "register" {
-		t.Errorf("Expected register action set")
+	if app.action != nil {
+		t.Errorf("Expected no pending action for register")
+	}
+	if cmd == nil {
+		t.Fatalf("Expected a push cmd for register form")
+	}
+	if msg := cmd(); msg != nil {
+		if _, ok := msg.(core.ScreenPushMsg); !ok {
+			t.Errorf("Expected ScreenPushMsg for register form, got %#v", msg)
+		}
 	}
 
-	// Send ConfirmResultMsg
-	updated, _ = app.Update(core.ConfirmResultMsg{Context: "remove:work", Confirmed: true})
+	// ConfirmResultMsg for remove now runs an in-TUI task.
+	updated, cmd = app.Update(core.ConfirmResultMsg{Context: "remove:work", Confirmed: true})
 	app = updated.(*App)
-	if app.action == nil || app.action.kind != "remove" {
-		t.Errorf("Expected remove action set")
+	if app.action != nil {
+		t.Errorf("Expected no pending action for remove")
+	}
+	if app.Quit() {
+		t.Errorf("Expected app not to quit for remove")
+	}
+	if cmd == nil {
+		t.Errorf("Expected a task cmd for remove confirm")
 	}
 
 	// Test Init
@@ -107,37 +122,66 @@ func TestAppMessagesAndLifecycle(t *testing.T) {
 	if !app.Quit() {
 		t.Errorf("Expected Quit to be true")
 	}
+	app.quit = false
 
-	// Test handleAction (pubkey)
-	updated, _ = app.Update(core.ActionResultMsg{Kind: "pubkey", Name: "work"})
+	// Test handleAction (pubkey) — stays in-TUI, no pending action.
+	updated, cmd = app.Update(core.ActionResultMsg{Kind: "pubkey", Name: "work"})
 	app = updated.(*App)
-	kind, name, _ := app.PendingAction()
-	if kind != "pubkey" || name != "work" {
-		t.Errorf("Expected pending action pubkey for work, got %s for %s", kind, name)
+	if app.action != nil {
+		t.Errorf("Expected no pending action for pubkey")
+	}
+	if app.Quit() {
+		t.Errorf("Expected app not to quit for pubkey")
+	}
+	if cmd == nil {
+		t.Errorf("Expected a cmd for pubkey")
 	}
 
-	// Test handleAction (register-temp)
-	_, _ = app.Update(core.ActionResultMsg{Kind: "register-temp"})
-
-	// Test handleAction (rename)
-	_, _ = app.Update(core.ActionResultMsg{Kind: "rename", Name: "work"})
-
-	// Test handleAction (logout)
-	updated, _ = app.Update(core.ActionResultMsg{Kind: "logout"})
+	// Test handleAction (register-temp) pushes a form.
+	updated, cmd = app.Update(core.ActionResultMsg{Kind: "register-temp"})
 	app = updated.(*App)
-	kind, _, _ = app.PendingAction()
-	if kind != "logout" {
-		t.Errorf("Expected logout pending action")
+	if cmd == nil {
+		t.Errorf("Expected a push cmd for register-temp")
+	} else if msg := cmd(); msg != nil {
+		if _, ok := msg.(core.ScreenPushMsg); !ok {
+			t.Errorf("Expected ScreenPushMsg for register-temp, got %#v", msg)
+		}
 	}
 
-	// Test handleAction (email)
-	_, _ = app.Update(core.ActionResultMsg{Kind: "email", Name: "work"})
+	// Test handleAction (rename) pushes a form.
+	_, cmd = app.Update(core.ActionResultMsg{Kind: "rename", Name: "work"})
+	if cmd == nil {
+		t.Errorf("Expected a push cmd for rename")
+	}
 
-	// Test handleAction (bind-path)
-	_, _ = app.Update(core.ActionResultMsg{Kind: "bind-path", Name: "work"})
+	// Test handleAction (logout) runs in-TUI.
+	updated, cmd = app.Update(core.ActionResultMsg{Kind: "logout"})
+	app = updated.(*App)
+	if app.action != nil || app.Quit() {
+		t.Errorf("Expected in-TUI logout (no pending action, no quit)")
+	}
+	if cmd == nil {
+		t.Errorf("Expected a task cmd for logout")
+	}
 
-	// Test handleAction (unbind-path)
-	_, _ = app.Update(core.ActionResultMsg{Kind: "unbind-path", Name: "work"})
+	// Test handleAction (email) pushes a form.
+	_, cmd = app.Update(core.ActionResultMsg{Kind: "email", Name: "work"})
+	if cmd == nil {
+		t.Errorf("Expected a push cmd for email")
+	}
+
+	// Test handleAction (bind-path) pushes a form.
+	_, cmd = app.Update(core.ActionResultMsg{Kind: "bind-path", Name: "work"})
+	if cmd == nil {
+		t.Errorf("Expected a push cmd for bind-path")
+	}
+
+	// Test handleAction (unbind-path) — no paths bound: toast, still in-TUI.
+	updated, _ = app.Update(core.ActionResultMsg{Kind: "unbind-path", Name: "work"})
+	app = updated.(*App)
+	if app.action != nil || app.Quit() {
+		t.Errorf("Expected in-TUI unbind-path (no pending action, no quit)")
+	}
 }
 
 func TestAppDetailedHandlers(t *testing.T) {
@@ -173,7 +217,7 @@ func TestAppDetailedHandlers(t *testing.T) {
 	// 2. Test view rendering
 	app.View()
 
-	// 3. Test handleAction return Cmds
+	// 3. Test handleAction screens that push a screen
 	testCmds := []struct {
 		kind string
 		name string
@@ -192,48 +236,51 @@ func TestAppDetailedHandlers(t *testing.T) {
 			t.Fatalf("Expected non-nil cmd for action %s", tc.kind)
 		}
 		msg := cmd()
+		if msg == nil {
+			t.Fatalf("Expected a message for action %s", tc.kind)
+		}
 		if _, ok := msg.(core.ScreenPushMsg); !ok {
 			t.Errorf("Expected ScreenPushMsg for action %s, got %#v", tc.kind, msg)
 		}
 	}
 
-	// 4. Test handleAction direct exits (pendingAction set)
-	testDirectExits := []string{
-		"pubkey-push", "bind", "check-ssh", "passphrase-set", "passphrase-remove",
-		"passphrase-verify", "export", "export-all", "import", "import-original",
-		"fix-remote", "security", "doctor", "update",
+	// 4. Test handleAction in-TUI operations (no pendingAction, no quit).
+	testInTUIOps := []string{
+		"switch", "logout", "fix-remote", "security", "doctor", "check-ssh",
+		"pubkey-push", "bind", "passphrase-set", "passphrase-remove", "passphrase-verify",
+		"export", "export-all", "import", "import-original", "update",
 	}
-	for _, kind := range testDirectExits {
+	for _, kind := range testInTUIOps {
 		updated, cmd := app.Update(core.ActionResultMsg{Kind: kind, Name: "work"})
 		if cmd == nil {
-			t.Fatalf("Expected quit cmd for %s", kind)
+			t.Fatalf("Expected non-nil cmd for %s", kind)
 		}
 		app = updated.(*App)
-		if app.action == nil || app.action.kind != kind {
-			t.Errorf("Expected action kind %s, got %#v", kind, app.action)
+		if app.action != nil {
+			t.Errorf("Expected no pending action for %s, got %#v", kind, app.action)
+		}
+		if app.Quit() {
+			t.Errorf("Expected app not to quit for %s", kind)
 		}
 	}
 
-	// 5. Test export-current action
-	// Clear current to test error toast
+	// 5. Test export-current action stays in-TUI.
 	app.store.Current = ""
 	_, cmdExportErr := app.Update(core.ActionResultMsg{Kind: "export-current"})
 	if cmdExportErr == nil {
 		t.Error("Expected non-nil error toast cmd")
 	}
-	// Reset current to test success path
 	app.store.Current = "work"
 	updated, cmdExportSuccess := app.Update(core.ActionResultMsg{Kind: "export-current"})
 	if cmdExportSuccess == nil {
-		t.Error("Expected quit cmd for export-current")
+		t.Error("Expected non-nil cmd for export-current")
 	}
 	app = updated.(*App)
-	if app.action.kind != "export-current" {
-		t.Errorf("Expected export-current action set")
+	if app.action != nil {
+		t.Errorf("Expected no pending action for export-current")
 	}
 
 	// 6. Test toggle-sign action
-	// Toggling home user (no SSHKey, toggle simple disable state)
 	_, _ = app.Update(core.ActionResultMsg{Kind: "toggle-sign", Name: "home"})
 	if app.store.FindUser("home").SignDisabled != true {
 		t.Error("Expected home user signing to be disabled")
@@ -242,76 +289,62 @@ func TestAppDetailedHandlers(t *testing.T) {
 	if app.store.FindUser("home").SignDisabled != false {
 		t.Error("Expected home user signing to be re-enabled")
 	}
-
-	// Toggling work user (has SSHKey, turn off signing key config)
-	_, _ = app.Update(core.ActionResultMsg{Kind: "toggle-sign", Name: "work"})
-	if app.store.FindUser("work").SignDisabled != true {
-		// Wait, toggle-signing might set toggle state
-	}
-
-	// Test non-existent user toggle-sign (should not crash)
 	_, _ = app.Update(core.ActionResultMsg{Kind: "toggle-sign", Name: "nonexistent"})
 
-	// 7. Test Form Results (success and invalid validations)
+	// 7. Test Form Results (validation still happens in-TUI).
 	formTests := []struct {
 		context string
 		values  []string
-		wantKind string
 	}{
-		{"register", []string{"new-user", "new@corp.com"}, "register"},
-		{"register", []string{"", "new@corp.com"}, ""}, // empty name
-		{"register-temp", []string{"temp-user", "temp@corp.com"}, "register-temp"},
-		{"register-temp", []string{"temp-user", ""}, ""}, // empty email
-		{"rename:work", []string{"work-new"}, "rename"},
-		{"rename:work", []string{""}, ""}, // empty name
-		{"email:work", []string{"new-email@corp.com"}, "email"},
-		{"email:work", []string{""}, ""}, // empty email
+		{"register", []string{"new-user", "new@corp.com"}},
+		{"register", []string{"", "new@corp.com"}},    // empty name → error toast, no action
+		{"register", []string{"x", "not-an-email"}},   // invalid email → error toast
+		{"register-temp", []string{"temp-user", "temp@corp.com"}},
+		{"register-temp", []string{"temp-user", ""}}, // empty email → error toast
+		{"rename:work", []string{"work-new"}},
+		{"rename:work", []string{""}},
+		{"email:work", []string{"new-email@corp.com"}},
+		{"email:work", []string{""}},
 	}
 	for _, ft := range formTests {
 		app.action = nil
-		_, cmd := app.Update(core.FormResultMsg{Context: ft.context, Values: ft.values})
-		if ft.wantKind != "" {
-			if cmd == nil {
-				t.Fatalf("Expected quit cmd for form result %s", ft.context)
-			}
-			if app.action == nil || app.action.kind != ft.wantKind {
-				t.Errorf("Expected action %s, got %#v", ft.wantKind, app.action)
-			}
-		} else {
-			if app.action != nil {
-				t.Errorf("Expected no action set for invalid form input, got %#v", app.action)
-			}
+		updated, cmd := app.Update(core.FormResultMsg{Context: ft.context, Values: ft.values})
+		app = updated.(*App)
+		if cmd == nil {
+			t.Fatalf("Expected non-nil cmd for form result %s %v", ft.context, ft.values)
+		}
+		if app.action != nil {
+			t.Errorf("Expected no pending action for form result %s, got %#v", ft.context, app.action)
+		}
+		if app.Quit() {
+			t.Errorf("Expected app not to quit for form result %s", ft.context)
 		}
 	}
 
 	// Empty form values should be ignored
 	_, _ = app.Update(core.FormResultMsg{Context: "register", Values: []string{}})
 
-	// 8. Test Confirm Results
+	// 8. Test Confirm Results stay in-TUI.
 	confirmTests := []struct {
 		context   string
 		confirmed bool
-		wantKind  string
 	}{
-		{"remove:work", true, "remove"},
-		{"remove:work", false, ""},
-		{"unbind:work", true, "unbind"},
-		{"rekey:work", true, "rekey"},
-		{"invalid-format", true, ""},
+		{"remove:work", true},
+		{"remove:work", false},
+		{"unbind:work", true},
+		{"rekey:work", true},
+		{"invalid-format", true},
 	}
 	for _, ct := range confirmTests {
 		app.action = nil
-		_, _ = app.Update(core.ConfirmResultMsg{Context: ct.context, Confirmed: ct.confirmed})
-		if ct.wantKind != "" {
-			if app.action == nil || app.action.kind != ct.wantKind {
-				t.Errorf("Expected action %s, got %#v", ct.wantKind, app.action)
-			}
-		} else {
-			if app.action != nil {
-				t.Errorf("Expected no action set, got %#v", app.action)
-			}
+		updated, cmd := app.Update(core.ConfirmResultMsg{Context: ct.context, Confirmed: ct.confirmed})
+		app = updated.(*App)
+		if app.action != nil {
+			t.Errorf("Expected no pending action for confirm %s, got %#v", ct.context, app.action)
 		}
+		if app.Quit() {
+			t.Errorf("Expected app not to quit for confirm %s", ct.context)
+		}
+		_ = cmd
 	}
 }
-
-
