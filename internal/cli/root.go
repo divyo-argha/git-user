@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
-	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/ui"
 	"github.com/divyo-argha/git-user/internal/version"
 )
@@ -101,7 +100,16 @@ func Execute() error {
 
 	args := os.Args[1:]
 
-	autoSeedFromGitconfig() // first-run: import existing .gitconfig identity
+	sub := ""
+	if len(args) > 0 {
+		sub = args[0]
+	}
+
+	if shouldPromptFirstRunImport(sub) {
+		if err := maybePromptFirstRunImport(); err != nil {
+			return err
+		}
+	}
 
 	if len(args) == 0 {
 		if !ui.IsTTY() {
@@ -126,7 +134,7 @@ func Execute() error {
 		return nil
 	}
 
-	sub := args[0]
+	sub = args[0]
 	rest := args[1:]
 
 	switch sub {
@@ -199,38 +207,7 @@ func Execute() error {
 	}
 }
 
-// autoSeedFromGitconfig is a no-op if any identities already exist.
-func autoSeedFromGitconfig() {
-	store, err := config.Load()
-	if err != nil || len(store.Users) > 0 {
-		return
-	}
-
-	name := git.CurrentName()
-	email := git.CurrentEmail()
-	sshCommand := git.CurrentSSHCommand()
-
-	if name == "" && email == "" {
-		return
-	}
-
-	importName := name
-	if importName == "" {
-		importName = "original"
-	}
-
-	store.SnapshotOriginal(name, email, sshCommand, git.CurrentSigningKey(), git.CurrentSignFormat(), git.CurrentCommitGPGSign())
-
-	store.Users = append(store.Users, config.User{
-		Name:   importName,
-		Email:  email,
-		SSHKey: extractSSHKeyFromCommand(sshCommand),
-		Source: "original",
-	})
-
-	_ = config.Save(store)
-}
-
+// printConciseStatus prints a compact summary for non-interactive terminals.
 func printConciseStatus() {
 	store, err := config.Load()
 	if err != nil {

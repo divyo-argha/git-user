@@ -87,10 +87,6 @@ func runSwitch(args []string) error {
 	// Snapshot original gitconfig before first ever switch
 	store.SnapshotOriginal(git.CurrentName(), git.CurrentEmail(), git.CurrentSSHCommand(), git.CurrentSigningKey(), git.CurrentSignFormat(), git.CurrentCommitGPGSign())
 
-	// Auto-import original as an identity on first switch if no identities exist yet
-	autoImportOriginalIfNeeded(store)
-	_ = config.Save(store)
-
 	if createMode {
 		if store.FindUser(name) != nil {
 			ui.Errorf("identity %q already exists", name)
@@ -132,6 +128,15 @@ func runSwitch(args []string) error {
 				}
 				_ = keyring.DeleteKeychainPassphrase(prev.Name)
 			}
+		}
+	}
+
+	// Warn clearly if the bound SSH key file is missing so a switch never
+	// silently produces broken push behavior with the wrong/absent key.
+	if user.SSHKey != "" {
+		if _, statErr := os.Stat(user.SSHKey); statErr != nil {
+			ui.Warn(fmt.Sprintf("Bound SSH key not found: %s", user.SSHKey))
+			ui.Info(fmt.Sprintf("Fix it with: git-user bind %s --ssh-key <path>", user.Name))
 		}
 	}
 
@@ -189,14 +194,8 @@ func runSwitch(args []string) error {
 			return err
 		}
 
-		if user.SSHKey != "" {
-			if err := git.ConfigureSSHScope(user.SSHKey, true); err != nil {
-				ui.Warn(fmt.Sprintf("applying local SSH config: %v", err))
-			}
-		} else {
-			if err := git.RemoveSSHConfigScope(true); err != nil {
-				ui.Warn(fmt.Sprintf("removing local SSH config: %v", err))
-			}
+		if err := applyUserSSHConfig(user, true); err != nil {
+			ui.Warn(fmt.Sprintf("applying local SSH config: %v", err))
 		}
 
 		if !user.SignDisabled && user.SignKey != "" {
@@ -226,14 +225,8 @@ func runSwitch(args []string) error {
 			return err
 		}
 
-		if user.SSHKey != "" {
-			if err := git.ConfigureSSH(user.SSHKey); err != nil {
-				ui.Warn(fmt.Sprintf("applying SSH config: %v", err))
-			}
-		} else {
-			if err := git.RemoveSSHConfig(); err != nil {
-				ui.Warn(fmt.Sprintf("removing SSH config: %v", err))
-			}
+		if err := applyUserSSHConfig(user, false); err != nil {
+			ui.Warn(fmt.Sprintf("applying SSH config: %v", err))
 		}
 
 		if !user.SignDisabled && user.SignKey != "" {
@@ -471,34 +464,17 @@ func runSwitchOriginal() error {
 	return nil
 }
 
-// autoImportOriginalIfNeeded imports the original gitconfig as an identity
-// on the very first switch, if it hasn't been imported yet and has valid data.
-func autoImportOriginalIfNeeded(store *config.Store) {
-	// Skip if already imported
-	for _, u := range store.Users {
-		if u.Source == "original" {
-			return
-		}
+// applyUserSSHConfig writes core.sshCommand for an identity. When an identity
+// was imported from the original gitconfig and carries an explicit SSH command,
+// that command is preserved exactly so nothing about the user's existing SSH
+// setup is lost. Otherwise the bound SSH key is used, or the command is removed
+// when the identity has no key at all.
+func applyUserSSHConfig(user *config.User, local bool) error {
+	if user.SSHCommand != "" {
+		return git.SetSSHCommandScope(user.SSHCommand, local)
 	}
-
-	o := store.Original
-	if o == nil || (o.Name == "" && o.Email == "") {
-		return
+	if user.SSHKey != "" {
+		return git.ConfigureSSHScope(user.SSHKey, local)
 	}
-
-	importName := o.Name
-	if importName == "" {
-		importName = "original"
-	}
-
-	if store.FindUser(importName) != nil {
-		return
-	}
-
-	store.Users = append(store.Users, config.User{
-		Name:   importName,
-		Email:  o.Email,
-		SSHKey: extractSSHKeyFromCommand(o.SSHCommand),
-		Source: "original",
-	})
+	return git.RemoveSSHConfigScope(local)
 }

@@ -14,6 +14,7 @@ type User struct {
 	Name           string            `json:"name"`
 	Email          string            `json:"email"`
 	SSHKey         string            `json:"ssh_key,omitempty"`
+	SSHCommand     string            `json:"ssh_command,omitempty"` // original core.sshCommand to preserve exactly
 	SignKey        string            `json:"sign_key,omitempty"`
 	SignFormat     string            `json:"sign_format,omitempty"` // "ssh" or "gpg"
 	SignDisabled   bool              `json:"sign_disabled,omitempty"`
@@ -47,10 +48,11 @@ type SyncConfig struct {
 }
 
 type Store struct {
-	Current  string          `json:"current"`
-	Users    []User          `json:"users"`
-	Original *OriginalConfig `json:"original,omitempty"`
-	Sync     *SyncConfig     `json:"sync,omitempty"`
+	Current        string          `json:"current"`
+	Users          []User          `json:"users"`
+	Original       *OriginalConfig `json:"original,omitempty"`
+	Sync           *SyncConfig     `json:"sync,omitempty"`
+	ImportPrompted bool            `json:"import_prompted,omitempty"` // whether the first-run import prompt has been shown
 }
 
 var configPath string
@@ -242,6 +244,9 @@ func (s *Store) BindSSHKey(name, keyPath string) error {
 		return fmt.Errorf("user %q not found", name)
 	}
 	u.SSHKey = keyPath
+	// An explicitly bound key overrides any preserved original sshCommand so
+	// the effective key is always the one the user just chose.
+	u.SSHCommand = ""
 	return nil
 }
 

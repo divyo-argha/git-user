@@ -81,12 +81,16 @@ var (
 	PromptFn  func(label string) (string, error)
 	SelectFn  func(label string, options []string) (int, error)
 	ConfirmFn func(question string, defaultYes bool) bool
+	IsTTYFn   func() bool
 )
 
 // ── TTY Detection ─────────────────────────────────────────────────────────────
 
 // IsTTY returns true if stdout is a character device (terminal).
 func IsTTY() bool {
+	if IsTTYFn != nil {
+		return IsTTYFn()
+	}
 	fi, err := os.Stdout.Stat()
 	if err != nil {
 		return false

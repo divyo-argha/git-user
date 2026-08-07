@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -218,5 +219,38 @@ func TestRunSwitch_TempProfile(t *testing.T) {
 	store, _ = config.Load()
 	if store.FindUser("temp") != nil {
 		t.Errorf("temp user should have been deleted when switching away from it")
+	}
+}
+
+func TestRunSwitch_PreservesOriginalSSHCommand(t *testing.T) {
+	setupTestEnv(t)
+	setGitConfig("bob", "bob@example.com")
+	_ = exec.Command("git", "config", "--global", "core.sshCommand", "ssh -i ~/.ssh/id_bob -o SomeFlag -o OtherFlag=1").Run()
+
+	if err := runImportOriginal([]string{"main"}); err != nil {
+		t.Fatalf("import failed: %v", err)
+	}
+
+	store, _ := config.Load()
+	u := store.FindUser("main")
+	if u == nil {
+		t.Fatal("identity main not found after import")
+	}
+	if u.SSHCommand != "ssh -i ~/.ssh/id_bob -o SomeFlag -o OtherFlag=1" {
+		t.Fatalf("expected SSHCommand preserved on import, got %q", u.SSHCommand)
+	}
+
+	if err := runSwitch([]string{"main"}); err != nil {
+		t.Fatalf("switch failed: %v", err)
+	}
+
+	if got := git.CurrentSSHCommand(); got != "ssh -i ~/.ssh/id_bob -o SomeFlag -o OtherFlag=1" {
+		t.Errorf("expected core.sshCommand to be preserved exactly on switch, got %q", got)
+	}
+
+	// Re-binding a key should override the preserved original command.
+	_ = store.BindSSHKey("main", "/some/other/key")
+	if u.SSHCommand != "" {
+		t.Errorf("expected SSHCommand cleared after binding a new key, got %q", u.SSHCommand)
 	}
 }

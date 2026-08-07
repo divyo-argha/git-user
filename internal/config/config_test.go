@@ -72,6 +72,24 @@ func TestBindSSHKey(t *testing.T) {
 	}
 }
 
+func TestBindSSHKeyClearsPreservedCommand(t *testing.T) {
+	s := &config.Store{}
+	_ = s.AddUser("eve", "eve@example.com")
+	u := s.FindUser("eve")
+	u.SSHCommand = "ssh -i /old/key -o SomeFlag"
+	u.SSHKey = "/old/key"
+
+	if err := s.BindSSHKey("eve", "/new/key"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if u.SSHKey != "/new/key" {
+		t.Errorf("expected ssh key /new/key, got %s", u.SSHKey)
+	}
+	if u.SSHCommand != "" {
+		t.Errorf("expected preserved sshCommand to be cleared on re-bind, got %q", u.SSHCommand)
+	}
+}
+
 func TestSigningConfig(t *testing.T) {
 	s := &config.Store{}
 	_ = s.AddUser("eve", "eve@example.com")

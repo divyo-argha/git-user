@@ -124,6 +124,14 @@ git-user --update
 
 Two minutes to set up. One second to switch forever after.
 
+> **First run:** the first time you run `git-user register`, `git-user switch`, or
+> the TUI (`git-user`), git-user will *ask* whether you'd like to import the Git
+> identity already present in your `~/.gitconfig` — it never imports it silently.
+> If you accept, you get to choose what the identity is called. Declining (or
+> skipping the prompt) changes nothing; you can import it later at any time with
+> `git-user import-original` or from the TUI (System Utilities → Import existing
+> git identity).
+
 ```bash
 # Step 1 — register your identities (guided, interactive)
 git-user register   # → name: work,     email: you@company.com
@@ -368,7 +376,7 @@ What happens:
 | `security` | Audit all identities for security issues |
 | `export --all` | Export all identities + SSH keys (AES-256 encrypted) |
 | `export <name> [name...]` | Export specific identities |
-| `import-original [name]` | Import original gitconfig identity into git-user |
+| `import-original [name]` | Import original gitconfig identity into git-user (asks for the identity name if not given) |
 | `import <file>` | Import from an encrypted bundle |
 | `clone <repo-url> [dir]` | Clone repository and auto-configure local identity |
 | `stats` | Audit and show commit author identity stats |

@@ -43,17 +43,25 @@ func runImportOriginal(args []string) error {
 		return fmt.Errorf("no original identity")
 	}
 
-	// Determine name for the identity
+	// Determine name for the identity — the user always chooses it. The current
+	// git user.name (or "original") is only offered as a suggestion.
 	importName := name
 	if len(args) > 0 {
 		importName = args[0]
-	} else if importName == "" {
-		var promptErr error
-		importName, promptErr = ui.Prompt("Name for this identity (e.g., 'original', 'system'):")
-		if promptErr != nil || importName == "" {
-			ui.Error("Name is required")
-			return fmt.Errorf("missing name")
+	} else {
+		defaultName := name
+		if defaultName == "" {
+			defaultName = "original"
 		}
+		chosen, promptErr := ui.Prompt(fmt.Sprintf("Name for this identity [%s]:", defaultName))
+		if promptErr != nil {
+			return promptErr
+		}
+		chosen = strings.TrimSpace(chosen)
+		if chosen == "" {
+			chosen = defaultName
+		}
+		importName = chosen
 	}
 
 	if store.FindUser(importName) != nil {
@@ -70,14 +78,16 @@ func runImportOriginal(args []string) error {
 		email = promptEmail
 	}
 
-	// Extract SSH key path from core.sshCommand if present
+	// Extract SSH key path from core.sshCommand if present, but keep the full
+	// command so switching to this identity restores the exact original setup.
 	sshKey := extractSSHKeyFromCommand(sshCommand)
 
 	store.Users = append(store.Users, config.User{
-		Name:   importName,
-		Email:  email,
-		SSHKey: sshKey,
-		Source: "original",
+		Name:       importName,
+		Email:      email,
+		SSHKey:     sshKey,
+		SSHCommand: sshCommand,
+		Source:     "original",
 	})
 
 	// Snapshot the original for --original restore if not already done
@@ -93,6 +103,9 @@ func runImportOriginal(args []string) error {
 	ui.Info(fmt.Sprintf("  Email: %s", email))
 	if sshKey != "" {
 		ui.Info(fmt.Sprintf("  SSH Key: %s", sshKey))
+	}
+	if sshCommand != "" {
+		ui.Info(fmt.Sprintf("  SSH Command: %s", sshCommand))
 	}
 	fmt.Println()
 	ui.Info(fmt.Sprintf("Switch to it: git-user switch %s", importName))

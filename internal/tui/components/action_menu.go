@@ -48,6 +48,7 @@ func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 		ActionItem{IsSection: true, Label: "🛡 Security & Health"},
 		ActionItem{Label: "🔒 Security audit", Key: "security"},
 		ActionItem{Label: "🩺 Doctor (health check)", Key: "doctor"},
+		ActionItem{Label: "🗂 Import existing git identity", Key: "import-original"},
 		ActionItem{Label: "📦 Import / Export bundles…", Key: "import-export"},
 		ActionItem{IsSection: true, Label: "👤 Profiles & System"},
 		ActionItem{Label: "⏱ Create temporary profile", Key: "register-temp"},

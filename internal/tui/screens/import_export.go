@@ -36,7 +36,7 @@ var importExportOptions = []importExportOption{
 	{
 		label: "🗂  Import original gitconfig",
 		key:   "import-original",
-		desc:  "Import identity from your original ~/.gitconfig backup",
+		desc:  "Import your existing ~/.gitconfig identity (you pick the name)",
 	},
 	{
 		label: "←   Back",
