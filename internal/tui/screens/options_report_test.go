@@ -1,6 +1,7 @@
 package screens
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -58,9 +59,16 @@ func TestOptionsNavigationAndResult(t *testing.T) {
 
 func TestReportRenderAndScroll(t *testing.T) {
 	th := theme.DefaultTheme()
-	lines := "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10"
+	// Generate enough lines to exceed a height-24 viewport (maxLines = 24-8 = 16).
+	// Need > 16 lines so maxScrollOffset > 0.
+	var lineSlice []string
+	for i := 1; i <= 25; i++ {
+		lineSlice = append(lineSlice, fmt.Sprintf("line%d", i))
+	}
+	lines := strings.Join(lineSlice, "\n")
 	r := NewReport("My Report", lines, th)
 
+	// Must call View first so r.maxLines is initialised.
 	view := r.View(80, 24)
 	if !strings.Contains(view, "My Report") {
 		t.Error("expected title in view")
@@ -69,7 +77,7 @@ func TestReportRenderAndScroll(t *testing.T) {
 		t.Error("expected first line in view")
 	}
 
-	// Scroll down.
+	// With 25 lines and maxLines=16, maxScrollOffset = 25-16 = 9. Scroll should work.
 	updated, _ := r.Update(tea.KeyMsg{Type: tea.KeyDown})
 	r = updated.(*Report)
 	if r.offset != 1 {
