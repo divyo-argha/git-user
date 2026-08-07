@@ -2,6 +2,7 @@ package tui
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/divyo-argha/git-user/internal/config"
@@ -147,5 +148,32 @@ func TestOpConfigMissingIdentity(t *testing.T) {
 	}
 	if _, err := opConfigUnset(store, "nope", "k"); err == nil {
 		t.Error("expected error for missing identity")
+	}
+}
+
+func TestRunCapturedCapturesOutput(t *testing.T) {
+	out, err := runCaptured("", "sh", "-c", "echo hello&&echo err 1>&2&&exit 0")
+	if err != nil {
+		t.Fatalf("runCaptured: %v", err)
+	}
+	if !strings.Contains(out, "hello") || !strings.Contains(out, "err") {
+		t.Errorf("expected both stdout and stderr captured, got %q", out)
+	}
+}
+
+func TestRunCapturedErrors(t *testing.T) {
+	_, err := runCaptured("", "sh", "-c", "echo boom&&false")
+	if err == nil {
+		t.Error("expected error for failing command")
+	}
+}
+
+func TestRunCapturedSetsTerminalPromptDisabled(t *testing.T) {
+	out, err := runCaptured("", "sh", "-c", "printf '%s' \"$GIT_TERMINAL_PROMPT\"")
+	if err != nil {
+		t.Fatalf("runCaptured: %v", err)
+	}
+	if out != "0" {
+		t.Errorf("expected GIT_TERMINAL_PROMPT=0, got %q", out)
 	}
 }
