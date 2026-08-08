@@ -214,6 +214,21 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			a.theme,
 		))
 
+	case "unbind-path-confirm":
+		// msg.Name = "profileName|path" (sent from Detail's inactive path list).
+		// Push a Confirm dialog with the right context for app_confirm.go.
+		parts := strings.SplitN(msg.Name, "|", 2)
+		name := parts[0]
+		path := ""
+		if len(parts) > 1 {
+			path = parts[1]
+		}
+		return a, pushCmd(screens.NewConfirm(
+			fmt.Sprintf("Unbind directory %q from %q?", path, name),
+			fmt.Sprintf("unbind-path-confirm:%s|%s", name, path),
+			a.theme,
+		))
+
 	case "export":
 		names := []string{msg.Name}
 		return a, a.pushExportForm(names)

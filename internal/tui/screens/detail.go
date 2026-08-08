@@ -56,7 +56,23 @@ func (d *Detail) refreshActions() {
 		nameVal := "○ " + user.Name
 		items = append(items, components.ActionItem{Label: fmt.Sprintf("Profile Name : %s", nameVal), Key: "rename"})
 		items = append(items, components.ActionItem{Label: fmt.Sprintf("Email Address: %s", user.Email), Key: "email"})
-		items = append(items, components.ActionItem{Label: fmt.Sprintf("Status       : %s", d.theme.Dim().Render("○ Inactive Profile (Switch to view security details)")), Key: ""})
+		items = append(items, components.ActionItem{Label: fmt.Sprintf("Status       : %s", d.theme.Dim().Render("○ Inactive Profile")), Key: ""})
+
+		// Show directory bindings even for inactive profiles.
+		if len(user.BindPaths) > 0 {
+			items = append(items, components.ActionItem{Label: "Directory Bindings", IsSection: true})
+			for _, p := range user.BindPaths {
+				items = append(items, components.ActionItem{
+					Label: fmt.Sprintf("  📁 %s", p),
+					Key:   "unbind-path:" + p,
+				})
+			}
+			items = append(items, components.ActionItem{Label: "➕ Bind a directory to this profile", Key: "bind-path"})
+		} else {
+			items = append(items, components.ActionItem{Label: "Directory Bindings", IsSection: true})
+			items = append(items, components.ActionItem{Label: d.theme.Dim().Render("  No directories bound"), Key: ""})
+			items = append(items, components.ActionItem{Label: "➕ Bind a directory to this profile", Key: "bind-path"})
+		}
 
 		items = append(items, components.ActionItem{Label: "Primary Action", IsSection: true})
 		items = append(items, components.ActionItem{Label: "⚡ Switch to this identity", Key: "switch"})
@@ -287,11 +303,17 @@ func (d *Detail) handleEnter() (core.Screen, tea.Cmd) {
 		return d, nil
 	}
 
-	switch item.Key {
-	case "back":
+	switch {
+	case item.Key == "back":
 		return d, func() tea.Msg { return core.ScreenPopMsg{} }
-	case "pubkey-locked", "pubkey-push-locked", "passphrase-locked":
+	case item.Key == "pubkey-locked" || item.Key == "pubkey-push-locked" || item.Key == "passphrase-locked" || item.Key == "":
 		return d, nil
+	case len(item.Key) > 12 && item.Key[:12] == "unbind-path:":
+		// "unbind-path:<path>" — confirm then unbind.
+		path := item.Key[12:]
+		return d, func() tea.Msg {
+			return core.ActionResultMsg{Kind: "unbind-path-confirm", Name: d.name + "|" + path}
+		}
 	default:
 		return d, func() tea.Msg {
 			return core.ActionResultMsg{Kind: item.Key, Name: d.name}
