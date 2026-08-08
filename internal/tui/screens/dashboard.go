@@ -20,12 +20,15 @@ const (
 )
 
 type Dashboard struct {
-	store      *config.Store
-	identities components.IdentityList
-	actions    components.ActionMenu
-	activePane Pane
-	animFrame  uint64
-	theme      theme.Theme
+	store       *config.Store
+	identities  components.IdentityList
+	actions     components.ActionMenu
+	activePane  Pane
+	animFrame   uint64
+	theme       theme.Theme
+	filterMode  bool   // true when '/' has been pressed and user is typing
+	filterQuery string // current filter text
+	leftWidth   int    // updated each View(); used for mouse pane detection
 }
 
 func NewDashboard(store *config.Store, th theme.Theme) *Dashboard {
@@ -41,6 +44,9 @@ func NewDashboard(store *config.Store, th theme.Theme) *Dashboard {
 func (d *Dashboard) Init() tea.Cmd { return nil }
 func (d *Dashboard) Title() string { return "Dashboard" }
 func (d *Dashboard) ShortHelp() string {
+	if d.filterMode {
+		return core.FilterHelp()
+	}
 	return core.DashboardHelp()
 }
 
@@ -67,7 +73,12 @@ func (d *Dashboard) handleMouse(msg tea.MouseMsg) (core.Screen, tea.Cmd) {
 	switch msg.Button {
 	case tea.MouseButtonLeft:
 		if msg.Action == tea.MouseActionPress {
-			if msg.X < 40 {
+			// Use tracked leftWidth from last View() call for accurate detection.
+			splitAt := d.leftWidth + theme.PaneBorder
+			if splitAt < 20 {
+				splitAt = 40 // fallback before first render
+			}
+			if msg.X < splitAt {
 				d.activePane = PaneIdentities
 			} else {
 				d.activePane = PaneActions
@@ -90,13 +101,63 @@ func (d *Dashboard) handleMouse(msg tea.MouseMsg) (core.Screen, tea.Cmd) {
 }
 
 func (d *Dashboard) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
+	// ── Filter mode: characters type into the query ───────────────────────
+	if d.filterMode {
+		switch msg.String() {
+		case core.KeyCtrlC:
+			return d, tea.Quit
+		case core.KeyEsc:
+			// Esc: clear filter and exit filter mode.
+			d.filterMode = false
+			d.filterQuery = ""
+			d.identities.ClearFilter()
+			return d, nil
+		case core.KeyEnter:
+			// Enter: accept current selection and exit filter mode.
+			d.filterMode = false
+			return d.handleEnter()
+		case "backspace", "ctrl+h":
+			if len(d.filterQuery) > 0 {
+				d.filterQuery = d.filterQuery[:len([]rune(d.filterQuery))-1]
+				d.identities.FilterByQuery(d.filterQuery)
+			}
+			if d.filterQuery == "" {
+				d.identities.ClearFilter()
+			}
+			return d, nil
+		case core.KeyUp, core.KeyK:
+			d.identities.CursorUp()
+			return d, nil
+		case core.KeyDown, core.KeyJ:
+			d.identities.CursorDown()
+			return d, nil
+		default:
+			// Printable character: append to query.
+			if len(msg.Runes) > 0 {
+				d.filterQuery += string(msg.Runes)
+				d.identities.FilterByQuery(d.filterQuery)
+			}
+			return d, nil
+		}
+	}
+
+	// ── Normal mode ───────────────────────────────────────────────────────
 	switch msg.String() {
-	case core.KeyCtrlC, core.KeyQuit:
+	case core.KeyCtrlC:
 		return d, tea.Quit
+	case core.KeyQuit:
+		// 'q' shows a quit confirmation instead of quitting immediately.
+		return d, func() tea.Msg {
+			return core.ActionResultMsg{Kind: "quit-confirm"}
+		}
 	case core.KeyEsc:
-		// Root screen: there is nothing to go back to. Never exit the TUI on
-		// Esc here; guide the user to the documented quit keys instead.
+		// Root screen: nothing to go back to.
 		return d, core.ShowToastCmd("At the main menu — press q or select Quit to exit", theme.ToastStyleInfo, 2*time.Second)
+	case core.KeyFilter:
+		// '/' enters filter mode on the identities pane.
+		d.filterMode = true
+		d.activePane = PaneIdentities
+		return d, nil
 	case core.KeyTab:
 		if d.activePane == PaneIdentities {
 			d.activePane = PaneActions
@@ -186,7 +247,10 @@ func (d *Dashboard) View(width, height int) string {
 		leftWidth = 20
 	}
 
-	leftContent := d.identities.View(leftWidth, contentH, d.activePane == PaneIdentities)
+	// Track leftWidth for mouse click detection.
+	d.leftWidth = leftWidth
+
+	leftContent := d.identities.ViewWithFilter(leftWidth, contentH, d.activePane == PaneIdentities, d.filterMode, d.filterQuery)
 	rightContent := d.actions.View(rightWidth, contentH, d.activePane == PaneActions)
 
 	var leftBox, rightBox string
@@ -203,7 +267,7 @@ func (d *Dashboard) View(width, height int) string {
 
 func (d *Dashboard) viewSingleColumn(width, height int) string {
 	if d.activePane == PaneIdentities {
-		content := d.identities.View(width, height, true)
+		content := d.identities.ViewWithFilter(width, height, true, d.filterMode, d.filterQuery)
 		return d.theme.ActivePane(width, height).Render(content)
 	}
 	content := d.actions.View(width, height, true)

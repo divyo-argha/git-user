@@ -16,6 +16,14 @@ import (
 
 func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 	switch msg.Kind {
+	case "quit-confirm":
+		// 'q' from the dashboard: show a confirmation dialog before quitting.
+		return a, pushCmd(screens.NewConfirm(
+			"Quit git-user?",
+			"quit-confirmed",
+			a.theme,
+		))
+
 	case "quit":
 		a.quit = true
 		return a, tea.Quit
