@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/divyo-argha/git-user/internal/cli"
 	"github.com/divyo-argha/git-user/internal/identity"
@@ -32,8 +33,28 @@ func main() {
 	checkOrphanedKeys()
 
 	if err := cli.Execute(); err != nil {
+		hintDoctorOnError(err)
 		os.Exit(1)
 	}
+}
+
+// hintDoctorOnError prints a pointer to `git-user doctor` when a command fails,
+// unless the failure is already self-explanatory (unknown command / usage) or
+// the failing command is doctor itself.
+func hintDoctorOnError(err error) {
+	if err == nil {
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "doctor" {
+		return
+	}
+	msg := err.Error()
+	for _, skippable := range []string{"unknown command", "usage:", "missing", "must be", "not in repository", "unsupported shell"} {
+		if strings.Contains(msg, skippable) {
+			return
+		}
+	}
+	ui.Info("Run 'git-user doctor' for a diagnosis of common setup issues.")
 }
 
 func printVersion() {

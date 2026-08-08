@@ -110,6 +110,17 @@ func IsPlainOutput(args []string) bool {
 	return !IsTTY()
 }
 
+// IsJSONOutput reports whether the caller requested machine-readable JSON
+// via an explicit --json flag.
+func IsJSONOutput(args []string) bool {
+	for _, a := range args {
+		if a == "--json" {
+			return true
+		}
+	}
+	return false
+}
+
 // ── Logo ──────────────────────────────────────────────────────────────────────
 
 // PrintLogo prints the git-user design logo to stdout.

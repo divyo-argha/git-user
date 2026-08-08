@@ -45,10 +45,17 @@ Examples:
 List all identities.
 
 Flags:
-  -h, --help                   Show this help`,
-		"current": `Usage: git-user current
+  --plain                    Plain, machine-readable output (name <email> [# active])
+  --json                     JSON output
+  -h, --help                 Show this help`,
+		"current": `Usage: git-user current [flags]
 
-Show the active identity.`,
+Show the active identity.
+
+Flags:
+  --plain                    Plain, machine-readable output (name <email>)
+  --json                     JSON output
+  -h, --help                 Show this help`,
 		"prompt": `Usage: git-user prompt
 
 Output the active identity for terminal integration.`,
@@ -97,7 +104,7 @@ Manage the passphrase for the active, unlocked identity.
 Flags:
   -s, --set                    Set/change the passphrase
   -r, --remove                 Remove the passphrase
-  -v, --verify                 Verify the passphrase
+  --verify                     Verify the passphrase (deprecated short form: -v)
   -m, --mode <mode>            persistent | login | everytime
   -h, --help                   Show this help`,
 		"rekey": `Usage: git-user rekey <name> [flags]
@@ -186,7 +193,7 @@ Synchronize identities across devices using a private repository.`,
 	if u, ok := usage[sub]; ok {
 		return u
 	}
-	return usage["register"]
+	return ""
 }
 
 func wantsHelp(args []string) bool {
@@ -201,5 +208,10 @@ func wantsHelp(args []string) bool {
 func runSubcommandHelp(sub string) {
 	ui.PrintLogo()
 	fmt.Println()
-	fmt.Println(commandUsage(sub))
+	u := commandUsage(sub)
+	if u == "" {
+		ui.Errorf("unknown command %q — run 'git-user --help' for usage", sub)
+		return
+	}
+	fmt.Println(u)
 }

@@ -29,7 +29,7 @@ func TestCommandUsageHasEntries(t *testing.T) {
 			t.Errorf("commandUsage(%q) is empty", c)
 		}
 	}
-	if commandUsage("nope") == "" {
-		t.Error("expected non-empty fallback for unknown command")
+	if commandUsage("nope") != "" {
+		t.Error("expected empty usage for unknown command")
 	}
 }

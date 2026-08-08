@@ -412,6 +412,7 @@ func runSwitchOriginal(args []string) error {
 	if o == nil {
 		// No snapshot yet: this is a plain import of the current gitconfig
 		// identity (interactive name pick when none given).
+		ui.Info("No original identity snapshot exists yet — importing the current gitconfig identity instead.")
 		return runImportOriginal(args)
 	}
 

@@ -20,39 +20,46 @@ QUICK START
   git-user current           Show active identity
 
 COMMANDS
-  register                   Create new identity with SSH key
-  switch <name>              Switch to an identity
-  switch -c <name> [-e email] Create new identity and switch to it
-  switch --original          Import and switch to the original pre-git-user identity
-  list                       List all identities
-  current                    Show active identity
-  prompt                     Output active identity for terminal integration
-  (list and current accept --plain, and print plain lines when piped)
-  remove <name>              Delete an identity
-  edit <name> <email>        Update email
-  rename <old-name> <new-name> Rename an identity
-  pubkey                     Show public key for active identity only
-  pubkey publish [platform]  Publish public SSH key to GitHub, GitLab, or Bitbucket
-  bind-key <name> [--ssh-key <p>] Add/link SSH key (interactive if no path)
-  bind-path <name> <path>    Bind a directory path to an identity for auto-switching
-  unbind-path <name> <path>  Unbind a directory path from an identity
-  passphrase                 Add/change passphrase for active, unlocked identity
-  rekey <name>               Rotate SSH key
-  fix-remote                 Convert HTTPS remotes to SSH
-  export --all               Export all identities + SSH keys (encrypted)
-  export <name> [name...]    Export specific identities (encrypted)
-  import [--force] <file>    Import identities from a bundle
-  doctor                     Check setup
-  tui                        Interactive menu
-  completion <shell>         Generate shell completion (bash/zsh/fish)
-  hook <install|uninstall>   Manage git pre-commit hooks
-  audit                      Run security audit
-  sign <name>                Manage commit signing for an identity
-  logout                     Sign out and clear active identity
-  clone <repo-url> [dir]     Clone repository and auto-configure local identity
-  stats                      Audit and show commit author identity stats
-  config <list|set|unset>    Manage custom git configurations for an identity
-  sync                       Synchronize identities across devices using a private repository
+
+  Identities
+    register                   Create new identity with SSH key
+    switch <name>              Switch to an identity
+    switch -c <name> [-e email] Create new identity and switch to it
+    switch --original          Import and switch to the original pre-git-user identity
+    list                       List all identities (accepts --plain, --json)
+    current                    Show active identity (accepts --plain, --json)
+    prompt                     Output active identity for terminal integration
+    remove <name>              Delete an identity
+    edit <name> <email>        Update email
+    rename <old-name> <new-name> Rename an identity
+
+  SSH & Keys
+    pubkey                     Show public key for active identity
+    pubkey publish [platform]  Publish public SSH key to GitHub, GitLab, or Bitbucket
+    bind-key <name> [--ssh-key <p>] Add/link SSH key (interactive if no path)
+    bind-path <name> <path>    Bind a directory path to an identity for auto-switching
+    unbind-path <name> <path>  Unbind a directory path from an identity
+    passphrase                 Add/change passphrase for active, unlocked identity
+    rekey <name>               Rotate SSH key
+
+  Repos & Portability
+    fix-remote                 Convert HTTPS remotes to SSH
+    clone <repo-url> [dir]     Clone repository and auto-configure local identity
+    export --all               Export all identities + SSH keys (encrypted)
+    export <name> [name...]    Export specific identities (encrypted)
+    import [--force] <file>    Import identities from a bundle
+    sync                       Synchronize identities across devices using a private repository
+
+  System
+    doctor                     Check setup
+    audit                      Run security audit
+    stats                      Audit and show commit author identity stats
+    sign <name>                Manage commit signing for an identity
+    config <list|set|unset>    Manage custom git configurations for an identity
+    hook <install|uninstall>   Manage git pre-commit hooks
+    logout                     Sign out and clear active identity
+    tui                        Interactive menu
+    completion <shell>         Generate shell completion (bash/zsh/fish)
 
 ALIASES
   reg                        register

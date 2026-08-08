@@ -83,21 +83,25 @@ You've tried everything:
 <tr>
 <td width="33%" valign="top">
 
-### One-line
+### One-line (macOS / Linux)
 ```bash
 curl -sSfL https://raw.githubusercontent.com/divyo-argha/git-user/main/install.sh | bash
 ```
 Restart your terminal. PATH is configured automatically.
 
+**On Windows,** use the npm install instead — the one-line script above only
+supports macOS and Linux.
+
 </td>
 <td width="33%" valign="top">
 
-### npm
+### npm (all platforms, incl. Windows)
 ```bash
 npm install -g git-userhub
 ```
 > Published as `git-userhub` on npm.
 > After install, the command is `git-user`.
+> Windows (x64/arm64) is supported through this route.
 
 </td>
 <td width="33%" valign="top">
@@ -390,6 +394,10 @@ What happens:
 | `--version` / `-v` | Show version |
 
 **Aliases:** `ls` → `list` · `sw` → `switch` · `rm` → `remove` · `bind` → `bind-key` · `pubkey push` → `pubkey publish` · `security` → `audit` · `import-original` → `switch --original`
+
+> **Machine-readable output:** `list` and `current` print `name <email>` (plus a
+> ` # active` marker on `list`) when piped or with `--plain`. Add `--json` for
+> structured output suitable for scripts and `jq`:
 
 ---
 

@@ -11,6 +11,14 @@ OS="$(uname -s)"
 case "$OS" in
     Linux*)     PLATFORM="linux";;
     Darwin*)    PLATFORM="darwin";;
+    MINGW*|MSYS*|CYGWIN*)
+        echo "This installer supports macOS and Linux only."
+        echo ""
+        echo "On Windows, install git-user with npm instead:"
+        echo "    npm install -g git-userhub"
+        echo ""
+        echo "The command will be available as 'git-user' after install."
+        exit 1;;
     *)          echo "Error: Unsupported OS: $OS"; exit 1;;
 esac
 
