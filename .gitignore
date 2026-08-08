@@ -18,6 +18,7 @@ coverage.out
 
 # npm
 npm/node_modules/
+/node_modules/
 npm/bin/git-user
 npm/bin/git-user.exe
 npm/bin/git-user-*

@@ -44,11 +44,21 @@ func printVersion() {
 	fmt.Printf("git-user %s\n", v)
 }
 
+// stdinIsTTY reports whether stdin is attached to a terminal.
+func stdinIsTTY() bool {
+	fi, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	return (fi.Mode() & os.ModeCharDevice) != 0
+}
+
 func checkOrphanedKeys() {
-	// The orphan-cleanup prompt is interactive: never run it when stdout is
-	// not a TTY, otherwise warnings could corrupt piped output (e.g.
-	// `git-user list | grep x` or `git-user export --all > bundle.bundle`).
-	if !ui.IsTTY() {
+	// The orphan-cleanup prompt is interactive: only run it when both stdin and
+	// stdout are terminals. Otherwise warnings could corrupt programmatically
+	// consumed output (e.g. `git-user list | grep x`, `git-user pubkey | xclip`,
+	// `git-user export --all > bundle.bundle`) or hang waiting for input in CI.
+	if !ui.IsTTY() || !stdinIsTTY() {
 		return
 	}
 
@@ -56,7 +66,7 @@ func checkOrphanedKeys() {
 	if len(os.Args) > 1 {
 		cmdStr := os.Args[1]
 		// Skip for these commands
-		skipCommands := []string{"--help", "-h", "help", "--version", "-v", "version", "completion"}
+		skipCommands := []string{"--help", "-h", "help", "--version", "-v", "version", "completion", "prompt", "pubkey"}
 		for _, skip := range skipCommands {
 			if cmdStr == skip {
 				return

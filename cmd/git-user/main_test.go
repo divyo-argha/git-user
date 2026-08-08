@@ -74,7 +74,7 @@ func TestCheckOrphanedKeys_SkipsNonInteractiveCommands(t *testing.T) {
 	origArgs := os.Args
 	t.Cleanup(func() { os.Args = origArgs })
 
-	skipCommands := []string{"--help", "-h", "help", "--version", "-v", "version", "completion"}
+	skipCommands := []string{"--help", "-h", "help", "--version", "-v", "version", "completion", "prompt", "pubkey"}
 	for _, cmd := range skipCommands {
 		t.Run(cmd, func(t *testing.T) {
 			os.Args = []string{"git-user", cmd}
