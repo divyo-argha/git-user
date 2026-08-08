@@ -56,7 +56,6 @@ func TestDashboard(t *testing.T) {
 		t.Errorf("Expected pushed screen to be Detail")
 	}
 
-
 	// Quitting
 	_, cmd = dash.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
 	if cmd == nil {

@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
-	"github.com/divyo-argha/git-user/internal/config"
-	"github.com/divyo-argha/git-user/internal/git"
 )
 
 // ── Pubkey push ───────────────────────────────────────────────────────────────
@@ -189,7 +189,7 @@ func pushKeyBitbucket(profileName, pubKey, username, appPassword string) (opResu
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
 	if err != nil {
-		return opResult{}, fmt.Errorf("Bitbucket API request failed: %w", err)
+		return opResult{}, fmt.Errorf("bitbucket API request failed: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusCreated {

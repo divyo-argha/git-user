@@ -2,13 +2,13 @@ package tui
 
 import (
 	"fmt"
+	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/ssh"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"github.com/divyo-argha/git-user/internal/config"
-	"github.com/divyo-argha/git-user/internal/git"
-	"github.com/divyo-argha/git-user/internal/ssh"
 )
 
 // ── Reports ───────────────────────────────────────────────────────────────────
@@ -255,4 +255,3 @@ func opDoctor(store *config.Store) (opResult, error) {
 	}
 	return opResult{detail: report, showReport: true}, nil
 }
-

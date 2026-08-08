@@ -272,7 +272,6 @@ func (d *Detail) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	return d, nil
 }
 
-
 func (d *Detail) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 	if core.IsEscKey(msg) || msg.String() == "b" || msg.String() == "B" {
 		return d, func() tea.Msg { return core.ScreenPopMsg{} }

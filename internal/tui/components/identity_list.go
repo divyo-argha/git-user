@@ -41,7 +41,6 @@ func NewIdentityList(store *config.Store, th theme.Theme) IdentityList {
 	return IdentityList{items: items, filtered: filtered, theme: th}
 }
 
-
 func buildIdentityItems(store *config.Store) []IdentityItem {
 	var items []IdentityItem
 	for _, u := range store.Users {
@@ -105,7 +104,7 @@ func (l *IdentityList) Selected() *IdentityItem {
 	return &l.items[idx]
 }
 
-func (l *IdentityList) Cursor() int       { return l.cursor }
+func (l *IdentityList) Cursor() int { return l.cursor }
 
 // FilterByQuery filters the list to items whose name or email contains q
 // (case-insensitive). An empty query shows all items.
@@ -291,11 +290,9 @@ func (l IdentityList) renderIdentityLine(item IdentityItem, isCursor, isActive b
 		badgeStr = "  " + strings.Join(badges, " ")
 	}
 
-	nameStr := item.Name
+	nameStr := l.theme.Bold().Render(item.Name) + "  " + l.theme.Dim().Render("<"+item.Email+">")
 	if item.IsActive {
 		nameStr = l.theme.Active().Render(item.Name) + "  " + l.theme.Dim().Render("<"+item.Email+">") + "  " + l.theme.PillActive().Render("● ACTIVE")
-	} else {
-		nameStr = l.theme.Bold().Render(item.Name) + "  " + l.theme.Dim().Render("<"+item.Email+">")
 	}
 
 	if item.IsTemporary {

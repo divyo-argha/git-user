@@ -2,9 +2,9 @@ package tui
 
 import (
 	"fmt"
+	"github.com/divyo-argha/git-user/internal/config"
 	"os"
 	"path/filepath"
-	"github.com/divyo-argha/git-user/internal/config"
 )
 
 // ── Path bindings ─────────────────────────────────────────────────────────────
@@ -42,4 +42,3 @@ func opUnbindPath(store *config.Store, name, path string) error {
 	}
 	return config.Save(store)
 }
-

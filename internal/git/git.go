@@ -312,4 +312,3 @@ func CurrentRepoName() string {
 	}
 	return top[strings.LastIndex(top, "/")+1:]
 }
-

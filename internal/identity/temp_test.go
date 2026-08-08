@@ -194,7 +194,7 @@ func TestOrphanDetector(t *testing.T) {
 	// - One key whose file doesn't exist (should be cleaned from state but not reported as orphan)
 	// - One key whose process doesn't exist and key file exists (should be flagged as orphan)
 	// - One key whose process exists (mocked using current PID) and key file exists (should NOT be flagged)
-	
+
 	key1Path := filepath.Join(tmpDir, "key1")
 	key2Path := filepath.Join(tmpDir, "key2")
 	key3Path := filepath.Join(tmpDir, "key3")

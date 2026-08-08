@@ -195,7 +195,6 @@ func (d *Dashboard) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 	return d, nil
 }
 
-
 func (d *Dashboard) handleEnter() (core.Screen, tea.Cmd) {
 	if d.activePane == PaneIdentities {
 		item := d.identities.Selected()

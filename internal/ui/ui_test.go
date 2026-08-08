@@ -18,7 +18,7 @@ func TestIsTTY(t *testing.T) {
 func TestMessageFunctions(t *testing.T) {
 	// These functions write to stdout/stderr
 	// We just verify they don't panic
-	
+
 	Success("test success")
 	Successf("test %s", "success")
 	Info("test info")
@@ -40,10 +40,8 @@ func TestFormatFunctions(t *testing.T) {
 func TestRawMode(t *testing.T) {
 	// Test that RawMode doesn't panic
 	// We can't really test the functionality without a real TTY
-	err := RawMode(true)
-	if err == nil {
-		// If it succeeded, turn it back off
-		RawMode(false)
+	if err := RawMode(true); err != nil {
+		t.Fatalf("RawMode(true) returned error: %v", err)
 	}
 }
 

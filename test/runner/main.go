@@ -30,7 +30,7 @@ func main() {
 
 	// Run go test with coverage profile
 	cmd := exec.Command("go", "test", "-coverprofile=coverage.out", "./...")
-	
+
 	// We want to capture stderr and stdout
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
@@ -46,9 +46,9 @@ func main() {
 
 	var stats []PackageStat
 	var failedTests []string
-	
+
 	scanner := bufio.NewScanner(stdoutPipe)
-	
+
 	// Regex patterns
 	// ok  	github.com/divyo-argha/git-user/cmd	19.167s	coverage: 36.0% of statements
 	okRegex := regexp.MustCompile(`^ok\s+([^\s]+)\s+([\d\.]+s|\(cached\))(?:[\s\(\)a-zA-Z\:]+([\d\.]+%))?`)
@@ -56,13 +56,13 @@ func main() {
 	failRegex := regexp.MustCompile(`^FAIL\s+([^\s]+)\s+([\d\.]+s)`)
 	// ?   	github.com/divyo-argha/git-user/logo	[no test files]
 	skipRegex := regexp.MustCompile(`^\?\s+([^\s]+)\s+\[no test files\]`)
-	
+
 	// Test failure tracker (looks for lines starting with "--- FAIL:")
 	failTestRegex := regexp.MustCompile(`^--- FAIL:\s+([^\s]+)`)
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		
+
 		// If it's a test run output line, print it dimmed to show progress but not clutter
 		if strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "--- ") || strings.HasPrefix(line, "=== ") {
 			if strings.Contains(line, "FAIL") {
@@ -136,13 +136,13 @@ func main() {
 	fmt.Println()
 	fmt.Println("  \033[1;37mPACKAGE                                          STATUS      TIME       COVERAGE\033[0m")
 	fmt.Println("  \033[38;5;244m─────────────────────────────────────────────────────────────────────────────\033[0m")
-	
+
 	for _, stat := range stats {
 		var statusStr, covStr, durStr string
-		
+
 		// Align package name
 		pkgName := fmt.Sprintf("%-48s", stat.Name)
-		
+
 		switch stat.Status {
 		case "PASS":
 			statusStr = "\033[1;32m✔ PASS\033[0m    "
@@ -154,14 +154,14 @@ func main() {
 			statusStr = "\033[38;5;244m- SKIP\033[0m    "
 			covStr = "\033[38;5;244m[no tests]\033[0m"
 		}
-		
+
 		durStr = fmt.Sprintf("%-10s", stat.Duration)
-		
+
 		fmt.Printf("  %s %s %s %s\n", pkgName, statusStr, durStr, covStr)
 	}
-	
+
 	fmt.Println("  \033[38;5;244m─────────────────────────────────────────────────────────────────────────────\033[0m")
-	
+
 	if len(failedTests) > 0 {
 		fmt.Println()
 		fmt.Println("  \033[1;31mFailed Tests:\033[0m")
@@ -169,12 +169,12 @@ func main() {
 			fmt.Printf("    \033[31m• %s\033[0m\n", ft)
 		}
 	}
-	
+
 	fmt.Println()
 	fmt.Printf("  \033[1;37mTotal Execution Time:\033[0m  %.2fs\n", elapsedTotal.Seconds())
 	fmt.Printf("  \033[1;37mTotal Statement Coverage:\033[0m \033[1;36m%s\033[0m\n", totalCoverage)
 	fmt.Println()
-	
+
 	if testErr == nil && len(failedTests) == 0 {
 		fmt.Println("  \033[1;32m✔ ALL TESTS PASSED SUCCESSFULLY!\033[0m")
 		fmt.Println()

@@ -91,7 +91,9 @@ func (pm *PassphraseMenu) Init() tea.Cmd {
 
 func (pm *PassphraseMenu) Title() string { return "Passphrase Options: " + pm.name }
 
-func (pm *PassphraseMenu) ShortHelp() string { return "↑/↓: navigate • enter: select/toggle • esc: back" }
+func (pm *PassphraseMenu) ShortHelp() string {
+	return "↑/↓: navigate • enter: select/toggle • esc: back"
+}
 
 func (pm *PassphraseMenu) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	user := pm.store.FindUser(pm.name)

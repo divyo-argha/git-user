@@ -341,8 +341,8 @@ func TestAppDetailedHandlers(t *testing.T) {
 		values  []string
 	}{
 		{"register", []string{"new-user", "new@corp.com"}},
-		{"register", []string{"", "new@corp.com"}},    // empty name → error toast, no action
-		{"register", []string{"x", "not-an-email"}},   // invalid email → error toast
+		{"register", []string{"", "new@corp.com"}},  // empty name → error toast, no action
+		{"register", []string{"x", "not-an-email"}}, // invalid email → error toast
 		{"register-temp", []string{"temp-user", "temp@corp.com"}},
 		{"register-temp", []string{"temp-user", ""}}, // empty email → error toast
 		{"rename:work", []string{"work-new"}},

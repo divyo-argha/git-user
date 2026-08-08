@@ -45,6 +45,13 @@ func printVersion() {
 }
 
 func checkOrphanedKeys() {
+	// The orphan-cleanup prompt is interactive: never run it when stdout is
+	// not a TTY, otherwise warnings could corrupt piped output (e.g.
+	// `git-user list | grep x` or `git-user export --all > bundle.bundle`).
+	if !ui.IsTTY() {
+		return
+	}
+
 	// Skip orphan check for non-interactive commands
 	if len(os.Args) > 1 {
 		cmdStr := os.Args[1]
@@ -65,7 +72,7 @@ func checkOrphanedKeys() {
 
 	tempService := manager.GetTempService()
 	orphanDetector := tempService.GetOrphanDetector()
-	
+
 	orphans, err := orphanDetector.Scan()
 	if err != nil || len(orphans) == 0 {
 		return // No orphans or error - continue silently
@@ -78,7 +85,7 @@ func checkOrphanedKeys() {
 		fmt.Printf("  • %s (created %s)\n", orphan.IdentityName, orphan.CreatedAt.Format("2006-01-02 15:04"))
 	}
 	fmt.Println()
-	
+
 	if ui.Confirm("Clean up these orphaned keys now?", true) {
 		if err := orphanDetector.CleanupOrphans(orphans); err != nil {
 			ui.Warn(fmt.Sprintf("Cleanup failed: %v", err))

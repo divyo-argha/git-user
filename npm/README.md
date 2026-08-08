@@ -95,30 +95,16 @@ git-user switch work
 |---------|-------------|
 | 🔑 **Identity switching** | Name + email + SSH key as one atomic unit |
 | 🔐 **SSH key management** | Auto-generate ed25519 keys, bind existing keys, `pubkey` shows active key only |
-| 🔒 **Temporary sessions** | Use an identity on a shared machine — zero trace left behind |
 | 🛡️ **Security audit** | `git-user security` checks permissions and passphrase protection |
-| 🖋️ **Commit signing** | `git-user sign` configures automatic SSH/GPG commit signing |
+| 🖋️ **Commit signing** | `git-user sign` configures automatic SSH commit signing |
 | 🔑 **Keychain integration** | Secure system keychain integration for auto-unlocking passphrase keys |
 | 🎨 **Terminal prompt** | Dynamic prompt indicator (installer command: `git-user prompt install`) |
+| 📂 **Auto-switching** | `bind-path` / `unbind-path` — per-directory identity via git `includeIf` |
 | 🚀 **HTTPS → SSH** | `git-user fix-remote` converts remotes for passwordless push |
 | 🪝 **Pre-commit hooks** | Block commits if the wrong identity is active |
 | 📦 **Export/import** | Move all identities to a new machine, AES-256 encrypted |
 | 🖥️ **TUI** | Interactive menu for everything |
 | 🐚 **Shell completions** | bash, zsh, fish |
-
----
-
-## Temporary Sessions
-
-Working on a borrowed machine? Don't want to leave SSH keys behind?
-
-```bash
-# Start a temporary session — nothing is saved permanently
-git-user session start --temp alice me@work.com --ttl 2h
-
-# When done — key files deleted, previous identity restored
-git-user session stop
-```
 
 ---
 
@@ -128,23 +114,32 @@ git-user session stop
 register                    Create new identity (guided)
 switch <name> [--local]     Switch identity (global or repository-local override)
 switch -c <name> [email]    Create and switch in one step
+switch --original           Restore pre-git-user gitconfig state
 list                        Show all identities
 current                     Show active identity
+prompt                      Output active identity for terminal integration
 remove <name>               Delete an identity
 edit <name> <email>         Update email
+rename <old> <new>          Rename an identity
 bind <name>                 Link an SSH key
+bind-path <name> <path>     Bind a directory to an identity
+unbind-path <name> <path>   Remove a directory binding
 pubkey                      Show public key of active identity
+pubkey push [platform]      Publish the key to GitHub, GitLab, or Bitbucket
 passphrase                  Add, change, or remove (--remove) passphrase for active identity
 sign <name> [--on|--off]    Enable/disable automatic Git commit signing
 rekey <name>                Rotate SSH key
 fix-remote                  Convert HTTPS remotes to SSH
-session start [--ttl <d>]   Load SSH key into ssh-agent
-session start --temp ...    Temporary session (nothing saved)
-session stop                Unload key / end temp session
-session status              Show agent status
+logout                      Sign out and clear the active identity
 security                    Audit all identities
 export --all                Export encrypted bundle
+export <name> [name...]     Export specific identities
+import-original [name]      Import the pre-git-user gitconfig identity
 import <file>               Import from bundle
+clone <url> [dir]           Clone and auto-configure the local identity
+stats                       Audit commit author identity stats
+config <id> [set|unset|list] Manage custom git configurations
+sync                        Synchronize identities via a private repository
 doctor                      Full health check
 tui                         Interactive menu
 completion <shell>          Shell completions
@@ -163,7 +158,6 @@ hook install|uninstall      Pre-commit identity guard
 ~/.git-users/config.json     ← your identities (never auto-deleted)
 ~/.gitconfig                 ← updated on every switch
 ~/.ssh/git_<name>            ← private key (stays on your machine)
-~/.ssh/git_tmp_<name>        ← temp session key (deleted on stop)
 ```
 
 Your repositories are never touched.
@@ -181,11 +175,3 @@ Your repositories are never touched.
 MIT
 
 ---
-
-<div align="center">
-
-[![GitHub](https://img.shields.io/badge/Star%20on%20GitHub-181717?style=flat&logo=github&logoColor=white)](https://github.com/divyo-argha/git-user)
-
-<sub>If git-user saved you from a wrong-account commit, consider giving it a ⭐</sub>
-
-</div>

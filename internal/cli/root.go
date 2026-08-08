@@ -55,7 +55,13 @@ COMMANDS
   sync                       Synchronize identities across devices using a private repository
 
 ALIASES
-
+  reg                        register
+  ls                         list
+  sw                         switch
+  rm                         remove
+  lo, signout                logout
+  -i, --interactive          tui
+  (running git-user alone also opens the TUI on a terminal)
 EXAMPLES
   git-user register                    # Guided setup with all options
   git-user switch -c work              # Quick create and switch

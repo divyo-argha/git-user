@@ -297,11 +297,11 @@ func TestScreenInterface(t *testing.T) {
 
 type testScreen struct{}
 
-func (s *testScreen) Init() tea.Cmd                         { return nil }
-func (s *testScreen) Update(msg tea.Msg) (Screen, tea.Cmd)  { return s, nil }
-func (s *testScreen) View(width, height int) string          { return "" }
-func (s *testScreen) ShortHelp() string                      { return "help" }
-func (s *testScreen) Title() string                          { return "test" }
+func (s *testScreen) Init() tea.Cmd                        { return nil }
+func (s *testScreen) Update(msg tea.Msg) (Screen, tea.Cmd) { return s, nil }
+func (s *testScreen) View(width, height int) string        { return "" }
+func (s *testScreen) ShortHelp() string                    { return "help" }
+func (s *testScreen) Title() string                        { return "test" }
 
 func TestScreenInterface_ShortHelp(t *testing.T) {
 	s := &testScreen{}

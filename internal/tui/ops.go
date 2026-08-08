@@ -24,8 +24,8 @@ type opResult struct {
 
 // Sentinel errors used to signal that the UI must prompt for more input.
 var (
-	ErrNeedsPassphrase  = errors.New("passphrase required")
-	ErrNeedsCredential  = errors.New("platform credential required")
+	ErrNeedsPassphrase = errors.New("passphrase required")
+	ErrNeedsCredential = errors.New("platform credential required")
 )
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -99,4 +99,3 @@ func needsPassphraseForSwitch(store *config.Store, name string) bool {
 	}
 	return true
 }
-
