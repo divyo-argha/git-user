@@ -51,7 +51,7 @@ COMMANDS
   logout                     Sign out and clear active identity
   clone <repo-url> [dir]     Clone repository and auto-configure local identity
   stats                      Audit and show commit author identity stats
-  config <identity> [set|unset|list] Manage custom git configurations for an identity
+  config <list|set|unset>    Manage custom git configurations for an identity
   sync                       Synchronize identities across devices using a private repository
 
 ALIASES

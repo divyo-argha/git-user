@@ -11,14 +11,14 @@ import (
 func TestRunConfig_Errors(t *testing.T) {
 	setupTestEnv(t)
 
-	// Missing identity
+	// Missing verb
 	err := runConfig([]string{})
 	if err == nil {
-		t.Fatal("expected error with no identity, got nil")
+		t.Fatal("expected error with no arguments, got nil")
 	}
 
-	// Nonexistent identity
-	err = runConfig([]string{"alice"})
+	// Nonexistent identity (verb-first)
+	err = runConfig([]string{"set", "alice", "core.editor", "nano"})
 	if err == nil {
 		t.Fatal("expected error with nonexistent identity, got nil")
 	}
@@ -29,19 +29,19 @@ func TestRunConfig_Errors(t *testing.T) {
 	_ = config.Save(store)
 
 	// Set missing key/value
-	err = runConfig([]string{"alice", "set"})
+	err = runConfig([]string{"set", "alice"})
 	if err == nil {
 		t.Fatal("expected error setting without key/value, got nil")
 	}
 
 	// Set missing value
-	err = runConfig([]string{"alice", "set", "core.editor"})
+	err = runConfig([]string{"set", "alice", "core.editor"})
 	if err == nil {
 		t.Fatal("expected error setting without value, got nil")
 	}
 
 	// Unset missing key
-	err = runConfig([]string{"alice", "unset"})
+	err = runConfig([]string{"unset", "alice"})
 	if err == nil {
 		t.Fatal("expected error unsetting without key, got nil")
 	}
@@ -55,7 +55,7 @@ func TestRunConfig_SetUnsetList(t *testing.T) {
 	_ = config.Save(store)
 
 	// Set a custom config
-	err := runConfig([]string{"alice", "set", "core.editor", "nano"})
+	err := runConfig([]string{"set", "alice", "core.editor", "nano"})
 	if err != nil {
 		t.Fatalf("unexpected error setting config: %v", err)
 	}
@@ -68,18 +68,54 @@ func TestRunConfig_SetUnsetList(t *testing.T) {
 	}
 
 	// List config (should print without error)
-	err = runConfig([]string{"alice", "list"})
+	err = runConfig([]string{"list", "alice"})
 	if err != nil {
 		t.Fatalf("unexpected error listing config: %v", err)
 	}
 
 	// Unset the custom config
-	err = runConfig([]string{"alice", "unset", "core.editor"})
+	err = runConfig([]string{"unset", "alice", "core.editor"})
 	if err != nil {
 		t.Fatalf("unexpected error unsetting config: %v", err)
 	}
 
 	// Verify unset in config store
+	store, _ = config.Load()
+	user = store.FindUser("alice")
+	if _, ok := user.CustomConfig["core.editor"]; ok {
+		t.Fatal("expected CustomConfig to not contain core.editor")
+	}
+}
+
+func TestRunConfig_LegacyAlias(t *testing.T) {
+	setupTestEnv(t)
+
+	store, _ := config.Load()
+	_ = store.AddUser("alice", "alice@example.com")
+	_ = config.Save(store)
+
+	// Legacy identity-first ordering still works as a hidden alias.
+	err := runConfig([]string{"alice", "set", "core.editor", "nano"})
+	if err != nil {
+		t.Fatalf("unexpected error setting config via legacy alias: %v", err)
+	}
+
+	store, _ = config.Load()
+	user := store.FindUser("alice")
+	if user.CustomConfig["core.editor"] != "nano" {
+		t.Fatalf("expected CustomConfig to have core.editor=nano, got %v", user.CustomConfig)
+	}
+
+	err = runConfig([]string{"alice", "list"})
+	if err != nil {
+		t.Fatalf("unexpected error listing config via legacy alias: %v", err)
+	}
+
+	err = runConfig([]string{"alice", "unset", "core.editor"})
+	if err != nil {
+		t.Fatalf("unexpected error unsetting config via legacy alias: %v", err)
+	}
+
 	store, _ = config.Load()
 	user = store.FindUser("alice")
 	if _, ok := user.CustomConfig["core.editor"]; ok {
@@ -96,7 +132,7 @@ func TestRunConfig_SwitchIntegration(t *testing.T) {
 	_ = config.Save(store)
 
 	// Set custom config for alice
-	_ = runConfig([]string{"alice", "set", "core.editor", "nano"})
+	_ = runConfig([]string{"set", "alice", "core.editor", "nano"})
 
 	// Switch to alice (should apply core.editor=nano)
 	err := runSwitch([]string{"alice"})

@@ -162,14 +162,19 @@ Flags:
 		"stats": `Usage: git-user stats
 
 Audit and show commit author identity stats for the current repository.`,
-		"config": `Usage: git-user config <identity> <list|set|unset> [key] [value]
+		"config": `Usage: git-user config <list|set|unset>
 
 Manage custom git configuration for an identity.
 
+Commands:
+  config list [identity]            List custom config (defaults to active)
+  config set <identity> <key> <val> Set a custom config key
+  config unset <identity> <key>     Remove a custom config key
+
 Examples:
-  git-user config work list
-  git-user config work set init.defaultBranch main
-  git-user config work unset init.defaultBranch`,
+  git-user config list work
+  git-user config set work init.defaultBranch main
+  git-user config unset work init.defaultBranch`,
 		"sync": `Usage: git-user sync
 
 Synchronize identities across devices using a private repository.`,
