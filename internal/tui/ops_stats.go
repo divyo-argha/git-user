@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"os/exec"
 	"sort"
 	"strings"
 
@@ -25,7 +24,7 @@ func opStats(store *config.Store) (opResult, error) {
 		return opResult{}, fmt.Errorf("not in a git repository — run Stats inside a repository")
 	}
 
-	out, err := exec.Command("git", "log", "--all", "--format=%an <%ae>").Output()
+	out, err := runCaptured("", "git", "log", "--all", "--format=%an <%ae>")
 	if err != nil {
 		return opResult{}, fmt.Errorf("failed to retrieve git log: %v", err)
 	}

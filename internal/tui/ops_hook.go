@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/divyo-argha/git-user/internal/config"
@@ -30,11 +29,11 @@ func hookGitDir() (string, error) {
 	if !git.IsInRepo() {
 		return "", fmt.Errorf("not in a git repository")
 	}
-	out, err := exec.Command("git", "rev-parse", "--git-dir").Output()
+	out, err := runCaptured("", "git", "rev-parse", "--git-dir")
 	if err != nil {
 		return "", fmt.Errorf("failed to find .git directory: %v", err)
 	}
-	return stringsTrimNewline(string(out)), nil
+	return stringsTrimNewline(out), nil
 }
 
 func stringsTrimNewline(s string) string {
