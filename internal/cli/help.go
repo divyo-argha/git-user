@@ -28,17 +28,18 @@ Examples:
 Switch to an identity.
 
 Flags:
-  -c <name> [email]            Create a new identity and switch to it
-  -p, --passphrase <pass>      Passphrase for the SSH key (with -c)
-  -t, --temp                   Create as a temporary identity (with -c)
-  -l, --local                  Switch only for the current repository
-  --original                   Import and switch to the original pre-git-user identity
-  -h, --help                   Show this help
+  -c <name> [-e email]       Create a new identity and switch to it
+  -e, --email <email>        Email address (with -c)
+  -p, --passphrase <pass>    Passphrase for the SSH key (with -c)
+  -t, --temp                 Create as a temporary identity (with -c)
+  -l, --local                Switch only for the current repository
+  --original                 Import and switch to the original pre-git-user identity
+  -h, --help                 Show this help
 
 Examples:
   git-user switch work
   git-user switch work --local
-  git-user switch -c work me@work.com`,
+  git-user switch -c work -e me@work.com`,
 		"list": `Usage: git-user list [flags]
 
 List all identities.

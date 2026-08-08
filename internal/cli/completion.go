@@ -181,4 +181,5 @@ complete -c git-user -f -n "__fish_seen_subcommand_from export" -l "all" -d "Exp
 
 # Switch -c flag
 complete -c git-user -f -n "__fish_seen_subcommand_from switch sw" -s "c" -d "Create and switch"
+complete -c git-user -f -n "__fish_seen_subcommand_from switch sw" -s "e" -l "email" -d "Email address"
 `

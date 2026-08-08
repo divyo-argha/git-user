@@ -22,7 +22,7 @@ QUICK START
 COMMANDS
   register                   Create new identity with SSH key
   switch <name>              Switch to an identity
-  switch -c <name> [email]   Create new identity and switch to it
+  switch -c <name> [-e email] Create new identity and switch to it
   switch --original          Import and switch to the original pre-git-user identity
   list                       List all identities
   current                    Show active identity
@@ -66,7 +66,7 @@ ALIASES
 EXAMPLES
   git-user register                    # Guided setup with all options
   git-user switch -c work              # Quick create and switch
-  git-user switch -c work me@work.com  # With email
+  git-user switch -c work -e me@work.com  # With email
   git-user switch personal             # Switch to existing identity
   git-user fix-remote                  # Convert repo remotes to SSH
   git-user completion bash > /etc/bash_completion.d/git-user  # Enable completions

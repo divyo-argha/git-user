@@ -25,7 +25,7 @@ func runSwitch(args []string) error {
 	args = filteredArgs
 
 	if len(args) < 1 {
-		ui.Error("usage: git-user switch [-c] <name> [email] [--local]")
+		ui.Error("usage: git-user switch [-c] <name> [-e <email>] [--local]")
 		return fmt.Errorf("missing arguments")
 	}
 
@@ -57,16 +57,22 @@ func runSwitch(args []string) error {
 				}
 			case "--temp", "-t":
 				isTemp = true
+			case "--email", "-e":
+				if i+1 < len(args) {
+					email = args[i+1]
+					i++
+				}
 			default:
 				otherArgs = append(otherArgs, args[i])
 			}
 		}
 		if len(otherArgs) < 1 {
-			ui.Error("usage: git-user switch -c <name> [email] [--passphrase <passphrase>]")
+			ui.Error("usage: git-user switch -c <name> [-e <email>] [--passphrase <passphrase>]")
 			return fmt.Errorf("missing name")
 		}
 		name = otherArgs[0]
-		if len(otherArgs) > 1 {
+		if len(otherArgs) > 1 && email == "" {
+			// Hidden backwards-compatible alias: a trailing positional email.
 			email = otherArgs[1]
 		}
 	} else {
