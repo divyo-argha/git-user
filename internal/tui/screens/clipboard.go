@@ -22,7 +22,7 @@ func clipboardWrite(text string) error {
 		}
 		cmd := exec.Command(tool[0], tool[1:]...) //nolint:gosec
 		cmd.Stdin = strings.NewReader(text)
-		if err := cmd.Run(); err == nil {
+		if _, err := cmd.CombinedOutput(); err == nil {
 			return nil
 		}
 	}

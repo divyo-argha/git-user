@@ -32,8 +32,8 @@ func opPubkey(store *config.Store, name string) (opResult, error) {
 	}
 	report := fmt.Sprintf("PUBLIC KEY — %s (%s)\n\n", user.Name, user.Email)
 	report += strings.TrimSpace(string(pubKeyBytes)) + "\n"
-	if fp, err := exec.Command("ssh-keygen", "-lf", pubKeyPath).Output(); err == nil {
-		report += "\nFingerprint: " + strings.TrimSpace(string(fp)) + "\n"
+	if fp, err := runCaptured("", "ssh-keygen", "-lf", pubKeyPath); err == nil {
+		report += "\nFingerprint: " + strings.TrimSpace(fp) + "\n"
 	}
 	report += "\nAdd this key to your Git platform(s):\n"
 	report += "  GitHub:    Settings → SSH and GPG keys → New SSH key\n"
