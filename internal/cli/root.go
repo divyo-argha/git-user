@@ -27,6 +27,7 @@ COMMANDS
   list                       List all identities
   current                    Show active identity
   prompt                     Output active identity for terminal integration
+  (list and current accept --plain, and print plain lines when piped)
   remove <name>              Delete an identity
   edit <name> <email>        Update email
   rename <old-name> <new-name> Rename an identity

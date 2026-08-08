@@ -95,6 +95,21 @@ func IsTTY() bool {
 	return (fi.Mode() & os.ModeCharDevice) != 0
 }
 
+// IsPlainOutput reports whether styled/banner output should be suppressed.
+// It returns true when stdout is not a terminal (pipes, CI) or the caller
+// passes an explicit --plain flag.
+func IsPlainOutput(args []string) bool {
+	if IsTTYFn != nil {
+		return false
+	}
+	for _, a := range args {
+		if a == "--plain" {
+			return true
+		}
+	}
+	return !IsTTY()
+}
+
 // ── Logo ──────────────────────────────────────────────────────────────────────
 
 // PrintLogo prints the git-user design logo to stdout.

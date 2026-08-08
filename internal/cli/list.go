@@ -1,11 +1,13 @@
 package cli
 
 import (
+	"fmt"
+
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
-func runList(_ []string) error {
+func runList(args []string) error {
 	store, err := config.Load()
 	if err != nil {
 		ui.Errorf("loading config: %v", err)
@@ -13,8 +15,22 @@ func runList(_ []string) error {
 	}
 
 	if len(store.Users) == 0 {
+		if ui.IsPlainOutput(args) {
+			return nil
+		}
 		ui.Warn("No identities configured yet.")
 		ui.Info("Run 'git-user register' to add one.")
+		return nil
+	}
+
+	if ui.IsPlainOutput(args) {
+		for _, u := range store.Users {
+			marker := ""
+			if u.Name == store.Current {
+				marker = " # active"
+			}
+			fmt.Printf("%s <%s>%s\n", u.Name, u.Email, marker)
+		}
 		return nil
 	}
 

@@ -8,7 +8,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
-func runCurrent(_ []string) error {
+func runCurrent(args []string) error {
 	store, err := config.Load()
 	if err != nil {
 		ui.Errorf("loading config: %v", err)
@@ -38,8 +38,16 @@ func runCurrent(_ []string) error {
 	}
 
 	if u == nil {
+		if ui.IsPlainOutput(args) {
+			return nil
+		}
 		ui.Warn("No active identity set.")
 		ui.Info("Run 'git-user switch <name>' to activate one.")
+		return nil
+	}
+
+	if ui.IsPlainOutput(args) {
+		fmt.Printf("%s <%s>\n", u.Name, u.Email)
 		return nil
 	}
 
