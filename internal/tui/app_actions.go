@@ -322,7 +322,9 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		return a.handleConfigAction(msg.Name)
 
 	case "update":
-		return a, core.ShowToastCmd("Updating replaces the running binary — run 'git-user update' in your terminal", theme.ToastStyleInfo, 5*time.Second)
+		return a, a.runTaskCmd("update", "", func() (opResult, error) {
+			return opUpdate()
+		})
 	}
 
 	return a, nil

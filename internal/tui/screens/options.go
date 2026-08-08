@@ -56,11 +56,21 @@ func (o *Options) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		case core.KeyUp, core.KeyK:
 			if o.cursor > 0 {
 				o.cursor--
+			} else {
+				o.cursor = len(o.options) - 1 // wrap around
 			}
 		case core.KeyDown, core.KeyJ:
 			if o.cursor < len(o.options)-1 {
 				o.cursor++
+			} else {
+				o.cursor = 0 // wrap around
 			}
+		case "tab":
+			// Tab: move forward, wrap.
+			o.cursor = (o.cursor + 1) % len(o.options)
+		case "shift+tab":
+			// Shift+Tab: move backward, wrap.
+			o.cursor = (o.cursor - 1 + len(o.options)) % len(o.options)
 		case core.KeyEnter:
 			choice := o.options[o.cursor].Key
 			return o, func() tea.Msg {
@@ -104,7 +114,7 @@ func (o *Options) View(width, height int) string {
 		lines = append(lines, "  "+label)
 	}
 	lines = append(lines, "")
-	lines = append(lines, o.theme.Dim().Render("  ↑/↓/j/k: navigate • Enter: select • Esc: cancel"))
+	lines = append(lines, o.theme.Dim().Render("  ↑/↓/Tab: navigate • Enter: select • Esc: cancel"))
 	lines = append(lines, "")
 
 	content := strings.Join(lines, "\n")

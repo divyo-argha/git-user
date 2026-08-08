@@ -44,12 +44,12 @@ func DetailHelp() string {
 
 // FormHelp returns the help text for inline forms.
 func FormHelp() string {
-	return "  Enter submit  Esc cancel/back  Tab next field"
+	return "  Tab next field  Shift+Tab prev field  Enter submit  Esc cancel"
 }
 
 // ConfirmHelp returns the help text for confirmation dialogs.
 func ConfirmHelp() string {
-	return "  ←/→ select  Enter confirm  Esc cancel"
+	return "  ←/→/↑/↓ select  y yes  n no  Enter confirm  Esc cancel"
 }
 
 // FilterHelp returns the help text when filter mode is active.

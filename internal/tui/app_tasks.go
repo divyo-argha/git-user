@@ -160,6 +160,8 @@ func titleForKind(kind string) string {
 		return "Switched Identity"
 	case "logout":
 		return "Signed Out"
+	case "update":
+		return "Self-Update"
 	}
 	return "Result"
 }
