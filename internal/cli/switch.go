@@ -44,6 +44,7 @@ func runSwitch(args []string) error {
 	email := ""
 	passphrase := ""
 	isTemp := false
+	skipSSH := false
 
 	if args[0] == "-c" {
 		createMode = true
@@ -62,12 +63,14 @@ func runSwitch(args []string) error {
 					email = args[i+1]
 					i++
 				}
+			case "--skip-ssh":
+				skipSSH = true
 			default:
 				otherArgs = append(otherArgs, args[i])
 			}
 		}
 		if len(otherArgs) < 1 {
-			ui.Error("usage: git-user switch -c <name> [-e <email>] [--passphrase <passphrase>]")
+			ui.Error("usage: git-user switch -c <name> [-e <email>] [--passphrase <passphrase>] [--skip-ssh]")
 			return fmt.Errorf("missing name")
 		}
 		name = otherArgs[0]
@@ -99,7 +102,7 @@ func runSwitch(args []string) error {
 			return fmt.Errorf("user exists")
 		}
 
-		if err := quickRegister(name, email, passphrase, isTemp, store); err != nil {
+		if err := quickRegister(name, email, passphrase, isTemp, skipSSH, store); err != nil {
 			return err
 		}
 
@@ -303,7 +306,7 @@ func runSwitch(args []string) error {
 	return nil
 }
 
-func quickRegister(name, email, passphrase string, isTemp bool, store *config.Store) error {
+func quickRegister(name, email, passphrase string, isTemp, skipSSH bool, store *config.Store) error {
 	ui.Banner("QUICK SETUP: " + name)
 	fmt.Println()
 
@@ -330,6 +333,17 @@ func quickRegister(name, email, passphrase string, isTemp bool, store *config.St
 		if u != nil {
 			u.IsTemporary = true
 		}
+	}
+
+	if skipSSH {
+		if err := config.Save(store); err != nil {
+			return err
+		}
+		fmt.Println()
+		ui.Success(fmt.Sprintf("Identity created: %s (%s)", name, email))
+		ui.Info("SSH key setup skipped — attach one later with: git-user bind-key " + name)
+		fmt.Println()
+		return nil
 	}
 
 	fmt.Println()

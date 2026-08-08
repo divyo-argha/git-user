@@ -11,6 +11,50 @@ import (
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
+func TestRunSwitch_SkipSSH(t *testing.T) {
+	_ = setupTestEnv(t)
+
+	// If --skip-ssh works, SelectFn (the "Choose SSH key setup:" prompt)
+	// must never be called during creation.
+	selectCalled := false
+	ui.SelectFn = func(label string, options []string) (int, error) {
+		selectCalled = true
+		return 2, nil // Skip
+	}
+
+	err := runSwitch([]string{"-c", "nokey", "-e", "nokey@example.com", "--skip-ssh"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if selectCalled {
+		t.Error("expected SSH key setup prompt to be skipped with --skip-ssh")
+	}
+
+	store, err := config.Load()
+	if err != nil {
+		t.Fatalf("failed to load config: %v", err)
+	}
+
+	user := store.FindUser("nokey")
+	if user == nil {
+		t.Fatal("user nokey was not created in config")
+	}
+	if user.SSHKey != "" {
+		t.Errorf("expected no SSH key bound with --skip-ssh, got %q", user.SSHKey)
+	}
+
+	// Switching to an existing user must not re-prompt either.
+	err = runSwitch([]string{"-c", "nokey2", "-e", "nokey2@example.com", "--skip-ssh"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	u2 := store.FindUser("nokey2")
+	if u2 != nil && u2.SSHKey != "" {
+		t.Errorf("expected no SSH key bound for nokey2, got %q", u2.SSHKey)
+	}
+}
+
 func TestRunSwitch_MissingArgs(t *testing.T) {
 	setupTestEnv(t)
 	err := runSwitch([]string{})

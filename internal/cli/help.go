@@ -32,6 +32,7 @@ Flags:
   -e, --email <email>        Email address (with -c)
   -p, --passphrase <pass>    Passphrase for the SSH key (with -c)
   -t, --temp                 Create as a temporary identity (with -c)
+  --skip-ssh                 Skip SSH key setup (with -c)
   -l, --local                Switch only for the current repository
   --original                 Import and switch to the original pre-git-user identity
   -h, --help                 Show this help

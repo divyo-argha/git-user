@@ -238,6 +238,7 @@ func fishCompletion() string {
 	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -s \"e\" -l \"email\" -d \"Email address\"\n"
 	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -s \"l\" -l \"local\" -d \"Switch only for this repository\"\n"
 	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -l \"original\" -d \"Import and switch to the original identity\"\n"
+	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -l \"skip-ssh\" -d \"Skip SSH key setup (with -c)\"\n"
 
 	return out
 }

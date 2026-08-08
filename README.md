@@ -124,6 +124,33 @@ git-user --update
 
 ---
 
+## 🗑️ Uninstall
+
+Remove the binary, then clean up the data and any system hooks.
+
+```bash
+# 1. Remove the pre-commit hook from any repo that uses it (optional, per repo)
+git-user hook uninstall
+
+# 2. Remove the binary
+#    curl install:  rm "$(command -v git-user)"
+#    npm install:   npm uninstall -g git-userhub
+#    go install:    rm "$(go env GOPATH)/bin/git-user"
+
+# 3. (Optional) Remove stored identities, keys, and settings
+rm -rf ~/.git-users
+```
+
+That's it. Removing `~/.git-users` deletes your saved identities, SSH key
+bindings, and settings — run `git-user register` again to start fresh.
+
+> **Note:** saved passphrases live in your OS keychain (service `git-user`),
+> not in `~/.git-users`. They expire with the SSH keys they protect. git-user
+> does not touch your `~/.gitconfig` on uninstall — your active
+> `user.name` / `user.email` remain exactly as they were when you uninstalled.
+
+---
+
 ## ⚡ Quick Start
 
 Two minutes to set up. One second to switch forever after.
@@ -361,6 +388,7 @@ What happens:
 | `register` | Create a new identity (guided setup with SSH) |
 | `switch <name> [--local]` | Switch to an identity (globally, or locally in repository config) |
 | `switch -c <name> [-e <email>]` | Create and switch in one command |
+| `switch -c <name> --skip-ssh` | Create and switch, skipping SSH key setup (attach later with `bind-key`) |
 | `switch --original` | Import and switch to the original pre-git-user identity |
 | `list` | Show all identities |
 | `current` | Show active identity |

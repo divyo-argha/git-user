@@ -25,6 +25,7 @@ COMMANDS
     register                   Create new identity with SSH key
     switch <name>              Switch to an identity
     switch -c <name> [-e email] Create new identity and switch to it
+    switch -c <name> --skip-ssh  Create and switch without SSH key setup
     switch --original          Import and switch to the original pre-git-user identity
     list                       List all identities (accepts --plain, --json)
     current                    Show active identity (accepts --plain, --json)
