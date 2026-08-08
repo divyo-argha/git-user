@@ -72,7 +72,7 @@ func maybePromptFirstRunImport() error {
 	if !ui.Confirm("Import this identity into git-user? Nothing will be changed if you choose No.", false) {
 		fmt.Println()
 		ui.Info("No problem — nothing was imported.")
-		ui.Info("You can import it later with: git-user import-original")
+		ui.Info("You can import it later with: git-user switch --original")
 		ui.Info("Or from the TUI:  System Utilities → Import / Export → Import original gitconfig")
 		return config.Save(store)
 	}
@@ -98,8 +98,8 @@ func maybePromptFirstRunImport() error {
 	if store.FindUser(importName) != nil {
 		ui.Errorf("Identity %q already exists — nothing was imported.", importName)
 		ui.Info("Resolve this by either:")
-		ui.Info("  • importing under a different name: git-user import-original <unique-name>")
-		ui.Info("  • renaming the conflicting profile first: git-user rename " + importName + " <new-name>, then: git-user import-original " + importName)
+		ui.Info("  • importing under a different name: git-user switch --original <unique-name>")
+		ui.Info("  • renaming the conflicting profile first: git-user rename " + importName + " <new-name>, then: git-user switch --original " + importName)
 		return config.Save(store)
 	}
 

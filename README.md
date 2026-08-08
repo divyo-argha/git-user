@@ -129,7 +129,7 @@ Two minutes to set up. One second to switch forever after.
 > identity already present in your `~/.gitconfig` — it never imports it silently.
 > If you accept, you get to choose what the identity is called. Declining (or
 > skipping the prompt) changes nothing; you can import it later at any time with
-> `git-user import-original` or from the TUI (System Utilities → Import existing
+> `git-user switch --original` or from the TUI (System Utilities → Import existing
 > git identity).
 
 ```bash
@@ -147,7 +147,7 @@ git push   # ← commits as you@company.com ✓
 
 ```bash
 # Create and switch in one command
-git-user switch -c freelance me@freelance.com
+git-user switch -c freelance -e me@freelance.com
 
 # Always know who you are
 git-user current
@@ -195,7 +195,7 @@ There are other tools that try to solve this. Here's how git-user is different:
 
 ### 🔐 SSH Key Handling
 - `pubkey` — print active identity's public key
-- `pubkey push` — publish key directly to GitHub, GitLab, or Bitbucket (using gh/glab CLIs or API tokens)
+- `pubkey publish` — publish key directly to GitHub, GitLab, or Bitbucket (using gh/glab CLIs or API tokens)
 - Bind any existing key to any identity
 - `rekey` rotates keys with automatic backup and rollback
 - `IdentitiesOnly yes` — SSH never leaks the wrong key
@@ -208,7 +208,7 @@ There are other tools that try to solve this. Here's how git-user is different:
 ### 🛡️ Security & Passphrases
 - Passphrase-protected keys enforced by default
 - Secure native OS Keychain integration (macOS Keychain, Linux Keyring) to store passphrases safely
-- `security` audits every identity: permissions, passphrase, key existence
+- `audit` audits every identity: permissions, passphrase, key existence
 - `passphrase` add, change, or remove (`--remove`) passphrase security for the active identity
 - All config writes are atomic (temp file + rename) — crash-safe
 - All files stored at `0600` permissions
@@ -356,31 +356,31 @@ What happens:
 |---------|-------------|
 | `register` | Create a new identity (guided setup with SSH) |
 | `switch <name> [--local]` | Switch to an identity (globally, or locally in repository config) |
-| `switch -c <name> [email]` | Create and switch in one command |
-| `switch --original` | Restore the gitconfig state from before git-user was first used |
+| `switch -c <name> [-e <email>]` | Create and switch in one command |
+| `switch --original` | Import and switch to the original pre-git-user identity |
 | `list` | Show all identities |
 | `current` | Show active identity |
 | `prompt` | Output active identity for terminal integration |
 | `remove <name>` | Delete an identity |
 | `edit <name> <email>` | Update email |
-| `bind <name> [--ssh-key <path>]` | Link an SSH key to an identity |
+| `bind-key <name> [--ssh-key <path>]` | Link an SSH key to an identity |
 | `bind-path <name> <path>` | Bind a directory path to an identity for auto-switching |
 | `unbind-path <name> <path>` | Unbind a directory path from an identity |
 | `pubkey` | Show the public key of the active identity |
-| `pubkey push [platform]` | Publish public SSH key directly to GitHub, GitLab, or Bitbucket |
+| `pubkey publish [platform]` | Publish public SSH key directly to GitHub, GitLab, or Bitbucket |
 | `passphrase` | Add, change, or remove (`--remove`) passphrase for the active, unlocked identity |
 | `sign <name> [--on\|--off]` | Enable/disable automatic Git commit signing for an identity |
 | `rekey <name>` | Rotate SSH key (with rollback safety) |
 | `fix-remote` | Convert HTTPS remotes to SSH |
 | `logout` | Sign out, clearing the active identity and restoring a void state |
-| `security` | Audit all identities for security issues |
+| `audit` | Audit all identities for security issues |
 | `export --all` | Export all identities + SSH keys (AES-256 encrypted) |
 | `export <name> [name...]` | Export specific identities |
-| `import-original [name]` | Import original gitconfig identity into git-user (asks for the identity name if not given) |
+| `switch --original [name]` | Import original gitconfig identity into git-user and switch to it (asks for the identity name if not given) |
 | `import <file>` | Import from an encrypted bundle |
 | `clone <repo-url> [dir]` | Clone repository and auto-configure local identity |
 | `stats` | Audit and show commit author identity stats |
-| `config <id> [set\|unset\|list]`| Manage custom git configurations for an identity |
+| `config <list\|set\|unset>`| Manage custom git configurations for an identity |
 | `sync` | Synchronize identities across devices using a private repository |
 | `doctor` | Run a full health check |
 | `tui` | Interactive menu |
@@ -389,7 +389,7 @@ What happens:
 | `--update` | Update to the latest version |
 | `--version` / `-v` | Show version |
 
-**Aliases:** `ls` → `list` · `sw` → `switch` · `rm` → `remove`
+**Aliases:** `ls` → `list` · `sw` → `switch` · `rm` → `remove` · `bind` → `bind-key` · `pubkey push` → `pubkey publish` · `security` → `audit` · `import-original` → `switch --original`
 
 ---
 
@@ -403,7 +403,7 @@ What happens:
 - Private keys stay on your machine at `0600` permissions
 - Config writes are atomic (temp file + rename) — crash-safe
 - `IdentitiesOnly yes` in SSH config — no key leakage
-- Passphrase protection audited by `security` command
+- Passphrase protection audited by `audit` command
 - Export bundles encrypted with AES-256-GCM, passphrase stretched with scrypt (N=2¹⁷)
 - Passphrases are never passed as CLI arguments — entered directly into the terminal
 - `pubkey` only shows the active identity's key — other identities' keys are never exposed
@@ -425,7 +425,7 @@ What happens:
 ### Run a security audit
 
 ```bash
-git-user security
+git-user audit
 ```
 
 ```

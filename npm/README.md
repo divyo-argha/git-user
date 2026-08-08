@@ -69,7 +69,7 @@ git-user switch personal
 git-user current
 
 # Create and switch in one step
-git-user switch -c freelance me@freelance.com
+git-user switch -c freelance -e me@freelance.com
 ```
 
 ---
@@ -95,7 +95,7 @@ git-user switch work
 |---------|-------------|
 | 🔑 **Identity switching** | Name + email + SSH key as one atomic unit |
 | 🔐 **SSH key management** | Auto-generate ed25519 keys, bind existing keys, `pubkey` shows active key only |
-| 🛡️ **Security audit** | `git-user security` checks permissions and passphrase protection |
+| 🛡️ **Security audit** | `git-user audit` checks permissions and passphrase protection |
 | 🖋️ **Commit signing** | `git-user sign` configures automatic SSH commit signing |
 | 🔑 **Keychain integration** | Secure system keychain integration for auto-unlocking passphrase keys |
 | 🎨 **Terminal prompt** | Dynamic prompt indicator (installer command: `git-user prompt install`) |
@@ -113,32 +113,32 @@ git-user switch work
 ```
 register                    Create new identity (guided)
 switch <name> [--local]     Switch identity (global or repository-local override)
-switch -c <name> [email]    Create and switch in one step
-switch --original           Restore pre-git-user gitconfig state
+switch -c <name> [-e <email>] Create and switch in one step
+switch --original           Import and switch to the original pre-git-user identity
 list                        Show all identities
 current                     Show active identity
 prompt                      Output active identity for terminal integration
 remove <name>               Delete an identity
 edit <name> <email>         Update email
 rename <old> <new>          Rename an identity
-bind <name>                 Link an SSH key
+bind-key <name>              Link an SSH key
 bind-path <name> <path>     Bind a directory to an identity
 unbind-path <name> <path>   Remove a directory binding
 pubkey                      Show public key of active identity
-pubkey push [platform]      Publish the key to GitHub, GitLab, or Bitbucket
+pubkey publish [platform]   Publish the key to GitHub, GitLab, or Bitbucket
 passphrase                  Add, change, or remove (--remove) passphrase for active identity
 sign <name> [--on|--off]    Enable/disable automatic Git commit signing
 rekey <name>                Rotate SSH key
 fix-remote                  Convert HTTPS remotes to SSH
 logout                      Sign out and clear the active identity
-security                    Audit all identities
+audit                       Audit all identities
 export --all                Export encrypted bundle
 export <name> [name...]     Export specific identities
-import-original [name]      Import the pre-git-user gitconfig identity
+switch --original [name]    Import and switch to the original pre-git-user identity
 import <file>               Import from bundle
 clone <url> [dir]           Clone and auto-configure the local identity
 stats                       Audit commit author identity stats
-config <id> [set|unset|list] Manage custom git configurations
+config <list|set|unset>      Manage custom git configurations
 sync                        Synchronize identities via a private repository
 doctor                      Full health check
 tui                         Interactive menu
