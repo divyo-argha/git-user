@@ -66,10 +66,11 @@ Update an identity's email address.`,
 
 Rename an identity. The active git config user.name is updated automatically
 when the active identity is renamed. Useful for resolving an import conflict.`,
-		"pubkey": `Usage: git-user pubkey [push [platform]]
+		"pubkey": `Usage: git-user pubkey [publish [platform]]
 
 Show the public SSH key for the active identity.
-  pubkey push [platform]       Publish the key to github, gitlab, or bitbucket.
+  pubkey publish [platform]  Publish the key to github, gitlab, or bitbucket.
+  (push is a hidden alias for publish)
 
 Flags:
   -h, --help                   Show this help`,

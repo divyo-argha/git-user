@@ -32,7 +32,7 @@ COMMANDS
   edit <name> <email>        Update email
   rename <old-name> <new-name> Rename an identity
   pubkey                     Show public key for active identity only
-  pubkey push [platform]     Publish public SSH key directly to GitHub, GitLab, or Bitbucket
+  pubkey publish [platform]  Publish public SSH key to GitHub, GitLab, or Bitbucket
   bind-key <name> [--ssh-key <p>] Add/link SSH key (interactive if no path)
   bind-path <name> <path>    Bind a directory path to an identity for auto-switching
   unbind-path <name> <path>  Unbind a directory path from an identity
@@ -61,6 +61,7 @@ ALIASES
   rm                         remove
   lo, signout                logout
   import-original            switch --original (hidden alias)
+  pubkey push                pubkey publish (hidden alias)
   -i, --interactive          tui
   (running git-user alone also opens the TUI on a terminal)
 EXAMPLES
@@ -178,8 +179,14 @@ func Execute() error {
 	case "rename":
 		return runRename(rest)
 	case "pubkey":
-		if len(rest) > 0 && rest[0] == "push" {
-			return runPubkeyPush(rest[1:])
+		if len(rest) > 0 {
+			switch rest[0] {
+			case "publish":
+				return runPubkeyPush(rest[1:])
+			case "push":
+				// Hidden backwards-compatible alias.
+				return runPubkeyPush(rest[1:])
+			}
 		}
 		return runPubkey(rest)
 	case "bind-key", "bind":
