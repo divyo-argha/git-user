@@ -36,7 +36,7 @@ func runSwitch(args []string) error {
 
 	// Handle restore to original pre-git-user state
 	if args[0] == "--original" {
-		return runSwitchOriginal()
+		return runSwitchOriginal(nil)
 	}
 
 	createMode := false
@@ -395,20 +395,20 @@ func quickRegister(name, email, passphrase string, isTemp bool, store *config.St
 	return nil
 }
 
-func runSwitchOriginal() error {
+func runSwitchOriginal(args []string) error {
 	store, err := config.Load()
 	if err != nil {
 		ui.Errorf("loading config: %v", err)
 		return err
 	}
 
-	if store.Original == nil {
-		ui.Error("no original identity snapshot found")
-		ui.Info("git-user hasn't made a switch yet — your gitconfig is still in its original state")
-		return fmt.Errorf("no original snapshot")
+	o := store.Original
+	if o == nil {
+		// No snapshot yet: this is a plain import of the current gitconfig
+		// identity (interactive name pick when none given).
+		return runImportOriginal(args)
 	}
 
-	o := store.Original
 	if o.Name == "" && o.Email == "" {
 		ui.Warn("Original gitconfig had no user.name or user.email set")
 	}
@@ -444,7 +444,34 @@ func runSwitchOriginal() error {
 		}
 	}
 
-	store.Current = ""
+	// The original identity is now active in the gitconfig. Register it as a
+	// managed identity (once) so it also appears in `list` and can be switched
+	// to by name. This unifies `switch --original` with `import-original`.
+	origName := findOriginalIdentity(store)
+	if origName == "" && (o.Name != "" || o.Email != "") {
+		origName = o.Name
+		if origName == "" {
+			origName = "original"
+		}
+		if store.FindUser(origName) != nil {
+			ui.Errorf("identity %q already exists — original was not registered", origName)
+		} else {
+			store.Users = append(store.Users, config.User{
+				Name:       origName,
+				Email:      o.Email,
+				SSHKey:     extractSSHKeyFromCommand(o.SSHCommand),
+				SSHCommand: o.SSHCommand,
+				Source:     "original",
+			})
+		}
+	}
+
+	if origName != "" {
+		store.Current = origName
+	} else {
+		store.Current = ""
+	}
+
 	if err := config.Save(store); err != nil {
 		ui.Errorf("saving config: %v", err)
 		return err
@@ -462,6 +489,17 @@ func runSwitchOriginal() error {
 	ui.Info("To switch back: git-user switch <name>")
 
 	return nil
+}
+
+// findOriginalIdentity returns the name of the managed identity tagged with
+// Source == "original", or "" if none has been imported yet.
+func findOriginalIdentity(store *config.Store) string {
+	for _, u := range store.Users {
+		if u.Source == "original" {
+			return u.Name
+		}
+	}
+	return ""
 }
 
 // applyUserSSHConfig writes core.sshCommand for an identity. When an identity

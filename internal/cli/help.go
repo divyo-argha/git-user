@@ -32,7 +32,7 @@ Flags:
   -p, --passphrase <pass>      Passphrase for the SSH key (with -c)
   -t, --temp                   Create as a temporary identity (with -c)
   -l, --local                  Switch only for the current repository
-  --original                   Restore the pre-git-user gitconfig state
+  --original                   Import and switch to the original pre-git-user identity
   -h, --help                   Show this help
 
 Examples:
@@ -120,7 +120,11 @@ Flags:
   -h, --help                   Show this help`,
 		"import-original": `Usage: git-user import-original [name]
 
-Import the original pre-git-user gitconfig identity.`,
+Hidden alias for 'git-user switch --original'.
+
+Imports the original pre-git-user gitconfig identity into git-user and
+switches to it. A name argument is optional; when omitted you are prompted
+to choose one.`,
 		"import": `Usage: git-user import <file> [flags]
 
 Import identities from a bundle.

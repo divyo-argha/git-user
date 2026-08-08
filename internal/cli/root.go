@@ -23,7 +23,7 @@ COMMANDS
   register                   Create new identity with SSH key
   switch <name>              Switch to an identity
   switch -c <name> [email]   Create new identity and switch to it
-  switch --original          Restore the gitconfig state from before git-user was first used
+  switch --original          Import and switch to the original pre-git-user identity
   list                       List all identities
   current                    Show active identity
   prompt                     Output active identity for terminal integration
@@ -41,7 +41,6 @@ COMMANDS
   fix-remote                 Convert HTTPS remotes to SSH
   export --all               Export all identities + SSH keys (encrypted)
   export <name> [name...]    Export specific identities (encrypted)
-  import-original [name]     Import original gitconfig identity into git-user
   import [--force] <file>    Import identities from a bundle
   doctor                     Check setup
   tui                        Interactive menu
@@ -61,6 +60,7 @@ ALIASES
   sw                         switch
   rm                         remove
   lo, signout                logout
+  import-original            switch --original (hidden alias)
   -i, --interactive          tui
   (running git-user alone also opens the TUI on a terminal)
 EXAMPLES
@@ -199,7 +199,7 @@ func Execute() error {
 	case "export":
 		return runExport(rest)
 	case "import-original":
-		return runImportOriginal(rest)
+		return runSwitchOriginal(rest)
 	case "import":
 		return runImport(rest)
 	case "doctor":
