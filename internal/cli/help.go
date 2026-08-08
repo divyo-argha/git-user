@@ -72,13 +72,16 @@ Show the public SSH key for the active identity.
 
 Flags:
   -h, --help                   Show this help`,
-		"bind": `Usage: git-user bind <name> [flags]
+		"bind-key": `Usage: git-user bind-key <name> [flags]
 
-Add or link an SSH key to an identity.
+Add or link an SSH key to an identity. ` + "`bind`" + ` is a hidden alias.
 
 Flags:
   --ssh-key <path>             Path to an existing SSH private key
   -h, --help                   Show this help`,
+		"bind": `Usage: git-user bind <name> [flags]
+
+Hidden alias for git-user bind-key.`,
 		"bind-path": `Usage: git-user bind-path <name> <path>
 
 Bind a directory path to an identity for auto-switching.`,

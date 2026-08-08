@@ -136,7 +136,7 @@ func runSwitch(args []string) error {
 	if user.SSHKey != "" {
 		if _, statErr := os.Stat(user.SSHKey); statErr != nil {
 			ui.Warn(fmt.Sprintf("Bound SSH key not found: %s", user.SSHKey))
-			ui.Info(fmt.Sprintf("Fix it with: git-user bind %s --ssh-key <path>", user.Name))
+			ui.Info(fmt.Sprintf("Fix it with: git-user bind-key %s --ssh-key <path>", user.Name))
 		}
 	}
 

@@ -33,7 +33,7 @@ COMMANDS
   rename <old-name> <new-name> Rename an identity
   pubkey                     Show public key for active identity only
   pubkey push [platform]     Publish public SSH key directly to GitHub, GitLab, or Bitbucket
-  bind <name> [--ssh-key <p>] Add/link SSH key (interactive if no path)
+  bind-key <name> [--ssh-key <p>] Add/link SSH key (interactive if no path)
   bind-path <name> <path>    Bind a directory path to an identity for auto-switching
   unbind-path <name> <path>  Unbind a directory path from an identity
   passphrase                 Add/change passphrase for active, unlocked identity
@@ -182,7 +182,7 @@ func Execute() error {
 			return runPubkeyPush(rest[1:])
 		}
 		return runPubkey(rest)
-	case "bind":
+	case "bind-key", "bind":
 		return runBind(rest)
 	case "bind-path":
 		return runBindPath(rest)

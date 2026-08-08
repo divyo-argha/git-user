@@ -122,7 +122,7 @@ func runRegister(args []string) error {
 	case 0: // Generate new key
 		sshKeyPath, err = generateAndDisplayKey(name, email, passphrase)
 		if err != nil {
-			ui.Warn("Key generation failed. You can set up SSH later with: git-user bind")
+			ui.Warn("Key generation failed. You can set up SSH later with: git-user bind-key")
 		}
 
 	case 1: // Use existing key
@@ -134,17 +134,17 @@ func runRegister(args []string) error {
 				ui.Success(fmt.Sprintf("Using existing key: %s", sshKeyPath))
 			} else {
 				ui.Warn(fmt.Sprintf("Key file not found: %s", keyPath))
-				ui.Info("You can bind a key later with: git-user bind " + name + " --ssh-key <path>")
+				ui.Info("You can bind a key later with: git-user bind-key " + name + " --ssh-key <path>")
 			}
 		}
 
 	case 2: // Skip
 		ui.Info("Skipping SSH key setup")
-		ui.Info("You can set up SSH later with: git-user bind " + name + " --ssh-key <path>")
+		ui.Info("You can set up SSH later with: git-user bind-key " + name + " --ssh-key <path>")
 
 	default:
 		ui.Warn("Invalid choice, skipping SSH setup")
-		ui.Info("You can set up SSH later with: git-user bind " + name + " --ssh-key <path>")
+		ui.Info("You can set up SSH later with: git-user bind-key " + name + " --ssh-key <path>")
 	}
 
 	if sshKeyPath != "" {

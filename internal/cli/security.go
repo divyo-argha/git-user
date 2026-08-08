@@ -44,7 +44,7 @@ func runSecurityCheck(args []string) error {
 
 			if user.SSHKey == "" {
 				ui.Warn("  No SSH key bound")
-				ui.Info(fmt.Sprintf("  Fix: git-user bind %s", user.Name))
+				ui.Info(fmt.Sprintf("  Fix: git-user bind-key %s", user.Name))
 				issues++
 				continue
 			}

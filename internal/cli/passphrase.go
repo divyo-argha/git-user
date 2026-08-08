@@ -62,13 +62,13 @@ func runPassphrase(args []string) error {
 
 	if user.SSHKey == "" {
 		ui.Warn(fmt.Sprintf("Identity %q has no SSH key bound", user.Name))
-		ui.Info(fmt.Sprintf("Run: git-user bind %s", user.Name))
+		ui.Info(fmt.Sprintf("Run: git-user bind-key %s", user.Name))
 		return fmt.Errorf("no ssh key")
 	}
 
 	if _, err := os.Stat(user.SSHKey); err != nil {
 		ui.Errorf("SSH key file is not accessible: %s", user.SSHKey)
-		ui.Info(fmt.Sprintf("Run 'git-user bind %s' to attach an existing key, or 'git-user rekey %s' to create a new one.", user.Name, user.Name))
+		ui.Info(fmt.Sprintf("Run 'git-user bind-key %s' to attach an existing key, or 'git-user rekey %s' to create a new one.", user.Name, user.Name))
 		return err
 	}
 

@@ -52,7 +52,7 @@ _git_user_completions() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    commands="register switch list current remove edit bind rekey fix-remote export import doctor tui completion"
+    commands="register switch list current remove edit bind-key bind rekey fix-remote export import doctor tui completion"
     
     # Complete commands
     if [ $COMP_CWORD -eq 1 ]; then
@@ -96,7 +96,8 @@ _git_user() {
         'remove:Delete an identity'
         'rm:Delete an identity (alias)'
         'edit:Update email'
-        'bind:Add/link SSH key'
+        'bind-key:Add/link SSH key'
+        'bind:Add/link SSH key (alias)'
         'rekey:Rotate SSH key'
         'fix-remote:Convert HTTPS remotes to SSH'
         'export:Export identities'
@@ -116,7 +117,7 @@ _git_user() {
             ;;
         args)
             case $words[1] in
-                switch|sw|remove|rm|edit|bind|rekey|export)
+        switch|sw|remove|rm|edit|bind-key|bind|rekey|export)
                     identities=(${(f)"$(git-user list 2>/dev/null | grep -v '^No identities' | awk '{print $1}' | grep -v '^$')"})
                     _describe 'identity' identities
                     ;;
@@ -150,7 +151,8 @@ complete -c git-user -f -n "__fish_use_subcommand" -a "current" -d "Show active 
 complete -c git-user -f -n "__fish_use_subcommand" -a "remove" -d "Delete an identity"
 complete -c git-user -f -n "__fish_use_subcommand" -a "rm" -d "Delete an identity (alias)"
 complete -c git-user -f -n "__fish_use_subcommand" -a "edit" -d "Update email"
-complete -c git-user -f -n "__fish_use_subcommand" -a "bind" -d "Add/link SSH key"
+complete -c git-user -f -n "__fish_use_subcommand" -a "bind-key" -d "Add/link SSH key"
+complete -c git-user -f -n "__fish_use_subcommand" -a "bind" -d "Add/link SSH key (alias)"
 complete -c git-user -f -n "__fish_use_subcommand" -a "rekey" -d "Rotate SSH key"
 complete -c git-user -f -n "__fish_use_subcommand" -a "fix-remote" -d "Convert HTTPS remotes to SSH"
 complete -c git-user -f -n "__fish_use_subcommand" -a "export" -d "Export identities"
@@ -167,7 +169,7 @@ end
 complete -c git-user -f -n "__fish_seen_subcommand_from switch sw" -a "(__git_user_identities)"
 complete -c git-user -f -n "__fish_seen_subcommand_from remove rm" -a "(__git_user_identities)"
 complete -c git-user -f -n "__fish_seen_subcommand_from edit" -a "(__git_user_identities)"
-complete -c git-user -f -n "__fish_seen_subcommand_from bind" -a "(__git_user_identities)"
+complete -c git-user -f -n "__fish_seen_subcommand_from bind-key bind" -a "(__git_user_identities)"
 complete -c git-user -f -n "__fish_seen_subcommand_from rekey" -a "(__git_user_identities)"
 complete -c git-user -f -n "__fish_seen_subcommand_from export" -a "(__git_user_identities)"
 
