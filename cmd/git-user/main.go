@@ -104,7 +104,7 @@ func checkOrphanedKeys() {
 		}
 		fmt.Println()
 	} else {
-		ui.Info("You can clean them up later with: git-user security")
+		ui.Info("You can clean them up later with: git-user audit")
 		fmt.Println()
 	}
 }

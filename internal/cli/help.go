@@ -146,9 +146,12 @@ Generate shell completion (bash, zsh, or fish).`,
 		"hook": `Usage: git-user hook <install|uninstall|check>
 
 Manage the git pre-commit identity-checking hook.`,
+		"audit": `Usage: git-user audit
+
+Run a security audit on your identity setup. ` + "`security`" + ` is a hidden alias.`,
 		"security": `Usage: git-user security
 
-Run a security audit on your identity setup.`,
+Hidden alias for git-user audit.`,
 		"logout": `Usage: git-user logout
 
 Sign out and clear the active identity.`,

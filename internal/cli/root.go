@@ -46,7 +46,7 @@ COMMANDS
   tui                        Interactive menu
   completion <shell>         Generate shell completion (bash/zsh/fish)
   hook <install|uninstall>   Manage git pre-commit hooks
-  security                   Run security audit
+  audit                      Run security audit
   sign <name>                Manage commit signing for an identity
   logout                     Sign out and clear active identity
   clone <repo-url> [dir]     Clone repository and auto-configure local identity
@@ -62,6 +62,7 @@ ALIASES
   lo, signout                logout
   import-original            switch --original (hidden alias)
   pubkey push                pubkey publish (hidden alias)
+  security                   audit (hidden alias)
   -i, --interactive          tui
   (running git-user alone also opens the TUI on a terminal)
 EXAMPLES
@@ -217,7 +218,7 @@ func Execute() error {
 		return runCompletion(rest)
 	case "hook":
 		return runHook(rest)
-	case "security":
+	case "audit", "security":
 		return runSecurityCheck(rest)
 	case "logout", "lo", "signout":
 		return runLogout(rest)
