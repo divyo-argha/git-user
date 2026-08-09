@@ -55,7 +55,10 @@ for (const target of targets) {
     description: `Platform-specific binary of git-userhub for ${target.nodeOs} ${target.nodeArch}`,
     author: mainPkg.author,
     license: mainPkg.license,
-    repository: mainPkg.repository,
+    repository: {
+      ...mainPkg.repository,
+      directory: `npm/packages/${pkgName}`
+    },
     bugs: mainPkg.bugs,
     homepage: mainPkg.homepage,
     engines: mainPkg.engines,
