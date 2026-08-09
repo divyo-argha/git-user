@@ -34,11 +34,11 @@ func (u *User) GetPassphraseMode() string {
 
 // OriginalConfig holds the gitconfig state that existed before git-user was first used.
 type OriginalConfig struct {
-	Name         string `json:"name"`
-	Email        string `json:"email"`
-	SSHCommand   string `json:"ssh_command,omitempty"`
-	SignKey      string `json:"sign_key,omitempty"`
-	SignFormat   string `json:"sign_format,omitempty"`
+	Name          string `json:"name"`
+	Email         string `json:"email"`
+	SSHCommand    string `json:"ssh_command,omitempty"`
+	SignKey       string `json:"sign_key,omitempty"`
+	SignFormat    string `json:"sign_format,omitempty"`
 	CommitGPGSign string `json:"commit_gpgsign,omitempty"`
 }
 
@@ -309,11 +309,11 @@ func (s *Store) SnapshotOriginal(name, email, sshCommand, signKey, signFormat, c
 		return // already saved, never overwrite
 	}
 	s.Original = &OriginalConfig{
-		Name:         name,
-		Email:        email,
-		SSHCommand:   sshCommand,
-		SignKey:      signKey,
-		SignFormat:   signFormat,
+		Name:          name,
+		Email:         email,
+		SSHCommand:    sshCommand,
+		SignKey:       signKey,
+		SignFormat:    signFormat,
 		CommitGPGSign: commitGPGSign,
 	}
 }

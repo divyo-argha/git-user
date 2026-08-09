@@ -16,6 +16,14 @@ import (
 
 func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 	switch msg.Kind {
+	case "quit-confirm":
+		// 'q' from the dashboard: show a confirmation dialog before quitting.
+		return a, pushCmd(screens.NewConfirm(
+			"Quit git-user?",
+			"quit-confirmed",
+			a.theme,
+		))
+
 	case "quit":
 		a.quit = true
 		return a, tea.Quit
@@ -206,6 +214,21 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			a.theme,
 		))
 
+	case "unbind-path-confirm":
+		// msg.Name = "profileName|path" (sent from Detail's inactive path list).
+		// Push a Confirm dialog with the right context for app_confirm.go.
+		parts := strings.SplitN(msg.Name, "|", 2)
+		name := parts[0]
+		path := ""
+		if len(parts) > 1 {
+			path = parts[1]
+		}
+		return a, pushCmd(screens.NewConfirm(
+			fmt.Sprintf("Unbind directory %q from %q?", path, name),
+			fmt.Sprintf("unbind-path-confirm:%s|%s", name, path),
+			a.theme,
+		))
+
 	case "export":
 		names := []string{msg.Name}
 		return a, a.pushExportForm(names)
@@ -314,7 +337,9 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		return a.handleConfigAction(msg.Name)
 
 	case "update":
-		return a, core.ShowToastCmd("Updating replaces the running binary — run 'git-user update' in your terminal", theme.ToastStyleInfo, 5*time.Second)
+		return a, a.runTaskCmd("update", "", func() (opResult, error) {
+			return opUpdate()
+		})
 	}
 
 	return a, nil

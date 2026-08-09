@@ -25,7 +25,7 @@ func runSwitch(args []string) error {
 	args = filteredArgs
 
 	if len(args) < 1 {
-		ui.Error("usage: git-user switch [-c] <name> [email] [--local]")
+		ui.Error("usage: git-user switch [-c] <name> [-e <email>] [--local]")
 		return fmt.Errorf("missing arguments")
 	}
 
@@ -36,7 +36,7 @@ func runSwitch(args []string) error {
 
 	// Handle restore to original pre-git-user state
 	if args[0] == "--original" {
-		return runSwitchOriginal()
+		return runSwitchOriginal(nil)
 	}
 
 	createMode := false
@@ -44,6 +44,7 @@ func runSwitch(args []string) error {
 	email := ""
 	passphrase := ""
 	isTemp := false
+	skipSSH := false
 
 	if args[0] == "-c" {
 		createMode = true
@@ -57,16 +58,24 @@ func runSwitch(args []string) error {
 				}
 			case "--temp", "-t":
 				isTemp = true
+			case "--email", "-e":
+				if i+1 < len(args) {
+					email = args[i+1]
+					i++
+				}
+			case "--skip-ssh":
+				skipSSH = true
 			default:
 				otherArgs = append(otherArgs, args[i])
 			}
 		}
 		if len(otherArgs) < 1 {
-			ui.Error("usage: git-user switch -c <name> [email] [--passphrase <passphrase>]")
+			ui.Error("usage: git-user switch -c <name> [-e <email>] [--passphrase <passphrase>] [--skip-ssh]")
 			return fmt.Errorf("missing name")
 		}
 		name = otherArgs[0]
-		if len(otherArgs) > 1 {
+		if len(otherArgs) > 1 && email == "" {
+			// Hidden backwards-compatible alias: a trailing positional email.
 			email = otherArgs[1]
 		}
 	} else {
@@ -93,7 +102,7 @@ func runSwitch(args []string) error {
 			return fmt.Errorf("user exists")
 		}
 
-		if err := quickRegister(name, email, passphrase, isTemp, store); err != nil {
+		if err := quickRegister(name, email, passphrase, isTemp, skipSSH, store); err != nil {
 			return err
 		}
 
@@ -136,7 +145,7 @@ func runSwitch(args []string) error {
 	if user.SSHKey != "" {
 		if _, statErr := os.Stat(user.SSHKey); statErr != nil {
 			ui.Warn(fmt.Sprintf("Bound SSH key not found: %s", user.SSHKey))
-			ui.Info(fmt.Sprintf("Fix it with: git-user bind %s --ssh-key <path>", user.Name))
+			ui.Info(fmt.Sprintf("Fix it with: git-user bind-key %s --ssh-key <path>", user.Name))
 		}
 	}
 
@@ -297,7 +306,7 @@ func runSwitch(args []string) error {
 	return nil
 }
 
-func quickRegister(name, email, passphrase string, isTemp bool, store *config.Store) error {
+func quickRegister(name, email, passphrase string, isTemp, skipSSH bool, store *config.Store) error {
 	ui.Banner("QUICK SETUP: " + name)
 	fmt.Println()
 
@@ -324,6 +333,17 @@ func quickRegister(name, email, passphrase string, isTemp bool, store *config.St
 		if u != nil {
 			u.IsTemporary = true
 		}
+	}
+
+	if skipSSH {
+		if err := config.Save(store); err != nil {
+			return err
+		}
+		fmt.Println()
+		ui.Success(fmt.Sprintf("Identity created: %s (%s)", name, email))
+		ui.Info("SSH key setup skipped — attach one later with: git-user bind-key " + name)
+		fmt.Println()
+		return nil
 	}
 
 	fmt.Println()
@@ -395,20 +415,21 @@ func quickRegister(name, email, passphrase string, isTemp bool, store *config.St
 	return nil
 }
 
-func runSwitchOriginal() error {
+func runSwitchOriginal(args []string) error {
 	store, err := config.Load()
 	if err != nil {
 		ui.Errorf("loading config: %v", err)
 		return err
 	}
 
-	if store.Original == nil {
-		ui.Error("no original identity snapshot found")
-		ui.Info("git-user hasn't made a switch yet — your gitconfig is still in its original state")
-		return fmt.Errorf("no original snapshot")
+	o := store.Original
+	if o == nil {
+		// No snapshot yet: this is a plain import of the current gitconfig
+		// identity (interactive name pick when none given).
+		ui.Info("No original identity snapshot exists yet — importing the current gitconfig identity instead.")
+		return runImportOriginal(args)
 	}
 
-	o := store.Original
 	if o.Name == "" && o.Email == "" {
 		ui.Warn("Original gitconfig had no user.name or user.email set")
 	}
@@ -444,7 +465,34 @@ func runSwitchOriginal() error {
 		}
 	}
 
-	store.Current = ""
+	// The original identity is now active in the gitconfig. Register it as a
+	// managed identity (once) so it also appears in `list` and can be switched
+	// to by name. This unifies `switch --original` with `import-original`.
+	origName := findOriginalIdentity(store)
+	if origName == "" && (o.Name != "" || o.Email != "") {
+		origName = o.Name
+		if origName == "" {
+			origName = "original"
+		}
+		if store.FindUser(origName) != nil {
+			ui.Errorf("identity %q already exists — original was not registered", origName)
+		} else {
+			store.Users = append(store.Users, config.User{
+				Name:       origName,
+				Email:      o.Email,
+				SSHKey:     extractSSHKeyFromCommand(o.SSHCommand),
+				SSHCommand: o.SSHCommand,
+				Source:     "original",
+			})
+		}
+	}
+
+	if origName != "" {
+		store.Current = origName
+	} else {
+		store.Current = ""
+	}
+
 	if err := config.Save(store); err != nil {
 		ui.Errorf("saving config: %v", err)
 		return err
@@ -462,6 +510,17 @@ func runSwitchOriginal() error {
 	ui.Info("To switch back: git-user switch <name>")
 
 	return nil
+}
+
+// findOriginalIdentity returns the name of the managed identity tagged with
+// Source == "original", or "" if none has been imported yet.
+func findOriginalIdentity(store *config.Store) string {
+	for _, u := range store.Users {
+		if u.Source == "original" {
+			return u.Name
+		}
+	}
+	return ""
 }
 
 // applyUserSSHConfig writes core.sshCommand for an identity. When an identity

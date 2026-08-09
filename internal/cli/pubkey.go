@@ -41,7 +41,7 @@ func runPubkey(args []string) error {
 
 	if user.SSHKey == "" {
 		ui.Errorf("identity %q has no SSH key bound", name)
-		ui.Info(fmt.Sprintf("Bind one with: git-user bind %s", name))
+		ui.Info(fmt.Sprintf("Bind one with: git-user bind-key %s", name))
 		return fmt.Errorf("no ssh key")
 	}
 

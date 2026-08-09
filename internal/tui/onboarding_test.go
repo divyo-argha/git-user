@@ -3,11 +3,11 @@ package tui
 import (
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestFirstRunOriginalIdentity(t *testing.T) {

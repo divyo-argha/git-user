@@ -66,7 +66,7 @@ func TestApply(t *testing.T) {
 	// Save current git config
 	oldName := git.CurrentName()
 	oldEmail := git.CurrentEmail()
-	
+
 	// Ensure we restore it
 	defer func() {
 		if oldName != "" {
@@ -77,7 +77,7 @@ func TestApply(t *testing.T) {
 	// Test applying new config
 	testName := "Test User"
 	testEmail := "test@example.com"
-	
+
 	if err := git.Apply(testName, testEmail); err != nil {
 		t.Fatalf("Apply() failed: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestApply(t *testing.T) {
 
 func TestConfigureSSH(t *testing.T) {
 	testKeyPath := "/home/user/.ssh/test_key"
-	
+
 	if err := git.ConfigureSSH(testKeyPath); err != nil {
 		t.Fatalf("ConfigureSSH() failed: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestRemoveSSHConfig(t *testing.T) {
 
 func TestConfigureSigning(t *testing.T) {
 	testKeyPath := "/home/user/.ssh/test_key"
-	
+
 	if err := git.ConfigureSigning(testKeyPath, "ssh"); err != nil {
 		t.Fatalf("ConfigureSigning() failed: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestConfigureSigning(t *testing.T) {
 
 	// Clean up
 	git.RemoveSigningConfig()
-	
+
 	if got := git.CurrentSigningKey(); got != "" {
 		t.Errorf("Expected empty signing key after remove, got %q", got)
 	}

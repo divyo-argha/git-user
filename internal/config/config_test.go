@@ -94,7 +94,7 @@ func TestBindSSHKeyClearsPreservedCommand(t *testing.T) {
 func TestSigningConfig(t *testing.T) {
 	s := &config.Store{}
 	_ = s.AddUser("eve", "eve@example.com")
-	
+
 	if err := s.SetSigningKey("eve", "key_123", "ssh"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -195,15 +195,15 @@ func TestTempProfile(t *testing.T) {
 	// The function `config.TempConfigPath()` uses `os.TempDir()`. If we run tests concurrently, they might collide.
 	// To make this testable, we should add `SetTempConfigPath` to `config` or just allow testing.
 	// Let's just create a store, add a temp user, save, and verify it's written properly.
-	
+
 	s := &config.Store{}
 	_ = s.AddUser("perm", "perm@example.com")
 	_ = s.AddUser("temp", "temp@example.com")
-	
+
 	// Mark temp user
 	u := s.FindUser("temp")
 	u.IsTemporary = true
-	
+
 	if err := config.Save(s); err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}

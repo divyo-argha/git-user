@@ -283,4 +283,3 @@ func opPassphraseRemove(store *config.Store, name, currentPass string) error {
 	_ = keyring.DeleteKeychainPassphrase(name)
 	return nil
 }
-

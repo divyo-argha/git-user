@@ -28,26 +28,35 @@ Examples:
 Switch to an identity.
 
 Flags:
-  -c <name> [email]            Create a new identity and switch to it
-  -p, --passphrase <pass>      Passphrase for the SSH key (with -c)
-  -t, --temp                   Create as a temporary identity (with -c)
-  -l, --local                  Switch only for the current repository
-  --original                   Restore the pre-git-user gitconfig state
-  -h, --help                   Show this help
+  -c <name> [-e email]       Create a new identity and switch to it
+  -e, --email <email>        Email address (with -c)
+  -p, --passphrase <pass>    Passphrase for the SSH key (with -c)
+  -t, --temp                 Create as a temporary identity (with -c)
+  --skip-ssh                 Skip SSH key setup (with -c)
+  -l, --local                Switch only for the current repository
+  --original                 Import and switch to the original pre-git-user identity
+  -h, --help                 Show this help
 
 Examples:
   git-user switch work
   git-user switch work --local
-  git-user switch -c work me@work.com`,
+  git-user switch -c work -e me@work.com`,
 		"list": `Usage: git-user list [flags]
 
 List all identities.
 
 Flags:
-  -h, --help                   Show this help`,
-		"current": `Usage: git-user current
+  --plain                    Plain, machine-readable output (name <email> [# active])
+  --json                     JSON output
+  -h, --help                 Show this help`,
+		"current": `Usage: git-user current [flags]
 
-Show the active identity.`,
+Show the active identity.
+
+Flags:
+  --plain                    Plain, machine-readable output (name <email>)
+  --json                     JSON output
+  -h, --help                 Show this help`,
 		"prompt": `Usage: git-user prompt
 
 Output the active identity for terminal integration.`,
@@ -65,20 +74,24 @@ Update an identity's email address.`,
 
 Rename an identity. The active git config user.name is updated automatically
 when the active identity is renamed. Useful for resolving an import conflict.`,
-		"pubkey": `Usage: git-user pubkey [push [platform]]
+		"pubkey": `Usage: git-user pubkey [publish [platform]]
 
 Show the public SSH key for the active identity.
-  pubkey push [platform]       Publish the key to github, gitlab, or bitbucket.
+  pubkey publish [platform]  Publish the key to github, gitlab, or bitbucket.
+  (push is a hidden alias for publish)
 
 Flags:
   -h, --help                   Show this help`,
-		"bind": `Usage: git-user bind <name> [flags]
+		"bind-key": `Usage: git-user bind-key <name> [flags]
 
-Add or link an SSH key to an identity.
+Add or link an SSH key to an identity. ` + "`bind`" + ` is a hidden alias.
 
 Flags:
   --ssh-key <path>             Path to an existing SSH private key
   -h, --help                   Show this help`,
+		"bind": `Usage: git-user bind <name> [flags]
+
+Hidden alias for git-user bind-key.`,
 		"bind-path": `Usage: git-user bind-path <name> <path>
 
 Bind a directory path to an identity for auto-switching.`,
@@ -92,7 +105,7 @@ Manage the passphrase for the active, unlocked identity.
 Flags:
   -s, --set                    Set/change the passphrase
   -r, --remove                 Remove the passphrase
-  -v, --verify                 Verify the passphrase
+  --verify                     Verify the passphrase (deprecated short form: -v)
   -m, --mode <mode>            persistent | login | everytime
   -h, --help                   Show this help`,
 		"rekey": `Usage: git-user rekey <name> [flags]
@@ -117,7 +130,11 @@ Flags:
   -h, --help                   Show this help`,
 		"import-original": `Usage: git-user import-original [name]
 
-Import the original pre-git-user gitconfig identity.`,
+Hidden alias for 'git-user switch --original'.
+
+Imports the original pre-git-user gitconfig identity into git-user and
+switches to it. A name argument is optional; when omitted you are prompted
+to choose one.`,
 		"import": `Usage: git-user import <file> [flags]
 
 Import identities from a bundle.
@@ -137,9 +154,12 @@ Generate shell completion (bash, zsh, or fish).`,
 		"hook": `Usage: git-user hook <install|uninstall|check>
 
 Manage the git pre-commit identity-checking hook.`,
+		"audit": `Usage: git-user audit
+
+Run a security audit on your identity setup. ` + "`security`" + ` is a hidden alias.`,
 		"security": `Usage: git-user security
 
-Run a security audit on your identity setup.`,
+Hidden alias for git-user audit.`,
 		"logout": `Usage: git-user logout
 
 Sign out and clear the active identity.`,
@@ -154,14 +174,19 @@ Flags:
 		"stats": `Usage: git-user stats
 
 Audit and show commit author identity stats for the current repository.`,
-		"config": `Usage: git-user config <identity> <list|set|unset> [key] [value]
+		"config": `Usage: git-user config <list|set|unset>
 
 Manage custom git configuration for an identity.
 
+Commands:
+  config list [identity]            List custom config (defaults to active)
+  config set <identity> <key> <val> Set a custom config key
+  config unset <identity> <key>     Remove a custom config key
+
 Examples:
-  git-user config work list
-  git-user config work set init.defaultBranch main
-  git-user config work unset init.defaultBranch`,
+  git-user config list work
+  git-user config set work init.defaultBranch main
+  git-user config unset work init.defaultBranch`,
 		"sync": `Usage: git-user sync
 
 Synchronize identities across devices using a private repository.`,
@@ -169,7 +194,7 @@ Synchronize identities across devices using a private repository.`,
 	if u, ok := usage[sub]; ok {
 		return u
 	}
-	return usage["register"]
+	return ""
 }
 
 func wantsHelp(args []string) bool {
@@ -184,5 +209,10 @@ func wantsHelp(args []string) bool {
 func runSubcommandHelp(sub string) {
 	ui.PrintLogo()
 	fmt.Println()
-	fmt.Println(commandUsage(sub))
+	u := commandUsage(sub)
+	if u == "" {
+		ui.Errorf("unknown command %q — run 'git-user --help' for usage", sub)
+		return
+	}
+	fmt.Println(u)
 }

@@ -112,7 +112,7 @@ func TestNavDashboardEnterDetailEsc(t *testing.T) {
 
 	// Confirm dialog: actions pane -> import-export -> back option + Esc.
 	app = pumpApp(app, tea.KeyMsg{Type: tea.KeyTab}) // actions pane
-	for i := 0; i < 4; i++ { // logout -> security -> doctor -> import-original -> import-export
+	for i := 0; i < 4; i++ {                         // logout -> security -> doctor -> import-original -> import-export
 		app = pumpApp(app, tea.KeyMsg{Type: tea.KeyDown})
 	}
 	app = pumpApp(app, tea.KeyMsg{Type: tea.KeyEnter})

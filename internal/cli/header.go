@@ -24,12 +24,6 @@ var (
 //	headerStyle = "text"   → plain bold text (original)
 const headerStyle = "logo"
 
-// Choose which logo to display:
-//
-//	true  → new logo from logo.png (logo.NewSmallPixelLines)
-//	false → original logo from git-userhub-logo.png (logo.SmallPixelLines)
-const useNewLogo = true
-
 // RenderHeader returns the TUI header block for the main screen.
 func renderHeader(store *config.Store, termHeight int) string {
 	style := headerStyle

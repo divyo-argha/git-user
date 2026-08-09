@@ -18,6 +18,7 @@ type App struct {
 	statusBar   components.StatusBar
 	helpBar     components.HelpBar
 	toast       components.Toast
+	spinner     components.Spinner
 	animFrame   uint64
 	width       int
 	height      int
@@ -25,6 +26,8 @@ type App struct {
 
 	quit          bool
 	removeKeyPath string // SSH key path captured before removing an identity
+	taskRunning   bool   // true while a background task (runTaskCmd) is in flight
+	taskLabel     string // human-readable label shown next to the spinner
 }
 
 func animateTickCmd() tea.Cmd {
@@ -42,6 +45,7 @@ func NewApp(store *config.Store, initialScreen core.Screen) *App {
 		statusBar:   components.NewStatusBar(store, th),
 		helpBar:     components.NewHelpBar(th),
 		toast:       components.NewToast(th),
+		spinner:     components.NewSpinner(th),
 		theme:       th,
 	}
 }
@@ -73,7 +77,10 @@ func pushCmd(s core.Screen) tea.Cmd {
 }
 
 // runTaskCmd runs an operation as a background command and reports its result.
+// It sets taskRunning = true before dispatching so the spinner is shown.
 func (a *App) runTaskCmd(kind, name string, fn func() (opResult, error)) tea.Cmd {
+	a.taskRunning = true
+	a.taskLabel = titleForKind(kind)
 	return func() tea.Msg {
 		res, err := fn()
 		return core.TaskResultMsg{
@@ -93,6 +100,7 @@ func (a *App) Init() tea.Cmd {
 	cmds := []tea.Cmd{
 		core.CheckAgentCmd(),
 		animateTickCmd(),
+		a.spinner.Init(),
 	}
 	if s := a.activeScreen(); s != nil {
 		cmds = append(cmds, s.Init())
@@ -105,12 +113,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case core.AnimTickMsg:
 		a.animFrame++
+		var cmds []tea.Cmd
+		cmds = append(cmds, animateTickCmd())
 		if s := a.activeScreen(); s != nil {
 			newScreen, cmd := s.Update(msg)
 			a.screenStack[len(a.screenStack)-1] = newScreen
-			return a, tea.Batch(cmd, animateTickCmd())
+			cmds = append(cmds, cmd)
 		}
-		return a, animateTickCmd()
+		return a, tea.Batch(cmds...)
 
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
@@ -162,6 +172,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.handleOptionResult(msg)
 
 	case core.TaskResultMsg:
+		// Task completed — clear the loading spinner.
+		a.taskRunning = false
+		a.taskLabel = ""
 		return a.handleTaskResult(msg)
 
 	case core.ActionResultMsg:
@@ -176,10 +189,21 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	default:
+		var cmds []tea.Cmd
+		// Always forward unrecognised messages to the spinner so its TickMsg
+		// drives the animation while a background task is in flight.
+		if a.taskRunning {
+			newSpinner, spinCmd := a.spinner.Update(msg)
+			a.spinner = newSpinner
+			cmds = append(cmds, spinCmd)
+		}
 		if s := a.activeScreen(); s != nil {
 			newScreen, cmd := s.Update(msg)
 			a.screenStack[len(a.screenStack)-1] = newScreen
-			return a, cmd
+			cmds = append(cmds, cmd)
+		}
+		if len(cmds) > 0 {
+			return a, tea.Batch(cmds...)
 		}
 	}
 
@@ -198,6 +222,14 @@ func (a *App) View() string {
 	statusView := a.statusBar.View(a.width, a.height)
 	sb.WriteString(statusView)
 	sb.WriteString("\n")
+
+	// Show a spinner row while a background task is running.
+	if a.taskRunning {
+		spinView := a.spinner.View() + " " + a.theme.Dim().Render(a.taskLabel+"…")
+		sb.WriteString("  ")
+		sb.WriteString(spinView)
+		sb.WriteString("\n")
+	}
 
 	screenHeight := theme.ContentHeight(a.height)
 	if s := a.activeScreen(); s != nil {

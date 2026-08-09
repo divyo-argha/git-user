@@ -67,8 +67,8 @@ func runImportOriginal(args []string) error {
 	if store.FindUser(importName) != nil {
 		ui.Errorf("Identity %q already exists — nothing was imported.", importName)
 		ui.Info("Resolve this by either:")
-		ui.Info("  • importing under a different name: git-user import-original <unique-name>")
-		ui.Info("  • renaming the conflicting profile first: git-user rename " + importName + " <new-name>, then: git-user import-original " + importName)
+		ui.Info("  • importing under a different name: git-user switch --original <unique-name>")
+		ui.Info("  • renaming the conflicting profile first: git-user rename " + importName + " <new-name>, then: git-user switch --original " + importName)
 		return fmt.Errorf("identity exists")
 	}
 

@@ -4,10 +4,10 @@ package main
 
 import (
 	"fmt"
-	"net"
-	"os"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
+	"net"
+	"os"
 )
 
 func main() {

@@ -6,6 +6,81 @@ import (
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
+// commandSpec is the single source of truth for shell completion generation.
+// Every CLI command (including aliases) lives here, so bash/zsh/fish completions
+// stay in sync automatically whenever a command is added or renamed.
+type commandSpec struct {
+	name    string
+	desc    string
+	takesID bool // completes with identity names
+}
+
+// commands is the canonical command list used to generate completions.
+var commands = []commandSpec{
+	{name: "register", desc: "Create a new identity (guided setup with SSH)"},
+	{name: "reg", desc: "Create a new identity (alias)"},
+	{name: "switch", desc: "Switch to an identity", takesID: true},
+	{name: "sw", desc: "Switch to an identity (alias)", takesID: true},
+	{name: "list", desc: "List all identities"},
+	{name: "ls", desc: "List all identities (alias)"},
+	{name: "current", desc: "Show active identity"},
+	{name: "prompt", desc: "Output active identity for terminal integration"},
+	{name: "remove", desc: "Delete an identity", takesID: true},
+	{name: "rm", desc: "Delete an identity (alias)", takesID: true},
+	{name: "edit", desc: "Update email", takesID: true},
+	{name: "rename", desc: "Rename an identity", takesID: true},
+	{name: "pubkey", desc: "Show the public key of the active identity"},
+	{name: "bind-key", desc: "Add/link an SSH key to an identity", takesID: true},
+	{name: "bind", desc: "Add/link an SSH key (alias)", takesID: true},
+	{name: "bind-path", desc: "Bind a directory to an identity", takesID: true},
+	{name: "unbind-path", desc: "Remove a directory binding", takesID: true},
+	{name: "passphrase", desc: "Manage the passphrase for the active identity"},
+	{name: "rekey", desc: "Rotate SSH key", takesID: true},
+	{name: "sign", desc: "Manage commit signing for an identity", takesID: true},
+	{name: "fix-remote", desc: "Convert HTTPS remotes to SSH"},
+	{name: "export", desc: "Export identities (encrypted bundle)", takesID: true},
+	{name: "import", desc: "Import identities from a bundle"},
+	{name: "import-original", desc: "Import and switch to the original identity (alias for switch --original)"},
+	{name: "doctor", desc: "Diagnose common setup issues"},
+	{name: "audit", desc: "Run a security audit"},
+	{name: "security", desc: "Run a security audit (alias)"},
+	{name: "logout", desc: "Sign out and clear the active identity"},
+	{name: "lo", desc: "Sign out (alias)"},
+	{name: "signout", desc: "Sign out (alias)"},
+	{name: "clone", desc: "Clone a repository and auto-configure the local identity"},
+	{name: "stats", desc: "Audit commit author identity stats"},
+	{name: "config", desc: "Manage custom git config for an identity", takesID: true},
+	{name: "sync", desc: "Synchronize identities across devices"},
+	{name: "hook", desc: "Manage git pre-commit hooks"},
+	{name: "completion", desc: "Generate shell completion (bash/zsh/fish)"},
+	{name: "tui", desc: "Interactive menu"},
+}
+
+// commandsThatTakeIDs returns the subcommand names (including aliases) that
+// complete against registered identity names.
+func commandsThatTakeIDs() []string {
+	var out []string
+	for _, c := range commands {
+		if c.takesID {
+			out = append(out, c.name)
+		}
+	}
+	return out
+}
+
+// idCommandsPattern returns a case/pattern string listing identity-taking
+// commands, e.g. "switch|sw|remove|rm|...".
+func idCommandsPattern() string {
+	out := ""
+	for i, c := range commandsThatTakeIDs() {
+		if i > 0 {
+			out += "|"
+		}
+		out += c
+	}
+	return out
+}
+
 func runCompletion(args []string) error {
 	if len(args) < 1 {
 		ui.Error("usage: git-user completion <bash|zsh|fish>")
@@ -31,11 +106,11 @@ func runCompletion(args []string) error {
 
 	switch shell {
 	case "bash":
-		fmt.Print(bashCompletion)
+		fmt.Print(bashCompletion())
 	case "zsh":
-		fmt.Print(zshCompletion)
+		fmt.Print(zshCompletion())
 	case "fish":
-		fmt.Print(fishCompletion)
+		fmt.Print(fishCompletion())
 	default:
 		ui.Errorf("unsupported shell: %s", shell)
 		ui.Info("Supported shells: bash, zsh, fish")
@@ -45,25 +120,34 @@ func runCompletion(args []string) error {
 	return nil
 }
 
-const bashCompletion = `# bash completion for git-user
+func bashCompletion() string {
+	cmdList := ""
+	for i, c := range commands {
+		if i > 0 {
+			cmdList += " "
+		}
+		cmdList += c.name
+	}
+
+	return fmt.Sprintf(`# bash completion for git-user
 
 _git_user_completions() {
     local cur prev commands
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    commands="register switch list current remove edit bind rekey fix-remote export import doctor tui completion"
-    
+    commands="%s"
+
     # Complete commands
     if [ $COMP_CWORD -eq 1 ]; then
         COMPREPLY=( $(compgen -W "${commands}" -- ${cur}) )
         return 0
     fi
-    
+
     # Complete identity names for commands that need them
     case "${prev}" in
-        switch|sw|remove|rm|edit|bind|rekey|export)
-            local identities=$(git-user list 2>/dev/null | grep -v "^No identities" | awk '{print $1}' | grep -v "^$")
+        %s)
+            local identities=$(git-user list --plain 2>/dev/null | awk '{print $1}' | grep -v "^$")
             COMPREPLY=( $(compgen -W "${identities}" -- ${cur}) )
             return 0
             ;;
@@ -81,43 +165,34 @@ _git_user_completions() {
 }
 
 complete -F _git_user_completions git-user
-`
+`, cmdList, idCommandsPattern())
+}
 
-const zshCompletion = `#compdef git-user
+func zshCompletion() string {
+	descLines := ""
+	for _, c := range commands {
+		descLines += fmt.Sprintf("        '%s:%s'\n", c.name, c.desc)
+	}
+
+	return fmt.Sprintf(`#compdef git-user
 
 _git_user() {
     local -a commands identities
     commands=(
-        'register:Create new identity with SSH key'
-        'switch:Switch to an identity'
-        'list:List all identities'
-        'ls:List all identities (alias)'
-        'current:Show active identity'
-        'remove:Delete an identity'
-        'rm:Delete an identity (alias)'
-        'edit:Update email'
-        'bind:Add/link SSH key'
-        'rekey:Rotate SSH key'
-        'fix-remote:Convert HTTPS remotes to SSH'
-        'export:Export identities'
-        'import:Import identities'
-        'doctor:Check setup'
-        'tui:Interactive menu'
-        'completion:Generate shell completion'
-    )
-    
+%s    )
+
     _arguments -C \
         '1: :->command' \
         '*:: :->args'
-    
+
     case $state in
         command)
             _describe 'command' commands
             ;;
         args)
             case $words[1] in
-                switch|sw|remove|rm|edit|bind|rekey|export)
-                    identities=(${(f)"$(git-user list 2>/dev/null | grep -v '^No identities' | awk '{print $1}' | grep -v '^$')"})
+                %s)
+                    identities=(${(f)"$(git-user list --plain 2>/dev/null | awk '{print $1}' | grep -v '^$')"})
                     _describe 'identity' identities
                     ;;
                 completion)
@@ -127,7 +202,7 @@ _git_user() {
                     if (( CURRENT == 2 )); then
                         _values 'option' --all
                     fi
-                    identities=(${(f)"$(git-user list 2>/dev/null | grep -v '^No identities' | awk '{print $1}' | grep -v '^$')"})
+                    identities=(${(f)"$(git-user list --plain 2>/dev/null | awk '{print $1}' | grep -v '^$')"})
                     _describe 'identity' identities
                     ;;
             esac
@@ -136,47 +211,34 @@ _git_user() {
 }
 
 _git_user "$@"
-`
+`, descLines, idCommandsPattern())
+}
 
-const fishCompletion = `# fish completion for git-user
+func fishCompletion() string {
+	out := "# fish completion for git-user\n\n# Commands\n"
+	for _, c := range commands {
+		out += fmt.Sprintf("complete -c git-user -f -n \"__fish_use_subcommand\" -a \"%s\" -d \"%s\"\n", c.name, c.desc)
+	}
 
-# Commands
-complete -c git-user -f -n "__fish_use_subcommand" -a "register" -d "Create new identity with SSH key"
-complete -c git-user -f -n "__fish_use_subcommand" -a "switch" -d "Switch to an identity"
-complete -c git-user -f -n "__fish_use_subcommand" -a "sw" -d "Switch to an identity (alias)"
-complete -c git-user -f -n "__fish_use_subcommand" -a "list" -d "List all identities"
-complete -c git-user -f -n "__fish_use_subcommand" -a "ls" -d "List all identities (alias)"
-complete -c git-user -f -n "__fish_use_subcommand" -a "current" -d "Show active identity"
-complete -c git-user -f -n "__fish_use_subcommand" -a "remove" -d "Delete an identity"
-complete -c git-user -f -n "__fish_use_subcommand" -a "rm" -d "Delete an identity (alias)"
-complete -c git-user -f -n "__fish_use_subcommand" -a "edit" -d "Update email"
-complete -c git-user -f -n "__fish_use_subcommand" -a "bind" -d "Add/link SSH key"
-complete -c git-user -f -n "__fish_use_subcommand" -a "rekey" -d "Rotate SSH key"
-complete -c git-user -f -n "__fish_use_subcommand" -a "fix-remote" -d "Convert HTTPS remotes to SSH"
-complete -c git-user -f -n "__fish_use_subcommand" -a "export" -d "Export identities"
-complete -c git-user -f -n "__fish_use_subcommand" -a "import" -d "Import identities"
-complete -c git-user -f -n "__fish_use_subcommand" -a "doctor" -d "Check setup"
-complete -c git-user -f -n "__fish_use_subcommand" -a "tui" -d "Interactive menu"
-complete -c git-user -f -n "__fish_use_subcommand" -a "completion" -d "Generate shell completion"
+	out += "\n# Identity name completions\n"
+	out += "function __git_user_identities\n    git-user list --plain 2>/dev/null | awk '{print $1}' | grep -v '^$'\nend\n\n"
 
-# Identity name completions
-function __git_user_identities
-    git-user list 2>/dev/null | grep -v "^No identities" | awk '{print $1}' | grep -v "^$"
-end
+	for _, name := range commandsThatTakeIDs() {
+		out += fmt.Sprintf("complete -c git-user -f -n \"__fish_seen_subcommand_from %s\" -a \"(__git_user_identities)\"\n", name)
+	}
 
-complete -c git-user -f -n "__fish_seen_subcommand_from switch sw" -a "(__git_user_identities)"
-complete -c git-user -f -n "__fish_seen_subcommand_from remove rm" -a "(__git_user_identities)"
-complete -c git-user -f -n "__fish_seen_subcommand_from edit" -a "(__git_user_identities)"
-complete -c git-user -f -n "__fish_seen_subcommand_from bind" -a "(__git_user_identities)"
-complete -c git-user -f -n "__fish_seen_subcommand_from rekey" -a "(__git_user_identities)"
-complete -c git-user -f -n "__fish_seen_subcommand_from export" -a "(__git_user_identities)"
+	out += "\n# Completion shell types\n"
+	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from completion\" -a \"bash zsh fish\"\n\n"
 
-# Completion shell types
-complete -c git-user -f -n "__fish_seen_subcommand_from completion" -a "bash zsh fish"
+	out += "# Export --all flag\n"
+	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from export\" -l \"all\" -d \"Export all identities\"\n\n"
 
-# Export --all flag
-complete -c git-user -f -n "__fish_seen_subcommand_from export" -l "all" -d "Export all identities"
+	out += "# Switch flags\n"
+	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -s \"c\" -d \"Create and switch\"\n"
+	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -s \"e\" -l \"email\" -d \"Email address\"\n"
+	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -s \"l\" -l \"local\" -d \"Switch only for this repository\"\n"
+	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -l \"original\" -d \"Import and switch to the original identity\"\n"
+	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -l \"skip-ssh\" -d \"Skip SSH key setup (with -c)\"\n"
 
-# Switch -c flag
-complete -c git-user -f -n "__fish_seen_subcommand_from switch sw" -s "c" -d "Create and switch"
-`
+	return out
+}

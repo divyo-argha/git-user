@@ -34,7 +34,7 @@ func IsEscKey(msg tea.KeyMsg) bool {
 
 // DashboardHelp returns the help text for the main dashboard.
 func DashboardHelp() string {
-	return "  Tab/←/→ switch pane  ↑/↓ navigate  s switch profile  Enter select  q quit"
+	return "  Tab/←/→ switch pane  ↑/↓ navigate  s switch  Enter select  / filter  q quit"
 }
 
 // DetailHelp returns the help text for the detail screen.
@@ -44,12 +44,12 @@ func DetailHelp() string {
 
 // FormHelp returns the help text for inline forms.
 func FormHelp() string {
-	return "  Enter submit  Esc cancel/back  Tab next field"
+	return "  Tab next field  Shift+Tab prev field  Enter submit  Esc cancel"
 }
 
 // ConfirmHelp returns the help text for confirmation dialogs.
 func ConfirmHelp() string {
-	return "  ←/→ select  Enter confirm  Esc cancel"
+	return "  ←/→/↑/↓ select  y yes  n no  Enter confirm  Esc cancel"
 }
 
 // FilterHelp returns the help text when filter mode is active.

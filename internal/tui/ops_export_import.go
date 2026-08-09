@@ -2,13 +2,13 @@ package tui
 
 import (
 	"fmt"
+	"github.com/divyo-argha/git-user/internal/bundle"
+	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-	"github.com/divyo-argha/git-user/internal/bundle"
-	"github.com/divyo-argha/git-user/internal/config"
-	"github.com/divyo-argha/git-user/internal/git"
 )
 
 // ── Export / Import ───────────────────────────────────────────────────────────
@@ -246,4 +246,3 @@ func extractSSHKeyFromCommand(cmd string) string {
 	}
 	return ""
 }
-

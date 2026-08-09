@@ -12,20 +12,17 @@ import (
 	"github.com/divyo-argha/git-user/logo"
 )
 
-type tea_Model = tea.Model
-
 // ── Tokyo Night Palette ───────────────────────────────────────────────────────
 // Single source of truth — matches internal/tui/theme/theme.go exactly.
 var (
-	colPrimary  = lipgloss.Color("#7AA2F7") // Soft Blue — info, headers
-	colSecond   = lipgloss.Color("#9ECE6A") // Emerald — success, active
-	colAccent   = lipgloss.Color("#BB9AF7") // Soft Purple — prompts, accents
-	colDanger   = lipgloss.Color("#F7768E") // Rose — errors
-	colWarning  = lipgloss.Color("#E0AF68") // Amber — warnings
-	colMuted    = lipgloss.Color("#565F89") // Deep Gray — dim, separators
-	colText     = lipgloss.Color("#C0CAF5") // Ice Blue-White — primary text
-	colTextDim  = lipgloss.Color("#787C99") // Dimmed text
-	colBg       = lipgloss.Color("#1F2335") // Card background
+	colPrimary = lipgloss.Color("#7AA2F7") // Soft Blue — info, headers
+	colSecond  = lipgloss.Color("#9ECE6A") // Emerald — success, active
+	colAccent  = lipgloss.Color("#BB9AF7") // Soft Purple — prompts, accents
+	colDanger  = lipgloss.Color("#F7768E") // Rose — errors
+	colWarning = lipgloss.Color("#E0AF68") // Amber — warnings
+	colMuted   = lipgloss.Color("#565F89") // Deep Gray — dim, separators
+	colText    = lipgloss.Color("#C0CAF5") // Ice Blue-White — primary text
+	colBg      = lipgloss.Color("#1F2335") // Card background
 
 	// ── Component styles ─────────────────────────────────────────────────────
 
@@ -96,6 +93,32 @@ func IsTTY() bool {
 		return false
 	}
 	return (fi.Mode() & os.ModeCharDevice) != 0
+}
+
+// IsPlainOutput reports whether styled/banner output should be suppressed.
+// It returns true when stdout is not a terminal (pipes, CI) or the caller
+// passes an explicit --plain flag.
+func IsPlainOutput(args []string) bool {
+	if IsTTYFn != nil {
+		return false
+	}
+	for _, a := range args {
+		if a == "--plain" {
+			return true
+		}
+	}
+	return !IsTTY()
+}
+
+// IsJSONOutput reports whether the caller requested machine-readable JSON
+// via an explicit --json flag.
+func IsJSONOutput(args []string) bool {
+	for _, a := range args {
+		if a == "--json" {
+			return true
+		}
+	}
+	return false
 }
 
 // ── Logo ──────────────────────────────────────────────────────────────────────
@@ -208,7 +231,7 @@ func Prompt(label string) (string, error) {
 	if PromptFn != nil {
 		return PromptFn(label)
 	}
-	fmt.Printf("%s %s ", styleAccent.Render("?"), styleText.Copy().Bold(true).Render(label))
+	fmt.Printf("%s %s ", styleAccent.Render("?"), styleText.Bold(true).Render(label))
 	reader := bufio.NewReader(os.Stdin)
 	text, err := reader.ReadString('\n')
 	if err != nil {
@@ -257,7 +280,7 @@ func (m SelectModel) View() string {
 	s := strings.Builder{}
 	s.WriteString("\n")
 	s.WriteString(styleAccent.Render("? "))
-	s.WriteString(styleText.Copy().Bold(true).Render(m.label))
+	s.WriteString(styleText.Bold(true).Render(m.label))
 	s.WriteString("  " + styleDim.Render("↑/↓ navigate · Enter select"))
 	s.WriteString("\n\n")
 
@@ -332,10 +355,10 @@ func Confirm(question string, defaultYes bool) bool {
 
 // typewriterModel animates a message character by character using Bubble Tea.
 type typewriterModel struct {
-	full    string // complete rendered line (with ANSI)
-	raw     string // plain text for counting
-	pos     int    // chars revealed so far
-	done    bool
+	full string // complete rendered line (with ANSI)
+	raw  string // plain text for counting
+	pos  int    // chars revealed so far
+	done bool
 }
 
 type twTickMsg struct{}

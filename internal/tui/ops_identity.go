@@ -2,11 +2,11 @@ package tui
 
 import (
 	"fmt"
-	"os"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/ssh"
+	"os"
 )
 
 // ── Switch / Logout / Remove ──────────────────────────────────────────────────
@@ -250,4 +250,3 @@ func opDeleteKeyFiles(keyPath string) {
 	_ = os.Remove(keyPath)
 	_ = os.Remove(keyPath + ".pub")
 }
-

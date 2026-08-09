@@ -76,6 +76,7 @@ func TestVerifyPassphrase(t *testing.T) {
 	// 2. Generate an encrypted RSA private key
 	passphrase := "test-secret"
 	// Marshal encrypted key using x509
+	//lint:ignore SA1019 Deliberate: produce legacy encrypted PEM to verify backward-compatible parsing.
 	encBlock, err := x509.EncryptPEMBlock(rand.Reader, "RSA PRIVATE KEY", privBytes, []byte(passphrase), x509.PEMCipherAES256)
 	if err != nil {
 		t.Fatalf("Failed to encrypt PEM block: %v", err)
@@ -328,4 +329,3 @@ func TestAddKeyToMacOSKeychain(t *testing.T) {
 		t.Errorf("addKeyToMacOSKeychain failed: %v", err)
 	}
 }
-

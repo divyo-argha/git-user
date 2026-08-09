@@ -23,13 +23,13 @@ func TestWantsHelp(t *testing.T) {
 }
 
 func TestCommandUsageHasEntries(t *testing.T) {
-	commands := []string{"register", "switch", "list", "remove", "passphrase", "export", "import", "clone", "stats", "config", "sync", "hook", "rename"}
+	commands := []string{"register", "switch", "list", "remove", "passphrase", "export", "import", "clone", "stats", "config", "sync", "hook", "rename", "bind-key", "audit", "pubkey"}
 	for _, c := range commands {
 		if commandUsage(c) == "" {
 			t.Errorf("commandUsage(%q) is empty", c)
 		}
 	}
-	if commandUsage("nope") == "" {
-		t.Error("expected non-empty fallback for unknown command")
+	if commandUsage("nope") != "" {
+		t.Error("expected empty usage for unknown command")
 	}
 }

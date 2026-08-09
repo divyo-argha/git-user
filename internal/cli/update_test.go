@@ -6,7 +6,7 @@ import (
 
 func TestParseVersion(t *testing.T) {
 	tests := []struct {
-		input  string
+		input   string
 		m, n, p int
 	}{
 		{"v4.3.1", 4, 3, 1},

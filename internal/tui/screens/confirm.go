@@ -42,10 +42,10 @@ func (c *Confirm) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		}
 		switch msg.String() {
 
-		case core.KeyLeft, core.KeyH:
+		case core.KeyLeft, core.KeyH, core.KeyUp, core.KeyK:
 			c.cursor = 0
 
-		case core.KeyRight, core.KeyL:
+		case core.KeyRight, core.KeyL, core.KeyDown, core.KeyJ:
 			c.cursor = 1
 
 		case "y", "Y":

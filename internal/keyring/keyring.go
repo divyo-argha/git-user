@@ -10,8 +10,8 @@ import (
 const keychainService = "git-user"
 
 var (
-	KeyringGet = keyring.Get
-	KeyringSet = keyring.Set
+	KeyringGet    = keyring.Get
+	KeyringSet    = keyring.Set
 	KeyringDelete = keyring.Delete
 )
 
@@ -19,7 +19,7 @@ func formatHeadlessError(err error) error {
 	if err == nil {
 		return nil
 	}
-	
+
 	errStr := strings.ToLower(err.Error())
 	if strings.Contains(errStr, "dbus") || strings.Contains(errStr, "secret") || strings.Contains(errStr, "unsupported") {
 		return fmt.Errorf("%w (headless/SSH session? GUI keychain may be unavailable)", err)

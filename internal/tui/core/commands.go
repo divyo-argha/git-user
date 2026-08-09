@@ -199,7 +199,6 @@ func CheckPlatformConnectionCmd(profileName, keyPath, platform, host string, suc
 	}
 }
 
-
 func extractUsername(output, platform string) string {
 	switch platform {
 	case "GitHub":

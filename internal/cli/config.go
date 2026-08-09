@@ -12,16 +12,88 @@ import (
 
 func runConfig(args []string) error {
 	if len(args) < 1 {
-		ui.Error("usage: git-user config <identity> [set|unset|list] [key] [value]")
-		return fmt.Errorf("missing identity")
+		ui.Error("usage: git-user config <list|set|unset> ...")
+		return fmt.Errorf("missing verb")
 	}
 
+	// Verb-first syntax: config list [identity], config set <identity> <key> <value>,
+	// config unset <identity> <key>.
+	verbs := map[string]bool{"list": true, "set": true, "unset": true}
+	if verbs[args[0]] {
+		return runConfigVerbFirst(args)
+	}
+
+	// Hidden backwards-compatible alias: config <identity> [list|set|unset] ...
+	return runConfigIdentityFirst(args)
+}
+
+func runConfigVerbFirst(args []string) error {
+	switch args[0] {
+	case "set":
+		if len(args) < 4 {
+			ui.Error("usage: git-user config set <identity> <key> <value>")
+			return fmt.Errorf("missing key or value")
+		}
+		return applyConfigAction(args[1], "set", args[2], args[3])
+
+	case "unset":
+		if len(args) < 3 {
+			ui.Error("usage: git-user config unset <identity> <key>")
+			return fmt.Errorf("missing key")
+		}
+		return applyConfigAction(args[1], "unset", args[2], "")
+
+	case "list":
+		name := ""
+		if len(args) > 1 {
+			name = args[1]
+		}
+		if name == "" {
+			store, err := config.Load()
+			if err != nil {
+				ui.Errorf("loading config: %v", err)
+				return err
+			}
+			name = store.Current
+			if name == "" {
+				ui.Error("no identity given and no active identity — usage: git-user config list <identity>")
+				return fmt.Errorf("missing identity")
+			}
+		}
+		return applyConfigAction(name, "list", "", "")
+	}
+	return nil
+}
+
+func runConfigIdentityFirst(args []string) error {
 	name := args[0]
 	action := "list"
 	if len(args) > 1 {
 		action = args[1]
 	}
 
+	switch action {
+	case "set":
+		if len(args) < 4 {
+			ui.Error("usage: git-user config set <identity> <key> <value>")
+			return fmt.Errorf("missing key or value")
+		}
+		return applyConfigAction(name, "set", args[2], args[3])
+	case "unset":
+		if len(args) < 3 {
+			ui.Error("usage: git-user config unset <identity> <key>")
+			return fmt.Errorf("missing key")
+		}
+		return applyConfigAction(name, "unset", args[2], "")
+	case "list":
+		return applyConfigAction(name, "list", "", "")
+	default:
+		ui.Errorf("unknown config action %q. Supported actions: list, set, unset", action)
+		return fmt.Errorf("unknown action")
+	}
+}
+
+func applyConfigAction(name, action, key, value string) error {
 	store, err := config.Load()
 	if err != nil {
 		ui.Errorf("loading config: %v", err)
@@ -36,13 +108,6 @@ func runConfig(args []string) error {
 
 	switch action {
 	case "set":
-		if len(args) < 4 {
-			ui.Error("usage: git-user config <identity> set <key> <value>")
-			return fmt.Errorf("missing key or value")
-		}
-		key := args[2]
-		value := args[3]
-
 		if user.CustomConfig == nil {
 			user.CustomConfig = make(map[string]string)
 		}
@@ -53,16 +118,7 @@ func runConfig(args []string) error {
 			return err
 		}
 
-		// If this is the active user, we want to immediately apply it
 		if store.Current == name {
-			// Set the value in git config
-			// Note: We need to determine if we should set it globally or locally.
-			// However, in git-user, global vs local configuration applies during switch.
-			// Let's also apply it to global/active git config if it is currently active.
-			// For simplicity, we can tell the user to re-switch or apply it globally.
-			// But to be extra friendly, we can set it globally since store.Current is global.
-			// Let's set it to global git config if the active identity is current.
-			// In switch.go, we apply user configs. Let's do that.
 			_ = applyActiveCustomConfig(key, value, false)
 			ui.Info("Active identity updated. Applied changes to git config.")
 		}
@@ -70,12 +126,6 @@ func runConfig(args []string) error {
 		ui.Successf("Set config %q = %q for identity %q", key, value, name)
 
 	case "unset":
-		if len(args) < 3 {
-			ui.Error("usage: git-user config <identity> unset <key>")
-			return fmt.Errorf("missing key")
-		}
-		key := args[2]
-
 		if user.CustomConfig != nil {
 			delete(user.CustomConfig, key)
 		}
@@ -99,7 +149,6 @@ func runConfig(args []string) error {
 			return nil
 		}
 
-		// Sort keys for consistent output
 		var keys []string
 		for k := range user.CustomConfig {
 			keys = append(keys, k)
@@ -109,10 +158,6 @@ func runConfig(args []string) error {
 		for _, k := range keys {
 			fmt.Printf("  %s = %s\n", k, user.CustomConfig[k])
 		}
-
-	default:
-		ui.Errorf("unknown config action %q. Supported actions: set, unset, list", action)
-		return fmt.Errorf("unknown action")
 	}
 
 	return nil

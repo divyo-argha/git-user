@@ -5,8 +5,8 @@ package main
 import (
 	"errors"
 	"fmt"
-	"os"
 	"golang.org/x/crypto/ssh"
+	"os"
 )
 
 func main() {

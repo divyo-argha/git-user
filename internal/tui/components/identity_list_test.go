@@ -38,7 +38,6 @@ func TestIdentityList(t *testing.T) {
 		t.Errorf("Expected cursor at 2, got %d", list.Cursor())
 	}
 
-
 	// Test Refresh
 	store.Users = []config.User{
 		{Name: "only", Email: "only@example.com"},

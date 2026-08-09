@@ -104,10 +104,30 @@ func titleForKind(kind string) string {
 	switch kind {
 	case "register", "register-temp", "attach-key":
 		return "Identity Created"
+	case "rename":
+		return "Identity Renamed"
+	case "email":
+		return "Email Updated"
+	case "remove":
+		return "Identity Removed"
+	case "delete-key":
+		return "SSH Key Files Deleted"
 	case "bind":
 		return "SSH Key Configured"
+	case "unbind":
+		return "SSH Key Unbound"
 	case "rekey":
 		return "SSH Key Rotated"
+	case "bind-path":
+		return "Directory Bound"
+	case "unbind-path":
+		return "Directory Unbound"
+	case "passphrase-set":
+		return "Passphrase Set"
+	case "passphrase-remove":
+		return "Passphrase Removed"
+	case "passphrase-verify":
+		return "Passphrase Verified"
 	case "export", "export-current", "export-all":
 		return "Export"
 	case "import":
@@ -118,14 +138,14 @@ func titleForKind(kind string) string {
 		return "SSH Connection Check"
 	case "pubkey":
 		return "Public Key"
+	case "pubkey-push":
+		return "Publish SSH Key"
 	case "security":
 		return "Security Audit"
 	case "doctor":
 		return "Diagnostics"
 	case "fix-remote":
 		return "Remote Conversion"
-	case "pubkey-push":
-		return "Publish SSH Key"
 	case "clone":
 		return "Clone Repository"
 	case "stats":
@@ -136,6 +156,12 @@ func titleForKind(kind string) string {
 		return "Git Hooks"
 	case "config":
 		return "Custom Git Config"
+	case "switch":
+		return "Switched Identity"
+	case "logout":
+		return "Signed Out"
+	case "update":
+		return "Self-Update"
 	}
 	return "Result"
 }

@@ -41,7 +41,6 @@ func NewIdentityList(store *config.Store, th theme.Theme) IdentityList {
 	return IdentityList{items: items, filtered: filtered, theme: th}
 }
 
-
 func buildIdentityItems(store *config.Store) []IdentityItem {
 	var items []IdentityItem
 	for _, u := range store.Users {
@@ -105,7 +104,35 @@ func (l *IdentityList) Selected() *IdentityItem {
 	return &l.items[idx]
 }
 
-func (l *IdentityList) Cursor() int       { return l.cursor }
+func (l *IdentityList) Cursor() int { return l.cursor }
+
+// FilterByQuery filters the list to items whose name or email contains q
+// (case-insensitive). An empty query shows all items.
+func (l *IdentityList) FilterByQuery(q string) {
+	l.filtered = l.filtered[:0]
+	q = strings.ToLower(q)
+	for i, item := range l.items {
+		if item.IsAction {
+			// Always show the Register action.
+			l.filtered = append(l.filtered, i)
+			continue
+		}
+		if strings.Contains(strings.ToLower(item.Name), q) ||
+			strings.Contains(strings.ToLower(item.Email), q) {
+			l.filtered = append(l.filtered, i)
+		}
+	}
+	// Clamp cursor.
+	if l.cursor >= len(l.filtered) {
+		l.cursor = max(0, len(l.filtered)-1)
+	}
+}
+
+// ClearFilter resets the filter and shows all items.
+func (l *IdentityList) ClearFilter() {
+	l.applyFilter()
+	l.cursor = 0
+}
 
 func (l *IdentityList) applyFilter() {
 	l.filtered = make([]int, len(l.items))
@@ -115,6 +142,24 @@ func (l *IdentityList) applyFilter() {
 }
 
 // View renders the identity list, clipped to height so it never overflows the pane.
+// ViewWithFilter renders the list with an optional filter bar at the top.
+// When filterMode is true, a filter prompt is shown and filterQuery is displayed.
+func (l IdentityList) ViewWithFilter(width, height int, isActive, filterMode bool, filterQuery string) string {
+	if !filterMode {
+		return l.View(width, height, isActive)
+	}
+	// Render a filter bar on top, shrink the list by 1 row.
+	matchCount := 0
+	for _, idx := range l.filtered {
+		if !l.items[idx].IsAction {
+			matchCount++
+		}
+	}
+	filterBar := l.theme.InfoStyle().Render(fmt.Sprintf("  🔍 Filter: %s▌  (%d match)", filterQuery, matchCount))
+	listView := l.View(width, height-1, isActive)
+	return filterBar + "\n" + listView
+}
+
 func (l IdentityList) View(width, height int, isActive bool) string {
 	var lines []string
 
@@ -245,11 +290,9 @@ func (l IdentityList) renderIdentityLine(item IdentityItem, isCursor, isActive b
 		badgeStr = "  " + strings.Join(badges, " ")
 	}
 
-	nameStr := item.Name
+	nameStr := l.theme.Bold().Render(item.Name) + "  " + l.theme.Dim().Render("<"+item.Email+">")
 	if item.IsActive {
 		nameStr = l.theme.Active().Render(item.Name) + "  " + l.theme.Dim().Render("<"+item.Email+">") + "  " + l.theme.PillActive().Render("● ACTIVE")
-	} else {
-		nameStr = l.theme.Bold().Render(item.Name) + "  " + l.theme.Dim().Render("<"+item.Email+">")
 	}
 
 	if item.IsTemporary {

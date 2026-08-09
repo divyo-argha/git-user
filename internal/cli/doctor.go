@@ -91,7 +91,7 @@ func runDoctor(args []string) error {
 				}
 			} else {
 				ui.Warn("No SSH key configured for this identity")
-				ui.Info("  Fix: Run 'git-user bind " + user.Name + " --ssh-key <path>' or 'git-user rekey " + user.Name + "'")
+				ui.Info("  Fix: Run 'git-user bind-key " + user.Name + " --ssh-key <path>' or 'git-user rekey " + user.Name + "'")
 				issues++
 			}
 		}

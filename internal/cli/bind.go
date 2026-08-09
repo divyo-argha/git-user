@@ -30,7 +30,7 @@ func runBind(args []string) error {
 	}
 
 	if name == "" {
-		ui.Error("usage: git-user bind <name> [--ssh-key <path>]")
+		ui.Error("usage: git-user bind-key <name> [--ssh-key <path>]")
 		return fmt.Errorf("missing name")
 	}
 

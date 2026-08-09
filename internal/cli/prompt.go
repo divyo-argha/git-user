@@ -20,15 +20,16 @@ func runPrompt(args []string) error {
 	// Check if we are inside a git repository
 	cmd := exec.Command("git", "rev-parse", "--is-inside-work-tree")
 	if err := cmd.Run(); err != nil {
-		// Not in a git repo or git is not installed; exit silently
-		os.Exit(0)
+		// Not in a git repo or git is not installed; exit silently so the
+		// shell prompt is never broken.
+		return nil
 	}
 
 	// Load git-user config
 	store, err := config.Load()
 	if err != nil {
-		// Error loading config, exit silently to avoid breaking the prompt
-		os.Exit(0)
+		// Error loading config, output nothing to avoid breaking the prompt
+		return nil
 	}
 
 	// Output the active identity name if there is one

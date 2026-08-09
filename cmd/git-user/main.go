@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/divyo-argha/git-user/internal/cli"
 	"github.com/divyo-argha/git-user/internal/identity"
@@ -32,8 +33,28 @@ func main() {
 	checkOrphanedKeys()
 
 	if err := cli.Execute(); err != nil {
+		hintDoctorOnError(err)
 		os.Exit(1)
 	}
+}
+
+// hintDoctorOnError prints a pointer to `git-user doctor` when a command fails,
+// unless the failure is already self-explanatory (unknown command / usage) or
+// the failing command is doctor itself.
+func hintDoctorOnError(err error) {
+	if err == nil {
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "doctor" {
+		return
+	}
+	msg := err.Error()
+	for _, skippable := range []string{"unknown command", "usage:", "missing", "must be", "not in repository", "unsupported shell"} {
+		if strings.Contains(msg, skippable) {
+			return
+		}
+	}
+	ui.Info("Run 'git-user doctor' for a diagnosis of common setup issues.")
 }
 
 func printVersion() {
@@ -44,12 +65,29 @@ func printVersion() {
 	fmt.Printf("git-user %s\n", v)
 }
 
+// stdinIsTTY reports whether stdin is attached to a terminal.
+func stdinIsTTY() bool {
+	fi, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	return (fi.Mode() & os.ModeCharDevice) != 0
+}
+
 func checkOrphanedKeys() {
+	// The orphan-cleanup prompt is interactive: only run it when both stdin and
+	// stdout are terminals. Otherwise warnings could corrupt programmatically
+	// consumed output (e.g. `git-user list | grep x`, `git-user pubkey | xclip`,
+	// `git-user export --all > bundle.bundle`) or hang waiting for input in CI.
+	if !ui.IsTTY() || !stdinIsTTY() {
+		return
+	}
+
 	// Skip orphan check for non-interactive commands
 	if len(os.Args) > 1 {
 		cmdStr := os.Args[1]
 		// Skip for these commands
-		skipCommands := []string{"--help", "-h", "help", "--version", "-v", "version", "completion"}
+		skipCommands := []string{"--help", "-h", "help", "--version", "-v", "version", "completion", "prompt", "pubkey"}
 		for _, skip := range skipCommands {
 			if cmdStr == skip {
 				return
@@ -65,7 +103,7 @@ func checkOrphanedKeys() {
 
 	tempService := manager.GetTempService()
 	orphanDetector := tempService.GetOrphanDetector()
-	
+
 	orphans, err := orphanDetector.Scan()
 	if err != nil || len(orphans) == 0 {
 		return // No orphans or error - continue silently
@@ -78,7 +116,7 @@ func checkOrphanedKeys() {
 		fmt.Printf("  • %s (created %s)\n", orphan.IdentityName, orphan.CreatedAt.Format("2006-01-02 15:04"))
 	}
 	fmt.Println()
-	
+
 	if ui.Confirm("Clean up these orphaned keys now?", true) {
 		if err := orphanDetector.CleanupOrphans(orphans); err != nil {
 			ui.Warn(fmt.Sprintf("Cleanup failed: %v", err))
@@ -87,7 +125,7 @@ func checkOrphanedKeys() {
 		}
 		fmt.Println()
 	} else {
-		ui.Info("You can clean them up later with: git-user security")
+		ui.Info("You can clean them up later with: git-user audit")
 		fmt.Println()
 	}
 }

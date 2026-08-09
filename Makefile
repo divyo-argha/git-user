@@ -3,7 +3,7 @@ BUILD_DIR := dist
 VERSION  := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "dev")
 DATE     := $(shell date -u +'%Y-%m-%d')
 
-.PHONY: build install clean test
+.PHONY: build install install-local uninstall clean test release-test release-test-check
 
 build:
 	@mkdir -p $(BUILD_DIR)
@@ -34,5 +34,19 @@ test:
 	@go run test/runner/main.go
 
 release-test:
-	go run github.com/goreleaser/goreleaser@latest release --snapshot --clean
+	@if command -v goreleaser >/dev/null 2>&1; then \
+		goreleaser release --snapshot --clean; \
+	else \
+		echo "goreleaser is not installed."; \
+		echo "Install the prebuilt binary from https://github.com/goreleaser/goreleaser/releases"; \
+		echo "(or: brew install goreleaser / go install github.com/goreleaser/goreleaser/v2@latest)."; \
+		exit 1; \
+	fi
+
+release-test-check:
+	@if command -v goreleaser >/dev/null 2>&1; then \
+		goreleaser check; \
+	else \
+		echo "goreleaser is not installed — skipping config check."; \
+	fi
 

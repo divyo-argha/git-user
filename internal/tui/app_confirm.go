@@ -25,6 +25,11 @@ func (a *App) handleConfirmResult(msg core.ConfirmResultMsg) (tea.Model, tea.Cmd
 	}
 
 	switch action {
+	case "quit-confirmed":
+		// User confirmed quitting from the dashboard.
+		a.quit = true
+		return a, tea.Quit
+
 	case "remove":
 		keyPath := ""
 		if u := a.store.FindUser(rest); u != nil {
