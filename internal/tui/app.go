@@ -1,25 +1,15 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/config"
-	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/tui/components"
 	"github.com/divyo-argha/git-user/internal/tui/core"
-	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 )
-
-// pendingAction captures what to do after the TUI exits (for ops that need raw terminal).
-type pendingAction struct {
-	kind string
-	name string
-	arg  string
-}
 
 // App is the root tea.Model that coordinates all screens.
 type App struct {
@@ -33,9 +23,8 @@ type App struct {
 	height      int
 	theme       theme.Theme
 
-	// For actions that must run outside the TUI
-	quit   bool
-	action *pendingAction
+	quit          bool
+	removeKeyPath string // SSH key path captured before removing an identity
 }
 
 func animateTickCmd() tea.Cmd {
@@ -75,6 +64,25 @@ func (a *App) popScreen() {
 		a.screenStack = a.screenStack[:len(a.screenStack)-1]
 		if s := a.activeScreen(); s != nil {
 			a.helpBar.SetText(s.ShortHelp())
+		}
+	}
+}
+
+func pushCmd(s core.Screen) tea.Cmd {
+	return func() tea.Msg { return core.ScreenPushMsg{Screen: s} }
+}
+
+// runTaskCmd runs an operation as a background command and reports its result.
+func (a *App) runTaskCmd(kind, name string, fn func() (opResult, error)) tea.Cmd {
+	return func() tea.Msg {
+		res, err := fn()
+		return core.TaskResultMsg{
+			Kind:       kind,
+			Name:       name,
+			Success:    err == nil,
+			Detail:     res.detail,
+			ShowReport: res.showReport,
+			Err:        err,
 		}
 	}
 }
@@ -149,12 +157,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.popScreen()
 		return a.handleFormResult(msg)
 
+	case core.OptionResultMsg:
+		a.popScreen()
+		return a.handleOptionResult(msg)
+
+	case core.TaskResultMsg:
+		return a.handleTaskResult(msg)
+
 	case core.ActionResultMsg:
 		return a.handleAction(msg)
 
 	case tea.KeyMsg:
 		if s := a.activeScreen(); s != nil {
-
 			newScreen, cmd := s.Update(msg)
 			a.screenStack[len(a.screenStack)-1] = newScreen
 			return a, cmd
@@ -203,308 +217,7 @@ func (a *App) View() string {
 	return sb.String()
 }
 
-// ── Action Handling ───────────────────────────────────────────────────────────
-
-func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
-	switch msg.Kind {
-	case "quit":
-		a.quit = true
-		return a, tea.Quit
-
-	case "register":
-		return a, func() tea.Msg {
-			return core.ScreenPushMsg{Screen: screens.NewForm(
-				"Register New Identity",
-				"Enter profile name and email address",
-				"register",
-				[]screens.FormInput{
-					{Label: "Profile Name:", Placeholder: "e.g. work"},
-					{Label: "Email Address:", Placeholder: "e.g. you@company.com"},
-				},
-				a.theme,
-			)}
-		}
-
-	case "register-temp":
-		return a, func() tea.Msg {
-			return core.ScreenPushMsg{Screen: screens.NewForm(
-				"Create Temporary Profile",
-				"Profile is deleted automatically when you switch away or log out",
-				"register-temp",
-				[]screens.FormInput{
-					{Label: "Profile Name:", Placeholder: "e.g. client-work"},
-					{Label: "Email Address:", Placeholder: "e.g. you@client.com"},
-				},
-				a.theme,
-			)}
-		}
-
-	case "switch":
-		a.action = &pendingAction{kind: "switch", name: msg.Name}
-		return a, tea.Quit
-
-	case "rename":
-		return a, func() tea.Msg {
-			return core.ScreenPushMsg{Screen: screens.NewForm(
-				"Rename Identity",
-				"Enter new profile name for "+msg.Name,
-				"rename:"+msg.Name,
-				[]screens.FormInput{
-					{Label: "New Name:", Value: msg.Name},
-				},
-				a.theme,
-			)}
-		}
-
-	case "email":
-		u := a.store.FindUser(msg.Name)
-		currentEmail := ""
-		if u != nil {
-			currentEmail = u.Email
-		}
-		return a, func() tea.Msg {
-			return core.ScreenPushMsg{Screen: screens.NewForm(
-				"Change Email",
-				"Enter new email address for "+msg.Name,
-				"email:"+msg.Name,
-				[]screens.FormInput{
-					{Label: "New Email:", Value: currentEmail},
-				},
-				a.theme,
-			)}
-		}
-
-	case "toggle-sign":
-		user := a.store.FindUser(msg.Name)
-		if user != nil {
-			if !user.SignDisabled && user.SignKey != "" {
-				// Turn off
-				a.store.ToggleSigning(user.Name, true)
-				if a.store.Current == user.Name {
-					git.RemoveSigningConfig()
-				}
-			} else {
-				// Turn on (autodetect key format, or fallback if none)
-				if user.SSHKey != "" {
-					a.store.SetSigningKey(user.Name, user.SSHKey, "ssh")
-					if a.store.Current == user.Name {
-						_ = git.ConfigureSigning(user.SSHKey, "ssh")
-					}
-				} else {
-					// Toggle simple disable state
-					a.store.ToggleSigning(user.Name, !user.SignDisabled)
-					if a.store.Current == user.Name {
-						if !user.SignDisabled {
-							git.RemoveSigningConfig()
-						}
-					}
-				}
-			}
-			config.Save(a.store)
-		}
-		return a, core.RefreshStoreCmd()
-
-
-	case "pubkey":
-		a.action = &pendingAction{kind: "pubkey", name: msg.Name}
-		return a, tea.Quit
-
-	case "pubkey-push":
-		a.action = &pendingAction{kind: "pubkey-push", name: msg.Name}
-		return a, tea.Quit
-
-	case "bind":
-		a.action = &pendingAction{kind: "bind", name: msg.Name}
-		return a, tea.Quit
-
-	case "check-ssh":
-		a.action = &pendingAction{kind: "check-ssh", name: msg.Name}
-		return a, tea.Quit
-
-	case "unbind":
-		return a, func() tea.Msg {
-			return core.ScreenPushMsg{Screen: screens.NewConfirm(
-				fmt.Sprintf("Remove SSH key binding from %q? (file not deleted)", msg.Name),
-				"unbind:"+msg.Name,
-				a.theme,
-			)}
-		}
-
-	case "rekey":
-		return a, func() tea.Msg {
-			return core.ScreenPushMsg{Screen: screens.NewConfirm(
-				fmt.Sprintf("Rotate SSH key for %q? WARNING: Replaces key pair; requires re-uploading public key.", msg.Name),
-				"rekey:"+msg.Name,
-				a.theme,
-			)}
-		}
-
-	case "passphrase":
-		return a, func() tea.Msg {
-			return core.ScreenPushMsg{Screen: screens.NewPassphraseMenu(a.store, msg.Name, a.theme)}
-		}
-
-	case "passphrase-set":
-		a.action = &pendingAction{kind: "passphrase-set", name: msg.Name}
-		return a, tea.Quit
-
-	case "passphrase-remove":
-		a.action = &pendingAction{kind: "passphrase-remove", name: msg.Name}
-		return a, tea.Quit
-
-	case "passphrase-verify":
-		a.action = &pendingAction{kind: "passphrase-verify", name: msg.Name}
-		return a, tea.Quit
-
-	case "bind-path":
-		a.action = &pendingAction{kind: "bind-path", name: msg.Name}
-		return a, tea.Quit
-
-	case "unbind-path":
-		a.action = &pendingAction{kind: "unbind-path", name: msg.Name}
-		return a, tea.Quit
-
-	case "export":
-		a.action = &pendingAction{kind: "export", name: msg.Name}
-		return a, tea.Quit
-
-	case "import-export":
-		return a, func() tea.Msg {
-			return core.ScreenPushMsg{Screen: screens.NewImportExport(a.store, a.theme)}
-		}
-
-	case "export-current":
-		if a.store.Current == "" {
-			return a, core.ShowToastCmd("No active identity — switch to one first", theme.ToastStyleError, 3*time.Second)
-		}
-		a.action = &pendingAction{kind: "export-current", name: a.store.Current}
-		return a, tea.Quit
-
-	case "export-all":
-		a.action = &pendingAction{kind: "export-all"}
-		return a, tea.Quit
-
-	case "import":
-		a.action = &pendingAction{kind: "import"}
-		return a, tea.Quit
-
-	case "import-original":
-		a.action = &pendingAction{kind: "import-original"}
-		return a, tea.Quit
-
-	case "remove":
-		return a, func() tea.Msg {
-			return core.ScreenPushMsg{Screen: screens.NewConfirm(
-				fmt.Sprintf("Remove identity %q? This cannot be undone.", msg.Name),
-				"remove:"+msg.Name,
-				a.theme,
-			)}
-		}
-
-	case "logout":
-		a.action = &pendingAction{kind: "logout"}
-		return a, tea.Quit
-
-	case "fix-remote":
-		a.action = &pendingAction{kind: "fix-remote"}
-		return a, tea.Quit
-
-	case "security":
-		a.action = &pendingAction{kind: "security"}
-		return a, tea.Quit
-
-	case "doctor":
-		a.action = &pendingAction{kind: "doctor"}
-		return a, tea.Quit
-
-	case "update":
-		a.action = &pendingAction{kind: "update"}
-		return a, tea.Quit
-	}
-
-	return a, nil
-}
-
-func (a *App) handleConfirmResult(msg core.ConfirmResultMsg) (tea.Model, tea.Cmd) {
-	if !msg.Confirmed {
-		return a, core.ShowToastCmd("Cancelled", theme.ToastStyleInfo, 2*time.Second)
-	}
-
-	parts := strings.SplitN(msg.Context, ":", 2)
-	if len(parts) != 2 {
-		return a, nil
-	}
-
-	action := parts[0]
-	name := parts[1]
-
-	switch action {
-	case "remove":
-		a.action = &pendingAction{kind: "remove", name: name}
-		return a, tea.Quit
-	case "unbind":
-		a.action = &pendingAction{kind: "unbind", name: name}
-		return a, tea.Quit
-	case "rekey":
-		a.action = &pendingAction{kind: "rekey", name: name, arg: "--force"}
-		return a, tea.Quit
-	}
-
-	return a, nil
-}
-
-func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
-	if len(msg.Values) == 0 {
-		return a, nil
-	}
-
-	parts := strings.SplitN(msg.Context, ":", 2)
-	action := parts[0]
-	name := ""
-	if len(parts) > 1 {
-		name = parts[1]
-	}
-
-	switch action {
-	case "register":
-		if msg.Values[0] == "" || msg.Values[1] == "" {
-			return a, core.ShowToastCmd("Profile name and email are required", theme.ToastStyleError, 3*time.Second)
-		}
-		a.action = &pendingAction{kind: "register", name: msg.Values[0], arg: msg.Values[1]}
-		return a, tea.Quit
-
-	case "register-temp":
-		if msg.Values[0] == "" || msg.Values[1] == "" {
-			return a, core.ShowToastCmd("Profile name and email are required", theme.ToastStyleError, 3*time.Second)
-		}
-		a.action = &pendingAction{kind: "register-temp", name: msg.Values[0], arg: msg.Values[1]}
-		return a, tea.Quit
-
-	case "rename":
-		if msg.Values[0] == "" {
-			return a, core.ShowToastCmd("New name cannot be empty", theme.ToastStyleError, 3*time.Second)
-		}
-		a.action = &pendingAction{kind: "rename", name: name, arg: msg.Values[0]}
-		return a, tea.Quit
-
-	case "email":
-		if msg.Values[0] == "" {
-			return a, core.ShowToastCmd("New email cannot be empty", theme.ToastStyleError, 3*time.Second)
-		}
-		a.action = &pendingAction{kind: "email", name: name, arg: msg.Values[0]}
-		return a, tea.Quit
-	}
-
-	return a, nil
-}
-
 // ── Results ───────────────────────────────────────────────────────────────────
 
+// Quit reports whether the user explicitly quit the TUI.
 func (a *App) Quit() bool { return a.quit }
-
-func (a *App) PendingAction() (kind, name, arg string) {
-	if a.action == nil {
-		return "", "", ""
-	}
-	return a.action.kind, a.action.name, a.action.arg
-}

@@ -3,6 +3,7 @@ package config_test
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -241,4 +242,32 @@ func TestTempProfile(t *testing.T) {
 
 	// Cleanup
 	config.DeleteTempConfig()
+}
+
+func TestSyncIncludeIfsHonorsEnvConfigPath(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	dir := t.TempDir()
+	t.Setenv("GIT_USER_CONFIG", filepath.Join(dir, "config.json"))
+
+	s := &config.Store{}
+	_ = s.AddUser("work", "work@corp.com")
+	_ = s.BindPathToUser("work", dir)
+
+	if err := config.Save(s); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// The profile snippet must be written into the directory that ConfigPath()
+	// resolves to (honoring GIT_USER_CONFIG), not the default ~/.git-users dir.
+	snippet := filepath.Join(dir, "profile-work.gitconfig")
+	if _, err := os.Stat(snippet); err != nil {
+		t.Errorf("expected profile-work.gitconfig in env config dir: %v", err)
+	}
+
+	// Clean up the includeIf entry added to the real global gitconfig.
+	key := "includeif.gitdir/i:" + dir + "/.path"
+	_ = exec.Command("git", "config", "--global", "--unset-all", key).Run()
+	_ = os.Remove(snippet)
 }

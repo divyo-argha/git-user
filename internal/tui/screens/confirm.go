@@ -63,7 +63,7 @@ func (c *Confirm) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 				return core.ConfirmResultMsg{Confirmed: c.cursor == 0, Context: c.context}
 			}
 
-		case core.KeyCtrlC:
+		case core.KeyCtrlC, core.KeyQuit:
 			return c, tea.Quit
 		}
 	}

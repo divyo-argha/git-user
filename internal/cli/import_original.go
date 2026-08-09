@@ -65,7 +65,10 @@ func runImportOriginal(args []string) error {
 	}
 
 	if store.FindUser(importName) != nil {
-		ui.Errorf("Identity %q already exists — use a different name: git-user import-original <name>", importName)
+		ui.Errorf("Identity %q already exists — nothing was imported.", importName)
+		ui.Info("Resolve this by either:")
+		ui.Info("  • importing under a different name: git-user import-original <unique-name>")
+		ui.Info("  • renaming the conflicting profile first: git-user rename " + importName + " <new-name>, then: git-user import-original " + importName)
 		return fmt.Errorf("identity exists")
 	}
 
@@ -96,6 +99,7 @@ func runImportOriginal(args []string) error {
 
 	// Snapshot the original for --original restore if not already done
 	store.SnapshotOriginal(name, email, sshCommand, git.CurrentSigningKey(), git.CurrentSignFormat(), git.CurrentCommitGPGSign())
+	store.ImportPrompted = true
 
 	if err := config.Save(store); err != nil {
 		ui.Errorf("saving config: %v", err)

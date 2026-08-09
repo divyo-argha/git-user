@@ -29,6 +29,7 @@ COMMANDS
   prompt                     Output active identity for terminal integration
   remove <name>              Delete an identity
   edit <name> <email>        Update email
+  rename <old-name> <new-name> Rename an identity
   pubkey                     Show public key for active identity only
   pubkey push [platform]     Publish public SSH key directly to GitHub, GitLab, or Bitbucket
   bind <name> [--ssh-key <p>] Add/link SSH key (interactive if no path)
@@ -119,9 +120,19 @@ func Execute() error {
 		return runTui()
 	}
 
-	if args[0] == "--help" || args[0] == "-h" || args[0] == "help" {
+	if args[0] == "--help" || args[0] == "-h" {
 		ui.PrintLogo()
 		fmt.Print(usage)
+		return nil
+	}
+
+	if args[0] == "help" {
+		if len(args) > 1 {
+			runSubcommandHelp(args[1])
+		} else {
+			ui.PrintLogo()
+			fmt.Print(usage)
+		}
 		return nil
 	}
 
@@ -136,6 +147,11 @@ func Execute() error {
 
 	sub = args[0]
 	rest := args[1:]
+
+	if wantsHelp(rest) {
+		runSubcommandHelp(sub)
+		return nil
+	}
 
 	switch sub {
 	case "register", "reg":
@@ -152,6 +168,8 @@ func Execute() error {
 		return runRemove(rest)
 	case "edit":
 		return runEdit(rest)
+	case "rename":
+		return runRename(rest)
 	case "pubkey":
 		if len(rest) > 0 && rest[0] == "push" {
 			return runPubkeyPush(rest[1:])

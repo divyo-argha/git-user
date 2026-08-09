@@ -1,0 +1,286 @@
+package tui
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+
+	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/keyring"
+	"github.com/divyo-argha/git-user/internal/ssh"
+)
+
+// ── Bind / Rekey / Passphrase ─────────────────────────────────────────────────
+
+// opGenerateKey creates an ed25519 key non-interactively.
+func opGenerateKey(name, email, passphrase string) (string, error) {
+	home, _ := os.UserHomeDir()
+	keyPath := filepath.Join(home, ".ssh", fmt.Sprintf("git_%s", name))
+	if err := os.MkdirAll(filepath.Dir(keyPath), 0700); err != nil {
+		return "", fmt.Errorf("creating .ssh directory: %w", err)
+	}
+	if _, err := os.Stat(keyPath); err == nil {
+		return keyPath, nil
+	}
+	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", passphrase)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("ssh-keygen failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	if passphrase != "" {
+		_ = keyring.SetKeychainPassphrase(name, passphrase)
+	}
+	return keyPath, nil
+}
+
+// opRegisterFinish completes profile creation: adds the user, binds the key if
+// generated, and configures commit signing.
+func opRegisterFinish(store *config.Store, name, email string, isTemp bool, keyPath, passphrase string, signEnabled bool) (opResult, error) {
+	if err := store.AddUser(name, email); err != nil {
+		return opResult{}, err
+	}
+	if isTemp {
+		if u := store.FindUser(name); u != nil {
+			u.IsTemporary = true
+		}
+	}
+	if keyPath != "" {
+		if err := store.BindSSHKey(name, keyPath); err != nil {
+			return opResult{}, fmt.Errorf("binding SSH key: %w", err)
+		}
+		if signEnabled {
+			if err := store.SetSigningKey(name, keyPath, "ssh"); err != nil {
+				return opResult{}, fmt.Errorf("failed to enable SSH commit signing: %w", err)
+			}
+		} else {
+			store.ToggleSigning(name, true)
+		}
+	}
+	if err := config.Save(store); err != nil {
+		return opResult{}, err
+	}
+
+	report := fmt.Sprintf("Identity created: %s (%s)\n", name, email)
+	if keyPath != "" {
+		report += fmt.Sprintf("SSH key: %s\n", keyPath)
+		report += "Activate it from the dashboard or the profile detail view.\n"
+		if pub, err := os.ReadFile(keyPath + ".pub"); err == nil {
+			report += "\nPublic key:\n" + strings.TrimSpace(string(pub)) + "\n"
+		}
+	} else {
+		report += "No SSH key set — bind one later from the profile detail view.\n"
+	}
+	return opResult{detail: report, showReport: true}, nil
+}
+
+// opBind associates an existing SSH key with an identity.
+func opBind(store *config.Store, name, keyPath string, signEnabled bool) (opResult, error) {
+	user := store.FindUser(name)
+	if user == nil {
+		return opResult{}, fmt.Errorf("identity %q not found", name)
+	}
+	expanded := expandPath(keyPath)
+	if _, err := os.Stat(expanded); err != nil {
+		return opResult{}, fmt.Errorf("SSH key file %q does not exist", keyPath)
+	}
+	if err := store.BindSSHKey(name, expanded); err != nil {
+		return opResult{}, err
+	}
+	if signEnabled {
+		if err := store.SetSigningKey(name, expanded, "ssh"); err != nil {
+			return opResult{}, fmt.Errorf("failed to enable SSH commit signing: %w", err)
+		}
+	} else {
+		store.ToggleSigning(name, true)
+	}
+	if err := config.Save(store); err != nil {
+		return opResult{}, err
+	}
+	report := fmt.Sprintf("SSH key configured for %q\nKey: %s\n", name, expanded)
+	if signEnabled {
+		report += "Commit Signing: Enabled\n"
+	} else {
+		report += "Commit Signing: Disabled\n"
+	}
+	if store.Current == name {
+		if err := git.ConfigureSSH(expanded); err != nil {
+			report += fmt.Sprintf("⚠ updating git SSH config: %v\n", err)
+		}
+		if signEnabled {
+			if err := git.ConfigureSigning(expanded, "ssh"); err != nil {
+				report += fmt.Sprintf("⚠ updating git signing config: %v\n", err)
+			}
+		} else {
+			git.RemoveSigningConfig()
+		}
+		report += "Git config updated for the active identity.\n"
+	}
+	return opResult{detail: report, showReport: true}, nil
+}
+
+// opUnbind removes an identity's SSH key binding.
+func opUnbind(store *config.Store, name string) error {
+	u := store.FindUser(name)
+	if u == nil {
+		return fmt.Errorf("identity %q not found", name)
+	}
+	u.SSHKey = ""
+	if err := config.Save(store); err != nil {
+		return err
+	}
+	if store.Current == name {
+		git.RemoveSSHConfig()
+	}
+	return nil
+}
+
+// opAttachKey resolves the SSH key choice from the in-TUI setup chain
+// (generate / existing / skip) and either completes profile creation
+// (register, register-temp) or binds the key to an existing identity (bind).
+func opAttachKey(store *config.Store, name, email, mode, choice, passphrase, keyPath string, signEnabled bool) (opResult, error) {
+	switch choice {
+	case "generate":
+		kp, err := opGenerateKey(name, email, passphrase)
+		if err != nil {
+			return opResult{}, err
+		}
+		keyPath = kp
+	case "existing":
+		expanded := expandPath(keyPath)
+		if _, err := os.Stat(expanded); err != nil {
+			return opResult{}, fmt.Errorf("key file not found: %s", keyPath)
+		}
+		keyPath = expanded
+	case "skip", "":
+		keyPath = ""
+	}
+
+	if mode == "bind" {
+		if keyPath == "" {
+			return opResult{}, fmt.Errorf("no SSH key configured")
+		}
+		return opBind(store, name, keyPath, signEnabled)
+	}
+
+	isTemp := mode == "register-temp"
+	return opRegisterFinish(store, name, email, isTemp, keyPath, passphrase, signEnabled)
+}
+
+// opRekey rotates an identity's SSH key (non-interactive, forced).
+func opRekey(store *config.Store, name, passphrase string) (opResult, error) {
+	user := store.FindUser(name)
+	if user == nil {
+		return opResult{}, fmt.Errorf("identity %q not found", name)
+	}
+	home, _ := os.UserHomeDir()
+	sshDir := filepath.Join(home, ".ssh")
+	keyPath := filepath.Join(sshDir, fmt.Sprintf("git_%s", name))
+	if err := os.MkdirAll(sshDir, 0700); err != nil {
+		return opResult{}, fmt.Errorf("creating .ssh directory: %w", err)
+	}
+
+	backupPath := keyPath + ".backup"
+	hasOldKey := false
+	if _, err := os.Stat(keyPath); err == nil {
+		hasOldKey = true
+		// Unload the old key from the agent so the rotated fingerprint doesn't linger.
+		if ssh.IsSSHKeyLoaded(keyPath) {
+			_ = ssh.RemoveSSHKey(keyPath)
+		}
+		if err := os.Rename(keyPath, backupPath); err != nil {
+			return opResult{}, fmt.Errorf("backing up key: %w", err)
+		}
+		if _, err := os.Stat(keyPath + ".pub"); err == nil {
+			_ = os.Rename(keyPath+".pub", backupPath+".pub")
+		}
+	}
+
+	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", user.Email, "-f", keyPath, "-N", passphrase)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		if hasOldKey {
+			_ = os.Rename(backupPath, keyPath)
+			_ = os.Rename(backupPath+".pub", keyPath+".pub")
+		}
+		return opResult{}, fmt.Errorf("generating SSH key: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	if passphrase != "" {
+		_ = keyring.SetKeychainPassphrase(name, passphrase)
+	} else {
+		_ = keyring.DeleteKeychainPassphrase(name)
+	}
+
+	if err := store.BindSSHKey(name, keyPath); err != nil {
+		return opResult{}, err
+	}
+	if err := config.Save(store); err != nil {
+		return opResult{}, err
+	}
+
+	report := fmt.Sprintf("SSH key rotated successfully for %s\nOld key backed up with .backup extension\n\n", name)
+	if pub, err := os.ReadFile(keyPath + ".pub"); err == nil {
+		report += "REPLACE YOUR OLD KEY WITH THIS NEW PUBLIC KEY\n"
+		report += strings.TrimSpace(string(pub)) + "\n\n"
+	}
+	report += "• GitHub: Settings → SSH and GPG keys → Delete old key → Add new key\n"
+	report += "• GitLab: Preferences → SSH Keys → Remove old key → Add new key\n"
+	report += "• Bitbucket: Personal settings → SSH keys → Delete old → Add new\n"
+	return opResult{detail: report, showReport: true}, nil
+}
+
+// changeSSHKeyPassphrase changes an SSH key passphrase non-interactively.
+func changeSSHKeyPassphrase(keyPath, oldPassphrase, newPassphrase string) error {
+	cmd := exec.Command("ssh-keygen", "-p", "-f", keyPath, "-P", oldPassphrase, "-N", newPassphrase)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("ssh-keygen: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// opPassphraseSet sets or changes an identity's key passphrase.
+func opPassphraseSet(store *config.Store, name, oldPass, newPass string) error {
+	user := store.FindUser(name)
+	if user == nil {
+		return fmt.Errorf("identity %q not found", name)
+	}
+	if newPass == "" {
+		return fmt.Errorf("passphrase must not be empty")
+	}
+	if err := changeSSHKeyPassphrase(user.SSHKey, oldPass, newPass); err != nil {
+		return err
+	}
+	if user.GetPassphraseMode() == "persistent" {
+		_ = keyring.SetKeychainPassphrase(name, newPass)
+	}
+	return nil
+}
+
+// opPassphraseVerify verifies a key passphrase.
+func opPassphraseVerify(store *config.Store, name, pass string) error {
+	user := store.FindUser(name)
+	if user == nil {
+		return fmt.Errorf("identity %q not found", name)
+	}
+	if !ssh.VerifyPassphrase(user.SSHKey, pass) {
+		return fmt.Errorf("incorrect passphrase")
+	}
+	return nil
+}
+
+// opPassphraseRemove removes a key passphrase (only valid for the active identity).
+func opPassphraseRemove(store *config.Store, name, currentPass string) error {
+	user := store.FindUser(name)
+	if user == nil {
+		return fmt.Errorf("identity %q not found", name)
+	}
+	if store.Current != name {
+		return fmt.Errorf("must switch to profile %q to remove its passphrase", name)
+	}
+	if err := changeSSHKeyPassphrase(user.SSHKey, currentPass, ""); err != nil {
+		return err
+	}
+	_ = keyring.DeleteKeychainPassphrase(name)
+	return nil
+}
+
