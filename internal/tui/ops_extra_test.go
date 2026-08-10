@@ -88,10 +88,10 @@ func TestHookHelpers(t *testing.T) {
 
 func TestFindUserByEmail(t *testing.T) {
 	store := &config.Store{Users: []config.User{{Name: "work", Email: "work@corp.com"}}}
-	if findUserByEmail(store, "work@corp.com") == nil {
+	if store.FindUserByEmail("work@corp.com") == nil {
 		t.Error("expected user found by email")
 	}
-	if findUserByEmail(store, "nope@corp.com") != nil {
+	if store.FindUserByEmail("nope@corp.com") != nil {
 		t.Error("expected nil for unknown email")
 	}
 }

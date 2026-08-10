@@ -13,6 +13,7 @@ import (
 type User struct {
 	Name           string            `json:"name"`
 	Email          string            `json:"email"`
+	Aliases        []string          `json:"aliases,omitempty"`
 	SSHKey         string            `json:"ssh_key,omitempty"`
 	SSHCommand     string            `json:"ssh_command,omitempty"` // original core.sshCommand to preserve exactly
 	SignKey        string            `json:"sign_key,omitempty"`
@@ -182,14 +183,44 @@ func (s *Store) IsNameTaken(name string) bool {
 	return s.FindUser(name) != nil
 }
 
-// IsEmailTaken returns true if any profile already uses this email.
-func (s *Store) IsEmailTaken(email string) bool {
-	for _, u := range s.Users {
-		if u.Email == email {
-			return true
+// FindUserByEmail finds a registered user by primary email or registered aliases (case-insensitive).
+func (s *Store) FindUserByEmail(email string) *User {
+	normEmail := strings.ToLower(strings.TrimSpace(email))
+	if normEmail == "" {
+		return nil
+	}
+	for i := range s.Users {
+		if strings.ToLower(strings.TrimSpace(s.Users[i].Email)) == normEmail {
+			return &s.Users[i]
+		}
+		for _, alias := range s.Users[i].Aliases {
+			if strings.ToLower(strings.TrimSpace(alias)) == normEmail {
+				return &s.Users[i]
+			}
 		}
 	}
-	return false
+	return nil
+}
+
+// IsEmailTaken returns true if any profile already uses this email or alias.
+func (s *Store) IsEmailTaken(email string) bool {
+	return s.FindUserByEmail(email) != nil
+}
+
+func (s *Store) AddAliasToUser(name, aliasEmail string) error {
+	u := s.FindUser(name)
+	if u == nil {
+		return fmt.Errorf("user %q not found", name)
+	}
+	aliasNorm := strings.ToLower(strings.TrimSpace(aliasEmail))
+	if aliasNorm == "" {
+		return errors.New("alias email must not be empty")
+	}
+	if s.IsEmailTaken(aliasNorm) {
+		return fmt.Errorf("email %q already in use", aliasEmail)
+	}
+	u.Aliases = append(u.Aliases, aliasEmail)
+	return nil
 }
 
 func (s *Store) AddUser(name, email string) error {
