@@ -11,15 +11,17 @@ import (
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 )
 
-// StatsScreen displays commit identity stats with toggleable sort modes (By Commits / By Lines).
+// StatsScreen displays commit identity stats with interactive pointer selection
+// and detailed breakdown cards for the focused author.
 type StatsScreen struct {
-	store    *config.Store
-	sortMode stats.SortMode
-	items    []stats.AuthorStat
-	offset   int
-	maxLines int
-	theme    theme.Theme
-	err      error
+	store       *config.Store
+	sortMode    stats.SortMode
+	items       []stats.AuthorStat
+	selectedIndex int
+	offset      int
+	maxLines    int
+	theme       theme.Theme
+	err         error
 }
 
 func NewStatsScreen(store *config.Store, th theme.Theme) *StatsScreen {
@@ -41,6 +43,12 @@ func (s *StatsScreen) reload() {
 	}
 	s.err = nil
 	s.items = authorStats
+	if s.selectedIndex >= len(s.items) {
+		s.selectedIndex = len(s.items) - 1
+	}
+	if s.selectedIndex < 0 && len(s.items) > 0 {
+		s.selectedIndex = 0
+	}
 }
 
 func (s *StatsScreen) Init() tea.Cmd { return nil }
@@ -48,7 +56,7 @@ func (s *StatsScreen) Init() tea.Cmd { return nil }
 func (s *StatsScreen) Title() string { return "Commit Identity Audit" }
 
 func (s *StatsScreen) ShortHelp() string {
-	return "  ←/→ toggle view (Commits/Lines) • ↑/↓ scroll • Esc back • q quit"
+	return "  ↑/↓ select author • ←/→ toggle view (Commits/Lines) • Esc back • q quit"
 }
 
 func (s *StatsScreen) maxScrollOffset() int {
@@ -73,7 +81,7 @@ func (s *StatsScreen) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		case core.KeyCtrlC, core.KeyQuit:
 			return s, tea.Quit
 
-		case core.KeyLeft, core.KeyRight, core.KeyH, core.KeyL, core.KeyTab:
+		case core.KeyLeft, core.KeyRight, core.KeyTab:
 			if s.sortMode == stats.SortByCommits {
 				s.sortMode = stats.SortByLines
 			} else {
@@ -82,13 +90,19 @@ func (s *StatsScreen) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			s.reload()
 
 		case core.KeyUp, core.KeyK:
-			if s.offset > 0 {
-				s.offset--
+			if s.selectedIndex > 0 {
+				s.selectedIndex--
+				if s.selectedIndex < s.offset {
+					s.offset = s.selectedIndex
+				}
 			}
 
 		case core.KeyDown, core.KeyJ:
-			if s.offset < s.maxScrollOffset() {
-				s.offset++
+			if s.selectedIndex < len(s.items)-1 {
+				s.selectedIndex++
+				if s.selectedIndex >= s.offset+s.maxLines {
+					s.offset = s.selectedIndex - s.maxLines + 1
+				}
 			}
 
 		case "ctrl+d", "pgdown":
@@ -96,9 +110,15 @@ func (s *StatsScreen) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			if half < 1 {
 				half = 1
 			}
-			s.offset += half
-			if s.offset > s.maxScrollOffset() {
-				s.offset = s.maxScrollOffset()
+			s.selectedIndex += half
+			if s.selectedIndex >= len(s.items) {
+				s.selectedIndex = len(s.items) - 1
+			}
+			if s.selectedIndex < 0 {
+				s.selectedIndex = 0
+			}
+			if s.selectedIndex >= s.offset+s.maxLines {
+				s.offset = s.selectedIndex - s.maxLines + 1
 			}
 
 		case "ctrl+u", "pgup":
@@ -106,9 +126,12 @@ func (s *StatsScreen) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			if half < 1 {
 				half = 1
 			}
-			s.offset -= half
-			if s.offset < 0 {
-				s.offset = 0
+			s.selectedIndex -= half
+			if s.selectedIndex < 0 {
+				s.selectedIndex = 0
+			}
+			if s.selectedIndex < s.offset {
+				s.offset = s.selectedIndex
 			}
 		}
 	}
@@ -143,7 +166,8 @@ func (s *StatsScreen) View(width, height int) string {
 	} else if len(s.items) == 0 {
 		sb.WriteString("  " + s.theme.Dim().Render("No commits found in this repository.") + "\n")
 	} else {
-		maxLines := height - 10
+		// Reserve room for header (6 lines), footer/help (3 lines), and focused breakdown panel (6 lines)
+		maxLines := height - 15
 		if maxLines < 3 {
 			maxLines = 3
 		}
@@ -163,35 +187,59 @@ func (s *StatsScreen) View(width, height int) string {
 			end = len(s.items)
 		}
 
-		hasUnregistered := false
 		for i := start; i < end; i++ {
 			item := s.items[i]
-			statusStr := ""
-			if item.VerifiedUser != nil {
-				statusStr = s.theme.SuccessStyle().Render("✓ Verified (" + item.VerifiedUser.Name + ")")
-			} else {
-				statusStr = s.theme.ErrorStyle().Render("⚠ Unregistered (potential identity leak!)")
-				hasUnregistered = true
+			isFocused := (i == s.selectedIndex)
+
+			pointer := "  "
+			if isFocused {
+				pointer = s.theme.Selected().Render("▶ ")
 			}
 
+			// Clean list rendering: focus on clean metrics without inline status text pollution
+			var lineStr string
 			if s.sortMode == stats.SortByLines {
-				linesStr := fmt.Sprintf("+%d / -%d (Net: %+d)", item.CodeLinesAdded, item.CodeLinesDeleted, item.NetCodeLines)
-				sb.WriteString(fmt.Sprintf("  %-25s  %-30s  Lines: %-22s  %s\n", item.DisplayName, fmt.Sprintf("<%s>", item.Email), linesStr, statusStr))
+				metrics := fmt.Sprintf("+%d / -%d (Net: %+d)", item.CodeLinesAdded, item.CodeLinesDeleted, item.NetCodeLines)
+				lineStr = fmt.Sprintf("%s%-24s %-32s Lines: %s", pointer, item.DisplayName, fmt.Sprintf("<%s>", item.Email), metrics)
 			} else {
-				sb.WriteString(fmt.Sprintf("  %-25s  %-30s  Commits: %-5d  %s\n", item.DisplayName, fmt.Sprintf("<%s>", item.Email), item.Commits, statusStr))
+				lineStr = fmt.Sprintf("%s%-24s %-32s Commits: %-6d", pointer, item.DisplayName, fmt.Sprintf("<%s>", item.Email), item.Commits)
+			}
+
+			if isFocused {
+				sb.WriteString(s.theme.Bold().Render(lineStr) + "\n")
+			} else {
+				sb.WriteString(lineStr + "\n")
 			}
 		}
 
-		sb.WriteString("\n")
-		if hasUnregistered {
-			sb.WriteString("  " + s.theme.WarningStyle().Render("Unregistered authors found in commit history! Register identity to verify.") + "\n")
-		} else {
-			sb.WriteString("  " + s.theme.SuccessStyle().Render("All commit authors in history match registered identities.") + "\n")
+		// Detailed breakdown panel for currently selected author profile
+		if s.selectedIndex >= 0 && s.selectedIndex < len(s.items) {
+			sel := s.items[s.selectedIndex]
+			sb.WriteString("\n")
+			sb.WriteString(s.theme.SeparatorLine(width - 6))
+			sb.WriteString("\n")
+
+			headerText := fmt.Sprintf("AUTHOR BREAKDOWN: %s <%s>", sel.DisplayName, sel.Email)
+			sb.WriteString(s.theme.PaneTitle().Render("  "+headerText) + "\n")
+
+			commitBreakdown := fmt.Sprintf("  • Commits    : Total: %d  |  %s  |  %s",
+				sel.Commits,
+				s.theme.SuccessStyle().Render(fmt.Sprintf("✓ Verified: %d", sel.VerifiedCommits)),
+				s.theme.ErrorStyle().Render(fmt.Sprintf("⚠ Unregistered: %d", sel.UnregisteredCommits)),
+			)
+			sb.WriteString(commitBreakdown + "\n")
+
+			lineBreakdown := fmt.Sprintf("  • Code Lines : Net: %+d  |  %s  |  %s",
+				sel.NetCodeLines,
+				s.theme.SuccessStyle().Render(fmt.Sprintf("✓ Verified: +%d/-%d", sel.VerifiedLinesAdded, sel.VerifiedLinesDeleted)),
+				s.theme.ErrorStyle().Render(fmt.Sprintf("⚠ Unregistered: +%d/-%d", sel.UnregisteredLinesAdded, sel.UnregisteredLinesDel)),
+			)
+			sb.WriteString(lineBreakdown + "\n")
 		}
 	}
 
 	sb.WriteString("\n")
-	sb.WriteString(s.theme.Dim().Render("  ←/→ switch view mode • Esc back"))
+	sb.WriteString(s.theme.Dim().Render("  ↑/↓ select author • ←/→ switch view mode • Esc back"))
 	sb.WriteString("\n")
 
 	return sb.String()

@@ -63,11 +63,14 @@ func runStats(args []string) error {
 
 	for _, s := range authorStats {
 		statusStr := ""
-		if s.VerifiedUser != nil {
-			statusStr = fmt.Sprintf("\033[1;32mVerified (%s)\033[0m", s.VerifiedUser.Name)
-		} else {
+		if s.UnregisteredCommits > 0 && s.VerifiedCommits > 0 {
+			statusStr = fmt.Sprintf("\033[1;33mPartial Match (\033[1;32m%d Verified\033[1;33m, \033[1;31m%d Unregistered\033[1;33m)\033[0m", s.VerifiedCommits, s.UnregisteredCommits)
+			hasUnregistered = true
+		} else if s.UnregisteredCommits > 0 {
 			statusStr = "\033[1;31mUnregistered (potential identity leak!)\033[0m"
 			hasUnregistered = true
+		} else {
+			statusStr = fmt.Sprintf("\033[1;32mVerified (%s)\033[0m", s.VerifiedUser.Name)
 		}
 
 		if sortMode == stats.SortByLines {

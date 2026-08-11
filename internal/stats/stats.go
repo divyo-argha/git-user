@@ -18,15 +18,21 @@ const (
 )
 
 type AuthorStat struct {
-	DisplayName      string
-	Email            string
-	Commits          int
-	CodeLinesAdded   int
-	CodeLinesDeleted int
-	NetCodeLines     int
-	TotalLines       int
-	VerifiedUser     *config.User
-	NameVariations   []string
+	DisplayName            string
+	Email                  string
+	Commits                int
+	VerifiedCommits        int
+	UnregisteredCommits    int
+	CodeLinesAdded         int
+	CodeLinesDeleted       int
+	NetCodeLines           int
+	VerifiedLinesAdded     int
+	VerifiedLinesDeleted   int
+	UnregisteredLinesAdded int
+	UnregisteredLinesDel   int
+	TotalLines             int
+	VerifiedUser           *config.User
+	NameVariations         []string
 }
 
 // AuditRepository audits commit author identities in the git repository (defaults to sorting by commits).
@@ -52,17 +58,24 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 	}
 
 	type emailGroup struct {
-		email        string
-		nameCounts   map[string]int
-		commits      int
-		linesAdded   int
-		linesDeleted int
-		matchedUser  *config.User
+		email                string
+		nameCounts           map[string]int
+		commits              int
+		verifiedCommits      int
+		unregisteredCommits  int
+		linesAdded           int
+		linesDeleted         int
+		verifiedLinesAdded   int
+		verifiedLinesDeleted int
+		unregisteredLinesAdd int
+		unregisteredLinesDel int
+		matchedUser          *config.User
 	}
 
 	groups := make(map[string]*emailGroup)
 
 	var currentGroup *emailGroup
+	var isCurrentCommitVerified bool
 	lines := strings.Split(string(out), "\n")
 
 	for _, line := range lines {
@@ -105,6 +118,14 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 			}
 
 			grp.commits++
+			if matched != nil {
+				grp.verifiedCommits++
+				isCurrentCommitVerified = true
+			} else {
+				grp.unregisteredCommits++
+				isCurrentCommitVerified = false
+			}
+
 			if name != "" {
 				grp.nameCounts[name]++
 			}
@@ -127,11 +148,21 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 			codeText := line[1:]
 			if !isCommentOrBlank(codeText) {
 				currentGroup.linesAdded++
+				if isCurrentCommitVerified {
+					currentGroup.verifiedLinesAdded++
+				} else {
+					currentGroup.unregisteredLinesAdd++
+				}
 			}
 		} else if strings.HasPrefix(line, "-") {
 			codeText := line[1:]
 			if !isCommentOrBlank(codeText) {
 				currentGroup.linesDeleted++
+				if isCurrentCommitVerified {
+					currentGroup.verifiedLinesDeleted++
+				} else {
+					currentGroup.unregisteredLinesDel++
+				}
 			}
 		}
 	}
@@ -164,15 +195,21 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 		totalLines := grp.linesAdded + grp.linesDeleted
 
 		results = append(results, AuthorStat{
-			DisplayName:      displayName,
-			Email:            grp.email,
-			Commits:          grp.commits,
-			CodeLinesAdded:   grp.linesAdded,
-			CodeLinesDeleted: grp.linesDeleted,
-			NetCodeLines:     netLines,
-			TotalLines:       totalLines,
-			VerifiedUser:     grp.matchedUser,
-			NameVariations:   names,
+			DisplayName:            displayName,
+			Email:                  grp.email,
+			Commits:                grp.commits,
+			VerifiedCommits:        grp.verifiedCommits,
+			UnregisteredCommits:    grp.unregisteredCommits,
+			CodeLinesAdded:         grp.linesAdded,
+			CodeLinesDeleted:       grp.linesDeleted,
+			NetCodeLines:           netLines,
+			VerifiedLinesAdded:     grp.verifiedLinesAdded,
+			VerifiedLinesDeleted:   grp.verifiedLinesDeleted,
+			UnregisteredLinesAdded: grp.unregisteredLinesAdd,
+			UnregisteredLinesDel:   grp.unregisteredLinesDel,
+			TotalLines:             totalLines,
+			VerifiedUser:           grp.matchedUser,
+			NameVariations:         names,
 		})
 	}
 

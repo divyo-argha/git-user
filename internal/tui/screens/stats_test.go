@@ -32,3 +32,29 @@ func TestStatsScreenToggle(t *testing.T) {
 		t.Fatalf("expected sortMode after KeyLeft to be SortByCommits, got %v", newSc2.sortMode)
 	}
 }
+
+func TestStatsScreenNavigation(t *testing.T) {
+	store := &config.Store{}
+	th := theme.DefaultTheme()
+	sc := NewStatsScreen(store, th)
+
+	sc.items = []stats.AuthorStat{
+		{DisplayName: "Author 1", Email: "a1@example.com", Commits: 10, VerifiedCommits: 10},
+		{DisplayName: "Author 2", Email: "a2@example.com", Commits: 5, UnregisteredCommits: 5},
+	}
+	sc.selectedIndex = 0
+
+	// Navigate down
+	updated, _ := sc.Update(tea.KeyMsg{Type: tea.KeyDown})
+	navSc := updated.(*StatsScreen)
+	if navSc.selectedIndex != 1 {
+		t.Fatalf("expected selectedIndex 1 after KeyDown, got %d", navSc.selectedIndex)
+	}
+
+	// Navigate up
+	updated2, _ := navSc.Update(tea.KeyMsg{Type: tea.KeyUp})
+	navSc2 := updated2.(*StatsScreen)
+	if navSc2.selectedIndex != 0 {
+		t.Fatalf("expected selectedIndex 0 after KeyUp, got %d", navSc2.selectedIndex)
+	}
+}
