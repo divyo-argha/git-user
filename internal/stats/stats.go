@@ -52,8 +52,7 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 		return nil, fmt.Errorf("not in a git repository")
 	}
 
-	// Request raw commit metadata including signature indicator and email/name
-	args := []string{"log", "--all", "--use-mailmap", "-p", "-U0", "--format=COMMIT|%an|%ae|%G?"}
+	args := []string{"log", "--all", "--use-mailmap", "-p", "-U0", "--format=COMMIT|%H|%an|%ae|%G?"}
 	if targetPath != "" {
 		args = append(args, "--", targetPath)
 	}
@@ -64,16 +63,9 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 		return nil, fmt.Errorf("failed to retrieve git log: %w", err)
 	}
 
-	// Fall back to inspect raw gpgsig header presence directly from git cat-file if needed
-	argsRaw := []string{"log", "--all", "--use-mailmap", "--format=RAWCOMMIT|%H|%an|%ae"}
-	if targetPath != "" {
-		argsRaw = append(argsRaw, "--", targetPath)
-	}
-	cmdRaw := exec.Command("git", argsRaw...)
-	outRaw, _ := cmdRaw.Output()
+	// Fetch all commits that contain a gpgsig header directly from git objects
 	signedHashes := make(map[string]bool)
 
-	// Fetch commits with gpgsig buffer in raw format
 	argsSigs := []string{"log", "--all", "--format=%H %G?"}
 	cmdSigs := exec.Command("git", argsSigs...)
 	outSigs, _ := cmdSigs.Output()
@@ -84,20 +76,16 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 		}
 	}
 
-	// Secondary check: inspect raw git cat-file / commit objects for gpgsig header presence
-	if len(signedHashes) == 0 && len(outRaw) > 0 {
-		rawLines := strings.Split(string(outRaw), "\n")
-		for _, rl := range rawLines {
-			if strings.HasPrefix(rl, "RAWCOMMIT|") {
-				parts := strings.Split(rl, "|")
-				if len(parts) >= 2 {
-					hash := parts[1]
-					catCmd := exec.Command("git", "cat-file", "-p", hash)
-					catOut, catErr := catCmd.Output()
-					if catErr == nil && strings.Contains(string(catOut), "gpgsig ") {
-						signedHashes[hash] = true
-					}
-				}
+	// Check raw gpgsig headers via git log --format
+	argsRawSigs := []string{"log", "--all", "--format=%H|%gpgsig"}
+	cmdRawSigs := exec.Command("git", argsRawSigs...)
+	outRawSigs, _ := cmdRawSigs.Output()
+	for _, rl := range strings.Split(string(outRawSigs), "\n") {
+		if idx := strings.Index(rl, "|"); idx != -1 {
+			hash := rl[:idx]
+			sig := rl[idx+1:]
+			if strings.TrimSpace(sig) != "" {
+				signedHashes[hash] = true
 			}
 		}
 	}
@@ -133,15 +121,19 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 	for _, line := range lines {
 		if strings.HasPrefix(line, "COMMIT|") {
 			header := strings.TrimPrefix(line, "COMMIT|")
-			parts := strings.SplitN(header, "|", 3)
-			name := strings.TrimSpace(parts[0])
+			parts := strings.SplitN(header, "|", 4)
+			hash := strings.TrimSpace(parts[0])
+			name := ""
 			email := ""
 			sigStatus := ""
 			if len(parts) > 1 {
-				email = strings.TrimSpace(parts[1])
+				name = strings.TrimSpace(parts[1])
 			}
 			if len(parts) > 2 {
-				sigStatus = strings.TrimSpace(parts[2])
+				email = strings.TrimSpace(parts[2])
+			}
+			if len(parts) > 3 {
+				sigStatus = strings.TrimSpace(parts[3])
 			}
 
 			normEmail := strings.ToLower(email)
@@ -175,18 +167,11 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 
 			grp.commits++
 
-			// Cryptographic signature check: verify if signed via git status %G? or raw gpgsig header presence
-			isSigned := (sigStatus == "G" || sigStatus == "U" || sigStatus == "X" || sigStatus == "Y" || sigStatus == "R")
-			if !isSigned && len(signedHashes) > 0 {
-				// check fallback map if signature status flag failed due to missing allowedSignersFile
-				// (if any commit was identified with gpgsig)
-				for h := range signedHashes {
-					_ = h
-					// If signature flag is present anywhere, treat commits with gpgsig header as signed
-				}
-			}
+			// Cryptographic signature check: verify if signed AND email belongs to a registered profile in store
+			isSigned := (sigStatus == "G" || sigStatus == "U" || sigStatus == "X" || sigStatus == "Y" || sigStatus == "R") || signedHashes[hash]
+			isVerified := isSigned && (matched != nil)
 
-			if isSigned {
+			if isVerified {
 				grp.verifiedCommits++
 				grp.signedCommits++
 				isCurrentCommitSigned = true
