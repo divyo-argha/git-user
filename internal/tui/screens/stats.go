@@ -219,20 +219,35 @@ func (s *StatsScreen) View(width, height int) string {
 			sb.WriteString(s.theme.SeparatorLine(width - 6))
 			sb.WriteString("\n")
 
-			headerText := fmt.Sprintf("AUTHOR BREAKDOWN: %s <%s>", sel.DisplayName, sel.Email)
+			headerText := fmt.Sprintf("AUTHOR AUDIT & BREAKDOWN: %s <%s>", sel.DisplayName, sel.Email)
 			sb.WriteString(s.theme.PaneTitle().Render("  "+headerText) + "\n")
 
-			commitBreakdown := fmt.Sprintf("  • Commits    : Total: %d  |  %s  |  %s",
-				sel.Commits,
-				s.theme.SuccessStyle().Render(fmt.Sprintf("✓ Verified: %d", sel.VerifiedCommits)),
-				s.theme.ErrorStyle().Render(fmt.Sprintf("⚠ Unregistered: %d", sel.UnregisteredCommits)),
+			// Identity Registration Audit
+			identityAudit := fmt.Sprintf("  • Profile Match  : %s  (%d verified profile / %d unregistered email commits)",
+				func() string {
+					if sel.UnregisteredCommits == 0 {
+						return s.theme.SuccessStyle().Render("✓ Verified Registered Profile")
+					} else if sel.VerifiedCommits > 0 {
+						return s.theme.WarningStyle().Render("⚠ Partial Profile Match")
+					}
+					return s.theme.ErrorStyle().Render("⚠ Unregistered Profile Email")
+				}(),
+				sel.VerifiedCommits, sel.UnregisteredCommits,
 			)
-			sb.WriteString(commitBreakdown + "\n")
+			sb.WriteString(identityAudit + "\n")
 
-			lineBreakdown := fmt.Sprintf("  • Code Lines : Net: %+d  |  %s  |  %s",
+			// Cryptographic SSH/GPG Signature Audit
+			signatureAudit := fmt.Sprintf("  • SSH/GPG Sign    : Total: %d  |  %s  |  %s",
+				sel.Commits,
+				s.theme.SuccessStyle().Render(fmt.Sprintf("🔏 Signed: %d", sel.SignedCommits)),
+				s.theme.WarningStyle().Render(fmt.Sprintf("🔓 Unsigned: %d", sel.UnsignedCommits)),
+			)
+			sb.WriteString(signatureAudit + "\n")
+
+			lineBreakdown := fmt.Sprintf("  • Code Lines Diff : Net: %+d  |  Signed: +%d/-%d  |  Unsigned: +%d/-%d",
 				sel.NetCodeLines,
-				s.theme.SuccessStyle().Render(fmt.Sprintf("✓ Verified: +%d/-%d", sel.VerifiedLinesAdded, sel.VerifiedLinesDeleted)),
-				s.theme.ErrorStyle().Render(fmt.Sprintf("⚠ Unregistered: +%d/-%d", sel.UnregisteredLinesAdded, sel.UnregisteredLinesDel)),
+				sel.SignedLinesAdded, sel.SignedLinesDeleted,
+				sel.UnsignedLinesAdded, sel.UnsignedLinesDeleted,
 			)
 			sb.WriteString(lineBreakdown + "\n")
 		}

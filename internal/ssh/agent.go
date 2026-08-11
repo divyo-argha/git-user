@@ -300,11 +300,22 @@ func VerifyPassphrase(keyPath, passphrase string) bool {
 	if err != nil {
 		return false
 	}
-	var errParse error
 	if passphrase == "" {
-		_, errParse = ssh.ParseRawPrivateKey(data)
-	} else {
-		_, errParse = ssh.ParseRawPrivateKeyWithPassphrase(data, []byte(passphrase))
+		_, errParse := ssh.ParseRawPrivateKey(data)
+		return errParse == nil
 	}
-	return errParse == nil
+
+	_, errParse := ssh.ParseRawPrivateKeyWithPassphrase(data, []byte(passphrase))
+	if errParse == nil {
+		return true
+	}
+
+	// Fall back to ssh-keygen validation for OpenSSH format keys with unsupported kdf
+	cmd := exec.Command("ssh-keygen", "-y", "-P", passphrase, "-f", keyPath)
+	out, errCmd := cmd.CombinedOutput()
+	if errCmd == nil && len(out) > 0 && strings.HasPrefix(string(out), "ssh-") {
+		return true
+	}
+
+	return false
 }

@@ -12,6 +12,7 @@ import (
 )
 
 func TestAppStack(t *testing.T) {
+	withTempConfig(t)
 	store := &config.Store{}
 	th := theme.DefaultTheme()
 	startScreen := screens.NewDashboard(store, th)
@@ -50,6 +51,7 @@ func TestAppStack(t *testing.T) {
 }
 
 func TestAppMessagesAndLifecycle(t *testing.T) {
+	withTempConfig(t)
 	store := &config.Store{}
 	th := theme.DefaultTheme()
 	startScreen := screens.NewDashboard(store, th)
@@ -173,6 +175,7 @@ func TestAppMessagesAndLifecycle(t *testing.T) {
 }
 
 func TestHandleTaskResultSwitchShowsReportWhenWarnings(t *testing.T) {
+	withTempConfig(t)
 	store := &config.Store{Users: []config.User{{Name: "work", Email: "work@corp.com"}}}
 	th := theme.DefaultTheme()
 	app := NewApp(store, screens.NewDashboard(store, th))
@@ -235,6 +238,7 @@ func TestHandleTaskResultSwitchShowsReportWhenWarnings(t *testing.T) {
 }
 
 func TestAppDetailedHandlers(t *testing.T) {
+	withTempConfig(t)
 	store := &config.Store{
 		Current: "work",
 		Users: []config.User{

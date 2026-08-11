@@ -23,6 +23,8 @@ type AuthorStat struct {
 	Commits                int
 	VerifiedCommits        int
 	UnregisteredCommits    int
+	SignedCommits          int
+	UnsignedCommits        int
 	CodeLinesAdded         int
 	CodeLinesDeleted       int
 	NetCodeLines           int
@@ -30,6 +32,10 @@ type AuthorStat struct {
 	VerifiedLinesDeleted   int
 	UnregisteredLinesAdded int
 	UnregisteredLinesDel   int
+	SignedLinesAdded       int
+	SignedLinesDeleted     int
+	UnsignedLinesAdded     int
+	UnsignedLinesDeleted   int
 	TotalLines             int
 	VerifiedUser           *config.User
 	NameVariations         []string
@@ -46,7 +52,7 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 		return nil, fmt.Errorf("not in a git repository")
 	}
 
-	args := []string{"log", "--all", "--use-mailmap", "-p", "-U0", "--format=COMMIT|%an|%ae"}
+	args := []string{"log", "--all", "--use-mailmap", "-p", "-U0", "--format=COMMIT|%an|%ae|%G?"}
 	if targetPath != "" {
 		args = append(args, "--", targetPath)
 	}
@@ -63,12 +69,18 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 		commits              int
 		verifiedCommits      int
 		unregisteredCommits  int
+		signedCommits        int
+		unsignedCommits      int
 		linesAdded           int
 		linesDeleted         int
 		verifiedLinesAdded   int
 		verifiedLinesDeleted int
 		unregisteredLinesAdd int
 		unregisteredLinesDel int
+		signedLinesAdded     int
+		signedLinesDeleted   int
+		unsignedLinesAdded   int
+		unsignedLinesDeleted int
 		matchedUser          *config.User
 	}
 
@@ -76,16 +88,21 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 
 	var currentGroup *emailGroup
 	var isCurrentCommitVerified bool
+	var isCurrentCommitSigned bool
 	lines := strings.Split(string(out), "\n")
 
 	for _, line := range lines {
 		if strings.HasPrefix(line, "COMMIT|") {
 			header := strings.TrimPrefix(line, "COMMIT|")
-			parts := strings.SplitN(header, "|", 2)
+			parts := strings.SplitN(header, "|", 3)
 			name := strings.TrimSpace(parts[0])
 			email := ""
+			sigStatus := ""
 			if len(parts) > 1 {
 				email = strings.TrimSpace(parts[1])
+			}
+			if len(parts) > 2 {
+				sigStatus = strings.TrimSpace(parts[2])
 			}
 
 			normEmail := strings.ToLower(email)
@@ -126,6 +143,15 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 				isCurrentCommitVerified = false
 			}
 
+			// Cryptographic signature status: G (good), U (good untrusted key), X (expired), Y (expired key), R (revoked) vs N (no signature) / B (bad)
+			if sigStatus == "G" || sigStatus == "U" || sigStatus == "X" || sigStatus == "Y" || sigStatus == "R" {
+				grp.signedCommits++
+				isCurrentCommitSigned = true
+			} else {
+				grp.unsignedCommits++
+				isCurrentCommitSigned = false
+			}
+
 			if name != "" {
 				grp.nameCounts[name]++
 			}
@@ -153,6 +179,11 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 				} else {
 					currentGroup.unregisteredLinesAdd++
 				}
+				if isCurrentCommitSigned {
+					currentGroup.signedLinesAdded++
+				} else {
+					currentGroup.unsignedLinesAdded++
+				}
 			}
 		} else if strings.HasPrefix(line, "-") {
 			codeText := line[1:]
@@ -162,6 +193,11 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 					currentGroup.verifiedLinesDeleted++
 				} else {
 					currentGroup.unregisteredLinesDel++
+				}
+				if isCurrentCommitSigned {
+					currentGroup.signedLinesDeleted++
+				} else {
+					currentGroup.unsignedLinesDeleted++
 				}
 			}
 		}
@@ -200,6 +236,8 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 			Commits:                grp.commits,
 			VerifiedCommits:        grp.verifiedCommits,
 			UnregisteredCommits:    grp.unregisteredCommits,
+			SignedCommits:          grp.signedCommits,
+			UnsignedCommits:        grp.unsignedCommits,
 			CodeLinesAdded:         grp.linesAdded,
 			CodeLinesDeleted:       grp.linesDeleted,
 			NetCodeLines:           netLines,
@@ -207,6 +245,10 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 			VerifiedLinesDeleted:   grp.verifiedLinesDeleted,
 			UnregisteredLinesAdded: grp.unregisteredLinesAdd,
 			UnregisteredLinesDel:   grp.unregisteredLinesDel,
+			SignedLinesAdded:       grp.signedLinesAdded,
+			SignedLinesDeleted:     grp.signedLinesDeleted,
+			UnsignedLinesAdded:     grp.unsignedLinesAdded,
+			UnsignedLinesDeleted:   grp.unsignedLinesDeleted,
 			TotalLines:             totalLines,
 			VerifiedUser:           grp.matchedUser,
 			NameVariations:         names,
