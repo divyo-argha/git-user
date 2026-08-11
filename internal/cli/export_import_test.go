@@ -95,10 +95,6 @@ func TestRunExportAndImport_Success(t *testing.T) {
 	os.RemoveAll(filepath.Join(tmpDir, ".git-users"))
 	os.RemoveAll(sshDir)
 
-	// Make sure config path is still configured correctly
-	configFilePath := filepath.Join(tmpDir, ".git-users", "config.json")
-	config.SetConfigPath(configFilePath)
-
 	// Run import - missing bundle file
 	err = runImport([]string{})
 	if err == nil {
@@ -164,7 +160,7 @@ func TestRunExportAndImport_Success(t *testing.T) {
 
 func TestExportSkipsTemp(t *testing.T) {
 	tmpDir := setupTestEnv(t)
-	config.SetConfigPath(filepath.Join(tmpDir, "config.json"))
+	t.Setenv("GIT_USER_CONFIG", filepath.Join(tmpDir, "config.json"))
 
 	store, _ := config.Load()
 	_ = store.AddUser("perm", "perm@example.com")

@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/ui"
 	zalando "github.com/zalando/go-keyring"
@@ -27,7 +26,7 @@ func setupTestEnv(t *testing.T) string {
 	_ = exec.Command("git", "config", "--global", "--add", "safe.directory", "*").Run()
 
 	configFilePath := filepath.Join(tmpDir, ".git-users", "config.json")
-	config.SetConfigPath(configFilePath)
+	t.Setenv("GIT_USER_CONFIG", configFilePath)
 
 	// Save original keyring functions
 	oldKeyringGet := keyring.KeyringGet

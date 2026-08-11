@@ -11,9 +11,7 @@ import (
 func withTempConfig(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
-	old := config.ConfigPath()
-	config.SetConfigPath(filepath.Join(dir, "config.json"))
-	t.Cleanup(func() { config.SetConfigPath(old) })
+	t.Setenv("GIT_USER_CONFIG", filepath.Join(dir, "config.json"))
 }
 
 func TestExpandPath(t *testing.T) {

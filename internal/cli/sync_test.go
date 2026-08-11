@@ -82,7 +82,6 @@ func TestRunSync_SetupAndSync(t *testing.T) {
 	_ = exec.Command("git", "config", "--global", "user.email", "test@example.com").Run()
 	configFilePath2 := filepath.Join(tmpDir2, ".git-users", "config.json")
 	t.Setenv("GIT_USER_CONFIG", configFilePath2)
-	config.SetConfigPath(configFilePath2)
 
 	// Clean sync dir for second environment
 	syncDir2 := filepath.Join(tmpDir2, ".git-users", "sync")

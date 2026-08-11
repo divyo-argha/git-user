@@ -10,7 +10,7 @@ import (
 func TestRunSignEnable(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
-	config.SetConfigPath(path)
+	t.Setenv("GIT_USER_CONFIG", path)
 
 	store := &config.Store{}
 	_ = store.AddUser("alice", "alice@example.com")
@@ -33,7 +33,7 @@ func TestRunSignEnable(t *testing.T) {
 func TestRunSignDisable(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
-	config.SetConfigPath(path)
+	t.Setenv("GIT_USER_CONFIG", path)
 
 	store := &config.Store{}
 	_ = store.AddUser("bob", "bob@example.com")
@@ -55,7 +55,7 @@ func TestRunSignDisable(t *testing.T) {
 func TestRunSignExplicitKey(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
-	config.SetConfigPath(path)
+	t.Setenv("GIT_USER_CONFIG", path)
 
 	store := &config.Store{}
 	_ = store.AddUser("carol", "carol@example.com")
