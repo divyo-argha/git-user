@@ -229,6 +229,11 @@ func runSwitch(args []string) error {
 			ui.Success(fmt.Sprintf("Commit Signing: Enabled (%s)", user.SignFormat))
 		}
 	} else {
+		if git.IsInRepo() && git.HasLocalOverride() {
+			git.ClearIdentityScope(true)
+			ui.Info("Cleared local repository gitconfig overrides to apply global identity.")
+		}
+
 		if err := git.Apply(user.Name, user.Email); err != nil {
 			ui.Errorf("applying git config: %v", err)
 			return err

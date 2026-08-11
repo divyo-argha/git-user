@@ -2,6 +2,7 @@ package stats
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"sort"
 	"strings"
@@ -18,32 +19,109 @@ const (
 )
 
 type AuthorStat struct {
-	DisplayName            string
-	Email                  string
-	Commits                int
-	VerifiedCommits        int // Cryptographically signed commits
-	UnverifiedCommits      int // Unsigned commits
-	SignedCommits          int // Alias for VerifiedCommits
-	UnsignedCommits        int // Alias for UnverifiedCommits
-	CodeLinesAdded         int
-	CodeLinesDeleted       int
-	NetCodeLines           int
-	VerifiedLinesAdded     int
-	VerifiedLinesDeleted   int
-	UnverifiedLinesAdded   int
-	UnverifiedLinesDel     int
-	SignedLinesAdded       int
-	SignedLinesDeleted     int
-	UnsignedLinesAdded     int
-	UnsignedLinesDeleted   int
-	TotalLines             int
-	VerifiedUser           *config.User
-	NameVariations         []string
+	DisplayName string
+	Email       string
+	Commits     int
+
+	// --- Cryptographic signature status -----------------------------------
+	// Derived EXCLUSIVELY from git's own `%G?` commit signature-status output
+	// (see `git log --help`, PRETTY FORMATS). This is the only concept on
+	// this struct backed by a real cryptographic check. It says nothing
+	// about whether the author's email is a locally registered identity —
+	// see VerifiedUser/IsRegisteredIdentity below for that.
+	SignedCommits           int // %G? in {G, U, X, Y}: a valid signature from a currently-trusted key
+	UnsignedCommits         int // %G? == N (or unrecognized): commit carries no signature at all
+	RevokedSignatureCommits int // %G? == R: signature is valid but made by a key that has since been revoked — NOT trustworthy
+	BadSignatureCommits     int // %G? == B: a signature is present but does not match (invalid/corrupt/tampered)
+	UnverifiableCommits     int // %G? == E: git could not check the signature locally (no public key / no allowedSignersFile configured) — unknown status, not the same as "unsigned"
+
+	CodeLinesAdded   int
+	CodeLinesDeleted int
+	NetCodeLines     int
+	TotalLines       int
+
+	// Line-level breakdown by the same crypto signature axis. "Signed" lines
+	// belong to commits counted in SignedCommits; "Unsigned" lines belong to
+	// commits counted in any of UnsignedCommits/RevokedSignatureCommits/
+	// BadSignatureCommits/UnverifiableCommits (i.e. everything that is not a
+	// currently-trusted good signature).
+	SignedLinesAdded     int
+	SignedLinesDeleted   int
+	UnsignedLinesAdded   int
+	UnsignedLinesDeleted int
+
+	// --- Identity registration ---------------------------------------------
+	// Derived EXCLUSIVELY from the local git-user config store
+	// (internal/config). This is NOT a cryptographic check — it only says
+	// whether this author's email matches an identity registered locally. A
+	// commit can be identity-registered but never signed, and vice versa; do
+	// not conflate this with the signature fields above.
+	VerifiedUser   *config.User
+	NameVariations []string
+}
+
+// IsRegisteredIdentity reports whether this author's email matches a locally
+// registered identity in the git-user config store. This is an identity
+// check, not a cryptographic one — it makes no claim about commit signing.
+func (a AuthorStat) IsRegisteredIdentity() bool {
+	return a.VerifiedUser != nil
 }
 
 // AuditRepository audits commit author identities in the git repository (defaults to sorting by commits).
 func AuditRepository(store *config.Store, targetPath string) ([]AuthorStat, error) {
 	return AuditRepositoryMode(store, targetPath, SortByCommits)
+}
+
+// prepareAllowedSignersFile writes a temporary SSH "allowed signers" file
+// (see `git help gpg.ssh.allowedSignersFile`) so that git can cryptographically
+// verify SSH-signed commits at all.
+//
+// Without ANY allowedSignersFile configured, git refuses to check SSH
+// signatures and %G? reports "N" (no signature) even for a commit that
+// genuinely carries a valid SSH signature — indistinguishable from a truly
+// unsigned commit. Once a file is present, git verifies the signature
+// against the embedded public key: commits signed by a key listed here (as a
+// principal for a registered identity's email/alias) report "G" (trusted),
+// while commits signed by any other key still report "U" (cryptographically
+// valid, unknown signer) instead of the misleading "N". Both "G" and "U" are
+// treated as SignedCommits — see AuthorStat doc comments.
+//
+// Returns the path to pass via `-c gpg.ssh.allowedSignersFile=<path>` and a
+// cleanup function. Always returns a usable (possibly empty) file so SSH
+// verification is unlocked even with no registered users.
+func prepareAllowedSignersFile(store *config.Store) (path string, cleanup func(), err error) {
+	f, err := os.CreateTemp("", "git-user-allowed-signers-*")
+	if err != nil {
+		return "", func() {}, err
+	}
+	cleanup = func() { os.Remove(f.Name()) }
+
+	if store != nil {
+		for _, u := range store.Users {
+			if u.SSHKey == "" {
+				continue
+			}
+			pubKey, readErr := os.ReadFile(u.SSHKey + ".pub")
+			if readErr != nil {
+				continue
+			}
+			principals := make([]string, 0, 1+len(u.Aliases))
+			if u.Email != "" {
+				principals = append(principals, u.Email)
+			}
+			principals = append(principals, u.Aliases...)
+			if len(principals) == 0 {
+				continue
+			}
+			fmt.Fprintf(f, "%s %s\n", strings.Join(principals, ","), strings.TrimSpace(string(pubKey)))
+		}
+	}
+
+	if closeErr := f.Close(); closeErr != nil {
+		cleanup()
+		return "", func() {}, closeErr
+	}
+	return f.Name(), cleanup, nil
 }
 
 // AuditRepositoryMode audits commit author identities and calculates pure code line changes (excluding comments/blank lines).
@@ -52,7 +130,18 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 		return nil, fmt.Errorf("not in a git repository")
 	}
 
-	args := []string{"log", "--all", "--use-mailmap", "-p", "-U0", "--format=COMMIT|%H|%an|%ae|%G?"}
+	allowedSignersPath, cleanupSigners, err := prepareAllowedSignersFile(store)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare SSH allowed_signers file: %w", err)
+	}
+	defer cleanupSigners()
+
+	// %G? is git's own cryptographic signature-status flag for each commit —
+	// the only real signal we rely on for signing status (see AuthorStat
+	// doc comments for what each status letter means). gpg.ssh.allowedSignersFile
+	// is set explicitly so SSH-signed commits are actually checked (see
+	// prepareAllowedSignersFile) rather than silently reported as unsigned.
+	args := []string{"-c", "gpg.ssh.allowedSignersFile=" + allowedSignersPath, "log", "--all", "--use-mailmap", "-p", "-U0", "--format=COMMIT|%an|%ae|%G?"}
 	if targetPath != "" {
 		args = append(args, "--", targetPath)
 	}
@@ -63,52 +152,22 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 		return nil, fmt.Errorf("failed to retrieve git log: %w", err)
 	}
 
-	// Fetch all commits that contain a gpgsig header directly from git objects
-	signedHashes := make(map[string]bool)
-
-	argsSigs := []string{"log", "--all", "--format=%H %G?"}
-	cmdSigs := exec.Command("git", argsSigs...)
-	outSigs, _ := cmdSigs.Output()
-	for _, l := range strings.Split(string(outSigs), "\n") {
-		f := strings.Fields(l)
-		if len(f) >= 2 && f[1] != "N" && f[1] != "" {
-			signedHashes[f[0]] = true
-		}
-	}
-
-	// Check raw gpgsig headers via git log --format
-	argsRawSigs := []string{"log", "--all", "--format=%H|%gpgsig"}
-	cmdRawSigs := exec.Command("git", argsRawSigs...)
-	outRawSigs, _ := cmdRawSigs.Output()
-	for _, rl := range strings.Split(string(outRawSigs), "\n") {
-		if idx := strings.Index(rl, "|"); idx != -1 {
-			hash := rl[:idx]
-			sig := rl[idx+1:]
-			if strings.TrimSpace(sig) != "" {
-				signedHashes[hash] = true
-			}
-		}
-	}
-
 	type emailGroup struct {
-		email                string
-		nameCounts           map[string]int
-		commits              int
-		verifiedCommits      int
-		unverifiedCommits    int
-		signedCommits        int
-		unsignedCommits      int
-		linesAdded           int
-		linesDeleted         int
-		verifiedLinesAdded   int
-		verifiedLinesDeleted int
-		unverifiedLinesAdd   int
-		unverifiedLinesDel   int
-		signedLinesAdded     int
-		signedLinesDeleted   int
-		unsignedLinesAdded   int
-		unsignedLinesDeleted int
-		matchedUser          *config.User
+		email                   string
+		nameCounts              map[string]int
+		commits                 int
+		signedCommits           int
+		unsignedCommits         int
+		revokedSignatureCommits int
+		badSignatureCommits     int
+		unverifiableCommits     int
+		linesAdded              int
+		linesDeleted            int
+		signedLinesAdded        int
+		signedLinesDeleted      int
+		unsignedLinesAdded      int
+		unsignedLinesDeleted    int
+		matchedUser             *config.User
 	}
 
 	groups := make(map[string]*emailGroup)
@@ -121,19 +180,18 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 	for _, line := range lines {
 		if strings.HasPrefix(line, "COMMIT|") {
 			header := strings.TrimPrefix(line, "COMMIT|")
-			parts := strings.SplitN(header, "|", 4)
-			hash := strings.TrimSpace(parts[0])
+			parts := strings.SplitN(header, "|", 3)
 			name := ""
 			email := ""
 			sigStatus := ""
+			if len(parts) > 0 {
+				name = strings.TrimSpace(parts[0])
+			}
 			if len(parts) > 1 {
-				name = strings.TrimSpace(parts[1])
+				email = strings.TrimSpace(parts[1])
 			}
 			if len(parts) > 2 {
-				email = strings.TrimSpace(parts[2])
-			}
-			if len(parts) > 3 {
-				sigStatus = strings.TrimSpace(parts[3])
+				sigStatus = strings.TrimSpace(parts[2])
 			}
 
 			normEmail := strings.ToLower(email)
@@ -167,18 +225,24 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 
 			grp.commits++
 
-			// Cryptographic signature check: verify if signed AND email belongs to a registered profile in store
-			isSigned := (sigStatus == "G" || sigStatus == "U" || sigStatus == "X" || sigStatus == "Y" || sigStatus == "R") || signedHashes[hash]
-			isVerified := isSigned && (matched != nil)
+			// Cryptographic signature classification — driven exclusively by
+			// git's own %G? status for this commit. See AuthorStat doc
+			// comments for the meaning of each bucket. Identity registration
+			// (matched) is tracked entirely separately and never folded into
+			// this classification.
+			isCurrentCommitSigned = sigStatus == "G" || sigStatus == "U" || sigStatus == "X" || sigStatus == "Y"
 
-			if isVerified {
-				grp.verifiedCommits++
+			switch sigStatus {
+			case "G", "U", "X", "Y":
 				grp.signedCommits++
-				isCurrentCommitSigned = true
-			} else {
-				grp.unverifiedCommits++
+			case "R":
+				grp.revokedSignatureCommits++
+			case "B":
+				grp.badSignatureCommits++
+			case "E":
+				grp.unverifiableCommits++
+			default: // "N", or any empty/unrecognized value
 				grp.unsignedCommits++
-				isCurrentCommitSigned = false
 			}
 
 			if name != "" {
@@ -204,10 +268,8 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 			if !isCommentOrBlank(codeText) {
 				currentGroup.linesAdded++
 				if isCurrentCommitSigned {
-					currentGroup.verifiedLinesAdded++
 					currentGroup.signedLinesAdded++
 				} else {
-					currentGroup.unverifiedLinesAdd++
 					currentGroup.unsignedLinesAdded++
 				}
 			}
@@ -216,10 +278,8 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 			if !isCommentOrBlank(codeText) {
 				currentGroup.linesDeleted++
 				if isCurrentCommitSigned {
-					currentGroup.verifiedLinesDeleted++
 					currentGroup.signedLinesDeleted++
 				} else {
-					currentGroup.unverifiedLinesDel++
 					currentGroup.unsignedLinesDeleted++
 				}
 			}
@@ -254,27 +314,24 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 		totalLines := grp.linesAdded + grp.linesDeleted
 
 		results = append(results, AuthorStat{
-			DisplayName:            displayName,
-			Email:                  grp.email,
-			Commits:                grp.commits,
-			VerifiedCommits:        grp.verifiedCommits,
-			UnverifiedCommits:      grp.unverifiedCommits,
-			SignedCommits:          grp.signedCommits,
-			UnsignedCommits:        grp.unsignedCommits,
-			CodeLinesAdded:         grp.linesAdded,
-			CodeLinesDeleted:       grp.linesDeleted,
-			NetCodeLines:           netLines,
-			VerifiedLinesAdded:     grp.verifiedLinesAdded,
-			VerifiedLinesDeleted:   grp.verifiedLinesDeleted,
-			UnverifiedLinesAdded:   grp.unverifiedLinesAdd,
-			UnverifiedLinesDel:     grp.unverifiedLinesDel,
-			SignedLinesAdded:       grp.signedLinesAdded,
-			SignedLinesDeleted:     grp.signedLinesDeleted,
-			UnsignedLinesAdded:     grp.unsignedLinesAdded,
-			UnsignedLinesDeleted:   grp.unsignedLinesDeleted,
-			TotalLines:             totalLines,
-			VerifiedUser:           grp.matchedUser,
-			NameVariations:         names,
+			DisplayName:             displayName,
+			Email:                   grp.email,
+			Commits:                 grp.commits,
+			SignedCommits:           grp.signedCommits,
+			UnsignedCommits:         grp.unsignedCommits,
+			RevokedSignatureCommits: grp.revokedSignatureCommits,
+			BadSignatureCommits:     grp.badSignatureCommits,
+			UnverifiableCommits:     grp.unverifiableCommits,
+			CodeLinesAdded:          grp.linesAdded,
+			CodeLinesDeleted:        grp.linesDeleted,
+			NetCodeLines:            netLines,
+			SignedLinesAdded:        grp.signedLinesAdded,
+			SignedLinesDeleted:      grp.signedLinesDeleted,
+			UnsignedLinesAdded:      grp.unsignedLinesAdded,
+			UnsignedLinesDeleted:    grp.unsignedLinesDeleted,
+			TotalLines:              totalLines,
+			VerifiedUser:            grp.matchedUser,
+			NameVariations:          names,
 		})
 	}
 

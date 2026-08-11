@@ -208,8 +208,10 @@ func getConfigResolved(key string) (string, error) {
 }
 
 func HasLocalOverride() bool {
-	out, err := getConfig("user.name", true)
-	return err == nil && out != ""
+	name, _ := getConfig("user.name", true)
+	email, _ := getConfig("user.email", true)
+	key, _ := getConfig("user.signingkey", true)
+	return name != "" || email != "" || key != ""
 }
 
 func IsInRepo() bool {

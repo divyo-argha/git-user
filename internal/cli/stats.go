@@ -59,25 +59,45 @@ func runStats(args []string) error {
 	}
 	fmt.Println()
 
-	hasUnverified := false
+	hasUnsignedCommits := false
+	hasUnregisteredAuthors := false
 
 	for _, s := range authorStats {
-		statusStr := ""
-		if s.UnverifiedCommits > 0 && s.VerifiedCommits > 0 {
-			statusStr = fmt.Sprintf("\033[1;33mPartially Verified (\033[1;32m%d Verified\033[1;33m, \033[1;31m%d Unverified\033[1;33m)\033[0m", s.VerifiedCommits, s.UnverifiedCommits)
-			hasUnverified = true
-		} else if s.UnverifiedCommits > 0 {
-			statusStr = "\033[1;31mUnverified (Unsigned)\033[0m"
-			hasUnverified = true
+		notSigned := s.UnsignedCommits + s.RevokedSignatureCommits + s.BadSignatureCommits + s.UnverifiableCommits
+
+		var sigStr string
+		switch {
+		case s.SignedCommits > 0 && notSigned == 0:
+			sigStr = fmt.Sprintf("\033[1;32mSigned (%d/%d cryptographically signed)\033[0m", s.SignedCommits, s.Commits)
+		case s.SignedCommits > 0:
+			sigStr = fmt.Sprintf("\033[1;33mPartially Signed (\033[1;32m%d Signed\033[1;33m, \033[1;31m%d Not Signed\033[1;33m)\033[0m", s.SignedCommits, notSigned)
+			hasUnsignedCommits = true
+		default:
+			sigStr = fmt.Sprintf("\033[1;31mNot Signed (0/%d cryptographically signed)\033[0m", s.Commits)
+			hasUnsignedCommits = true
+		}
+		if s.RevokedSignatureCommits > 0 {
+			sigStr += fmt.Sprintf(" \033[1;31m[%d signed by a revoked key]\033[0m", s.RevokedSignatureCommits)
+		}
+		if s.BadSignatureCommits > 0 {
+			sigStr += fmt.Sprintf(" \033[1;31m[%d invalid signature]\033[0m", s.BadSignatureCommits)
+		}
+		if s.UnverifiableCommits > 0 {
+			sigStr += fmt.Sprintf(" \033[1;33m[%d unverifiable locally]\033[0m", s.UnverifiableCommits)
+		}
+
+		identityStr := "\033[1;31mUnregistered identity\033[0m"
+		if s.IsRegisteredIdentity() {
+			identityStr = fmt.Sprintf("\033[1;32mRegistered (%s)\033[0m", s.VerifiedUser.Name)
 		} else {
-			statusStr = "\033[1;32mVerified (Cryptographically Signed)\033[0m"
+			hasUnregisteredAuthors = true
 		}
 
 		if sortMode == stats.SortByLines {
 			linesStr := fmt.Sprintf("+%d / -%d (Net: %+d)", s.CodeLinesAdded, s.CodeLinesDeleted, s.NetCodeLines)
-			fmt.Printf("  %-25s  %-30s  Code Lines: %-22s  Status: %s\n", s.DisplayName, fmt.Sprintf("<%s>", s.Email), linesStr, statusStr)
+			fmt.Printf("  %-25s  %-30s  Code Lines: %-22s  Signature: %-s  Identity: %s\n", s.DisplayName, fmt.Sprintf("<%s>", s.Email), linesStr, sigStr, identityStr)
 		} else {
-			fmt.Printf("  %-25s  %-30s  Commits: %-5d  Status: %s\n", s.DisplayName, fmt.Sprintf("<%s>", s.Email), s.Commits, statusStr)
+			fmt.Printf("  %-25s  %-30s  Commits: %-5d  Signature: %-s  Identity: %s\n", s.DisplayName, fmt.Sprintf("<%s>", s.Email), s.Commits, sigStr, identityStr)
 		}
 	}
 
@@ -85,10 +105,14 @@ func runStats(args []string) error {
 	ui.Divider()
 	fmt.Println()
 
-	if hasUnverified {
-		ui.Warn("Unverified (unsigned) commits were found in the history of this repository.")
+	if hasUnsignedCommits {
+		ui.Warn("Some commits are not cryptographically signed (or carry a signature that is invalid, revoked, or unverifiable locally — git could not check it without the signer's public key / allowedSignersFile).")
 	} else {
-		ui.Success("All commits in repository history are cryptographically verified!")
+		ui.Success("All commits in repository history carry a valid, currently-trusted cryptographic signature (per git's own signature check).")
+	}
+
+	if hasUnregisteredAuthors {
+		ui.Warn("Some commit authors do not match any identity registered in git-user. This is independent of signing status.")
 	}
 
 	return nil

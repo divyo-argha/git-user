@@ -14,14 +14,14 @@ import (
 // StatsScreen displays commit identity stats with interactive pointer selection
 // and detailed breakdown cards for the focused author.
 type StatsScreen struct {
-	store       *config.Store
-	sortMode    stats.SortMode
-	items       []stats.AuthorStat
+	store         *config.Store
+	sortMode      stats.SortMode
+	items         []stats.AuthorStat
 	selectedIndex int
-	offset      int
-	maxLines    int
-	theme       theme.Theme
-	err         error
+	offset        int
+	maxLines      int
+	theme         theme.Theme
+	err           error
 }
 
 func NewStatsScreen(store *config.Store, th theme.Theme) *StatsScreen {
@@ -219,33 +219,55 @@ func (s *StatsScreen) View(width, height int) string {
 			sb.WriteString(s.theme.SeparatorLine(width - 6))
 			sb.WriteString("\n")
 
-			headerText := fmt.Sprintf("COMMIT VERIFICATION AUDIT: %s <%s>", sel.DisplayName, sel.Email)
+			headerText := fmt.Sprintf("COMMIT SIGNATURE & IDENTITY AUDIT: %s <%s>", sel.DisplayName, sel.Email)
 			sb.WriteString(s.theme.PaneTitle().Render("  "+headerText) + "\n")
 
-			// Cryptographic SSH/GPG Signature Verification
-			signatureAudit := fmt.Sprintf("  • Cryptographic Status : %s",
+			notSigned := sel.UnsignedCommits + sel.RevokedSignatureCommits + sel.BadSignatureCommits + sel.UnverifiableCommits
+
+			// Cryptographic signature status — driven exclusively by git's own
+			// %G? check. Independent of whether the author is a registered
+			// git-user identity.
+			signatureAudit := fmt.Sprintf("  • Cryptographic Signature : %s",
 				func() string {
-					if sel.UnverifiedCommits == 0 {
-						return s.theme.SuccessStyle().Render(fmt.Sprintf("✓ Verified (100%% SSH/GPG Signed: %d commits)", sel.VerifiedCommits))
-					} else if sel.VerifiedCommits > 0 {
-						return s.theme.WarningStyle().Render(fmt.Sprintf("⚠ Partially Verified (%d Signed, %d Unverified)", sel.VerifiedCommits, sel.UnverifiedCommits))
+					if notSigned == 0 && sel.SignedCommits > 0 {
+						return s.theme.SuccessStyle().Render(fmt.Sprintf("✓ Signed (%d/%d cryptographically signed)", sel.SignedCommits, sel.Commits))
+					} else if sel.SignedCommits > 0 {
+						return s.theme.WarningStyle().Render(fmt.Sprintf("⚠ Partially Signed (%d Signed, %d Not Signed)", sel.SignedCommits, notSigned))
 					}
-					return s.theme.ErrorStyle().Render(fmt.Sprintf("⚠ Unverified (0 SSH/GPG Signed, %d Unverified commits)", sel.UnverifiedCommits))
+					return s.theme.ErrorStyle().Render(fmt.Sprintf("⚠ Not Signed (0/%d cryptographically signed)", sel.Commits))
 				}(),
 			)
 			sb.WriteString(signatureAudit + "\n")
 
-			commitBreakdown := fmt.Sprintf("  • Commits Breakdown    : Total: %d  |  %s  |  %s",
+			if sel.RevokedSignatureCommits > 0 {
+				sb.WriteString("      " + s.theme.ErrorStyle().Render(fmt.Sprintf("⚠ %d commit(s) signed by a since-revoked key — not trusted", sel.RevokedSignatureCommits)) + "\n")
+			}
+			if sel.BadSignatureCommits > 0 {
+				sb.WriteString("      " + s.theme.ErrorStyle().Render(fmt.Sprintf("⚠ %d commit(s) with an invalid/corrupt signature", sel.BadSignatureCommits)) + "\n")
+			}
+			if sel.UnverifiableCommits > 0 {
+				sb.WriteString("      " + s.theme.WarningStyle().Render(fmt.Sprintf("⚠ %d commit(s) unverifiable locally (no matching public key / allowedSignersFile configured here)", sel.UnverifiableCommits)) + "\n")
+			}
+
+			// Identity registration status — purely local, not a cryptographic
+			// check. Independent of the signature status above.
+			identityAudit := "  • Local Identity Match   : " + s.theme.ErrorStyle().Render("⚠ Unregistered (no matching git-user profile)")
+			if sel.IsRegisteredIdentity() {
+				identityAudit = "  • Local Identity Match   : " + s.theme.SuccessStyle().Render(fmt.Sprintf("✓ Registered (%s)", sel.VerifiedUser.Name))
+			}
+			sb.WriteString(identityAudit + "\n")
+
+			commitBreakdown := fmt.Sprintf("  • Commits Breakdown       : Total: %d  |  %s  |  %s",
 				sel.Commits,
-				s.theme.SuccessStyle().Render(fmt.Sprintf("✓ Verified (Signed): %d", sel.VerifiedCommits)),
-				s.theme.ErrorStyle().Render(fmt.Sprintf("⚠ Unverified (Unsigned): %d", sel.UnverifiedCommits)),
+				s.theme.SuccessStyle().Render(fmt.Sprintf("Signed: %d", sel.SignedCommits)),
+				s.theme.ErrorStyle().Render(fmt.Sprintf("Not Signed: %d", notSigned)),
 			)
 			sb.WriteString(commitBreakdown + "\n")
 
-			lineBreakdown := fmt.Sprintf("  • Code Lines Breakdown : Net: %+d  |  %s  |  %s",
+			lineBreakdown := fmt.Sprintf("  • Code Lines Breakdown    : Net: %+d  |  %s  |  %s",
 				sel.NetCodeLines,
-				s.theme.SuccessStyle().Render(fmt.Sprintf("✓ Verified: +%d/-%d", sel.VerifiedLinesAdded, sel.VerifiedLinesDeleted)),
-				s.theme.ErrorStyle().Render(fmt.Sprintf("⚠ Unverified: +%d/-%d", sel.UnverifiedLinesAdded, sel.UnverifiedLinesDel)),
+				s.theme.SuccessStyle().Render(fmt.Sprintf("Signed: +%d/-%d", sel.SignedLinesAdded, sel.SignedLinesDeleted)),
+				s.theme.ErrorStyle().Render(fmt.Sprintf("Not Signed: +%d/-%d", sel.UnsignedLinesAdded, sel.UnsignedLinesDeleted)),
 			)
 			sb.WriteString(lineBreakdown + "\n")
 		}

@@ -32,8 +32,8 @@ func opStats(store *config.Store) (opResult, error) {
 	hasUnregistered := false
 	for _, s := range authorStats {
 		statusStr := "⚠ Unregistered (potential identity leak!)"
-		if s.VerifiedUser != nil {
-			statusStr = fmt.Sprintf("✓ Verified (%s)", s.VerifiedUser.Name)
+		if s.IsRegisteredIdentity() {
+			statusStr = fmt.Sprintf("✓ Registered (%s)", s.VerifiedUser.Name)
 		} else {
 			hasUnregistered = true
 		}

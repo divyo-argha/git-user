@@ -86,6 +86,10 @@ func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
 		}
 	}
 
+	if git.IsInRepo() && git.HasLocalOverride() {
+		git.ClearIdentityScope(true)
+	}
+
 	if err := git.Apply(user.Name, user.Email); err != nil {
 		return opResult{}, fmt.Errorf("applying git config: %w", err)
 	}
