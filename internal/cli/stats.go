@@ -59,18 +59,18 @@ func runStats(args []string) error {
 	}
 	fmt.Println()
 
-	hasUnregistered := false
+	hasUnverified := false
 
 	for _, s := range authorStats {
 		statusStr := ""
-		if s.UnregisteredCommits > 0 && s.VerifiedCommits > 0 {
-			statusStr = fmt.Sprintf("\033[1;33mPartial Match (\033[1;32m%d Verified\033[1;33m, \033[1;31m%d Unregistered\033[1;33m)\033[0m", s.VerifiedCommits, s.UnregisteredCommits)
-			hasUnregistered = true
-		} else if s.UnregisteredCommits > 0 {
-			statusStr = "\033[1;31mUnregistered (potential identity leak!)\033[0m"
-			hasUnregistered = true
+		if s.UnverifiedCommits > 0 && s.VerifiedCommits > 0 {
+			statusStr = fmt.Sprintf("\033[1;33mPartially Verified (\033[1;32m%d Verified\033[1;33m, \033[1;31m%d Unverified\033[1;33m)\033[0m", s.VerifiedCommits, s.UnverifiedCommits)
+			hasUnverified = true
+		} else if s.UnverifiedCommits > 0 {
+			statusStr = "\033[1;31mUnverified (Unsigned)\033[0m"
+			hasUnverified = true
 		} else {
-			statusStr = fmt.Sprintf("\033[1;32mVerified (%s)\033[0m", s.VerifiedUser.Name)
+			statusStr = "\033[1;32mVerified (Cryptographically Signed)\033[0m"
 		}
 
 		if sortMode == stats.SortByLines {
@@ -85,12 +85,10 @@ func runStats(args []string) error {
 	ui.Divider()
 	fmt.Println()
 
-	if hasUnregistered {
-		ui.Warn("Unregistered authors were found in the history of this repository.")
-		ui.Info("If these are your commits under a different identity, you can register them using:")
-		ui.Info("  git-user register")
+	if hasUnverified {
+		ui.Warn("Unverified (unsigned) commits were found in the history of this repository.")
 	} else {
-		ui.Success("All commit authors in history match registered identities!")
+		ui.Success("All commits in repository history are cryptographically verified!")
 	}
 
 	return nil

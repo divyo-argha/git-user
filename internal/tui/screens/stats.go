@@ -219,35 +219,33 @@ func (s *StatsScreen) View(width, height int) string {
 			sb.WriteString(s.theme.SeparatorLine(width - 6))
 			sb.WriteString("\n")
 
-			headerText := fmt.Sprintf("AUTHOR AUDIT & BREAKDOWN: %s <%s>", sel.DisplayName, sel.Email)
+			headerText := fmt.Sprintf("COMMIT VERIFICATION AUDIT: %s <%s>", sel.DisplayName, sel.Email)
 			sb.WriteString(s.theme.PaneTitle().Render("  "+headerText) + "\n")
 
-			// Identity Registration Audit
-			identityAudit := fmt.Sprintf("  • Profile Match  : %s  (%d verified profile / %d unregistered email commits)",
+			// Cryptographic SSH/GPG Signature Verification
+			signatureAudit := fmt.Sprintf("  • Cryptographic Status : %s",
 				func() string {
-					if sel.UnregisteredCommits == 0 {
-						return s.theme.SuccessStyle().Render("✓ Verified Registered Profile")
+					if sel.UnverifiedCommits == 0 {
+						return s.theme.SuccessStyle().Render(fmt.Sprintf("✓ Verified (100%% SSH/GPG Signed: %d commits)", sel.VerifiedCommits))
 					} else if sel.VerifiedCommits > 0 {
-						return s.theme.WarningStyle().Render("⚠ Partial Profile Match")
+						return s.theme.WarningStyle().Render(fmt.Sprintf("⚠ Partially Verified (%d Signed, %d Unverified)", sel.VerifiedCommits, sel.UnverifiedCommits))
 					}
-					return s.theme.ErrorStyle().Render("⚠ Unregistered Profile Email")
+					return s.theme.ErrorStyle().Render(fmt.Sprintf("⚠ Unverified (0 SSH/GPG Signed, %d Unverified commits)", sel.UnverifiedCommits))
 				}(),
-				sel.VerifiedCommits, sel.UnregisteredCommits,
-			)
-			sb.WriteString(identityAudit + "\n")
-
-			// Cryptographic SSH/GPG Signature Audit
-			signatureAudit := fmt.Sprintf("  • SSH/GPG Sign    : Total: %d  |  %s  |  %s",
-				sel.Commits,
-				s.theme.SuccessStyle().Render(fmt.Sprintf("🔏 Signed: %d", sel.SignedCommits)),
-				s.theme.WarningStyle().Render(fmt.Sprintf("🔓 Unsigned: %d", sel.UnsignedCommits)),
 			)
 			sb.WriteString(signatureAudit + "\n")
 
-			lineBreakdown := fmt.Sprintf("  • Code Lines Diff : Net: %+d  |  Signed: +%d/-%d  |  Unsigned: +%d/-%d",
+			commitBreakdown := fmt.Sprintf("  • Commits Breakdown    : Total: %d  |  %s  |  %s",
+				sel.Commits,
+				s.theme.SuccessStyle().Render(fmt.Sprintf("✓ Verified (Signed): %d", sel.VerifiedCommits)),
+				s.theme.ErrorStyle().Render(fmt.Sprintf("⚠ Unverified (Unsigned): %d", sel.UnverifiedCommits)),
+			)
+			sb.WriteString(commitBreakdown + "\n")
+
+			lineBreakdown := fmt.Sprintf("  • Code Lines Breakdown : Net: %+d  |  %s  |  %s",
 				sel.NetCodeLines,
-				sel.SignedLinesAdded, sel.SignedLinesDeleted,
-				sel.UnsignedLinesAdded, sel.UnsignedLinesDeleted,
+				s.theme.SuccessStyle().Render(fmt.Sprintf("✓ Verified: +%d/-%d", sel.VerifiedLinesAdded, sel.VerifiedLinesDeleted)),
+				s.theme.ErrorStyle().Render(fmt.Sprintf("⚠ Unverified: +%d/-%d", sel.UnverifiedLinesAdded, sel.UnverifiedLinesDel)),
 			)
 			sb.WriteString(lineBreakdown + "\n")
 		}

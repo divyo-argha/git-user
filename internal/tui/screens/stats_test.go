@@ -40,7 +40,7 @@ func TestStatsScreenNavigation(t *testing.T) {
 
 	sc.items = []stats.AuthorStat{
 		{DisplayName: "Author 1", Email: "a1@example.com", Commits: 10, VerifiedCommits: 10},
-		{DisplayName: "Author 2", Email: "a2@example.com", Commits: 5, UnregisteredCommits: 5},
+		{DisplayName: "Author 2", Email: "a2@example.com", Commits: 5, UnverifiedCommits: 5},
 	}
 	sc.selectedIndex = 0
 

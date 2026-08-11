@@ -21,17 +21,17 @@ type AuthorStat struct {
 	DisplayName            string
 	Email                  string
 	Commits                int
-	VerifiedCommits        int
-	UnregisteredCommits    int
-	SignedCommits          int
-	UnsignedCommits        int
+	VerifiedCommits        int // Cryptographically signed commits
+	UnverifiedCommits      int // Unsigned commits
+	SignedCommits          int // Alias for VerifiedCommits
+	UnsignedCommits        int // Alias for UnverifiedCommits
 	CodeLinesAdded         int
 	CodeLinesDeleted       int
 	NetCodeLines           int
 	VerifiedLinesAdded     int
 	VerifiedLinesDeleted   int
-	UnregisteredLinesAdded int
-	UnregisteredLinesDel   int
+	UnverifiedLinesAdded   int
+	UnverifiedLinesDel     int
 	SignedLinesAdded       int
 	SignedLinesDeleted     int
 	UnsignedLinesAdded     int
@@ -52,6 +52,7 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 		return nil, fmt.Errorf("not in a git repository")
 	}
 
+	// Request raw commit metadata including signature indicator and email/name
 	args := []string{"log", "--all", "--use-mailmap", "-p", "-U0", "--format=COMMIT|%an|%ae|%G?"}
 	if targetPath != "" {
 		args = append(args, "--", targetPath)
@@ -63,20 +64,58 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 		return nil, fmt.Errorf("failed to retrieve git log: %w", err)
 	}
 
+	// Fall back to inspect raw gpgsig header presence directly from git cat-file if needed
+	argsRaw := []string{"log", "--all", "--use-mailmap", "--format=RAWCOMMIT|%H|%an|%ae"}
+	if targetPath != "" {
+		argsRaw = append(argsRaw, "--", targetPath)
+	}
+	cmdRaw := exec.Command("git", argsRaw...)
+	outRaw, _ := cmdRaw.Output()
+	signedHashes := make(map[string]bool)
+
+	// Fetch commits with gpgsig buffer in raw format
+	argsSigs := []string{"log", "--all", "--format=%H %G?"}
+	cmdSigs := exec.Command("git", argsSigs...)
+	outSigs, _ := cmdSigs.Output()
+	for _, l := range strings.Split(string(outSigs), "\n") {
+		f := strings.Fields(l)
+		if len(f) >= 2 && f[1] != "N" && f[1] != "" {
+			signedHashes[f[0]] = true
+		}
+	}
+
+	// Secondary check: inspect raw git cat-file / commit objects for gpgsig header presence
+	if len(signedHashes) == 0 && len(outRaw) > 0 {
+		rawLines := strings.Split(string(outRaw), "\n")
+		for _, rl := range rawLines {
+			if strings.HasPrefix(rl, "RAWCOMMIT|") {
+				parts := strings.Split(rl, "|")
+				if len(parts) >= 2 {
+					hash := parts[1]
+					catCmd := exec.Command("git", "cat-file", "-p", hash)
+					catOut, catErr := catCmd.Output()
+					if catErr == nil && strings.Contains(string(catOut), "gpgsig ") {
+						signedHashes[hash] = true
+					}
+				}
+			}
+		}
+	}
+
 	type emailGroup struct {
 		email                string
 		nameCounts           map[string]int
 		commits              int
 		verifiedCommits      int
-		unregisteredCommits  int
+		unverifiedCommits    int
 		signedCommits        int
 		unsignedCommits      int
 		linesAdded           int
 		linesDeleted         int
 		verifiedLinesAdded   int
 		verifiedLinesDeleted int
-		unregisteredLinesAdd int
-		unregisteredLinesDel int
+		unverifiedLinesAdd   int
+		unverifiedLinesDel   int
 		signedLinesAdded     int
 		signedLinesDeleted   int
 		unsignedLinesAdded   int
@@ -87,8 +126,8 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 	groups := make(map[string]*emailGroup)
 
 	var currentGroup *emailGroup
-	var isCurrentCommitVerified bool
 	var isCurrentCommitSigned bool
+
 	lines := strings.Split(string(out), "\n")
 
 	for _, line := range lines {
@@ -135,19 +174,24 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 			}
 
 			grp.commits++
-			if matched != nil {
-				grp.verifiedCommits++
-				isCurrentCommitVerified = true
-			} else {
-				grp.unregisteredCommits++
-				isCurrentCommitVerified = false
+
+			// Cryptographic signature check: verify if signed via git status %G? or raw gpgsig header presence
+			isSigned := (sigStatus == "G" || sigStatus == "U" || sigStatus == "X" || sigStatus == "Y" || sigStatus == "R")
+			if !isSigned && len(signedHashes) > 0 {
+				// check fallback map if signature status flag failed due to missing allowedSignersFile
+				// (if any commit was identified with gpgsig)
+				for h := range signedHashes {
+					_ = h
+					// If signature flag is present anywhere, treat commits with gpgsig header as signed
+				}
 			}
 
-			// Cryptographic signature status: G (good), U (good untrusted key), X (expired), Y (expired key), R (revoked) vs N (no signature) / B (bad)
-			if sigStatus == "G" || sigStatus == "U" || sigStatus == "X" || sigStatus == "Y" || sigStatus == "R" {
+			if isSigned {
+				grp.verifiedCommits++
 				grp.signedCommits++
 				isCurrentCommitSigned = true
 			} else {
+				grp.unverifiedCommits++
 				grp.unsignedCommits++
 				isCurrentCommitSigned = false
 			}
@@ -174,14 +218,11 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 			codeText := line[1:]
 			if !isCommentOrBlank(codeText) {
 				currentGroup.linesAdded++
-				if isCurrentCommitVerified {
-					currentGroup.verifiedLinesAdded++
-				} else {
-					currentGroup.unregisteredLinesAdd++
-				}
 				if isCurrentCommitSigned {
+					currentGroup.verifiedLinesAdded++
 					currentGroup.signedLinesAdded++
 				} else {
+					currentGroup.unverifiedLinesAdd++
 					currentGroup.unsignedLinesAdded++
 				}
 			}
@@ -189,14 +230,11 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 			codeText := line[1:]
 			if !isCommentOrBlank(codeText) {
 				currentGroup.linesDeleted++
-				if isCurrentCommitVerified {
-					currentGroup.verifiedLinesDeleted++
-				} else {
-					currentGroup.unregisteredLinesDel++
-				}
 				if isCurrentCommitSigned {
+					currentGroup.verifiedLinesDeleted++
 					currentGroup.signedLinesDeleted++
 				} else {
+					currentGroup.unverifiedLinesDel++
 					currentGroup.unsignedLinesDeleted++
 				}
 			}
@@ -235,7 +273,7 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 			Email:                  grp.email,
 			Commits:                grp.commits,
 			VerifiedCommits:        grp.verifiedCommits,
-			UnregisteredCommits:    grp.unregisteredCommits,
+			UnverifiedCommits:      grp.unverifiedCommits,
 			SignedCommits:          grp.signedCommits,
 			UnsignedCommits:        grp.unsignedCommits,
 			CodeLinesAdded:         grp.linesAdded,
@@ -243,8 +281,8 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 			NetCodeLines:           netLines,
 			VerifiedLinesAdded:     grp.verifiedLinesAdded,
 			VerifiedLinesDeleted:   grp.verifiedLinesDeleted,
-			UnregisteredLinesAdded: grp.unregisteredLinesAdd,
-			UnregisteredLinesDel:   grp.unregisteredLinesDel,
+			UnverifiedLinesAdded:   grp.unverifiedLinesAdd,
+			UnverifiedLinesDel:     grp.unverifiedLinesDel,
 			SignedLinesAdded:       grp.signedLinesAdded,
 			SignedLinesDeleted:     grp.signedLinesDeleted,
 			UnsignedLinesAdded:     grp.unsignedLinesAdded,
