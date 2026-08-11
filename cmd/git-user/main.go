@@ -16,6 +16,9 @@ var (
 )
 
 func main() {
+	if buildVersion != "dev" && buildVersion != "" {
+		version.BuildVersion = buildVersion
+	}
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "--version", "-v", "version":
@@ -58,11 +61,7 @@ func hintDoctorOnError(err error) {
 }
 
 func printVersion() {
-	v := buildVersion
-	if v == "dev" || v == "" {
-		v = version.Version
-	}
-	fmt.Printf("git-user %s\n", v)
+	fmt.Printf("git-user %s\n", version.GetVersion())
 }
 
 // stdinIsTTY reports whether stdin is attached to a terminal.
