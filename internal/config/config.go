@@ -56,24 +56,16 @@ type Store struct {
 	ImportPrompted bool            `json:"import_prompted,omitempty"` // whether the first-run import prompt has been shown
 }
 
-var configPath string
-
-func init() {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		panic("cannot determine home directory: " + err.Error())
-	}
-	configPath = filepath.Join(home, ".git-users", "config.json")
-}
-
 func ConfigPath() string {
 	if env := os.Getenv("GIT_USER_CONFIG"); env != "" {
 		return env
 	}
-	return configPath
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "config.json"
+	}
+	return filepath.Join(home, ".git-users", "config.json")
 }
-
-func SetConfigPath(path string) { configPath = path }
 
 func TempConfigPath() string {
 	return filepath.Join(filepath.Dir(ConfigPath()), "temp.json")

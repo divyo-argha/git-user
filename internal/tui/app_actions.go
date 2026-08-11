@@ -294,9 +294,10 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		})
 
 	case "stats":
-		return a, a.runTaskCmd("stats", "", func() (opResult, error) {
-			return opStats(a.store)
-		})
+		if !git.IsInRepo() {
+			return a, core.ShowToastCmd("not in a git repository — run Stats inside a repository", theme.ToastStyleError, 4*time.Second)
+		}
+		return a, pushCmd(screens.NewStatsScreen(a.store, a.theme))
 
 	case "clone":
 		return a, pushCmd(screens.NewForm("Clone Repository", "Clone a repository and configure the local identity", "clone", []screens.FormInput{

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
@@ -15,9 +16,17 @@ func runStats(args []string) error {
 		return fmt.Errorf("not in repository")
 	}
 
+	sortMode := stats.SortByCommits
 	targetPath := ""
-	if len(args) > 0 {
-		targetPath = args[0]
+
+	for _, arg := range args {
+		if arg == "--by=lines" || arg == "--lines" || arg == "-l" {
+			sortMode = stats.SortByLines
+		} else if arg == "--by=commits" {
+			sortMode = stats.SortByCommits
+		} else if !strings.HasPrefix(arg, "-") {
+			targetPath = arg
+		}
 	}
 
 	store, err := config.Load()
@@ -32,7 +41,7 @@ func runStats(args []string) error {
 	}
 	fmt.Println()
 
-	authorStats, err := stats.AuditRepository(store, targetPath)
+	authorStats, err := stats.AuditRepositoryMode(store, targetPath, sortMode)
 	if err != nil {
 		ui.Errorf("Failed to audit repository: %v", err)
 		return err
@@ -43,7 +52,11 @@ func runStats(args []string) error {
 		return nil
 	}
 
-	ui.Header("Commit Authors Summary")
+	if sortMode == stats.SortByLines {
+		ui.Header("Commit Authors Summary (Sorted by Code Lines Changed)")
+	} else {
+		ui.Header("Commit Authors Summary")
+	}
 	fmt.Println()
 
 	hasUnregistered := false
@@ -57,7 +70,12 @@ func runStats(args []string) error {
 			hasUnregistered = true
 		}
 
-		fmt.Printf("  %-25s  %-30s  Commits: %-5d  Status: %s\n", s.DisplayName, fmt.Sprintf("<%s>", s.Email), s.Commits, statusStr)
+		if sortMode == stats.SortByLines {
+			linesStr := fmt.Sprintf("+%d / -%d (Net: %+d)", s.CodeLinesAdded, s.CodeLinesDeleted, s.NetCodeLines)
+			fmt.Printf("  %-25s  %-30s  Code Lines: %-22s  Status: %s\n", s.DisplayName, fmt.Sprintf("<%s>", s.Email), linesStr, statusStr)
+		} else {
+			fmt.Printf("  %-25s  %-30s  Commits: %-5d  Status: %s\n", s.DisplayName, fmt.Sprintf("<%s>", s.Email), s.Commits, statusStr)
+		}
 	}
 
 	fmt.Println()

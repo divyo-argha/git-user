@@ -146,7 +146,7 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 func TestRealSaveLoad(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
-	config.SetConfigPath(path)
+	t.Setenv("GIT_USER_CONFIG", path)
 
 	if config.ConfigPath() != path {
 		t.Errorf("ConfigPath() = %s, want %s", config.ConfigPath(), path)
@@ -170,7 +170,8 @@ func TestRealSaveLoad(t *testing.T) {
 	}
 
 	// Test loading non-existent config path returns empty store
-	config.SetConfigPath(filepath.Join(dir, "nonexistent.json"))
+	nonexistentPath := filepath.Join(dir, "nonexistent.json")
+	t.Setenv("GIT_USER_CONFIG", nonexistentPath)
 	nonexistent, err := config.Load()
 	if err != nil {
 		t.Fatalf("Load on nonexistent path should succeed, got error: %v", err)
@@ -182,7 +183,7 @@ func TestRealSaveLoad(t *testing.T) {
 
 func TestTempProfile(t *testing.T) {
 	dir := t.TempDir()
-	config.SetConfigPath(filepath.Join(dir, "config.json"))
+	t.Setenv("GIT_USER_CONFIG", filepath.Join(dir, "config.json"))
 
 	// Create original temp dir inside test so we don't clobber OS temp
 	oldTemp := os.Getenv("TMPDIR")
