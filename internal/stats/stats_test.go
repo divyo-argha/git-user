@@ -128,3 +128,39 @@ func TestAuditRepository_PathFiltering(t *testing.T) {
 		t.Errorf("expected userb@example.com, got %s", results[0].Email)
 	}
 }
+
+func TestAuditRepository_CodeLinesAndCommentFiltering(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	runGit(t, tmpDir, "init")
+	runGit(t, tmpDir, "config", "commit.gpgsign", "false")
+
+	// Commit 1 with Python comments and code
+	pyFile := filepath.Join(tmpDir, "app.py")
+	pyContent := "# This is a comment\n\nprint('hello')\n\"\"\" docstring \"\"\"\nval = 42\n"
+	_ = os.WriteFile(pyFile, []byte(pyContent), 0644)
+	runGit(t, tmpDir, "add", "app.py")
+	runGit(t, tmpDir, "commit", "--author=Dev Py <py@example.com>", "-m", "py commit")
+
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current dir: %v", err)
+	}
+	_ = os.Chdir(tmpDir)
+	defer os.Chdir(oldWd)
+
+	results, err := AuditRepositoryMode(nil, "", SortByLines)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+
+	res := results[0]
+	// Expected code lines: print('hello') and val = 42 -> 2 code lines! (comments and blank lines excluded)
+	if res.CodeLinesAdded != 2 {
+		t.Errorf("expected 2 code lines added (excluding comments & blanks), got %d", res.CodeLinesAdded)
+	}
+}
