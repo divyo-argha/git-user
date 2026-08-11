@@ -403,8 +403,8 @@ func (a *App) pushExportForm(names []string) tea.Cmd {
 
 // switchPassphraseFormCmd prompts for the SSH key passphrase during a switch.
 func (a *App) switchPassphraseFormCmd(name string) tea.Cmd {
-	return pushCmd(screens.NewForm("Passphrase", "", "switch-pass:"+name, []screens.FormInput{
-		{Label: "Passphrase:", IsPassword: true},
+	return pushCmd(screens.NewForm("Enter Passphrase", "", "switch-pass:"+name, []screens.FormInput{
+		{Label: "Enter Passphrase:", IsPassword: true},
 	}, a.theme))
 }
 
