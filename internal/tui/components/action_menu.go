@@ -57,7 +57,6 @@ func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 		ActionItem{Label: "🪝 Git hooks", Key: "hook"},
 		ActionItem{Label: "🔄 Sync identities", Key: "sync"},
 		ActionItem{Label: "🔄 Update git-user", Key: "update"},
-		ActionItem{Label: "❌ Quit", Key: "quit"},
 	)
 	return NewActionMenu("System Utilities", items, th)
 }

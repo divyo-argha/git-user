@@ -53,23 +53,15 @@ func TestSystemActions(t *testing.T) {
 	// Without fix-remote
 	m := SystemActions(th, false)
 
-	// Ensure system actions contains quit
-	foundQuit := false
 	foundFixRemote := false
 	foundImportOriginal := false
 	for _, item := range m.items {
-		if item.Key == "quit" {
-			foundQuit = true
-		}
 		if item.Key == "fix-remote" {
 			foundFixRemote = true
 		}
 		if item.Key == "import-original" {
 			foundImportOriginal = true
 		}
-	}
-	if !foundQuit {
-		t.Errorf("SystemActions is missing quit action")
 	}
 	if foundFixRemote {
 		t.Errorf("SystemActions should NOT include fix-remote when showFixRemote=false")
