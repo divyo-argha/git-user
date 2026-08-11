@@ -273,9 +273,5 @@ func (s *StatsScreen) View(width, height int) string {
 		}
 	}
 
-	sb.WriteString("\n")
-	sb.WriteString(s.theme.Dim().Render("  ↑/↓ select author • ←/→ switch view mode • Esc back"))
-	sb.WriteString("\n")
-
 	return sb.String()
 }
