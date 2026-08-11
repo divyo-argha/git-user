@@ -140,10 +140,25 @@ func opFixRemote() (opResult, error) {
 	return opResult{detail: report, showReport: true}, nil
 }
 
-// opSecurity audits identity and config file security.
-func opSecurity(store *config.Store) (opResult, error) {
-	report := ""
+// opDoctor runs a comprehensive health & security check across identities and system configuration.
+func opDoctor(store *config.Store) (opResult, error) {
+	report := "── SYSTEM & GIT CONFIGURATION ──\n"
 	issues := 0
+
+	if git.IsInstalled() {
+		report += "✓ Git is installed\n"
+	} else {
+		report += "⚠ Git is not installed or not on PATH\n"
+		issues++
+	}
+
+	if _, err := exec.LookPath("ssh-keygen"); err != nil {
+		report += "⚠ ssh-keygen not found on PATH\n"
+		issues++
+	} else {
+		report += "✓ ssh-keygen is available\n"
+	}
+
 	configPath := config.ConfigPath()
 	if info, err := os.Stat(configPath); err == nil {
 		mode := info.Mode().Perm()
@@ -154,58 +169,14 @@ func opSecurity(store *config.Store) (opResult, error) {
 			report += "✓ Config file permissions OK (0600)\n"
 		}
 	}
-	for _, user := range store.Users {
-		report += fmt.Sprintf("\n%s (%s)\n", user.Name, user.Email)
-		if user.SSHKey == "" {
-			report += "  ⚠ No SSH key bound (bind one from the profile view)\n"
-			issues++
-			continue
-		}
-		info, err := os.Stat(user.SSHKey)
-		if err != nil {
-			report += fmt.Sprintf("  ⚠ SSH key not found: %s\n", user.SSHKey)
-			issues++
-			continue
-		}
-		mode := info.Mode().Perm()
-		if mode != 0600 {
-			report += fmt.Sprintf("  ⚠ Insecure key permissions: %o (fix: chmod 600 %s)\n", mode, user.SSHKey)
-			issues++
-		} else {
-			report += fmt.Sprintf("  ✓ Permissions OK: %s\n", filepath.Base(user.SSHKey))
-		}
-		protected, err := isSSHKeyPassphraseProtected(user.SSHKey)
-		if err != nil {
-			report += "  ⚠ Could not verify passphrase protection\n"
-			issues++
-		} else if protected {
-			report += "  ✓ Passphrase protected\n"
-		} else {
-			report += "  ⚠ No passphrase detected — use the Passphrase menu to add one\n"
-			issues++
-		}
-	}
-	report += "\n"
-	if issues == 0 {
-		report += "No security issues found\n"
-	} else {
-		report += fmt.Sprintf("Found %d security issue(s)\n", issues)
-	}
-	return opResult{detail: report, showReport: true}, nil
-}
 
-// opDoctor runs a health check.
-func opDoctor(store *config.Store) (opResult, error) {
-	report := ""
-	issues := 0
+	report += "\n── ACTIVE IDENTITY ──\n"
 	user := store.CurrentUser()
 	if store.Current == "" || user == nil {
 		report += "⚠ No active identity set — switch to one from the dashboard\n"
 		issues++
 	} else {
 		report += fmt.Sprintf("✓ Active identity: %s (%s)\n", user.Name, user.Email)
-	}
-	if user != nil && store.Current != "" {
 		gitName := git.CurrentGlobalName()
 		gitEmail := git.CurrentGlobalEmail()
 		if gitName != user.Name || gitEmail != user.Email {
@@ -214,44 +185,60 @@ func opDoctor(store *config.Store) (opResult, error) {
 		} else {
 			report += "✓ Git config in sync\n"
 		}
-		if user.SSHKey != "" {
-			if info, err := os.Stat(user.SSHKey); err != nil {
-				report += fmt.Sprintf("⚠ SSH key file not found: %s\n", user.SSHKey)
-				issues++
-			} else {
-				report += fmt.Sprintf("✓ SSH key exists: %s\n", user.SSHKey)
-				_ = info
-			}
+	}
+
+	report += "\n── PROFILES & SECURITY AUDIT ──\n"
+	if len(store.Users) == 0 {
+		report += "ℹ No profiles registered yet\n"
+	}
+	for _, u := range store.Users {
+		report += fmt.Sprintf("Profile: %s (%s)\n", u.Name, u.Email)
+		if u.SSHKey == "" {
+			report += "  ⚠ No SSH key bound (bind one from profile options)\n"
+			issues++
+			continue
+		}
+		info, err := os.Stat(u.SSHKey)
+		if err != nil {
+			report += fmt.Sprintf("  ⚠ SSH key file not found: %s\n", u.SSHKey)
+			issues++
+			continue
+		}
+		mode := info.Mode().Perm()
+		if mode != 0600 {
+			report += fmt.Sprintf("  ⚠ Insecure key permissions: %o (fix: chmod 600 %s)\n", mode, u.SSHKey)
+			issues++
 		} else {
-			report += "⚠ No SSH key configured for this identity\n"
+			report += fmt.Sprintf("  ✓ Key permissions OK (0600): %s\n", filepath.Base(u.SSHKey))
+		}
+
+		protected, err := isSSHKeyPassphraseProtected(u.SSHKey)
+		if err != nil {
+			report += "  ⚠ Could not verify passphrase protection\n"
+			issues++
+		} else if protected {
+			report += "  ✓ Passphrase protected\n"
+		} else {
+			report += "  ⚠ No passphrase detected (passphrase protection recommended)\n"
 			issues++
 		}
 	}
-	if git.IsInstalled() {
-		report += "✓ Git is installed\n"
-	} else {
-		report += "⚠ Git is not installed or not on PATH\n"
-		issues++
-	}
-	if _, err := exec.LookPath("ssh-keygen"); err != nil {
-		report += "⚠ ssh-keygen not found on PATH\n"
-		issues++
-	} else {
-		report += "✓ ssh-keygen is available\n"
-	}
+
 	home, _ := os.UserHomeDir()
 	if entries, err := os.ReadDir(filepath.Join(home, ".ssh")); err == nil {
 		for _, e := range entries {
 			if strings.HasSuffix(e.Name(), ".backup") {
-				report += fmt.Sprintf("ℹ Stale backup key found: ~/.ssh/%s (safe to delete once the new key works)\n", e.Name())
+				report += fmt.Sprintf("\nℹ Stale backup key found: ~/.ssh/%s (safe to delete once the new key works)\n", e.Name())
 			}
 		}
 	}
+
 	report += "\n"
 	if issues == 0 {
-		report += "All checks passed! Your git-user setup is healthy.\n"
+		report += "All checks passed! Your git-user setup is 100% healthy and secure.\n"
 	} else {
-		report += fmt.Sprintf("Found %d issue(s). See suggestions above.\n", issues)
+		report += fmt.Sprintf("Found %d health/security issue(s). See details above.\n", issues)
 	}
+
 	return opResult{detail: report, showReport: true}, nil
 }

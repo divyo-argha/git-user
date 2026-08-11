@@ -15,9 +15,15 @@ import (
 func pumpApp(a *App, m tea.Msg) *App {
 	u, cmd := a.Update(m)
 	a = u.(*App)
-	for cmd != nil {
+	depth := 0
+	for cmd != nil && depth < 20 {
+		depth++
 		msg := cmd()
 		if msg == nil {
+			break
+		}
+		// Ignore recurring component ticks (like cursor blink) in test pump
+		if fmt.Sprintf("%T", msg) == "cursor.blinkMsg" {
 			break
 		}
 		u2, cmd2 := a.Update(msg)
@@ -112,7 +118,7 @@ func TestNavDashboardEnterDetailEsc(t *testing.T) {
 
 	// Confirm dialog: actions pane -> import-export -> back option + Esc.
 	app = pumpApp(app, tea.KeyMsg{Type: tea.KeyTab}) // actions pane
-	for i := 0; i < 4; i++ {                         // logout -> security -> doctor -> import-original -> import-export
+	for i := 0; i < 3; i++ {                         // logout -> doctor -> import-original -> import-export
 		app = pumpApp(app, tea.KeyMsg{Type: tea.KeyDown})
 	}
 	app = pumpApp(app, tea.KeyMsg{Type: tea.KeyEnter})

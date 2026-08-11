@@ -14,10 +14,24 @@ import (
 )
 
 func runDoctor(args []string) error {
-	ui.Banner("Git-User Diagnostics")
+	ui.Banner("GIT-USER DIAGNOSTICS & SECURITY")
 	fmt.Println()
 
 	issues := 0
+
+	ui.Info("Checking config file permissions...")
+	configPath := config.ConfigPath()
+	info, err := os.Stat(configPath)
+	if err == nil && runtime.GOOS != "windows" {
+		mode := info.Mode().Perm()
+		if mode != 0600 {
+			ui.Warn(fmt.Sprintf("Config file has insecure permissions: %o", mode))
+			ui.Info(fmt.Sprintf("  Fix: chmod 600 %s", configPath))
+			issues++
+		} else {
+			ui.Success("Config file permissions OK (0600)")
+		}
+	}
 
 	ui.Info("Checking active identity...")
 	store, err := config.Load()
@@ -97,6 +111,31 @@ func runDoctor(args []string) error {
 		}
 	}
 
+	if store != nil && len(store.Users) > 0 {
+		ui.Info("Auditing profile security & passphrases...")
+		for _, u := range store.Users {
+			if u.SSHKey != "" {
+				info, err := os.Stat(u.SSHKey)
+				if err == nil && runtime.GOOS != "windows" {
+					if info.Mode().Perm() != 0600 {
+						ui.Warn(fmt.Sprintf("Profile %q SSH key has insecure permissions: %o", u.Name, info.Mode().Perm()))
+						ui.Info(fmt.Sprintf("  Fix: chmod 600 %s", u.SSHKey))
+						issues++
+					}
+				}
+				protected, err := isSSHKeyPassphraseProtected(u.SSHKey)
+				if err == nil {
+					if protected {
+						ui.Success(fmt.Sprintf("Profile %q SSH key is passphrase protected", u.Name))
+					} else {
+						ui.Warn(fmt.Sprintf("Profile %q SSH key has no passphrase", u.Name))
+						issues++
+					}
+				}
+			}
+		}
+	}
+
 	ui.Info("Checking git installation...")
 	if !git.IsInstalled() {
 		ui.Error("Git is not installed or not on PATH")
@@ -154,7 +193,7 @@ func runDoctor(args []string) error {
 	fmt.Println()
 	ui.Divider()
 	if issues == 0 {
-		ui.Success("All checks passed! Your git-user setup is healthy.")
+		ui.Success("All checks passed! Your git-user setup is 100% healthy and secure.")
 	} else {
 		ui.Warn(fmt.Sprintf("Found %d issue(s). See suggestions above.", issues))
 	}

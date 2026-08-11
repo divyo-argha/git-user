@@ -283,12 +283,7 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			return opFixRemote()
 		})
 
-	case "security":
-		return a, a.runTaskCmd("security", "", func() (opResult, error) {
-			return opSecurity(a.store)
-		})
-
-	case "doctor":
+	case "doctor", "security":
 		return a, a.runTaskCmd("doctor", "", func() (opResult, error) {
 			return opDoctor(a.store)
 		})

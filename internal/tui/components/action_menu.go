@@ -45,9 +45,8 @@ func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 	}
 
 	items = append(items,
-		ActionItem{IsSection: true, Label: "🛡 Security & Health"},
-		ActionItem{Label: "🔒 Security audit", Key: "security"},
-		ActionItem{Label: "🩺 Doctor (health check)", Key: "doctor"},
+		ActionItem{IsSection: true, Label: "🛡 Health & Security"},
+		ActionItem{Label: "🩺 Doctor (health & security check)", Key: "doctor"},
 		ActionItem{Label: "🗂 Import existing git identity", Key: "import-original"},
 		ActionItem{Label: "📦 Import / Export bundles…", Key: "import-export"},
 		ActionItem{IsSection: true, Label: "👤 Profiles & System"},
