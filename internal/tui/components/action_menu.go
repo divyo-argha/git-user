@@ -3,6 +3,7 @@ package components
 import (
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 )
 
@@ -108,22 +109,22 @@ func (m *ActionMenu) prevSelectable(from int) int {
 // to size the right pane exactly to fit the content instead of half the terminal.
 // minWidth / maxWidth clamp the result.
 func (m *ActionMenu) PreferredWidth(minWidth, maxWidth int) int {
-	// Account for border (1 each side) + padding (2 each side from Padding(0,2)) = 6 extra
+	// Account for border (1 each side = 2) + padding (2 each side = 4) = 6 extra
 	const boxOverhead = 6
 
 	title := m.Title
 	if title == "" {
 		title = "System Utilities"
 	}
-	widest := len(title)
+	widest := lipgloss.Width(title)
 	for _, item := range m.items {
 		var lineLen int
 		if item.IsSection {
 			// "  ── Label ──" — 2 spaces + 3 + label + 3
-			lineLen = 2 + 3 + len(item.Label) + 3
+			lineLen = 2 + 3 + lipgloss.Width(item.Label) + 3
 		} else {
 			// "▶ Label" (cursor) or "  Label" (normal) — longest form is with cursor prefix
-			lineLen = 2 + len(item.Label)
+			lineLen = 2 + lipgloss.Width(item.Label)
 		}
 		if lineLen > widest {
 			widest = lineLen

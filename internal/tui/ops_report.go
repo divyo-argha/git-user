@@ -75,7 +75,7 @@ func verifySSHConnectionWithKey(keyPath string) (bool, string) {
 	}{
 		{"git@github.com", []string{"Hi ", "successfully authenticated"}},
 		{"git@gitlab.com", []string{"Welcome to GitLab", "successfully authenticated"}},
-		{"git@bitbucket.org", []string{"logged in as", "successfully authenticated"}},
+		{"git@bitbucket.org", []string{"logged in as", "successfully authenticated", "authenticated via ssh key"}},
 	}
 	for _, p := range platforms {
 		args := []string{"-T", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5"}
