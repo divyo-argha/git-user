@@ -519,6 +519,7 @@ Everything looks good.
 | Symptom | Fix |
 |---------|-----|
 | `git-user: command not found` | Restart terminal or `source ~/.zshrc` |
+| Still the old version after `install.sh` | An older copy (e.g. from `go install` or npm) earlier in `PATH` shadows the new one — remove it with `rm "$(command -v git-user)"`, or update in place with `git-user --update` |
 | SSH verification failed | Key not added to platform yet — run `git-user pubkey` to copy the public key |
 | `Permission denied` during install | Expected — installer needs sudo for `/usr/local/bin` |
 | Git asks for credentials on push | Run `git-user fix-remote` to convert HTTPS → SSH |
