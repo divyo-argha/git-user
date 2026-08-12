@@ -27,8 +27,10 @@
     <a href="#-quick-start">Quick Start</a> ·
     <a href="#-why-git-user">Why git-user</a> ·
     <a href="#-features">Features</a> ·
+    <a href="#-interactive-tui">TUI</a> ·
     <a href="#-commands">Commands</a> ·
     <a href="#-security">Security</a> ·
+    <a href="#-troubleshooting">Troubleshooting</a> ·
     <a href="#-contributing">Contributing</a>
   </p>
 
@@ -44,6 +46,42 @@
   <br /><br />
 
 </div>
+
+---
+
+## 📑 Table of Contents
+
+**Getting Started**
+- [😤 The Problem](#-the-problem)
+- [📦 Install](#-install)
+- [🗑️ Uninstall](#-uninstall)
+- [⚡ Quick Start](#-quick-start)
+
+**Identity & Keys**
+- [🏆 Why git-user?](#-why-git-user)
+- [✨ Features](#-features)
+- [🖥️ Interactive TUI](#-interactive-tui)
+- [🔄 How It Works](#-how-it-works)
+- [📂 Directory-Based Auto-Switching](#-directory-based-auto-switching)
+- [📂 Local Repository Overrides](#-local-repository-overrides-git-user-switch--l)
+- [🚪 Logout / Void State](#-logout--void-state)
+
+**Security**
+- [🛡️ Security](#-security)
+- [🖋️ Commit Signing](#-commit-signing-git-user-sign)
+- [🪝 Pre-commit Hooks](#-pre-commit-hooks)
+
+**Daily Workflow**
+- [🐚 Shell Completions](#-shell-completions)
+- [🎨 Terminal Prompt Integration](#-terminal-prompt-integration)
+- [🚚 Moving to a New Machine](#-moving-to-a-new-machine)
+- [🔧 Troubleshooting](#-troubleshooting)
+
+**Reference**
+- [📋 Commands](#-commands)
+- [📁 What Gets Modified](#-what-gets-modified)
+- [🤝 Contributing](#-contributing)
+- [📄 License](#-license)
 
 ---
 
@@ -116,10 +154,15 @@ go install github.com/divyo-argha/git-user@latest
 ```bash
 git-user --update
 ```
-> Works on macOS, Linux, and Windows (x64/arm64). On macOS/Linux, updates
-> that need `sudo` (e.g. a curl install into `/usr/local/bin`) prompt for
-> your password. On Windows the running executable is locked by the OS, so
-> the new binary is applied in the background right after the command exits.
+> Updates git-user to the latest release on macOS, Linux, and Windows
+> (x64/arm64). It prints the version transition as it works —
+> `Updating git-user v4.7.3 → v4.7.4 (linux amd64)` — downloads the
+> matching release binary, runs a version check on the downloaded binary
+> before replacing the installed copy, and warns you if anything looks off.
+> On macOS/Linux, updates that need `sudo` (e.g. a curl install into
+> `/usr/local/bin`) prompt for your password. On Windows the running
+> executable is locked by the OS, so the new binary is applied in the
+> background right after the command exits.
 
 </td>
 </tr>
@@ -223,8 +266,10 @@ There are other tools that try to solve this. Here's how git-user is different:
 - Register unlimited identities — name, email, SSH key
 - Switch in one command, git config updates instantly
 - `switch -c <name>` — create and switch in one step
-- Edit email without re-registering
+- Temporary sessions (`switch -c <name> --temp`) that vanish on logout
+- Rename identities, edit email without re-registering
 - Remove identities safely, with active-identity guard
+- `clone <repo>` — clone and auto-configure the right local identity
 
 </td>
 <td width="50%" valign="top">
@@ -235,6 +280,7 @@ There are other tools that try to solve this. Here's how git-user is different:
 - Bind any existing key to any identity
 - `rekey` rotates keys with automatic backup and rollback
 - `IdentitiesOnly yes` — SSH never leaks the wrong key
+- SSH connection verified on every switch (GitHub, GitLab, Bitbucket)
 
 </td>
 </tr>
@@ -244,6 +290,7 @@ There are other tools that try to solve this. Here's how git-user is different:
 ### 🛡️ Security & Passphrases
 - Passphrase-protected keys enforced by default
 - Secure native OS Keychain integration (macOS Keychain, Linux Keyring) to store passphrases safely
+- Clean passphrase prompts — just `Enter Passphrase 🔑`, no key paths on screen
 - `audit` audits every identity: permissions, passphrase, key existence
 - `passphrase` add, change, or remove (`--remove`) passphrase security for the active identity
 - All config writes are atomic (temp file + rename) — crash-safe
@@ -272,16 +319,60 @@ There are other tools that try to solve this. Here's how git-user is different:
 <td width="50%" valign="top">
 
 ### 🖥️ Developer Experience
-- Interactive TUI menu (`git-user tui`) with path-binding management
+- Fully interactive TUI (`git-user` or `git-user tui`) — switch, register, publish keys, check SSH, and change passphrases without ever leaving the terminal UI
 - Directory-based auto-switching (`bind-path` / `unbind-path`)
 - Shell completions for bash, zsh, fish
 - Pre-commit hooks to block wrong-identity commits
 - `doctor` diagnoses your entire setup in one command
+- `stats` audits commit author identity across your repos
 - Encrypted export/import for moving to a new machine
+- `sync` keeps identities in sync across devices via a private repo
+- Self-update (`--update`) with version display and downloaded-binary verification
 
 </td>
 </tr>
 </table>
+
+---
+
+## 🖥️ Interactive TUI
+
+Launch the full terminal UI with `git-user` (no arguments) or `git-user tui`.
+
+```
+┌─────────────────────────────────────────────┐
+│  🐙 GIT-USER  Dashboard                     │
+│  Active: work (you@company.com)             │
+│  ssh-agent: Connected                       │
+│                                             │
+│  ── Identities ──────────────────────────── │
+│  ▶ work        you@company.com      active  │
+│    personal    you@gmail.com               │
+│    client-a    you@client.com              │
+│                                             │
+│  [a] Add identity   [x] Select  [q] Quit    │
+└─────────────────────────────────────────────┘
+```
+
+### What you can do from inside the TUI
+
+- **Dashboard** — see your active identity and ssh-agent status at a glance
+- **Identity detail** — per-profile overview: SSH key, passphrase status, live
+  SSH connection check against GitHub/GitLab/Bitbucket, verified platforms
+- **Switch / logout** — switch to any identity, or sign out, with passphrase
+  entry handled *inside* the TUI (never a shell prompt popping up outside)
+- **Passphrase management** — add, change, or remove the passphrase for a
+  profile directly from its detail view
+- **Register** — guided identity creation with SSH key generation
+- **Publish keys** — show a public key, or push it straight to GitHub,
+  GitLab, or Bitbucket (API token / CLI-based)
+- **Check SSH** — verify the profile's key against the platforms; if the key
+  needs unlocking, the TUI asks for the passphrase in-app
+- **Utilities** — rekey, bind/unbind keys, custom git config, export,
+  fix-remote, and more
+- **Stats** — commit author identity audit for your repositories
+
+Everything is keyboard-driven: use `↑`/`↓` to navigate and `Enter` to select.
 
 ---
 
@@ -393,12 +484,16 @@ What happens:
 | `register` | Create a new identity (guided setup with SSH) |
 | `switch <name> [--local]` | Switch to an identity (globally, or locally in repository config) |
 | `switch -c <name> [-e <email>]` | Create and switch in one command |
+| `switch -c <name> [--passphrase <pass>]` | Create and switch, setting the key passphrase |
+| `switch -c <name> --temp` | Create a temporary identity that is removed on logout |
 | `switch -c <name> --skip-ssh` | Create and switch, skipping SSH key setup (attach later with `bind-key`) |
 | `switch --original` | Import and switch to the original pre-git-user identity |
 | `list` | Show all identities |
 | `current` | Show active identity |
 | `prompt` | Output active identity for terminal integration |
+| `prompt install` | Interactive installer for terminal prompt integration |
 | `remove <name>` | Delete an identity |
+| `rename <old> <new>` | Rename an identity |
 | `edit <name> <email>` | Update email |
 | `bind-key <name> [--ssh-key <path>]` | Link an SSH key to an identity |
 | `bind-path <name> <path>` | Bind a directory path to an identity for auto-switching |
@@ -413,7 +508,6 @@ What happens:
 | `audit` | Audit all identities for security issues |
 | `export --all` | Export all identities + SSH keys (AES-256 encrypted) |
 | `export <name> [name...]` | Export specific identities |
-| `switch --original [name]` | Import original gitconfig identity into git-user and switch to it (asks for the identity name if not given) |
 | `import <file>` | Import from an encrypted bundle |
 | `clone <repo-url> [dir]` | Clone repository and auto-configure local identity |
 | `stats` | Audit and show commit author identity stats |
@@ -423,10 +517,10 @@ What happens:
 | `tui` | Interactive menu |
 | `completion <shell>` | Shell completions (bash/zsh/fish) |
 | `hook <install\|uninstall>` | Pre-commit hook to verify identity |
-| `--update` | Update to the latest version |
+| `--update` | Update to the latest version (shows version transition + binary verification) |
 | `--version` / `-v` | Show version |
 
-**Aliases:** `ls` → `list` · `sw` → `switch` · `rm` → `remove` · `bind` → `bind-key` · `pubkey push` → `pubkey publish` · `security` → `audit` · `import-original` → `switch --original`
+**Aliases:** `ls` → `list` · `sw` → `switch` · `rm` → `remove` · `reg` → `register` · `lo` / `signout` → `logout` · `bind` → `bind-key` · `pubkey push` → `pubkey publish` · `security` → `audit` · `import-original` → `switch --original` · `tui` / `-i` / `--interactive` → interactive menu
 
 > **Machine-readable output:** `list` and `current` print `name <email>` (plus a
 > ` # active` marker on `list`) when piped or with `--plain`. Add `--json` for
@@ -525,6 +619,7 @@ Everything looks good.
 |---------|-----|
 | `git-user: command not found` | Restart terminal or `source ~/.zshrc` |
 | Still the old version after `install.sh` | An older copy (e.g. from `go install` or npm) earlier in `PATH` shadows the new one — remove it with `rm "$(command -v git-user)"`, or update in place with `git-user --update` |
+| `--update` warns about a version mismatch | The downloaded binary reported a different version than the release tag — usually transient. Re-run `git-user --update` after the release rebuilds; verify with `git-user --version` |
 | SSH verification failed | Key not added to platform yet — run `git-user pubkey` to copy the public key |
 | `Permission denied` during install | Expected — installer needs sudo for `/usr/local/bin` |
 | Git asks for credentials on push | Run `git-user fix-remote` to convert HTTPS → SSH |
@@ -616,9 +711,10 @@ Your platform will now display a green **"Verified"** badge next to all commits 
 
 ```
 ~/.git-users/
-  └── config.json          ← your identities (names, emails, key paths)
+  ├── config.json          ← your identities (names, emails, key paths)
+  └── sync/                ← sync bundle (created when you use git-user sync)
 
-~/.gitconfig               ← updated on every switch/logout (name, email, sshCommand)
+~/.gitconfig               ← updated on every switch/logout (name, email, sshCommand, includeIf bindings)
 ~/.ssh/git_<name>          ← private key (never leaves your machine)
 ~/.ssh/git_<name>.pub      ← public key (what you add to GitHub/GitLab)
 ```
