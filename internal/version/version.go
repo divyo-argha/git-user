@@ -1,10 +1,6 @@
 package version
 
-// Version is the current fallback version of git-user.
-// Release builds override the build version at compile time via
-//
-//	-ldflags="-X main.buildVersion=vX.Y.Z"  (see cmd/git-user/main.go)
-var Version = "v4.7.7"
+var Version = "v4.7.8"
 
 var BuildVersion = ""
 

@@ -265,6 +265,7 @@ func extractBinary(archivePath, binaryName string) (string, error) {
 func handleNpmUpdate() error {
 	ui.Info("Detected npm installation. Checking registry for updates...")
 
+	targetVersion := "latest"
 	req, _ := http.NewRequest("GET", "https://registry.npmjs.org/git-userhub/latest", nil)
 	req.Header.Set("User-Agent", "git-user-updater")
 	resp, err := http.DefaultClient.Do(req)
@@ -274,12 +275,15 @@ func handleNpmUpdate() error {
 			Version string `json:"version"`
 		}
 		if err := json.NewDecoder(resp.Body).Decode(&npmPkg); err == nil && npmPkg.Version != "" {
+			targetVersion = npmPkg.Version
 			if !isNewerVersion(npmPkg.Version, version.GetVersion()) {
 				ui.Success(fmt.Sprintf("git-user is already up to date (%s). Latest npm version: %s", version.GetVersion(), npmPkg.Version))
 				return nil
 			}
 		}
 	}
+
+	ui.Info(fmt.Sprintf("Updating git-userhub %s → %s via npm...", version.GetVersion(), targetVersion))
 
 	// On Windows the running executable is locked by the OS, so npm cannot
 	// replace it in place. Hand the update to a background process that runs
@@ -292,7 +296,6 @@ func handleNpmUpdate() error {
 		return nil
 	}
 
-	ui.Info("Updating git-userhub via npm...")
 	npmCmd := exec.Command("npm", "install", "-g", "git-userhub@latest")
 	if _, err := npmCmd.CombinedOutput(); err != nil {
 		ui.Warn("Automatic npm update could not be completed.")
@@ -300,7 +303,7 @@ func handleNpmUpdate() error {
 		return nil
 	}
 
-	ui.Success("✨ git-userhub updated via npm to latest version")
+	ui.Success(fmt.Sprintf("✨ git-userhub updated via npm to %s", targetVersion))
 	return nil
 }
 
