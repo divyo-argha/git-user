@@ -108,7 +108,7 @@ func runPassphrase(args []string) error {
 			ui.Info("This SSH key is not passphrase protected.")
 			return nil
 		}
-		testPass, err := readPassphrase("Passphrase to test: ")
+		testPass, err := readPassphrase(PassphrasePrompt)
 		if err != nil {
 			return err
 		}
@@ -157,7 +157,7 @@ func runPassphrase(args []string) error {
 			return nil
 		}
 		ui.Info("Enter current passphrase to confirm passphrase removal.")
-		oldPassphrase, err := readPassphrase("Current passphrase: ")
+		oldPassphrase, err := readPassphrase(PassphrasePrompt)
 		if err != nil {
 			return err
 		}
@@ -179,7 +179,7 @@ func runPassphrase(args []string) error {
 	if protected {
 		ui.Info("This key already has a passphrase. Enter the current passphrase to change it.")
 		var err error
-		oldPassphrase, err = readPassphrase("Current passphrase: ")
+		oldPassphrase, err = readPassphrase(PassphrasePrompt)
 		if err != nil {
 			return err
 		}
@@ -191,7 +191,7 @@ func runPassphrase(args []string) error {
 		ui.Warn("This key is currently not passphrase protected.")
 	}
 
-	newPassphrase, err := promptRequiredPassphrase("New passphrase: ", "Confirm new passphrase: ")
+	newPassphrase, err := promptRequiredPassphrase()
 	if err != nil {
 		return err
 	}
@@ -220,8 +220,8 @@ func runPassphrase(args []string) error {
 	return nil
 }
 
-func promptRequiredPassphrase(prompt, confirmPrompt string) (string, error) {
-	passphrase, err := readPassphrase(prompt)
+func promptRequiredPassphrase() (string, error) {
+	passphrase, err := readPassphrase(PassphrasePrompt)
 	if err != nil {
 		return "", err
 	}
@@ -230,7 +230,7 @@ func promptRequiredPassphrase(prompt, confirmPrompt string) (string, error) {
 		return "", fmt.Errorf("empty passphrase")
 	}
 
-	confirm, err := readPassphrase(confirmPrompt)
+	confirm, err := readPassphrase(ConfirmPassphrasePrompt)
 	if err != nil {
 		return "", err
 	}

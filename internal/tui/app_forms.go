@@ -258,6 +258,11 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 			return opSwitch(a.store, rest, msg.Values[0])
 		})
 
+	case "check-ssh-pass":
+		return a, a.runTaskCmd("check-ssh", rest, func() (opResult, error) {
+			return opCheckSSH(a.store, rest, msg.Values[0])
+		})
+
 	case "clone":
 		if msg.Values[0] == "" {
 			return a, core.ShowToastCmd("Repository URL is required", theme.ToastStyleError, 3*time.Second)

@@ -21,7 +21,11 @@ func (a *App) handleTaskResult(msg core.TaskResultMsg) (tea.Model, tea.Cmd) {
 		a.removeKeyPath = ""
 		switch {
 		case errors.Is(msg.Err, ErrNeedsPassphrase):
-			cmds = append(cmds, a.switchPassphraseFormCmd(msg.Name))
+			if msg.Kind == "check-ssh" {
+				cmds = append(cmds, a.checkSSHPassphraseFormCmd(msg.Name))
+			} else {
+				cmds = append(cmds, a.switchPassphraseFormCmd(msg.Name))
+			}
 		case errors.Is(msg.Err, ErrNeedsCredential):
 			cmds = append(cmds, a.credentialFormCmd(msg.Name))
 		default:

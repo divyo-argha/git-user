@@ -75,7 +75,7 @@ if [ -n "$EXISTING" ] && [ "$EXISTING" != "$INSTALL_DIR/$BIN_NAME" ]; then
     echo ""
 fi
 
-echo "Downloading $BIN_NAME from $LATEST_URL ..."
+echo "Downloading $BIN_NAME $LATEST_TAG ($PLATFORM $ARCHITECTURE)..."
 
 # Create a temporary directory
 TMP_DIR=$(mktemp -d)
@@ -99,6 +99,18 @@ fi
 
 echo ""
 echo "✅ Successfully installed $BIN_NAME $LATEST_TAG to $INSTALL_DIR"
+
+# Verify the installed binary runs and reports the expected version
+INSTALLED_VER="$("$INSTALL_DIR/$BIN_NAME" --version 2>/dev/null || true)"
+if [ -n "$INSTALLED_VER" ]; then
+    if printf '%s' "$INSTALLED_VER" | grep -q "$LATEST_TAG"; then
+        echo "✅ Verified: $INSTALLED_VER"
+    else
+        echo "⚠ Installed binary reports: $INSTALLED_VER (expected $LATEST_TAG)"
+    fi
+else
+    echo "⚠ Could not run the installed binary — check it with: $INSTALL_DIR/$BIN_NAME --version"
+fi
 
 # Post-install check: confirm which binary '$BIN_NAME' actually resolves to.
 # An older install that appears earlier in PATH would shadow the new version.

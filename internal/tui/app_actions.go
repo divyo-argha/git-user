@@ -132,7 +132,7 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 
 	case "check-ssh":
 		return a, a.runTaskCmd("check-ssh", msg.Name, func() (opResult, error) {
-			return opCheckSSH(a.store, msg.Name)
+			return opCheckSSH(a.store, msg.Name, "")
 		})
 
 	case "unbind":
@@ -397,9 +397,18 @@ func (a *App) pushExportForm(names []string) tea.Cmd {
 }
 
 // switchPassphraseFormCmd prompts for the SSH key passphrase during a switch.
+// The passphrase is asked entirely inside the TUI.
 func (a *App) switchPassphraseFormCmd(name string) tea.Cmd {
 	return pushCmd(screens.NewForm("Enter Passphrase", "", "switch-pass:"+name, []screens.FormInput{
-		{Label: "Enter Passphrase:", IsPassword: true},
+		{Label: "Enter Passphrase 🔑:", IsPassword: true},
+	}, a.theme))
+}
+
+// checkSSHPassphraseFormCmd asks for the SSH key passphrase in-app before
+// running the SSH connection check.
+func (a *App) checkSSHPassphraseFormCmd(name string) tea.Cmd {
+	return pushCmd(screens.NewForm("Check SSH Connection", "", "check-ssh-pass:"+name, []screens.FormInput{
+		{Label: "Enter Passphrase 🔑:", IsPassword: true},
 	}, a.theme))
 }
 

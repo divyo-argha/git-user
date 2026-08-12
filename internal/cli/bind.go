@@ -132,10 +132,7 @@ func interactiveSSHSetup(name, email string, store *config.Store, noSign bool) e
 		} else {
 			ui.Info("Generating SSH key...")
 			ui.Info("You will be prompted to set a passphrase for the key.")
-			cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath)
-			cmd.Stdin = os.Stdin
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
+			cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
 			if err := cmd.Run(); err != nil {
 				ui.Error("Key generation failed")
 				return err
@@ -143,6 +140,21 @@ func interactiveSSHSetup(name, email string, store *config.Store, noSign bool) e
 
 			ui.Success("Key generated!")
 			sshKeyPath = keyPath
+
+			newPass, err := readPassphrase(PassphrasePrompt)
+			if err == nil && newPass != "" {
+				confirm, errConfirm := readPassphrase(ConfirmPassphrasePrompt)
+				if errConfirm == nil && newPass == confirm {
+					if errApply := changeSSHKeyPassphrase(keyPath, "", newPass); errApply != nil {
+						ui.Errorf("Could not add passphrase: %v", errApply)
+					} else {
+						ui.Success("Passphrase applied securely!")
+						promptAndStoreKeychain(name, keyPath, newPass)
+					}
+				} else {
+					ui.Error("Passphrases do not match.")
+				}
+			}
 
 			pubKeyBytes, err := os.ReadFile(keyPath + ".pub")
 			if err == nil {

@@ -160,9 +160,9 @@ func CheckPlatformConnectionCmd(profileName, keyPath, platform, host string, suc
 		args = append(args, host)
 
 		cmd := exec.Command("ssh", args...)
-		if keyPath != "" {
-			cmd.Env = append(os.Environ(), "SSH_AUTH_SOCK=")
-		}
+		// Note: SSH_AUTH_SOCK is deliberately kept, so identities already
+		// loaded in the agent are used instead of forcing a passphrase
+		// prompt on the tty from inside the TUI.
 
 		output, err := cmd.CombinedOutput()
 		out := string(output)

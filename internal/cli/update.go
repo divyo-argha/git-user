@@ -32,8 +32,6 @@ func RunUpdate() error {
 		return handleNpmUpdate()
 	}
 
-	ui.Info(fmt.Sprintf("Updating git-user from %s...", execPath))
-
 	// Fetch latest release info
 	releaseURL := "https://api.github.com/repos/divyo-argha/git-user/releases/latest"
 	req, _ := http.NewRequest("GET", releaseURL, nil)
@@ -106,7 +104,8 @@ func RunUpdate() error {
 	defer os.Remove(tmpPath)
 	tmpFile.Close()
 
-	ui.Info(fmt.Sprintf("Downloading %s...", release.TagName))
+	ui.Info(fmt.Sprintf("Updating git-user %s → %s (%s %s)", version.GetVersion(), release.TagName, goos, goarch))
+	ui.Info(fmt.Sprintf("Downloading git-user %s from GitHub releases...", release.TagName))
 	if err := downloadFile(downloadURL, tmpPath); err != nil {
 		return fmt.Errorf("downloading binary: %w", err)
 	}
@@ -123,6 +122,22 @@ func RunUpdate() error {
 		return fmt.Errorf("chmod: %w", err)
 	}
 
+	// Verify the downloaded binary runs and reports the expected version
+	// before replacing the installed copy.
+	versionOK := false
+	if verOut, verErr := exec.Command(newBinary, "--version").Output(); verErr == nil {
+		actual := strings.TrimSpace(string(verOut))
+		if strings.Contains(actual, strings.TrimPrefix(release.TagName, "v")) ||
+			strings.Contains(actual, release.TagName) {
+			versionOK = true
+			ui.Success(fmt.Sprintf("Download verified: %s", actual))
+		} else {
+			ui.Warn(fmt.Sprintf("Downloaded binary reports %q — expected %s. Proceeding, but verify with 'git-user --version' after the update.", actual, release.TagName))
+		}
+	} else {
+		ui.Warn(fmt.Sprintf("Could not verify the downloaded binary: %v", verErr))
+	}
+
 	// Replace the installed binary (platform-specific: handles running
 	// executables and permission escalation).
 	msg, err := installBinary(execPath, newBinary)
@@ -134,7 +149,11 @@ func RunUpdate() error {
 		return nil
 	}
 
-	fmt.Printf("\n\033[32m✨ git-user updated to %s\033[0m\n", release.TagName)
+	if versionOK {
+		fmt.Printf("\n\033[32m✨ git-user updated to %s (verified)\033[0m\n", release.TagName)
+	} else {
+		fmt.Printf("\n\033[32m✨ git-user updated to %s\033[0m — run 'git-user --version' to confirm\n", release.TagName)
+	}
 	return nil
 }
 

@@ -173,7 +173,7 @@ func runSwitch(args []string) error {
 
 			if !hasStored {
 				var err error
-				passphrase, err = readPassphrase("Passphrase: ")
+				passphrase, err = readPassphrase(PassphrasePrompt)
 				if err != nil {
 					return err
 				}

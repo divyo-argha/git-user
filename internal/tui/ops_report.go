@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/ssh"
 	"os"
 	"os/exec"
@@ -44,14 +45,39 @@ func opPubkey(store *config.Store, name string) (opResult, error) {
 	return opResult{detail: report, showReport: true}, nil
 }
 
-// opCheckSSH tests the SSH connection for an identity.
-func opCheckSSH(store *config.Store, name string) (opResult, error) {
+// opCheckSSH tests the SSH connection for an identity. The passphrase is
+// optional: it is used to unlock a passphrase-protected key that is not in
+// the agent. Without one, the keychain is consulted (persistent mode) and the
+// TUI asks for it in-app otherwise — ssh itself never prompts on the terminal.
+func opCheckSSH(store *config.Store, name, passphrase string) (opResult, error) {
 	user := store.FindUser(name)
 	if user == nil {
 		return opResult{}, fmt.Errorf("identity %q not found", name)
 	}
 	if user.SSHKey == "" {
 		return opResult{}, fmt.Errorf("no SSH key bound to identity %q", name)
+	}
+	protected, perr := isSSHKeyPassphraseProtected(user.SSHKey)
+	if perr == nil && protected && !ssh.IsSSHKeyLoaded(user.SSHKey) {
+		p := passphrase
+		if p == "" && user.GetPassphraseMode() == "persistent" {
+			if secret, kerr := keyring.GetKeychainPassphrase(user.Name); kerr == nil && secret != "" {
+				if ssh.VerifyPassphrase(user.SSHKey, secret) {
+					p = secret
+				} else {
+					_ = keyring.DeleteKeychainPassphrase(user.Name)
+				}
+			}
+		}
+		if p == "" {
+			return opResult{}, ErrNeedsPassphrase
+		}
+		if !ssh.VerifyPassphrase(user.SSHKey, p) {
+			return opResult{}, fmt.Errorf("incorrect passphrase")
+		}
+		if err := ssh.AddSSHKeyWithPassphrase(user.SSHKey, p); err != nil {
+			return opResult{}, fmt.Errorf("could not load key into agent: %w", err)
+		}
 	}
 	report := fmt.Sprintf("Checking SSH connection for %s (%s)\n\n", user.Name, user.Email)
 	ok, detail := verifySSHConnectionWithKey(user.SSHKey)
@@ -68,6 +94,10 @@ func opCheckSSH(store *config.Store, name string) (opResult, error) {
 }
 
 // verifySSHConnectionWithKey tests SSH auth across the major platforms.
+// The key must already be unlocked (in the agent or unprotected) by the
+// caller: ssh is never allowed to prompt for a passphrase from within the TUI,
+// and the special "unset the agent socket" trick is not used because it would
+// force ssh to fall back to the key file (and prompt on the tty for it).
 func verifySSHConnectionWithKey(keyPath string) (bool, string) {
 	platforms := []struct {
 		host    string
@@ -84,9 +114,6 @@ func verifySSHConnectionWithKey(keyPath string) (bool, string) {
 		}
 		args = append(args, p.host)
 		cmd := exec.Command("ssh", args...)
-		if keyPath != "" {
-			cmd.Env = append(os.Environ(), "SSH_AUTH_SOCK=")
-		}
 		output, _ := cmd.CombinedOutput()
 		out := string(output)
 		for _, marker := range p.success {

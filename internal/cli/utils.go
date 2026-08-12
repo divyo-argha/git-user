@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/ssh"
 	"os"
@@ -11,6 +12,13 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/ui"
 	"golang.org/x/term"
+)
+
+// PassphrasePrompt is the only text shown when a profile's key passphrase is
+// requested — no key path, nothing else.
+const (
+	PassphrasePrompt        = "Enter Passphrase 🔑: "
+	ConfirmPassphrasePrompt = "Confirm Passphrase 🔑: "
 )
 
 func verifySSHConnection() error {
@@ -27,6 +35,16 @@ func verifySSHConnectionWithKey(keyPath string) error {
 		{"git@bitbucket.org", []string{"logged in as", "successfully authenticated", "authenticated via ssh key"}},
 	}
 
+	// A passphrase-protected key that is not loaded in the agent would make
+	// ssh prompt on the terminal itself ("Enter passphrase for key '<path>'")
+	// and leak the key path into the UI. Unlock it up front instead, so ssh
+	// finds the identity in the agent and never prompts.
+	if keyPath != "" {
+		if err := ensureKeyUnlocked(keyPath); err != nil {
+			return err
+		}
+	}
+
 	for _, p := range platforms {
 		args := []string{"-T", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5"}
 		if keyPath != "" {
@@ -35,9 +53,6 @@ func verifySSHConnectionWithKey(keyPath string) error {
 		args = append(args, p.host)
 
 		cmd := exec.Command("ssh", args...)
-		if keyPath != "" {
-			cmd.Env = append(os.Environ(), "SSH_AUTH_SOCK=")
-		}
 		output, _ := cmd.CombinedOutput()
 		out := string(output)
 		for _, marker := range p.success {
@@ -48,6 +63,55 @@ func verifySSHConnectionWithKey(keyPath string) error {
 	}
 
 	return fmt.Errorf("connection failed on all platforms")
+}
+
+// ensureKeyUnlocked loads a passphrase-protected key into the SSH agent using
+// the keychain passphrase of its owning identity, or a clean terminal prompt.
+// Keys that are unprotected or already loaded are left untouched.
+func ensureKeyUnlocked(keyPath string) error {
+	protected, err := isSSHKeyPassphraseProtected(keyPath)
+	if err != nil || !protected {
+		return nil
+	}
+	if ssh.IsSSHKeyLoaded(keyPath) {
+		return nil
+	}
+
+	// Prefer the keychain passphrase of the identity that owns this key.
+	if name := keychainNameForKey(keyPath); name != "" {
+		if secret, kerr := keyring.GetKeychainPassphrase(name); kerr == nil && secret != "" {
+			if ssh.VerifyPassphrase(keyPath, secret) {
+				return ssh.AddSSHKeyWithPassphrase(keyPath, secret)
+			}
+			_ = keyring.DeleteKeychainPassphrase(name)
+		}
+	}
+
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return fmt.Errorf("SSH key %q requires a passphrase — run in a terminal to unlock it", keyPath)
+	}
+	pass, err := readPassphrase(PassphrasePrompt)
+	if err != nil {
+		return err
+	}
+	if !ssh.VerifyPassphrase(keyPath, pass) {
+		return fmt.Errorf("incorrect passphrase")
+	}
+	return ssh.AddSSHKeyWithPassphrase(keyPath, pass)
+}
+
+// keychainNameForKey returns the identity name that owns the given key, if any.
+func keychainNameForKey(keyPath string) string {
+	store, err := config.Load()
+	if err != nil {
+		return ""
+	}
+	for _, u := range store.Users {
+		if u.SSHKey == keyPath {
+			return u.Name
+		}
+	}
+	return ""
 }
 
 func expandPath(path string) string {
@@ -78,17 +142,7 @@ func generateAndDisplayKey(name, email, passphrase string) (string, error) {
 	}
 
 	ui.Info(fmt.Sprintf("Generating SSH key at %s...", keyPath))
-	var cmd *exec.Cmd
-	if passphrase != "" {
-		cmd = exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
-	} else {
-		ui.Info("You will be prompted to set a passphrase for the key.")
-		cmd = exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	}
-
+	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("ssh-keygen failed: %w", err)
 	}
@@ -102,7 +156,22 @@ func generateAndDisplayKey(name, email, passphrase string) (string, error) {
 			promptAndStoreKeychain(name, keyPath, passphrase)
 		}
 	} else {
-		checkAndPromptPassphrase(name, keyPath)
+		ui.Info("You will be prompted to set a passphrase for the key.")
+		newPass, err := readPassphrase(PassphrasePrompt)
+		if err != nil || newPass == "" {
+			return keyPath, nil
+		}
+		confirm, err := readPassphrase(ConfirmPassphrasePrompt)
+		if err != nil || newPass != confirm {
+			ui.Error("Passphrases do not match.")
+			return keyPath, nil
+		}
+		if err := changeSSHKeyPassphrase(keyPath, "", newPass); err != nil {
+			ui.Errorf("Could not add passphrase: %v", err)
+		} else {
+			ui.Success("Passphrase applied securely!")
+			promptAndStoreKeychain(name, keyPath, newPass)
+		}
 	}
 
 	pubKeyBytes, err := os.ReadFile(keyPath + ".pub")
@@ -181,7 +250,7 @@ func checkAndPromptPassphrase(name string, keyPath string) {
 		fmt.Println()
 		ui.Warn("⚠️  Your SSH key is not passphrase protected.")
 		if ui.Confirm("Would you like to add a passphrase to protect this identity now?", true) {
-			newPassphrase, err := promptRequiredPassphrase("New passphrase: ", "Confirm new passphrase: ")
+			newPassphrase, err := promptRequiredPassphrase()
 			if err == nil && newPassphrase != "" {
 				if err := changeSSHKeyPassphrase(keyPath, "", newPassphrase); err != nil {
 					ui.Errorf("Could not add passphrase: %v", err)
@@ -208,7 +277,7 @@ func promptAndStoreKeychain(name, keyPath, passphrase string) {
 
 	if passphrase == "" {
 		var err error
-		passphrase, err = readPassphrase("Enter the passphrase to save in keychain: ")
+		passphrase, err = readPassphrase(PassphrasePrompt)
 		if err != nil {
 			ui.Errorf("Error reading passphrase: %v", err)
 			return
