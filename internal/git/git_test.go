@@ -1,10 +1,41 @@
 package git_test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/divyo-argha/git-user/internal/git"
 )
+
+func TestIsIdentityInSync(t *testing.T) {
+	// Both empty never reports in sync.
+	if git.IsIdentityInSync("", "") {
+		t.Error("IsIdentityInSync(\"\", \"\") should be false")
+	}
+
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+
+	// No git config yet → out of sync.
+	if git.IsIdentityInSync("work", "work@example.com") {
+		t.Error("expected out of sync with no git config")
+	}
+
+	// Matching identity → in sync.
+	cfg := "[user]\n\tname = work\n\temail = work@example.com\n"
+	if err := os.WriteFile(filepath.Join(dir, ".gitconfig"), []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if !git.IsIdentityInSync("work", "work@example.com") {
+		t.Error("expected in sync when git config matches")
+	}
+
+	// Drifted identity (only name matches) → out of sync.
+	if git.IsIdentityInSync("work", "other@example.com") {
+		t.Error("expected out of sync when email drifted")
+	}
+}
 
 func TestConvertHTTPSToSSH(t *testing.T) {
 	cases := []struct {

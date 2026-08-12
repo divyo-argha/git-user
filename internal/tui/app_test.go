@@ -1,6 +1,9 @@
 package tui
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +13,79 @@ import (
 	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 )
+
+// TestFixSyncAction_ReappliesActive isolates HOME and GIT_USER_CONFIG so the
+// re-apply runs against a temp git config, then verifies the identity was
+// written back and the store switched to it.
+func TestFixSyncAction_ReappliesActive(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("GIT_USER_CONFIG", filepath.Join(dir, "config.json"))
+
+	store := &config.Store{}
+	if err := store.AddUser("work", "work@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SetCurrent("work"); err != nil {
+		t.Fatal(err)
+	}
+
+	app := NewApp(store, screens.NewDashboard(store, theme.DefaultTheme()))
+
+	updated, cmd := app.Update(core.ActionResultMsg{Kind: "fix-sync"})
+	app = updated.(*App)
+	if app.Quit() {
+		t.Fatal("app should not quit for in-TUI fix-sync")
+	}
+	if cmd == nil {
+		t.Fatal("expected a task cmd for fix-sync")
+	}
+
+	res := cmd()
+	tr, ok := res.(core.TaskResultMsg)
+	if !ok {
+		t.Fatalf("got %T, want TaskResultMsg", res)
+	}
+	if !tr.Success {
+		t.Fatalf("fix-sync failed: %v", tr.Err)
+	}
+	if tr.Name != "work" {
+		t.Errorf("TaskResultMsg.Name = %q, want %q", tr.Name, "work")
+	}
+
+	// The identity must be written to the isolated git config.
+	cfgData, err := os.ReadFile(filepath.Join(dir, ".gitconfig"))
+	if err != nil {
+		t.Fatalf("reading isolated .gitconfig: %v", err)
+	}
+	cfg := string(cfgData)
+	if !strings.Contains(cfg, "work@example.com") {
+		t.Errorf("git config does not contain the re-applied email:\n%s", cfg)
+	}
+}
+
+// TestFixSyncAction_NoActiveIdentity shows an error toast without running a task.
+func TestFixSyncAction_NoActiveIdentity(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	t.Setenv("GIT_USER_CONFIG", filepath.Join(dir, "config.json"))
+
+	store := &config.Store{}
+	app := NewApp(store, screens.NewDashboard(store, theme.DefaultTheme()))
+
+	updated, cmd := app.Update(core.ActionResultMsg{Kind: "fix-sync"})
+	app = updated.(*App)
+	if app.Quit() {
+		t.Fatal("app should not quit")
+	}
+	if cmd == nil {
+		t.Fatal("expected a toast cmd")
+	}
+	res := cmd()
+	if _, ok := res.(core.ToastMsg); !ok {
+		t.Fatalf("got %T, want ToastMsg", res)
+	}
+}
 
 func TestAppStack(t *testing.T) {
 	withTempConfig(t)

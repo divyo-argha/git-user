@@ -1,11 +1,14 @@
 package core
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 )
 
@@ -260,6 +263,54 @@ func TestRefreshStoreCmd(t *testing.T) {
 	msg := cmd()
 	if _, ok := msg.(StoreRefreshedMsg); !ok {
 		t.Errorf("RefreshStoreCmd should return StoreRefreshedMsg, got %T", msg)
+	}
+}
+
+func TestCheckSyncStatusCmd(t *testing.T) {
+	// nil store never runs git commands and reports in sync.
+	msg := CheckSyncStatusCmd(nil)()
+	if sm, ok := msg.(SyncStatusMsg); !ok || !sm.InSync {
+		t.Errorf("nil store: got %#v, want SyncStatusMsg{InSync: true}", msg)
+	}
+
+	// Empty store (no active identity) is always in sync.
+	msg = CheckSyncStatusCmd(&config.Store{})()
+	if sm, ok := msg.(SyncStatusMsg); !ok || !sm.InSync {
+		t.Errorf("empty store: got %#v, want SyncStatusMsg{InSync: true}", msg)
+	}
+
+	// Active identity without a matching git config reports out of sync.
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	store := &config.Store{}
+	if err := store.AddUser("work", "work@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SetCurrent("work"); err != nil {
+		t.Fatal(err)
+	}
+	msg = CheckSyncStatusCmd(store)()
+	sm, ok := msg.(SyncStatusMsg)
+	if !ok {
+		t.Fatalf("got %T, want SyncStatusMsg", msg)
+	}
+	if sm.InSync {
+		t.Error("expected out of sync when git config has no matching identity")
+	}
+
+	// Once the git config matches the active identity, it reports in sync.
+	gitDir := filepath.Join(dir, ".gitconfig")
+	cfg := "[user]\n\tname = work\n\temail = work@example.com\n"
+	if err := os.WriteFile(gitDir, []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	msg = CheckSyncStatusCmd(store)()
+	sm, ok = msg.(SyncStatusMsg)
+	if !ok {
+		t.Fatalf("got %T, want SyncStatusMsg", msg)
+	}
+	if !sm.InSync {
+		t.Error("expected in sync when git config matches active identity")
 	}
 }
 
