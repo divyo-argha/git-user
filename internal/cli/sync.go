@@ -87,6 +87,9 @@ func runSync(args []string) error {
 		// Run git init, remote add, etc.
 		if err := runCmdsInDir(syncDir,
 			[]string{"init"},
+			[]string{"config", "user.name", "git-user-sync"},
+			[]string{"config", "user.email", "sync@git-user.local"},
+			[]string{"config", "commit.gpgsign", "false"},
 			[]string{"remote", "add", "origin", repoURL},
 			[]string{"branch", "-M", "main"},
 		); err != nil {
@@ -126,6 +129,11 @@ func runSync(args []string) error {
 			ui.Errorf("re-cloning sync repo failed: %v", err)
 			return fmt.Errorf("sync repo re-clone failed: %w", err)
 		}
+		_ = runCmdsInDir(syncDir,
+			[]string{"config", "user.name", "git-user-sync"},
+			[]string{"config", "user.email", "sync@git-user.local"},
+			[]string{"config", "commit.gpgsign", "false"},
+		)
 		ui.Success("Sync directory restored.")
 	} else {
 		// We run pull, ignoring errors if remote branch doesn't exist yet (e.g. first sync)

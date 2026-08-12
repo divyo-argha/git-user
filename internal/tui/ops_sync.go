@@ -43,6 +43,9 @@ func opSync(store *config.Store, repoURL, passphrase string) (opResult, error) {
 		}
 		if err := runCmdsInDir(syncDir,
 			[]string{"init"},
+			[]string{"config", "user.name", "git-user-sync"},
+			[]string{"config", "user.email", "sync@git-user.local"},
+			[]string{"config", "commit.gpgsign", "false"},
 			[]string{"remote", "add", "origin", repoURL},
 			[]string{"branch", "-M", "main"},
 		); err != nil {
@@ -70,6 +73,11 @@ func opSync(store *config.Store, repoURL, passphrase string) (opResult, error) {
 		if out, err := cloneCmd.CombinedOutput(); err != nil {
 			return opResult{}, fmt.Errorf("re-cloning sync repo failed: %v\n%s", err, string(out))
 		}
+		_ = runCmdsInDir(syncDir,
+			[]string{"config", "user.name", "git-user-sync"},
+			[]string{"config", "user.email", "sync@git-user.local"},
+			[]string{"config", "commit.gpgsign", "false"},
+		)
 	} else {
 		_ = runGitInDir(syncDir, "pull", "origin", "main")
 	}

@@ -10,11 +10,35 @@ import (
 	"github.com/divyo-argha/git-user/internal/config"
 )
 
+func filterEnv(env []string) []string {
+	var filtered []string
+	for _, e := range env {
+		if strings.HasPrefix(e, "GIT_AUTHOR_NAME=") && e == "GIT_AUTHOR_NAME=" {
+			continue
+		}
+		if strings.HasPrefix(e, "GIT_AUTHOR_EMAIL=") && e == "GIT_AUTHOR_EMAIL=" {
+			continue
+		}
+		if strings.HasPrefix(e, "GIT_COMMITTER_NAME=") {
+			continue
+		}
+		if strings.HasPrefix(e, "GIT_COMMITTER_EMAIL=") {
+			continue
+		}
+		filtered = append(filtered, e)
+	}
+	return filtered
+}
+
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmdArgs := append([]string{"-c", "commit.gpgsign=false"}, args...)
 	cmd := exec.Command("git", cmdArgs...)
 	cmd.Dir = dir
+	cmd.Env = append(filterEnv(os.Environ()),
+		"GIT_COMMITTER_NAME=Test Committer",
+		"GIT_COMMITTER_EMAIL=committer@example.com",
+	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("git %v failed in %s: %v\nOutput: %s", args, dir, err, string(out))
@@ -94,6 +118,8 @@ func TestAuditRepository_PathFiltering(t *testing.T) {
 
 	runGit(t, tmpDir, "init")
 	runGit(t, tmpDir, "config", "commit.gpgsign", "false")
+	runGit(t, tmpDir, "config", "user.name", "Test Committer")
+	runGit(t, tmpDir, "config", "user.email", "committer@example.com")
 
 	subDir := filepath.Join(tmpDir, "subdir")
 	_ = os.MkdirAll(subDir, 0755)
@@ -135,6 +161,8 @@ func TestAuditRepository_CodeLinesAndCommentFiltering(t *testing.T) {
 
 	runGit(t, tmpDir, "init")
 	runGit(t, tmpDir, "config", "commit.gpgsign", "false")
+	runGit(t, tmpDir, "config", "user.name", "Test Committer")
+	runGit(t, tmpDir, "config", "user.email", "committer@example.com")
 
 	// Commit 1 with Python comments and code
 	pyFile := filepath.Join(tmpDir, "app.py")
@@ -195,6 +223,10 @@ func TestAuditRepositoryMode_SSHSignedCommitByUnregisteredKeyCountsAsSigned(t *t
 	}
 	commitCmd := exec.Command("git", "-c", "gpg.format=ssh", "-c", "commit.gpgsign=true", "-c", "user.signingkey="+keyPath, "commit", "-m", "ssh signed commit")
 	commitCmd.Dir = tmpDir
+	commitCmd.Env = append(filterEnv(os.Environ()),
+		"GIT_COMMITTER_NAME=Test Committer",
+		"GIT_COMMITTER_EMAIL=committer@example.com",
+	)
 	if out, err := commitCmd.CombinedOutput(); err != nil {
 		t.Fatalf("ssh signed commit failed: %v\n%s", err, out)
 	}
@@ -246,6 +278,10 @@ func TestAuditRepositoryMode_SSHSignedCommitByRegisteredKeyIsSignedAndRegistered
 	}
 	commitCmd := exec.Command("git", "-c", "gpg.format=ssh", "-c", "commit.gpgsign=true", "-c", "user.signingkey="+keyPath, "commit", "-m", "ssh signed by registered key")
 	commitCmd.Dir = tmpDir
+	commitCmd.Env = append(filterEnv(os.Environ()),
+		"GIT_COMMITTER_NAME=Test Committer",
+		"GIT_COMMITTER_EMAIL=committer@example.com",
+	)
 	if out, err := commitCmd.CombinedOutput(); err != nil {
 		t.Fatalf("ssh signed commit failed: %v\n%s", err, out)
 	}
@@ -378,6 +414,10 @@ func TestAuditRepositoryMode_RealGPGSignedCommitCountsAsSigned(t *testing.T) {
 	// Explicit gpg.format=openpgp overrides any ambient gitconfig default.
 	commitCmd := exec.Command("git", "-c", "gpg.format=openpgp", "-c", "commit.gpgsign=true", "-c", "user.signingkey="+fpr, "commit", "-m", "signed commit")
 	commitCmd.Dir = tmpDir
+	commitCmd.Env = append(filterEnv(os.Environ()),
+		"GIT_COMMITTER_NAME=Test Committer",
+		"GIT_COMMITTER_EMAIL=committer@example.com",
+	)
 	if out, err := commitCmd.CombinedOutput(); err != nil {
 		t.Fatalf("signed commit failed: %v\n%s", err, out)
 	}
@@ -422,6 +462,10 @@ func TestAuditRepositoryMode_RevokedKeySignatureNotCountedAsSigned(t *testing.T)
 	}
 	commitCmd := exec.Command("git", "-c", "gpg.format=openpgp", "-c", "commit.gpgsign=true", "-c", "user.signingkey="+fpr, "commit", "-m", "will be revoked")
 	commitCmd.Dir = tmpDir
+	commitCmd.Env = append(filterEnv(os.Environ()),
+		"GIT_COMMITTER_NAME=Test Committer",
+		"GIT_COMMITTER_EMAIL=committer@example.com",
+	)
 	if out, err := commitCmd.CombinedOutput(); err != nil {
 		t.Fatalf("signed commit failed: %v\n%s", err, out)
 	}
