@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -54,7 +56,19 @@ type Store struct {
 	Original       *OriginalConfig `json:"original,omitempty"`
 	Sync           *SyncConfig     `json:"sync,omitempty"`
 	ImportPrompted bool            `json:"import_prompted,omitempty"` // whether the first-run import prompt has been shown
+
+	// loadedHash is the SHA-256 of the config file contents as read by Load().
+	// It is never serialized. Save() refuses to overwrite the file if its
+	// contents changed on disk since this store was loaded, which prevents a
+	// long-running session (e.g. the TUI) from resurrecting profiles that were
+	// removed by another session (or a manual edit).
+	loadedHash string
 }
+
+// ErrConfigChanged is returned by Save when the config file on disk was
+// modified after the store was loaded. The caller should reload the config and
+// retry instead of overwriting the concurrent change.
+var ErrConfigChanged = errors.New("config changed on disk since this session loaded it — reload and retry")
 
 func ConfigPath() string {
 	if env := os.Getenv("GIT_USER_CONFIG"); env != "" {
@@ -87,6 +101,7 @@ func Load() (*Store, error) {
 		if err := json.Unmarshal(data, &s); err != nil {
 			return nil, fmt.Errorf("parsing config: %w", err)
 		}
+		s.loadedHash = hashBytes(data)
 	}
 
 	tempData, err := os.ReadFile(TempConfigPath())
@@ -105,6 +120,22 @@ func Load() (*Store, error) {
 
 func Save(s *Store) error {
 	cPath := ConfigPath()
+
+	// Guard against clobbering concurrent changes: if this store was produced
+	// by Load() and the file has since changed on disk, another session or a
+	// manual edit is in play. Overwriting it could resurrect deleted profiles
+	// (e.g. a stale TUI restoring an old "original" identity), so refuse and
+	// let the caller reload.
+	if s.loadedHash != "" {
+		if data, err := os.ReadFile(cPath); err == nil {
+			if hashBytes(data) != s.loadedHash {
+				return ErrConfigChanged
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("reading config: %w", err)
+		}
+	}
+
 	var permUsers []User
 	var tempUsers []User
 	for _, u := range s.Users {
@@ -158,7 +189,13 @@ func Save(s *Store) error {
 		os.Remove(tmpName)
 		return fmt.Errorf("saving config: %w", err)
 	}
+	s.loadedHash = hashBytes(data)
 	return syncIncludeIfs(s)
+}
+
+func hashBytes(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
 
 func (s *Store) FindUser(name string) *User {

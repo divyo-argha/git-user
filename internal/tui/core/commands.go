@@ -9,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
@@ -21,6 +22,21 @@ func RefreshStoreCmd() tea.Cmd {
 	return func() tea.Msg {
 		store, err := config.Load()
 		return StoreRefreshedMsg{Store: store, Err: err}
+	}
+}
+
+// CheckSyncStatusCmd checks whether the active identity is applied to the git
+// config. It never runs git commands for an empty/unset active identity.
+func CheckSyncStatusCmd(store *config.Store) tea.Cmd {
+	return func() tea.Msg {
+		if store == nil || store.Current == "" {
+			return SyncStatusMsg{InSync: true}
+		}
+		u := store.CurrentUser()
+		if u == nil {
+			return SyncStatusMsg{InSync: true}
+		}
+		return SyncStatusMsg{InSync: git.IsIdentityInSync(u.Name, u.Email)}
 	}
 }
 

@@ -51,6 +51,15 @@ func CurrentEmail() string {
 	return out
 }
 
+// IsIdentityInSync reports whether the resolved git config identity (including
+// any local repository override) matches the given name and email.
+func IsIdentityInSync(name, email string) bool {
+	if name == "" && email == "" {
+		return false
+	}
+	return CurrentName() == name && CurrentEmail() == email
+}
+
 func CurrentGlobalEmail() string {
 	out, _ := getConfig("user.email", false)
 	return out

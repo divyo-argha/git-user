@@ -22,6 +22,14 @@ type StoreRefreshedMsg struct {
 	Err   error
 }
 
+// SyncStatusMsg reports whether the active identity matches the resolved git
+// config (user.name/user.email). When false, commits would be authored by a
+// different identity than the one the user believes is active.
+type SyncStatusMsg struct {
+	InSync bool
+	Err    error
+}
+
 // ── Agent Status ──────────────────────────────────────────────────────────────
 
 // AgentStatusMsg is sent after checking SSH agent connectivity.

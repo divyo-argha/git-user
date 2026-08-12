@@ -80,9 +80,7 @@ func runCurrent(args []string) error {
 	ui.UserRow(u.Name, u.Email, u.SSHKey, true)
 
 	if !isLocalOverride {
-		gitName := git.CurrentName()
-		gitEmail := git.CurrentEmail()
-		if gitName != u.Name || gitEmail != u.Email {
+		if !git.IsIdentityInSync(u.Name, u.Email) {
 			ui.Divider()
 			ui.Warn("Git config is out of sync with active identity")
 			ui.Info(fmt.Sprintf("Run 'git-user switch %s' to re-apply", u.Name))

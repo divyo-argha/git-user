@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -243,6 +244,94 @@ func TestTempProfile(t *testing.T) {
 
 	// Cleanup
 	config.DeleteTempConfig()
+}
+
+func TestSaveGuardDetectsExternalChange(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.json")
+	t.Setenv("GIT_USER_CONFIG", path)
+
+	// Load, then modify the file behind the store's back.
+	loaded, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if err := loaded.AddUser("alice", "alice@example.com"); err != nil {
+		t.Fatalf("AddUser failed: %v", err)
+	}
+	if err := config.Save(loaded); err != nil {
+		t.Fatalf("first Save failed: %v", err)
+	}
+
+	// Simulate another session editing the file (e.g. removing a profile or
+	// restoring an old snapshot).
+	external, err := config.Load()
+	if err != nil {
+		t.Fatalf("external Load failed: %v", err)
+	}
+	if err := external.RemoveUser("alice", true); err != nil {
+		t.Fatalf("external RemoveUser failed: %v", err)
+	}
+	if err := config.Save(external); err != nil {
+		t.Fatalf("external Save failed: %v", err)
+	}
+
+	// The original store is now stale — saving it must be refused so it cannot
+	// resurrect alice (or any profile the external session removed).
+	if err := loaded.AddUser("bob", "bob@example.com"); err != nil {
+		t.Fatalf("AddUser failed: %v", err)
+	}
+	if err := config.Save(loaded); !errors.Is(err, config.ErrConfigChanged) {
+		t.Fatalf("expected ErrConfigChanged, got %v", err)
+	}
+
+	// The on-disk state must be untouched.
+	onDisk, err := config.Load()
+	if err != nil {
+		t.Fatalf("reload failed: %v", err)
+	}
+	if onDisk.FindUser("bob") != nil {
+		t.Error("stale store wrote to disk despite guard")
+	}
+	if onDisk.FindUser("alice") != nil {
+		t.Error("stale store resurrected removed profile")
+	}
+}
+
+func TestSaveGuardAllowsConsecutiveSaves(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.json")
+	t.Setenv("GIT_USER_CONFIG", path)
+
+	loaded, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if err := loaded.AddUser("carol", "carol@example.com"); err != nil {
+		t.Fatalf("AddUser failed: %v", err)
+	}
+	// Saving the same loaded store twice must succeed (the hash is updated on
+	// each save, so consecutive saves by the same session stay valid).
+	for i := 0; i < 2; i++ {
+		if err := config.Save(loaded); err != nil {
+			t.Fatalf("Save #%d failed: %v", i+1, err)
+		}
+	}
+}
+
+func TestSaveGuardSkipsProgrammaticStores(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.json")
+	t.Setenv("GIT_USER_CONFIG", path)
+
+	// Stores built without Load() have no baseline and are allowed to write.
+	s := &config.Store{}
+	if err := s.AddUser("dave", "dave@example.com"); err != nil {
+		t.Fatalf("AddUser failed: %v", err)
+	}
+	if err := config.Save(s); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
 }
 
 func TestSyncIncludeIfsHonorsEnvConfigPath(t *testing.T) {

@@ -503,6 +503,17 @@ func runSwitchOriginal(args []string) error {
 		return err
 	}
 
+	// Verify the restore actually took effect in the gitconfig. If the applied
+	// values were overridden (e.g. by an environment variable, an includeIf, or
+	// another session racing this one), warn instead of silently reporting
+	// success — the active commit identity would not be the restored one.
+	if o.Name != "" || o.Email != "" {
+		if !git.IsIdentityInSync(o.Name, o.Email) {
+			ui.Warn("Restored identity was overridden — the git config no longer matches the restored identity.")
+			ui.Info("Check for environment variables (GIT_AUTHOR_NAME, GIT_COMMITTER_NAME) or includeIf rules overriding user.name/user.email.")
+		}
+	}
+
 	ui.Success("Restored original identity")
 	if o.Name != "" || o.Email != "" {
 		ui.Info(fmt.Sprintf("  name:  %s", o.Name))

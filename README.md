@@ -156,7 +156,7 @@ git-user --update
 ```
 > Updates git-user to the latest release on macOS, Linux, and Windows
 > (x64/arm64). It prints the version transition as it works —
-> `Updating git-user v4.7.5 → v4.7.6 (linux amd64)` — downloads the
+> `Updating git-user v4.7.6 → v4.7.7 (linux amd64)` — downloads the
 > matching release binary, runs a version check on the downloaded binary
 > before replacing the installed copy, and warns you if anything looks off.
 > On macOS/Linux, updates that need `sudo` (e.g. a curl install into

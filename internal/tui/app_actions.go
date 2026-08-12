@@ -76,6 +76,19 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			return opSwitch(a.store, msg.Name, "")
 		})
 
+	case "fix-sync":
+		// Re-apply the active identity when the git config drifted (e.g. a
+		// manual edit or another session left user.name/user.email out of
+		// sync). Only the currently active profile is re-applied — nothing is
+		// created, deleted, or switched.
+		if a.store == nil || a.store.Current == "" {
+			return a, core.ShowToastCmd("No active identity to re-apply", theme.ToastStyleError, 3*time.Second)
+		}
+		name := a.store.Current
+		return a, a.runTaskCmd("switch", name, func() (opResult, error) {
+			return opSwitch(a.store, name, "")
+		})
+
 	case "rename":
 		return a, pushCmd(screens.NewForm("Rename Identity", "Enter new profile name for "+msg.Name, "rename:"+msg.Name, []screens.FormInput{
 			{Label: "New Name:", Value: msg.Name},

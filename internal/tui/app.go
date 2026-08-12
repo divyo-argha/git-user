@@ -28,6 +28,7 @@ type App struct {
 	removeKeyPath string // SSH key path captured before removing an identity
 	taskRunning   bool   // true while a background task (runTaskCmd) is in flight
 	taskLabel     string // human-readable label shown next to the spinner
+	refreshTick   uint64 // counts animation frames for the periodic store refresh
 }
 
 func animateTickCmd() tea.Cmd {
@@ -120,6 +121,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.screenStack[len(a.screenStack)-1] = newScreen
 			cmds = append(cmds, cmd)
 		}
+		// Periodically reload the store while idle. A long-running session that
+		// never refreshes can otherwise resurrect deleted profiles or act on
+		// stale state changed by another session or a manual edit.
+		a.refreshTick++
+		if a.refreshTick%60 == 0 && !a.taskRunning {
+			cmds = append(cmds, core.RefreshStoreCmd(), core.CheckSyncStatusCmd(a.store))
+		}
 		return a, tea.Batch(cmds...)
 
 	case tea.WindowSizeMsg:
@@ -136,6 +144,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.store = msg.Store
 			a.statusBar.SetStore(msg.Store)
 		}
+		if s := a.activeScreen(); s != nil {
+			newScreen, cmd := s.Update(msg)
+			a.screenStack[len(a.screenStack)-1] = newScreen
+			return a, tea.Batch(cmd, core.CheckSyncStatusCmd(a.store))
+		}
+		return a, core.CheckSyncStatusCmd(a.store)
+
+	case core.SyncStatusMsg:
 		if s := a.activeScreen(); s != nil {
 			newScreen, cmd := s.Update(msg)
 			a.screenStack[len(a.screenStack)-1] = newScreen

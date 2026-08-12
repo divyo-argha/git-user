@@ -29,6 +29,7 @@ type Dashboard struct {
 	filterMode  bool   // true when '/' has been pressed and user is typing
 	filterQuery string // current filter text
 	leftWidth   int    // updated each View(); used for mouse pane detection
+	syncOut     bool   // git config does not match the active identity
 }
 
 func NewDashboard(store *config.Store, th theme.Theme) *Dashboard {
@@ -47,6 +48,9 @@ func (d *Dashboard) ShortHelp() string {
 	if d.filterMode {
 		return core.FilterHelp()
 	}
+	if d.syncOut {
+		return core.DashboardHelp() + "  f re-apply active identity"
+	}
 	return core.DashboardHelp()
 }
 
@@ -61,6 +65,8 @@ func (d *Dashboard) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			d.store = msg.Store
 			d.identities.Refresh(msg.Store)
 		}
+	case core.SyncStatusMsg:
+		d.syncOut = msg.Err == nil && !msg.InSync
 	case tea.MouseMsg:
 		return d.handleMouse(msg)
 	case tea.KeyMsg:
@@ -173,6 +179,13 @@ func (d *Dashboard) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 				}
 			}
 		}
+	case "f", "F":
+		// Re-apply the active identity when the git config drifted out of sync.
+		if d.syncOut {
+			return d, func() tea.Msg {
+				return core.ActionResultMsg{Kind: "fix-sync"}
+			}
+		}
 	case core.KeyLeft, core.KeyH:
 		d.activePane = PaneIdentities
 	case core.KeyRight, core.KeyL:
@@ -232,36 +245,57 @@ func (d *Dashboard) handleEnter() (core.Screen, tea.Cmd) {
 func (d *Dashboard) View(width, height int) string {
 	contentH := height - 4
 
+	var view string
 	if theme.IsSingleColumn(width) {
 		paneWidth := theme.PaneWidth(width)
-		return d.viewSingleColumn(paneWidth, contentH)
-	}
-
-	// Right pane: sized to fit its own content, not half the terminal.
-	rightWidth := d.actions.PreferredWidth(28, 48)
-	// Left pane: all remaining space minus the gap and the border columns each
-	// pane style adds on top of its requested Width (PaneBorder per pane).
-	leftWidth := width - rightWidth - theme.PaneGap - 2*theme.PaneBorder
-	if leftWidth < 20 {
-		leftWidth = 20
-	}
-
-	// Track leftWidth for mouse click detection.
-	d.leftWidth = leftWidth
-
-	leftContent := d.identities.ViewWithFilter(leftWidth, contentH, d.activePane == PaneIdentities, d.filterMode, d.filterQuery)
-	rightContent := d.actions.View(rightWidth, contentH, d.activePane == PaneActions)
-
-	var leftBox, rightBox string
-	if d.activePane == PaneIdentities {
-		leftBox = d.theme.PulsingActivePane(leftWidth, contentH, d.animFrame).Render(leftContent)
-		rightBox = d.theme.InactivePane(rightWidth, contentH).Render(rightContent)
+		view = d.viewSingleColumn(paneWidth, contentH)
 	} else {
-		leftBox = d.theme.InactivePane(leftWidth, contentH).Render(leftContent)
-		rightBox = d.theme.PulsingActivePane(rightWidth, contentH, d.animFrame).Render(rightContent)
+		// Right pane: sized to fit its own content, not half the terminal.
+		rightWidth := d.actions.PreferredWidth(28, 48)
+		// Left pane: all remaining space minus the gap and the border columns each
+		// pane style adds on top of its requested Width (PaneBorder per pane).
+		leftWidth := width - rightWidth - theme.PaneGap - 2*theme.PaneBorder
+		if leftWidth < 20 {
+			leftWidth = 20
+		}
+
+		// Track leftWidth for mouse click detection.
+		d.leftWidth = leftWidth
+
+		leftContent := d.identities.ViewWithFilter(leftWidth, contentH, d.activePane == PaneIdentities, d.filterMode, d.filterQuery)
+		rightContent := d.actions.View(rightWidth, contentH, d.activePane == PaneActions)
+
+		var leftBox, rightBox string
+		if d.activePane == PaneIdentities {
+			leftBox = d.theme.PulsingActivePane(leftWidth, contentH, d.animFrame).Render(leftContent)
+			rightBox = d.theme.InactivePane(rightWidth, contentH).Render(rightContent)
+		} else {
+			leftBox = d.theme.InactivePane(leftWidth, contentH).Render(leftContent)
+			rightBox = d.theme.PulsingActivePane(rightWidth, contentH, d.animFrame).Render(rightContent)
+		}
+
+		view = lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "   ", rightBox)
 	}
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "   ", rightBox)
+	if d.syncOut {
+		view = syncWarningBanner(width, d.theme) + "\n" + view
+	}
+	return view
+}
+
+// syncWarningBanner renders the out-of-sync warning at full terminal width,
+// truncated to fit so the terminal never wraps it mid-phrase.
+func syncWarningBanner(width int, th theme.Theme) string {
+	msg := "⚠ Git config is out of sync with the active identity — press f to re-apply"
+	max := width - 4
+	if max < 8 {
+		max = 8
+	}
+	runes := []rune(msg)
+	if len(runes) > max {
+		runes = append(runes[:max-1], '…')
+	}
+	return th.WarningStyle().Bold(true).Render(string(runes))
 }
 
 func (d *Dashboard) viewSingleColumn(width, height int) string {
