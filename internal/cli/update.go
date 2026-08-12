@@ -32,34 +32,16 @@ func RunUpdate() error {
 		return handleNpmUpdate()
 	}
 
-	// Fetch latest release info
-	releaseURL := "https://api.github.com/repos/divyo-argha/git-user/releases/latest"
-	req, _ := http.NewRequest("GET", releaseURL, nil)
-	req.Header.Set("User-Agent", "git-user-updater")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("fetching release info: %w", err)
-	}
-	defer resp.Body.Close()
-
-	var release struct {
-		TagName string `json:"tag_name"`
-		Assets  []struct {
+	type githubRelease struct {
+		TagName    string `json:"tag_name"`
+		Draft      bool   `json:"draft"`
+		Prerelease bool   `json:"prerelease"`
+		Assets     []struct {
 			Name               string `json:"name"`
 			BrowserDownloadURL string `json:"browser_download_url"`
 		} `json:"assets"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return fmt.Errorf("parsing release info: %w", err)
-	}
 
-	// Compare remote version against currently installed version
-	if !isNewerVersion(release.TagName, version.GetVersion()) {
-		ui.Success(fmt.Sprintf("git-user is already up to date (%s). Latest GitHub release: %s", version.GetVersion(), release.TagName))
-		return nil
-	}
-
-	// Map runtime values to release asset naming
 	goos := runtime.GOOS
 	goarch := runtime.GOARCH
 
@@ -74,17 +56,67 @@ func RunUpdate() error {
 		ext = ".exe"
 	}
 
-	// Find matching asset
+	findAssetURL := func(rel githubRelease) string {
+		for _, asset := range rel.Assets {
+			name := strings.ToLower(asset.Name)
+			if strings.Contains(name, osName) && strings.Contains(name, strings.ToLower(archName)) {
+				return asset.BrowserDownloadURL
+			}
+		}
+		return ""
+	}
+
+	var release githubRelease
 	var downloadURL string
-	for _, asset := range release.Assets {
-		name := strings.ToLower(asset.Name)
-		if strings.Contains(name, osName) && strings.Contains(name, strings.ToLower(archName)) {
-			downloadURL = asset.BrowserDownloadURL
-			break
+
+	// 1. Try fetching latest release from /releases/latest
+	latestReq, _ := http.NewRequest("GET", "https://api.github.com/repos/divyo-argha/git-user/releases/latest", nil)
+	latestReq.Header.Set("User-Agent", "git-user-updater")
+	if resp, err := http.DefaultClient.Do(latestReq); err == nil {
+		if resp.StatusCode == http.StatusOK {
+			var rel githubRelease
+			if err := json.NewDecoder(resp.Body).Decode(&rel); err == nil {
+				if url := findAssetURL(rel); url != "" {
+					release = rel
+					downloadURL = url
+				}
+			}
+		}
+		resp.Body.Close()
+	}
+
+	// 2. Fallback to scanning /releases if /releases/latest lacks binary assets for this OS/Arch
+	if downloadURL == "" {
+		allReq, _ := http.NewRequest("GET", "https://api.github.com/repos/divyo-argha/git-user/releases", nil)
+		allReq.Header.Set("User-Agent", "git-user-updater")
+		if resp, err := http.DefaultClient.Do(allReq); err == nil {
+			if resp.StatusCode == http.StatusOK {
+				var releases []githubRelease
+				if err := json.NewDecoder(resp.Body).Decode(&releases); err == nil {
+					for _, rel := range releases {
+						if rel.Draft {
+							continue
+						}
+						if url := findAssetURL(rel); url != "" {
+							release = rel
+							downloadURL = url
+							break
+						}
+					}
+				}
+			}
+			resp.Body.Close()
 		}
 	}
-	if downloadURL == "" {
-		return fmt.Errorf("no binary found for %s/%s in release %s", goos, goarch, release.TagName)
+
+	if downloadURL == "" || release.TagName == "" {
+		return fmt.Errorf("no binary release found for %s/%s on GitHub", goos, goarch)
+	}
+
+	// Compare remote version against currently installed version
+	if !isNewerVersion(release.TagName, version.GetVersion()) {
+		ui.Success(fmt.Sprintf("git-user is already up to date (%s). Latest available release: %s", version.GetVersion(), release.TagName))
+		return nil
 	}
 
 	// Download to a temp file. Prefer the install directory so the final swap
