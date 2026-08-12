@@ -11,6 +11,7 @@ import (
 func withTempConfig(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
+	t.Setenv("HOME", dir)
 	t.Setenv("GIT_USER_CONFIG", filepath.Join(dir, "config.json"))
 }
 
@@ -55,13 +56,13 @@ func TestOpRenameAndChangeEmail(t *testing.T) {
 		},
 	}
 
-	if err := opRename(store, "work", "work2"); err != nil {
+	if err := opRename(store, "work", "work-renamed"); err != nil {
 		t.Fatalf("opRename: %v", err)
 	}
-	if store.Current != "work2" {
+	if store.Current != "work-renamed" {
 		t.Errorf("expected current to follow rename, got %q", store.Current)
 	}
-	if store.FindUser("work2") == nil {
+	if store.FindUser("work-renamed") == nil {
 		t.Error("expected renamed user to exist")
 	}
 	if err := opRename(store, "work", "home"); err == nil {
