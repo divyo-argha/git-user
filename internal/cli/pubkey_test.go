@@ -19,12 +19,12 @@ func TestRunPubkey_AccessDenied(t *testing.T) {
 	setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.AddUser("bob", "bob@example.com")
-	_ = store.SetCurrent("alice")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.AddUser("ops", "ops@example.com")
+	_ = store.SetCurrent("dev")
 	_ = config.Save(store)
 
-	err := runPubkey([]string{"bob"})
+	err := runPubkey([]string{"ops"})
 	if err == nil {
 		t.Fatal("expected access denied error trying to view inactive user key, got nil")
 	}
@@ -34,8 +34,8 @@ func TestRunPubkey_NoSSHKey(t *testing.T) {
 	setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.SetCurrent("alice")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.SetCurrent("dev")
 	_ = config.Save(store)
 
 	err := runPubkey([]string{})
@@ -48,9 +48,9 @@ func TestRunPubkey_KeyFileNotFound(t *testing.T) {
 	setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.BindSSHKey("alice", "/nonexistent/key")
-	_ = store.SetCurrent("alice")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.BindSSHKey("dev", "/nonexistent/key")
+	_ = store.SetCurrent("dev")
 	_ = config.Save(store)
 
 	err := runPubkey([]string{})
@@ -72,7 +72,7 @@ func TestRunPubkey_Success(t *testing.T) {
 	readPassphraseFn = func(prompt string) (string, error) {
 		return "testpass", nil
 	}
-	err := runSwitch([]string{"-c", "alice", "alice@example.com", "--passphrase", "testpass"})
+	err := runSwitch([]string{"-c", "dev", "dev@example.com", "--passphrase", "testpass"})
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestRunPubkey_Success(t *testing.T) {
 	}
 
 	// Test passing the active identity explicitly as argument
-	err = runPubkey([]string{"alice"})
+	err = runPubkey([]string{"dev"})
 	if err != nil {
 		t.Fatalf("unexpected error with explicit name: %v", err)
 	}

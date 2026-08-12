@@ -10,9 +10,9 @@ func TestWantsHelp(t *testing.T) {
 		{[]string{"--help"}, true},
 		{[]string{"-h"}, true},
 		{[]string{"help"}, true},
-		{[]string{"work"}, false},
+		{[]string{"eng"}, false},
 		{[]string{""}, false},
-		{[]string{"-c", "work", "--help"}, true},
+		{[]string{"-c", "eng", "--help"}, true},
 		{[]string{}, false},
 	}
 	for _, c := range cases {

@@ -11,10 +11,10 @@ func TestIdentityList(t *testing.T) {
 	th := theme.DefaultTheme()
 
 	store := &config.Store{
-		Current: "work",
+		Current: "eng",
 		Users: []config.User{
 			{Name: "personal", Email: "personal@example.com"},
-			{Name: "work", Email: "work@company.com"},
+			{Name: "eng", Email: "eng@company.com"},
 			{Name: "shared", Email: "shared@example.com"},
 		},
 	}
@@ -26,7 +26,7 @@ func TestIdentityList(t *testing.T) {
 		t.Errorf("Expected 4 items, got %d", len(list.items))
 	}
 
-	// Active user should be work
+	// Active user should be eng
 	// Initial cursor should be 0 (personal)
 	if list.Cursor() != 0 {
 		t.Errorf("Expected cursor at 0, got %d", list.Cursor())

@@ -13,13 +13,13 @@ func TestPassphraseMenu(t *testing.T) {
 	t.Setenv("GIT_USER_CONFIG", t.TempDir()+"/config.json")
 	th := theme.DefaultTheme()
 	store := &config.Store{
-		Current: "work",
-		Users:   []config.User{{Name: "work", Email: "work@company.com", SSHKey: "/path/to/key"}},
+		Current: "eng",
+		Users:   []config.User{{Name: "eng", Email: "eng@company.com", SSHKey: "/path/to/key"}},
 	}
 
-	pm := NewPassphraseMenu(store, "work", th)
+	pm := NewPassphraseMenu(store, "eng", th)
 
-	if pm.Title() != "Passphrase Options: work" {
+	if pm.Title() != "Passphrase Options: eng" {
 		t.Errorf("Unexpected title: %s", pm.Title())
 	}
 
@@ -39,7 +39,7 @@ func TestPassphraseMenu(t *testing.T) {
 	if cmd == nil {
 		t.Fatalf("Expected toast command on mode toggle")
 	}
-	u := store.FindUser("work")
+	u := store.FindUser("eng")
 	if u.GetPassphraseMode() != "login" {
 		t.Errorf("Expected mode to cycle to login, got %s", u.GetPassphraseMode())
 	}
@@ -55,8 +55,8 @@ func TestPassphraseMenu(t *testing.T) {
 		if actionMsg.Kind != "passphrase-set" {
 			t.Errorf("Expected passphrase-set action, got %s", actionMsg.Kind)
 		}
-		if actionMsg.Name != "work" {
-			t.Errorf("Expected user work, got %s", actionMsg.Name)
+		if actionMsg.Name != "eng" {
+			t.Errorf("Expected user eng, got %s", actionMsg.Name)
 		}
 	} else {
 		t.Errorf("Expected core.ActionResultMsg on Enter, got %T", msg)
@@ -80,9 +80,9 @@ func TestPassphraseMenu(t *testing.T) {
 	// Test selecting passphrase-remove on non-active profile shows toast
 	storeInactive := &config.Store{
 		Current: "personal",
-		Users:   []config.User{{Name: "work", Email: "work@company.com", SSHKey: "/path/to/key"}},
+		Users:   []config.User{{Name: "eng", Email: "eng@company.com", SSHKey: "/path/to/key"}},
 	}
-	pmInactive := NewPassphraseMenu(storeInactive, "work", th)
+	pmInactive := NewPassphraseMenu(storeInactive, "eng", th)
 	pmInactive.actions.FindAndSetCursorByKey("passphrase-remove")
 	_, cmd = pmInactive.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {

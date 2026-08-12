@@ -31,13 +31,13 @@ func TestRunStats_Success(t *testing.T) {
 	tmpDir := setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("work", "work@example.com")
+	_ = store.AddUser("eng", "eng@example.com")
 	_ = config.Save(store)
 
 	// Initialize git repo in the temp directory
 	runGitCmd(t, tmpDir, "init")
-	runGitCmd(t, tmpDir, "config", "user.name", "work")
-	runGitCmd(t, tmpDir, "config", "user.email", "work@example.com")
+	runGitCmd(t, tmpDir, "config", "user.name", "eng")
+	runGitCmd(t, tmpDir, "config", "user.email", "eng@example.com")
 
 	// Create a commit
 	_ = os.WriteFile(filepath.Join(tmpDir, "file.txt"), []byte("data"), 0644)

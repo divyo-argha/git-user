@@ -208,7 +208,7 @@ func TestPlatformConnectionMsg(t *testing.T) {
 func TestActionResultMsg(t *testing.T) {
 	msg := ActionResultMsg{
 		Kind:    "switch",
-		Name:    "alice",
+		Name:    "dev",
 		Success: true,
 		Message: "switched",
 		Err:     nil,
@@ -283,10 +283,10 @@ func TestCheckSyncStatusCmd(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
 	store := &config.Store{}
-	if err := store.AddUser("work", "work@example.com"); err != nil {
+	if err := store.AddUser("eng", "eng@example.com"); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SetCurrent("work"); err != nil {
+	if err := store.SetCurrent("eng"); err != nil {
 		t.Fatal(err)
 	}
 	msg = CheckSyncStatusCmd(store)()
@@ -300,7 +300,7 @@ func TestCheckSyncStatusCmd(t *testing.T) {
 
 	// Once the git config matches the active identity, it reports in sync.
 	gitDir := filepath.Join(dir, ".gitconfig")
-	cfg := "[user]\n\tname = work\n\temail = work@example.com\n"
+	cfg := "[user]\n\tname = eng\n\temail = eng@example.com\n"
 	if err := os.WriteFile(gitDir, []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -416,7 +416,7 @@ func TestConfirmResultMsg(t *testing.T) {
 }
 
 func TestFormResultMsg(t *testing.T) {
-	msg := FormResultMsg{Context: "register", Values: []string{"alice", "alice@test.com"}}
+	msg := FormResultMsg{Context: "register", Values: []string{"dev", "dev@test.com"}}
 	if msg.Context != "register" {
 		t.Errorf("FormResultMsg.Context = %q", msg.Context)
 	}
@@ -426,15 +426,15 @@ func TestFormResultMsg(t *testing.T) {
 }
 
 func TestIdentitySwitchedMsg(t *testing.T) {
-	msg := IdentitySwitchedMsg{Name: "alice", Email: "alice@test.com", Success: true, Err: nil}
-	if msg.Name != "alice" || msg.Email != "alice@test.com" || !msg.Success {
+	msg := IdentitySwitchedMsg{Name: "dev", Email: "dev@test.com", Success: true, Err: nil}
+	if msg.Name != "dev" || msg.Email != "dev@test.com" || !msg.Success {
 		t.Error("IdentitySwitchedMsg fields mismatch")
 	}
 }
 
 func TestIdentityRemovedMsg(t *testing.T) {
-	msg := IdentityRemovedMsg{Name: "bob", Err: nil}
-	if msg.Name != "bob" {
+	msg := IdentityRemovedMsg{Name: "ops", Err: nil}
+	if msg.Name != "ops" {
 		t.Error("IdentityRemovedMsg.Name mismatch")
 	}
 }

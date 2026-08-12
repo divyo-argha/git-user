@@ -22,11 +22,11 @@ func TestRunDoctor_GitConfigOutOfSync(t *testing.T) {
 	setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.SetCurrent("alice")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.SetCurrent("dev")
 	_ = config.Save(store)
 
-	_ = git.Apply("bob", "bob@example.com") // Mis-matched git config
+	_ = git.Apply("ops", "ops@example.com") // Mis-matched git config
 
 	err := runDoctor([]string{})
 	if err != nil {
@@ -38,12 +38,12 @@ func TestRunDoctor_KeyFileNotFound(t *testing.T) {
 	setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.BindSSHKey("alice", "/nonexistent/key")
-	_ = store.SetCurrent("alice")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.BindSSHKey("dev", "/nonexistent/key")
+	_ = store.SetCurrent("dev")
 	_ = config.Save(store)
 
-	_ = git.Apply("alice", "alice@example.com")
+	_ = git.Apply("dev", "dev@example.com")
 
 	err := runDoctor([]string{})
 	if err != nil {
@@ -63,12 +63,12 @@ func TestRunDoctor_StaleBackupsAndRemotes(t *testing.T) {
 	_ = os.WriteFile(backupPath, []byte("backup key"), 0600)
 
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.BindSSHKey("alice", keyPath)
-	_ = store.SetCurrent("alice")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.BindSSHKey("dev", keyPath)
+	_ = store.SetCurrent("dev")
 	_ = config.Save(store)
 
-	_ = git.Apply("alice", "alice@example.com")
+	_ = git.Apply("dev", "dev@example.com")
 
 	err := runDoctor([]string{})
 	if err != nil {

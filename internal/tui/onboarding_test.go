@@ -13,11 +13,11 @@ import (
 func TestFirstRunOriginalIdentity(t *testing.T) {
 	// No users, not prompted, but an original snapshot exists.
 	store := &config.Store{
-		Original: &config.OriginalConfig{Name: "alice", Email: "alice@example.com"},
+		Original: &config.OriginalConfig{Name: "dev", Email: "dev@example.com"},
 	}
 	name, email, ok := firstRunOriginalIdentity(store)
-	if !ok || name != "alice" || email != "alice@example.com" {
-		t.Errorf("expected alice identity offered, got %q %q ok=%v", name, email, ok)
+	if !ok || name != "dev" || email != "dev@example.com" {
+		t.Errorf("expected dev identity offered, got %q %q ok=%v", name, email, ok)
 	}
 
 	// Prompted already → no prompt.
@@ -27,7 +27,7 @@ func TestFirstRunOriginalIdentity(t *testing.T) {
 	}
 
 	// Users exist → no prompt.
-	store = &config.Store{Users: []config.User{{Name: "bob", Email: "b@x.com"}}}
+	store = &config.Store{Users: []config.User{{Name: "ops", Email: "b@x.com"}}}
 	if _, _, ok := firstRunOriginalIdentity(store); ok {
 		t.Error("expected no prompt when identities already exist")
 	}
@@ -73,14 +73,14 @@ func TestFirstRunImportPushesForm(t *testing.T) {
 func TestStartOriginalImportNameConflictOffersResolution(t *testing.T) {
 	withTempConfig(t)
 	store := &config.Store{
-		Users: []config.User{{Name: "work", Email: "work@corp.com"}},
+		Users: []config.User{{Name: "eng", Email: "eng@corp.com"}},
 	}
 	th := theme.DefaultTheme()
 	app := NewApp(store, screens.NewDashboard(store, th))
 	app = pumpApp(app, tea.WindowSizeMsg{Width: 80, Height: 40})
 
-	// Trying to import the original under the taken name "work".
-	_, cmd := app.startOriginalImport("work", "orig@example.com")
+	// Trying to import the original under the taken name "eng".
+	_, cmd := app.startOriginalImport("eng", "orig@example.com")
 	msg := msgFromCmd(t, cmd)
 	push, ok := msg.(core.ScreenPushMsg)
 	if !ok {
@@ -93,7 +93,7 @@ func TestStartOriginalImportNameConflictOffersResolution(t *testing.T) {
 
 func TestStartOriginalImportValidProceeds(t *testing.T) {
 	withTempConfig(t)
-	store := &config.Store{Users: []config.User{{Name: "work", Email: "work@corp.com"}}}
+	store := &config.Store{Users: []config.User{{Name: "eng", Email: "eng@corp.com"}}}
 	th := theme.DefaultTheme()
 	app := NewApp(store, screens.NewDashboard(store, th))
 	app = pumpApp(app, tea.WindowSizeMsg{Width: 80, Height: 40})
@@ -112,28 +112,28 @@ func TestStartOriginalImportValidProceeds(t *testing.T) {
 func TestImportRenameConflictThenImport(t *testing.T) {
 	withTempConfig(t)
 	store := &config.Store{
-		Users: []config.User{{Name: "work", Email: "work@corp.com"}},
+		Users: []config.User{{Name: "eng", Email: "eng@corp.com"}},
 	}
 	th := theme.DefaultTheme()
 	app := NewApp(store, screens.NewDashboard(store, th))
 	app = pumpApp(app, tea.WindowSizeMsg{Width: 80, Height: 40})
 
-	// Rename the conflicting "work" profile to "work-legacy", then import
-	// original under "work".
-	updated, cmd := app.Update(core.FormResultMsg{Context: "import-rename-conflict:work|orig@example.com", Values: []string{"work-legacy"}})
+	// Rename the conflicting "eng" profile to "eng-legacy", then import
+	// original under "eng".
+	updated, cmd := app.Update(core.FormResultMsg{Context: "import-rename-conflict:eng|orig@example.com", Values: []string{"eng-legacy"}})
 	app = updated.(*App)
-	if app.store.FindUser("work-legacy") == nil {
-		t.Error("expected conflicting profile to be renamed to work-legacy")
+	if app.store.FindUser("eng-legacy") == nil {
+		t.Error("expected conflicting profile to be renamed to eng-legacy")
 	}
 
-	// The resulting cmd should be a task that imports the original as "work".
+	// The resulting cmd should be a task that imports the original as "eng".
 	msg := msgFromCmd(t, cmd)
 	if tr, ok := msg.(core.TaskResultMsg); ok {
 		if tr.Err != nil {
 			t.Fatalf("import task failed: %v", tr.Err)
 		}
-		if app.store.FindUser("work") == nil {
-			t.Error("expected original identity imported as work")
+		if app.store.FindUser("eng") == nil {
+			t.Error("expected original identity imported as eng")
 		}
 	}
 }

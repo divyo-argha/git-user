@@ -30,24 +30,24 @@ func TestRunRemove_InactiveUser(t *testing.T) {
 
 	// Add users
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.AddUser("bob", "bob@example.com")
-	_ = store.SetCurrent("bob")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.AddUser("ops", "ops@example.com")
+	_ = store.SetCurrent("ops")
 	_ = config.Save(store)
 
-	// Remove inactive user alice
-	err := runRemove([]string{"alice"})
+	// Remove inactive user dev
+	err := runRemove([]string{"dev"})
 	if err != nil {
 		t.Fatalf("unexpected error removing inactive user: %v", err)
 	}
 
-	// Verify alice is gone, bob is still current
+	// Verify dev is gone, ops is still current
 	store, _ = config.Load()
-	if store.FindUser("alice") != nil {
-		t.Fatal("alice should be removed")
+	if store.FindUser("dev") != nil {
+		t.Fatal("dev should be removed")
 	}
-	if store.Current != "bob" {
-		t.Errorf("current user should be bob, got %s", store.Current)
+	if store.Current != "ops" {
+		t.Errorf("current user should be ops, got %s", store.Current)
 	}
 }
 
@@ -55,20 +55,20 @@ func TestRunRemove_ActiveUserWithoutForce(t *testing.T) {
 	setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.SetCurrent("alice")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.SetCurrent("dev")
 	_ = config.Save(store)
 
 	// Attempt to remove active user without force
-	err := runRemove([]string{"alice"})
+	err := runRemove([]string{"dev"})
 	if err == nil {
 		t.Fatal("expected error removing active user without force, got nil")
 	}
 
 	// Verify user is not removed
 	store, _ = config.Load()
-	if store.FindUser("alice") == nil {
-		t.Fatal("alice should still exist")
+	if store.FindUser("dev") == nil {
+		t.Fatal("dev should still exist")
 	}
 }
 
@@ -76,19 +76,19 @@ func TestRunRemove_ActiveUserWithForce(t *testing.T) {
 	setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.SetCurrent("alice")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.SetCurrent("dev")
 	_ = config.Save(store)
 
 	// Remove active user with force
-	err := runRemove([]string{"alice", "--force"})
+	err := runRemove([]string{"dev", "--force"})
 	if err != nil {
 		t.Fatalf("unexpected error removing active user with force: %v", err)
 	}
 
 	store, _ = config.Load()
-	if store.FindUser("alice") != nil {
-		t.Fatal("alice should be removed")
+	if store.FindUser("dev") != nil {
+		t.Fatal("dev should be removed")
 	}
 	if store.Current != "" {
 		t.Errorf("current should be empty, got %s", store.Current)
@@ -105,15 +105,15 @@ func TestRunRemove_DeleteSSHKeys(t *testing.T) {
 	_ = os.WriteFile(pubPath, []byte("public key"), 0644)
 
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.BindSSHKey("alice", keyPath)
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.BindSSHKey("dev", keyPath)
 	_ = config.Save(store)
 
 	// Test Case 1: Say 'No' to key deletion
 	ui.ConfirmFn = func(question string, defaultYes bool) bool {
 		return false
 	}
-	err := runRemove([]string{"alice"})
+	err := runRemove([]string{"dev"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -128,15 +128,15 @@ func TestRunRemove_DeleteSSHKeys(t *testing.T) {
 
 	// Re-add and bind key for Case 2
 	store, _ = config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.BindSSHKey("alice", keyPath)
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.BindSSHKey("dev", keyPath)
 	_ = config.Save(store)
 
 	// Test Case 2: Say 'Yes' to key deletion
 	ui.ConfirmFn = func(question string, defaultYes bool) bool {
 		return true
 	}
-	err = runRemove([]string{"alice"})
+	err = runRemove([]string{"dev"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

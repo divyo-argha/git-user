@@ -15,7 +15,7 @@ func TestRunRekey_CancelledAndMissing(t *testing.T) {
 
 	store := &config.Store{
 		Users: []config.User{
-			{Name: "testuser", Email: "test@example.com"},
+			{Name: "tester", Email: "test@example.com"},
 		},
 	}
 	if err := config.Save(store); err != nil {
@@ -41,7 +41,7 @@ func TestRunRekey_CancelledAndMissing(t *testing.T) {
 		return false
 	}
 
-	err := runRekey([]string{"testuser"})
+	err := runRekey([]string{"tester"})
 	if err != nil {
 		t.Fatalf("runRekey returned error when cancelled: %v", err)
 	}

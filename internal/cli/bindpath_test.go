@@ -20,24 +20,24 @@ func TestRunBindPath_Errors(t *testing.T) {
 	}
 
 	// Only 1 arg
-	err = runBindPath([]string{"work"})
+	err = runBindPath([]string{"eng"})
 	if err == nil {
 		t.Fatal("expected error with only 1 argument, got nil")
 	}
 
 	// User not found
-	err = runBindPath([]string{"work", "/tmp"})
+	err = runBindPath([]string{"eng", "/tmp"})
 	if err == nil {
 		t.Fatal("expected error with nonexistent user, got nil")
 	}
 
 	// Register user
 	store, _ := config.Load()
-	_ = store.AddUser("work", "work@example.com")
+	_ = store.AddUser("eng", "eng@example.com")
 	_ = config.Save(store)
 
 	// Nonexistent path
-	err = runBindPath([]string{"work", "/nonexistent/dir"})
+	err = runBindPath([]string{"eng", "/nonexistent/dir"})
 	if err == nil {
 		t.Fatal("expected error with nonexistent directory, got nil")
 	}
@@ -46,7 +46,7 @@ func TestRunBindPath_Errors(t *testing.T) {
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "file.txt")
 	_ = os.WriteFile(filePath, []byte("test"), 0600)
-	err = runBindPath([]string{"work", filePath})
+	err = runBindPath([]string{"eng", filePath})
 	if err == nil {
 		t.Fatal("expected error when path is a file, got nil")
 	}
@@ -56,34 +56,34 @@ func TestRunBindPath_Success(t *testing.T) {
 	tmpDir := setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("work", "work@example.com")
+	_ = store.AddUser("eng", "eng@example.com")
 	_ = config.Save(store)
 
-	workDir := filepath.Join(tmpDir, "work-repo")
+	workDir := filepath.Join(tmpDir, "eng-repo")
 	_ = os.Mkdir(workDir, 0700)
 
 	// Bind path
-	err := runBindPath([]string{"work", workDir})
+	err := runBindPath([]string{"eng", workDir})
 	if err != nil {
 		t.Fatalf("unexpected error binding path: %v", err)
 	}
 
 	// Verify bind paths in config
 	store, _ = config.Load()
-	user := store.FindUser("work")
+	user := store.FindUser("eng")
 	if len(user.BindPaths) != 1 || user.BindPaths[0] != workDir {
 		t.Fatalf("expected bind path %q, got %v", workDir, user.BindPaths)
 	}
 
 	// Verify snippet file exists and contains correct content
 	configDir := filepath.Dir(config.ConfigPath())
-	snippetPath := filepath.Join(configDir, "profile-work.gitconfig")
+	snippetPath := filepath.Join(configDir, "profile-eng.gitconfig")
 	content, err := os.ReadFile(snippetPath)
 	if err != nil {
 		t.Fatalf("failed to read snippet file: %v", err)
 	}
 	contentStr := string(content)
-	if !strings.Contains(contentStr, "name = work") || !strings.Contains(contentStr, "email = work@example.com") {
+	if !strings.Contains(contentStr, "name = eng") || !strings.Contains(contentStr, "email = eng@example.com") {
 		t.Errorf("snippet content mismatch:\n%s", contentStr)
 	}
 
@@ -94,19 +94,19 @@ func TestRunBindPath_Success(t *testing.T) {
 		t.Fatalf("failed to read git config: %v", err)
 	}
 	outStr := string(out)
-	if !strings.Contains(outStr, "includeif.gitdir/i:") || !strings.Contains(outStr, "profile-work.gitconfig") {
-		t.Errorf("expected git config to contain includeif matching profile-work.gitconfig, got:\n%s", outStr)
+	if !strings.Contains(outStr, "includeif.gitdir/i:") || !strings.Contains(outStr, "profile-eng.gitconfig") {
+		t.Errorf("expected git config to contain includeif matching profile-eng.gitconfig, got:\n%s", outStr)
 	}
 
 	// Unbind path
-	err = runUnbindPath([]string{"work", workDir})
+	err = runUnbindPath([]string{"eng", workDir})
 	if err != nil {
 		t.Fatalf("unexpected error unbinding path: %v", err)
 	}
 
 	// Verify configuration unbind
 	store, _ = config.Load()
-	user = store.FindUser("work")
+	user = store.FindUser("eng")
 	if len(user.BindPaths) != 0 {
 		t.Fatalf("expected bind paths to be empty, got %v", user.BindPaths)
 	}
@@ -119,7 +119,7 @@ func TestRunBindPath_Success(t *testing.T) {
 	// Verify git config includeIf entry is unset
 	cmd = exec.Command("git", "config", "--global", "--get-regexp", `includeif\..*\.path`)
 	out, _ = cmd.Output()
-	if strings.Contains(string(out), "profile-work.gitconfig") {
+	if strings.Contains(string(out), "profile-eng.gitconfig") {
 		t.Errorf("expected git config to clear includeif, but it still contains it:\n%s", string(out))
 	}
 }

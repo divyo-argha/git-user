@@ -27,9 +27,9 @@ func TestRepoDirName(t *testing.T) {
 
 func TestOpConfigListSetUnset(t *testing.T) {
 	withTempConfig(t)
-	store := &config.Store{Users: []config.User{{Name: "work", Email: "work@corp.com"}}}
+	store := &config.Store{Users: []config.User{{Name: "eng", Email: "eng@corp.com"}}}
 
-	res, err := opConfigList(store, "work")
+	res, err := opConfigList(store, "eng")
 	if err != nil {
 		t.Fatalf("opConfigList empty: %v", err)
 	}
@@ -37,15 +37,15 @@ func TestOpConfigListSetUnset(t *testing.T) {
 		t.Error("expected report for empty config list")
 	}
 
-	if _, err := opConfigSet(store, "work", "init.defaultBranch", "main"); err != nil {
+	if _, err := opConfigSet(store, "eng", "init.defaultBranch", "main"); err != nil {
 		t.Fatalf("opConfigSet: %v", err)
 	}
-	u := store.FindUser("work")
+	u := store.FindUser("eng")
 	if u.CustomConfig["init.defaultBranch"] != "main" {
 		t.Error("expected custom config to be set")
 	}
 
-	res, err = opConfigList(store, "work")
+	res, err = opConfigList(store, "eng")
 	if err != nil {
 		t.Fatalf("opConfigList: %v", err)
 	}
@@ -56,17 +56,17 @@ func TestOpConfigListSetUnset(t *testing.T) {
 	if _, err := opConfigSet(store, "missing", "k", "v"); err == nil {
 		t.Error("expected error setting config for missing identity")
 	}
-	if _, err := opConfigSet(store, "work", "", "v"); err == nil {
+	if _, err := opConfigSet(store, "eng", "", "v"); err == nil {
 		t.Error("expected error with empty key")
 	}
 
-	if _, err := opConfigUnset(store, "work", "init.defaultBranch"); err != nil {
+	if _, err := opConfigUnset(store, "eng", "init.defaultBranch"); err != nil {
 		t.Fatalf("opConfigUnset: %v", err)
 	}
-	if _, ok := store.FindUser("work").CustomConfig["init.defaultBranch"]; ok {
+	if _, ok := store.FindUser("eng").CustomConfig["init.defaultBranch"]; ok {
 		t.Error("expected key to be unset")
 	}
-	if _, err := opConfigUnset(store, "work", ""); err == nil {
+	if _, err := opConfigUnset(store, "eng", ""); err == nil {
 		t.Error("expected error unsetting empty key")
 	}
 }
@@ -87,8 +87,8 @@ func TestHookHelpers(t *testing.T) {
 }
 
 func TestFindUserByEmail(t *testing.T) {
-	store := &config.Store{Users: []config.User{{Name: "work", Email: "work@corp.com"}}}
-	if store.FindUserByEmail("work@corp.com") == nil {
+	store := &config.Store{Users: []config.User{{Name: "eng", Email: "eng@corp.com"}}}
+	if store.FindUserByEmail("eng@corp.com") == nil {
 		t.Error("expected user found by email")
 	}
 	if store.FindUserByEmail("nope@corp.com") != nil {

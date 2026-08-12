@@ -49,7 +49,7 @@ func TestShouldPromptFirstRunImport(t *testing.T) {
 func TestMaybePromptFirstRunImport_Decline(t *testing.T) {
 	setupTestEnv(t)
 	forceTTY(t)
-	setGitConfig("alice", "alice@example.com")
+	setGitConfig("dev", "dev@example.com")
 
 	ui.ConfirmFn = func(question string, defaultYes bool) bool {
 		return false
@@ -74,7 +74,7 @@ func TestMaybePromptFirstRunImport_Decline(t *testing.T) {
 func TestMaybePromptFirstRunImport_ImportsWithChosenName(t *testing.T) {
 	setupTestEnv(t)
 	forceTTY(t)
-	setGitConfig("alice", "alice@example.com")
+	setGitConfig("dev", "dev@example.com")
 	_ = exec.Command("git", "config", "--global", "core.sshCommand", "ssh -i ~/.ssh/id_alice -o IdentitiesOnly=yes -o SomeFlag").Run()
 
 	ui.ConfirmFn = func(question string, defaultYes bool) bool {
@@ -93,8 +93,8 @@ func TestMaybePromptFirstRunImport_ImportsWithChosenName(t *testing.T) {
 	if u == nil {
 		t.Fatalf("expected identity %q to be imported", "my-main-account")
 	}
-	if u.Email != "alice@example.com" {
-		t.Errorf("expected email alice@example.com, got %q", u.Email)
+	if u.Email != "dev@example.com" {
+		t.Errorf("expected email dev@example.com, got %q", u.Email)
 	}
 	if u.Source != "original" {
 		t.Errorf("expected source original, got %q", u.Source)
@@ -105,7 +105,7 @@ func TestMaybePromptFirstRunImport_ImportsWithChosenName(t *testing.T) {
 	if u.SSHKey != "~/.ssh/id_alice" {
 		t.Errorf("expected SSHKey extracted from command, got %q", u.SSHKey)
 	}
-	if store.Original == nil || store.Original.Email != "alice@example.com" {
+	if store.Original == nil || store.Original.Email != "dev@example.com" {
 		t.Error("expected original snapshot to be saved")
 	}
 	if !store.ImportPrompted {
@@ -116,7 +116,7 @@ func TestMaybePromptFirstRunImport_ImportsWithChosenName(t *testing.T) {
 func TestMaybePromptFirstRunImport_UsesDefaultName(t *testing.T) {
 	setupTestEnv(t)
 	forceTTY(t)
-	setGitConfig("alice", "alice@example.com")
+	setGitConfig("dev", "dev@example.com")
 
 	ui.ConfirmFn = func(question string, defaultYes bool) bool {
 		return true
@@ -130,7 +130,7 @@ func TestMaybePromptFirstRunImport_UsesDefaultName(t *testing.T) {
 	}
 
 	store, _ := config.Load()
-	if store.FindUser("alice") == nil {
+	if store.FindUser("dev") == nil {
 		t.Error("expected identity to be named after git user.name when nothing typed")
 	}
 }
@@ -138,7 +138,7 @@ func TestMaybePromptFirstRunImport_UsesDefaultName(t *testing.T) {
 func TestMaybePromptFirstRunImport_SkipsWhenUsersExist(t *testing.T) {
 	setupTestEnv(t)
 	forceTTY(t)
-	setGitConfig("alice", "alice@example.com")
+	setGitConfig("dev", "dev@example.com")
 
 	store, _ := config.Load()
 	_ = store.AddUser("existing", "existing@example.com")
@@ -161,7 +161,7 @@ func TestMaybePromptFirstRunImport_SkipsWhenUsersExist(t *testing.T) {
 func TestMaybePromptFirstRunImport_NotTTY(t *testing.T) {
 	setupTestEnv(t)
 	// IsTTYFn is not overridden → false in tests.
-	setGitConfig("alice", "alice@example.com")
+	setGitConfig("dev", "dev@example.com")
 
 	ui.ConfirmFn = func(question string, defaultYes bool) bool {
 		t.Fatal("prompt should not be shown outside a TTY")
@@ -180,10 +180,10 @@ func TestMaybePromptFirstRunImport_NotTTY(t *testing.T) {
 
 func TestRunImportOriginal_PromptsForName(t *testing.T) {
 	setupTestEnv(t)
-	setGitConfig("bob", "bob@example.com")
+	setGitConfig("ops", "ops@example.com")
 
 	ui.PromptFn = func(label string) (string, error) {
-		return "work-identity", nil
+		return "eng-identity", nil
 	}
 
 	if err := runImportOriginal(nil); err != nil {
@@ -191,7 +191,7 @@ func TestRunImportOriginal_PromptsForName(t *testing.T) {
 	}
 
 	store, _ := config.Load()
-	u := store.FindUser("work-identity")
+	u := store.FindUser("eng-identity")
 	if u == nil {
 		t.Fatal("expected identity to be imported under the chosen name")
 	}
@@ -202,7 +202,7 @@ func TestRunImportOriginal_PromptsForName(t *testing.T) {
 
 func TestRunImportOriginal_UsesArgNameWithoutPrompt(t *testing.T) {
 	setupTestEnv(t)
-	setGitConfig("bob", "bob@example.com")
+	setGitConfig("ops", "ops@example.com")
 
 	ui.PromptFn = func(label string) (string, error) {
 		t.Fatal("should not prompt when a name argument is provided")
@@ -263,7 +263,7 @@ func TestExecute_OnboardingImportsWithChosenName(t *testing.T) {
 		return 2, nil // skip SSH setup during register
 	}
 
-	os.Args = []string{"git-user", "register", "--name", "work", "--email", "work@example.com"}
+	os.Args = []string{"git-user", "register", "--name", "eng", "--email", "eng@example.com"}
 	if err := Execute(); err != nil {
 		t.Fatalf("Execute returned error: %v", err)
 	}
@@ -276,8 +276,8 @@ func TestExecute_OnboardingImportsWithChosenName(t *testing.T) {
 	if imported.Email != "jane@example.com" {
 		t.Errorf("expected imported email jane@example.com, got %q", imported.Email)
 	}
-	if store.FindUser("work") == nil {
-		t.Fatal("expected registered identity work to still be created")
+	if store.FindUser("eng") == nil {
+		t.Fatal("expected registered identity eng to still be created")
 	}
 }
 

@@ -77,7 +77,7 @@ func TestReportRenderAndScroll(t *testing.T) {
 		t.Error("expected first line in view")
 	}
 
-	// With 25 lines and maxLines=16, maxScrollOffset = 25-16 = 9. Scroll should work.
+	// With 25 lines and maxLines=16, maxScrollOffset = 25-16 = 9. Scroll should eng.
 	updated, _ := r.Update(tea.KeyMsg{Type: tea.KeyDown})
 	r = updated.(*Report)
 	if r.offset != 1 {

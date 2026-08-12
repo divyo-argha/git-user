@@ -5,69 +5,73 @@ import (
 	"testing"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/testutil"
 )
 
 func TestRunSignEnable(t *testing.T) {
-	dir := t.TempDir()
+testutil.Sandbox(t)
+		dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
 	t.Setenv("GIT_USER_CONFIG", path)
 
 	store := &config.Store{}
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.BindSSHKey("alice", "/home/alice/.ssh/id_ed25519")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.BindSSHKey("dev", "/private/dev/.ssh/id_ed25519")
 	config.Save(store)
 
 	// Test enabling signing with bound SSH key automatically
-	args := []string{"alice", "--on"}
+	args := []string{"dev", "--on"}
 	if err := runSign(args); err != nil {
 		t.Fatalf("runSign failed: %v", err)
 	}
 
 	loaded, _ := config.Load()
-	u := loaded.FindUser("alice")
-	if u.SignKey != "/home/alice/.ssh/id_ed25519" || u.SignFormat != "ssh" || u.SignDisabled {
+	u := loaded.FindUser("dev")
+	if u.SignKey != "/private/dev/.ssh/id_ed25519" || u.SignFormat != "ssh" || u.SignDisabled {
 		t.Errorf("expected signing to be enabled with ssh key, got %v", u)
 	}
 }
 
 func TestRunSignDisable(t *testing.T) {
-	dir := t.TempDir()
+testutil.Sandbox(t)
+		dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
 	t.Setenv("GIT_USER_CONFIG", path)
 
 	store := &config.Store{}
-	_ = store.AddUser("bob", "bob@example.com")
-	_ = store.SetSigningKey("bob", "key_123", "gpg")
+	_ = store.AddUser("ops", "ops@example.com")
+	_ = store.SetSigningKey("ops", "key_123", "gpg")
 	config.Save(store)
 
-	args := []string{"bob", "--off"}
+	args := []string{"ops", "--off"}
 	if err := runSign(args); err != nil {
 		t.Fatalf("runSign failed: %v", err)
 	}
 
 	loaded, _ := config.Load()
-	u := loaded.FindUser("bob")
+	u := loaded.FindUser("ops")
 	if !u.SignDisabled {
 		t.Errorf("expected signing to be disabled, got %v", u)
 	}
 }
 
 func TestRunSignExplicitKey(t *testing.T) {
-	dir := t.TempDir()
+testutil.Sandbox(t)
+		dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
 	t.Setenv("GIT_USER_CONFIG", path)
 
 	store := &config.Store{}
-	_ = store.AddUser("carol", "carol@example.com")
+	_ = store.AddUser("qa", "qa@example.com")
 	config.Save(store)
 
-	args := []string{"carol", "--key", "ABCD1234EFGH", "--format", "gpg"}
+	args := []string{"qa", "--key", "ABCD1234EFGH", "--format", "gpg"}
 	if err := runSign(args); err != nil {
 		t.Fatalf("runSign failed: %v", err)
 	}
 
 	loaded, _ := config.Load()
-	u := loaded.FindUser("carol")
+	u := loaded.FindUser("qa")
 	if u.SignKey != "ABCD1234EFGH" || u.SignFormat != "gpg" || u.SignDisabled {
 		t.Errorf("expected explicit gpg key to be set, got %v", u)
 	}

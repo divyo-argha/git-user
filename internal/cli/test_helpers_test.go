@@ -1,12 +1,11 @@
 package cli
 
 import (
-	"os"
 	"os/exec"
-	"path/filepath"
 	"testing"
 
 	"github.com/divyo-argha/git-user/internal/keyring"
+	"github.com/divyo-argha/git-user/internal/testutil"
 	"github.com/divyo-argha/git-user/internal/ui"
 	zalando "github.com/zalando/go-keyring"
 )
@@ -15,18 +14,10 @@ import (
 // config path to isolate testing. It cleans up the environment automatically.
 func setupTestEnv(t *testing.T) string {
 	t.Helper()
-	tmpDir := t.TempDir()
-
-	// Redirect HOME and config path, and isolate SSH agent
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	t.Setenv("SSH_AUTH_SOCK", "")
+	tmpDir := testutil.Sandbox(t)
 
 	// Configure safe directory on the redirected HOME environment
 	_ = exec.Command("git", "config", "--global", "--add", "safe.directory", "*").Run()
-
-	configFilePath := filepath.Join(tmpDir, ".git-users", "config.json")
-	t.Setenv("GIT_USER_CONFIG", configFilePath)
 
 	// Save original keyring functions
 	oldKeyringGet := keyring.KeyringGet
@@ -63,9 +54,8 @@ func setupTestEnv(t *testing.T) string {
 		return "", nil
 	}
 
-	// Reset mocked functions and restore HOME on cleanup
+	// Reset mocked functions on cleanup
 	t.Cleanup(func() {
-		os.Setenv("HOME", oldHome)
 		ui.PromptFn = nil
 		ui.SelectFn = nil
 		ui.ConfirmFn = nil

@@ -20,11 +20,11 @@ func TestRunLogout_LoggedIn(t *testing.T) {
 	setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.SetCurrent("alice")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.SetCurrent("dev")
 	_ = config.Save(store)
 
-	_ = git.Apply("alice", "alice@example.com")
+	_ = git.Apply("dev", "dev@example.com")
 
 	err := runLogout([]string{})
 	if err != nil {
@@ -48,13 +48,13 @@ func TestRunLogout_TempProfile(t *testing.T) {
 	setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("temp", "temp@example.com")
-	u := store.FindUser("temp")
+	_ = store.AddUser("guest", "guest@example.com")
+	u := store.FindUser("guest")
 	u.IsTemporary = true
-	_ = store.SetCurrent("temp")
+	_ = store.SetCurrent("guest")
 	_ = config.Save(store)
 
-	_ = git.Apply("temp", "temp@example.com")
+	_ = git.Apply("guest", "guest@example.com")
 
 	err := runLogout([]string{})
 	if err != nil {
@@ -65,7 +65,7 @@ func TestRunLogout_TempProfile(t *testing.T) {
 	if store.Current != "" {
 		t.Errorf("expected current to be empty, got %s", store.Current)
 	}
-	if store.FindUser("temp") != nil {
+	if store.FindUser("guest") != nil {
 		t.Errorf("expected temp profile to be deleted on logout")
 	}
 }

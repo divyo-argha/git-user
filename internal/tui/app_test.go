@@ -23,10 +23,10 @@ func TestFixSyncAction_ReappliesActive(t *testing.T) {
 	t.Setenv("GIT_USER_CONFIG", filepath.Join(dir, "config.json"))
 
 	store := &config.Store{}
-	if err := store.AddUser("work", "work@example.com"); err != nil {
+	if err := store.AddUser("eng", "eng@example.com"); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SetCurrent("work"); err != nil {
+	if err := store.SetCurrent("eng"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -49,8 +49,8 @@ func TestFixSyncAction_ReappliesActive(t *testing.T) {
 	if !tr.Success {
 		t.Fatalf("fix-sync failed: %v", tr.Err)
 	}
-	if tr.Name != "work" {
-		t.Errorf("TaskResultMsg.Name = %q, want %q", tr.Name, "work")
+	if tr.Name != "eng" {
+		t.Errorf("TaskResultMsg.Name = %q, want %q", tr.Name, "eng")
 	}
 
 	// The identity must be written to the isolated git config.
@@ -59,7 +59,7 @@ func TestFixSyncAction_ReappliesActive(t *testing.T) {
 		t.Fatalf("reading isolated .gitconfig: %v", err)
 	}
 	cfg := string(cfgData)
-	if !strings.Contains(cfg, "work@example.com") {
+	if !strings.Contains(cfg, "eng@example.com") {
 		t.Errorf("git config does not contain the re-applied email:\n%s", cfg)
 	}
 }
@@ -116,7 +116,7 @@ func TestAppStack(t *testing.T) {
 	}
 
 	// Switch now runs entirely in-TUI: no tea.Quit.
-	updated, cmd := app.Update(core.ActionResultMsg{Kind: "switch", Name: "work"})
+	updated, cmd := app.Update(core.ActionResultMsg{Kind: "switch", Name: "eng"})
 	app = updated.(*App)
 	if app.Quit() {
 		t.Errorf("Expected app not to quit for in-TUI switch")
@@ -161,7 +161,7 @@ func TestAppMessagesAndLifecycle(t *testing.T) {
 
 	// FormResultMsg for register now pushes the SSH setup options screen
 	// instead of exiting to the terminal.
-	updated, cmd := app.Update(core.FormResultMsg{Context: "register", Values: []string{"work", "work@corp.com"}})
+	updated, cmd := app.Update(core.FormResultMsg{Context: "register", Values: []string{"eng", "eng@corp.com"}})
 	app = updated.(*App)
 	if cmd == nil {
 		t.Fatalf("Expected a push cmd for register form")
@@ -173,7 +173,7 @@ func TestAppMessagesAndLifecycle(t *testing.T) {
 	}
 
 	// ConfirmResultMsg for remove now runs an in-TUI task.
-	updated, cmd = app.Update(core.ConfirmResultMsg{Context: "remove:work", Confirmed: true})
+	updated, cmd = app.Update(core.ConfirmResultMsg{Context: "remove:eng", Confirmed: true})
 	app = updated.(*App)
 	if app.Quit() {
 		t.Errorf("Expected app not to quit for remove")
@@ -194,7 +194,7 @@ func TestAppMessagesAndLifecycle(t *testing.T) {
 	app.quit = false
 
 	// Test handleAction (pubkey) — stays in-TUI.
-	updated, cmd = app.Update(core.ActionResultMsg{Kind: "pubkey", Name: "work"})
+	updated, cmd = app.Update(core.ActionResultMsg{Kind: "pubkey", Name: "eng"})
 	app = updated.(*App)
 	if app.Quit() {
 		t.Errorf("Expected app not to quit for pubkey")
@@ -215,7 +215,7 @@ func TestAppMessagesAndLifecycle(t *testing.T) {
 	}
 
 	// Test handleAction (rename) pushes a form.
-	_, cmd = app.Update(core.ActionResultMsg{Kind: "rename", Name: "work"})
+	_, cmd = app.Update(core.ActionResultMsg{Kind: "rename", Name: "eng"})
 	if cmd == nil {
 		t.Errorf("Expected a push cmd for rename")
 	}
@@ -231,19 +231,19 @@ func TestAppMessagesAndLifecycle(t *testing.T) {
 	}
 
 	// Test handleAction (email) pushes a form.
-	_, cmd = app.Update(core.ActionResultMsg{Kind: "email", Name: "work"})
+	_, cmd = app.Update(core.ActionResultMsg{Kind: "email", Name: "eng"})
 	if cmd == nil {
 		t.Errorf("Expected a push cmd for email")
 	}
 
 	// Test handleAction (bind-path) pushes a form.
-	_, cmd = app.Update(core.ActionResultMsg{Kind: "bind-path", Name: "work"})
+	_, cmd = app.Update(core.ActionResultMsg{Kind: "bind-path", Name: "eng"})
 	if cmd == nil {
 		t.Errorf("Expected a push cmd for bind-path")
 	}
 
 	// Test handleAction (unbind-path) — no paths bound: toast, still in-TUI.
-	updated, _ = app.Update(core.ActionResultMsg{Kind: "unbind-path", Name: "work"})
+	updated, _ = app.Update(core.ActionResultMsg{Kind: "unbind-path", Name: "eng"})
 	app = updated.(*App)
 	if app.Quit() {
 		t.Errorf("Expected no quit for in-TUI unbind-path")
@@ -252,7 +252,7 @@ func TestAppMessagesAndLifecycle(t *testing.T) {
 
 func TestHandleTaskResultSwitchShowsReportWhenWarnings(t *testing.T) {
 	withTempConfig(t)
-	store := &config.Store{Users: []config.User{{Name: "work", Email: "work@corp.com"}}}
+	store := &config.Store{Users: []config.User{{Name: "eng", Email: "eng@corp.com"}}}
 	th := theme.DefaultTheme()
 	app := NewApp(store, screens.NewDashboard(store, th))
 
@@ -291,9 +291,9 @@ func TestHandleTaskResultSwitchShowsReportWhenWarnings(t *testing.T) {
 	// With warnings the switch result surfaces a Report screen.
 	_, cmd := app.handleTaskResult(core.TaskResultMsg{
 		Kind:       "switch",
-		Name:       "work",
+		Name:       "eng",
 		Success:    true,
-		Detail:     "Switched to \"work\" (work@corp.com)\n⚠ Bound SSH key not found: /nope",
+		Detail:     "Switched to \"eng\" (eng@corp.com)\n⚠ Bound SSH key not found: /nope",
 		ShowReport: true,
 	})
 	if !reportPushed(collect(cmd)) {
@@ -303,9 +303,9 @@ func TestHandleTaskResultSwitchShowsReportWhenWarnings(t *testing.T) {
 	// Without warnings only the toast is shown.
 	_, cmd = app.handleTaskResult(core.TaskResultMsg{
 		Kind:       "switch",
-		Name:       "work",
+		Name:       "eng",
 		Success:    true,
-		Detail:     "Switched to \"work\" (work@corp.com)",
+		Detail:     "Switched to \"eng\" (eng@corp.com)",
 		ShowReport: false,
 	})
 	if reportPushed(collect(cmd)) {
@@ -316,10 +316,10 @@ func TestHandleTaskResultSwitchShowsReportWhenWarnings(t *testing.T) {
 func TestAppDetailedHandlers(t *testing.T) {
 	withTempConfig(t)
 	store := &config.Store{
-		Current: "work",
+		Current: "eng",
 		Users: []config.User{
-			{Name: "work", Email: "work@corp.com", SSHKey: "/path/to/key", SignKey: "/path/to/key", SignDisabled: false},
-			{Name: "home", Email: "home@personal.com"},
+			{Name: "eng", Email: "eng@corp.com", SSHKey: "/path/to/key", SignKey: "/path/to/key", SignDisabled: false},
+			{Name: "private", Email: "private@example.com"},
 		},
 	}
 	th := theme.DefaultTheme()
@@ -328,11 +328,11 @@ func TestAppDetailedHandlers(t *testing.T) {
 	_, _ = app.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
 
 	// 1. Test StoreRefreshedMsg and AgentStatusMsg and AnimTickMsg
-	newStore := &config.Store{Current: "home", Users: store.Users}
+	newStore := &config.Store{Current: "private", Users: store.Users}
 	updated, _ := app.Update(core.StoreRefreshedMsg{Store: newStore})
 	app = updated.(*App)
-	if app.store.Current != "home" {
-		t.Errorf("Expected current store user 'home', got %q", app.store.Current)
+	if app.store.Current != "private" {
+		t.Errorf("Expected current store user 'private', got %q", app.store.Current)
 	}
 
 	updated, _ = app.Update(core.AgentStatusMsg{Connected: true, KeyCount: 3})
@@ -354,11 +354,11 @@ func TestAppDetailedHandlers(t *testing.T) {
 	}{
 		{"register", ""},
 		{"register-temp", ""},
-		{"unbind", "work"},
-		{"rekey", "work"},
-		{"passphrase", "work"},
+		{"unbind", "eng"},
+		{"rekey", "eng"},
+		{"passphrase", "eng"},
 		{"import-export", ""},
-		{"remove", "work"},
+		{"remove", "eng"},
 	}
 	for _, tc := range testCmds {
 		_, cmd := app.Update(core.ActionResultMsg{Kind: tc.kind, Name: tc.name})
@@ -381,7 +381,7 @@ func TestAppDetailedHandlers(t *testing.T) {
 		"export", "export-all", "import", "import-original", "update",
 	}
 	for _, kind := range testInTUIOps {
-		updated, cmd := app.Update(core.ActionResultMsg{Kind: kind, Name: "work"})
+		updated, cmd := app.Update(core.ActionResultMsg{Kind: kind, Name: "eng"})
 		if cmd == nil {
 			t.Fatalf("Expected non-nil cmd for %s", kind)
 		}
@@ -397,7 +397,7 @@ func TestAppDetailedHandlers(t *testing.T) {
 	if cmdExportErr == nil {
 		t.Error("Expected non-nil error toast cmd")
 	}
-	app.store.Current = "work"
+	app.store.Current = "eng"
 	updated, cmdExportSuccess := app.Update(core.ActionResultMsg{Kind: "export-current"})
 	if cmdExportSuccess == nil {
 		t.Error("Expected non-nil cmd for export-current")
@@ -405,13 +405,13 @@ func TestAppDetailedHandlers(t *testing.T) {
 	app = updated.(*App)
 
 	// 6. Test toggle-sign action
-	_, _ = app.Update(core.ActionResultMsg{Kind: "toggle-sign", Name: "home"})
-	if app.store.FindUser("home").SignDisabled != true {
-		t.Error("Expected home user signing to be disabled")
+	_, _ = app.Update(core.ActionResultMsg{Kind: "toggle-sign", Name: "private"})
+	if app.store.FindUser("private").SignDisabled != true {
+		t.Error("Expected private user signing to be disabled")
 	}
-	_, _ = app.Update(core.ActionResultMsg{Kind: "toggle-sign", Name: "home"})
-	if app.store.FindUser("home").SignDisabled != false {
-		t.Error("Expected home user signing to be re-enabled")
+	_, _ = app.Update(core.ActionResultMsg{Kind: "toggle-sign", Name: "private"})
+	if app.store.FindUser("private").SignDisabled != false {
+		t.Error("Expected private user signing to be re-enabled")
 	}
 	_, _ = app.Update(core.ActionResultMsg{Kind: "toggle-sign", Name: "nonexistent"})
 
@@ -423,12 +423,12 @@ func TestAppDetailedHandlers(t *testing.T) {
 		{"register", []string{"new-user", "new@corp.com"}},
 		{"register", []string{"", "new@corp.com"}},  // empty name → error toast, no action
 		{"register", []string{"x", "not-an-email"}}, // invalid email → error toast
-		{"register-temp", []string{"temp-user", "temp@corp.com"}},
-		{"register-temp", []string{"temp-user", ""}}, // empty email → error toast
-		{"rename:work", []string{"work-new"}},
-		{"rename:work", []string{""}},
-		{"email:work", []string{"new-email@corp.com"}},
-		{"email:work", []string{""}},
+		{"register-temp", []string{"guest-user", "guest@corp.com"}},
+		{"register-temp", []string{"guest-user", ""}}, // empty email → error toast
+		{"rename:eng", []string{"eng-new"}},
+		{"rename:eng", []string{""}},
+		{"email:eng", []string{"new-email@corp.com"}},
+		{"email:eng", []string{""}},
 	}
 	for _, ft := range formTests {
 		updated, cmd := app.Update(core.FormResultMsg{Context: ft.context, Values: ft.values})
@@ -449,10 +449,10 @@ func TestAppDetailedHandlers(t *testing.T) {
 		context   string
 		confirmed bool
 	}{
-		{"remove:work", true},
-		{"remove:work", false},
-		{"unbind:work", true},
-		{"rekey:work", true},
+		{"remove:eng", true},
+		{"remove:eng", false},
+		{"unbind:eng", true},
+		{"rekey:eng", true},
 		{"invalid-format", true},
 	}
 	for _, ct := range confirmTests {

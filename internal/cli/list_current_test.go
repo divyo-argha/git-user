@@ -19,9 +19,9 @@ func TestRunList_WithUsers(t *testing.T) {
 	setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.AddUser("bob", "bob@example.com")
-	_ = store.SetCurrent("alice")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.AddUser("ops", "ops@example.com")
+	_ = store.SetCurrent("dev")
 	_ = config.Save(store)
 
 	err := runList([]string{})
@@ -42,12 +42,12 @@ func TestRunCurrent_ActiveInSync(t *testing.T) {
 	setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.SetCurrent("alice")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.SetCurrent("dev")
 	_ = config.Save(store)
 
 	// Keep git config in sync
-	_ = git.Apply("alice", "alice@example.com")
+	_ = git.Apply("dev", "dev@example.com")
 
 	err := runCurrent([]string{})
 	if err != nil {
@@ -59,8 +59,8 @@ func TestRunCurrent_ActiveOutOfSync(t *testing.T) {
 	setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.SetCurrent("alice")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.SetCurrent("dev")
 	_ = config.Save(store)
 
 	// Git config out of sync (empty or different name/email)

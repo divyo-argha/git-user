@@ -30,7 +30,7 @@ func TestRunClone_Success(t *testing.T) {
 	tmpDir := setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("work", "work@example.com")
+	_ = store.AddUser("eng", "eng@example.com")
 	_ = config.Save(store)
 
 	// Create a mock remote repo to clone from
@@ -52,7 +52,7 @@ func TestRunClone_Success(t *testing.T) {
 	destRepoDir := filepath.Join(tmpDir, "cloned-repo")
 
 	// Run clone subcommand
-	err = runClone([]string{remoteRepoDir, destRepoDir, "--as", "work"})
+	err = runClone([]string{remoteRepoDir, destRepoDir, "--as", "eng"})
 	if err != nil {
 		t.Fatalf("unexpected error cloning: %v", err)
 	}
@@ -64,8 +64,8 @@ func TestRunClone_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read local user.name: %v", err)
 	}
-	if strings.TrimSpace(string(nameOut)) != "work" {
-		t.Errorf("expected local user.name to be 'work', got '%s'", strings.TrimSpace(string(nameOut)))
+	if strings.TrimSpace(string(nameOut)) != "eng" {
+		t.Errorf("expected local user.name to be 'eng', got '%s'", strings.TrimSpace(string(nameOut)))
 	}
 
 	emailCmd := exec.Command("git", "config", "--local", "user.email")
@@ -74,8 +74,8 @@ func TestRunClone_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read local user.email: %v", err)
 	}
-	if strings.TrimSpace(string(emailOut)) != "work@example.com" {
-		t.Errorf("expected local user.email to be 'work@example.com', got '%s'", strings.TrimSpace(string(emailOut)))
+	if strings.TrimSpace(string(emailOut)) != "eng@example.com" {
+		t.Errorf("expected local user.email to be 'eng@example.com', got '%s'", strings.TrimSpace(string(emailOut)))
 	}
 }
 

@@ -81,7 +81,7 @@ func TestRunSwitch_CreateAndSwitch(t *testing.T) {
 		return 2, nil // Skip SSH
 	}
 
-	err := runSwitch([]string{"-c", "alice", "alice@example.com"})
+	err := runSwitch([]string{"-c", "dev", "dev@example.com"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -91,28 +91,28 @@ func TestRunSwitch_CreateAndSwitch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to load config: %v", err)
 	}
-	if store.Current != "alice" {
-		t.Errorf("expected current to be alice, got %q", store.Current)
+	if store.Current != "dev" {
+		t.Errorf("expected current to be dev, got %q", store.Current)
 	}
 
-	user := store.FindUser("alice")
+	user := store.FindUser("dev")
 	if user == nil {
-		t.Fatal("user alice was not created in config")
+		t.Fatal("user dev was not created in config")
 	}
-	if user.Email != "alice@example.com" {
-		t.Errorf("expected email to be alice@example.com, got %q", user.Email)
+	if user.Email != "dev@example.com" {
+		t.Errorf("expected email to be dev@example.com, got %q", user.Email)
 	}
 
 	// Verify git config
-	if got := git.CurrentName(); got != "alice" {
-		t.Errorf("expected git user.name to be alice, got %q", got)
+	if got := git.CurrentName(); got != "dev" {
+		t.Errorf("expected git user.name to be dev, got %q", got)
 	}
-	if got := git.CurrentEmail(); got != "alice@example.com" {
-		t.Errorf("expected git user.email to be alice@example.com, got %q", got)
+	if got := git.CurrentEmail(); got != "dev@example.com" {
+		t.Errorf("expected git user.email to be dev@example.com, got %q", got)
 	}
 
 	// Verify that switch again works without -c
-	err = runSwitch([]string{"alice"})
+	err = runSwitch([]string{"dev"})
 	if err != nil {
 		t.Fatalf("unexpected error switching to existing user: %v", err)
 	}
@@ -121,22 +121,22 @@ func TestRunSwitch_CreateAndSwitch(t *testing.T) {
 	ui.SelectFn = func(label string, options []string) (int, error) {
 		return 2, nil // Skip
 	}
-	err = runSwitch([]string{"-c", "bob", "bob@example.com"})
+	err = runSwitch([]string{"-c", "ops", "ops@example.com"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if git.CurrentName() != "bob" {
-		t.Errorf("expected current git user to be bob, got %s", git.CurrentName())
+	if git.CurrentName() != "ops" {
+		t.Errorf("expected current git user to be ops, got %s", git.CurrentName())
 	}
 
-	// Switch back to alice
-	err = runSwitch([]string{"alice"})
+	// Switch back to dev
+	err = runSwitch([]string{"dev"})
 	if err != nil {
-		t.Fatalf("unexpected error switching back to alice: %v", err)
+		t.Fatalf("unexpected error switching back to dev: %v", err)
 	}
-	if git.CurrentName() != "alice" {
-		t.Errorf("expected current git user to be alice, got %s", git.CurrentName())
+	if git.CurrentName() != "dev" {
+		t.Errorf("expected current git user to be dev, got %s", git.CurrentName())
 	}
 
 	// Verify original snapshot is saved and can be restored
@@ -239,17 +239,17 @@ func TestRunSwitch_TempProfile(t *testing.T) {
 	_ = runSwitch([]string{"-c", "perm", "perm@example.com"})
 
 	// 2. Create a temporary user
-	err := runSwitch([]string{"-c", "temp", "temp@example.com", "--temp"})
+	err := runSwitch([]string{"-c", "guest", "guest@example.com", "--temp"})
 	if err != nil {
 		t.Fatalf("unexpected error creating temp profile: %v", err)
 	}
 
 	// Verify temp user is created and active
 	store, _ := config.Load()
-	if store.Current != "temp" {
+	if store.Current != "guest" {
 		t.Errorf("expected current to be temp, got %s", store.Current)
 	}
-	u := store.FindUser("temp")
+	u := store.FindUser("guest")
 	if u == nil || !u.IsTemporary {
 		t.Errorf("temp user should exist and be marked temporary")
 	}
@@ -261,14 +261,14 @@ func TestRunSwitch_TempProfile(t *testing.T) {
 	}
 
 	store, _ = config.Load()
-	if store.FindUser("temp") != nil {
+	if store.FindUser("guest") != nil {
 		t.Errorf("temp user should have been deleted when switching away from it")
 	}
 }
 
 func TestRunSwitch_PreservesOriginalSSHCommand(t *testing.T) {
 	setupTestEnv(t)
-	setGitConfig("bob", "bob@example.com")
+	setGitConfig("ops", "ops@example.com")
 	_ = exec.Command("git", "config", "--global", "core.sshCommand", "ssh -i ~/.ssh/id_bob -o SomeFlag -o OtherFlag=1").Run()
 
 	if err := runImportOriginal([]string{"main"}); err != nil {

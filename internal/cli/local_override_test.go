@@ -21,7 +21,7 @@ func TestLocalSwitchOverride(t *testing.T) {
 	// Create profiles in config
 	store, _ := config.Load()
 	_ = store.AddUser("personal", "personal@example.com")
-	_ = store.AddUser("work", "work@example.com")
+	_ = store.AddUser("eng", "eng@example.com")
 	_ = config.Save(store)
 
 	// Set up global config
@@ -60,14 +60,14 @@ func TestLocalSwitchOverride(t *testing.T) {
 	})
 
 	// Run switch locally
-	err = runSwitch([]string{"--local", "work"})
+	err = runSwitch([]string{"--local", "eng"})
 	if err != nil {
 		t.Fatalf("local switch failed: %v", err)
 	}
 
-	// Verify resolved name in repository is "work"
-	if git.CurrentName() != "work" || git.CurrentEmail() != "work@example.com" {
-		t.Errorf("expected local override to be work, got %s / %s", git.CurrentName(), git.CurrentEmail())
+	// Verify resolved name in repository is "eng"
+	if git.CurrentName() != "eng" || git.CurrentEmail() != "eng@example.com" {
+		t.Errorf("expected local override to be eng, got %s / %s", git.CurrentName(), git.CurrentEmail())
 	}
 
 	// Verify global config remains "personal"

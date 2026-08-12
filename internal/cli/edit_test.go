@@ -13,7 +13,7 @@ func TestRunEdit_MissingArgs(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error with no arguments, got nil")
 	}
-	err = runEdit([]string{"alice"})
+	err = runEdit([]string{"dev"})
 	if err == nil {
 		t.Fatal("expected error with missing email argument, got nil")
 	}
@@ -21,7 +21,7 @@ func TestRunEdit_MissingArgs(t *testing.T) {
 
 func TestRunEdit_InvalidEmail(t *testing.T) {
 	setupTestEnv(t)
-	err := runEdit([]string{"alice", "invalid-email"})
+	err := runEdit([]string{"dev", "invalid-email"})
 	if err == nil {
 		t.Fatal("expected error with invalid email format, got nil")
 	}
@@ -29,7 +29,7 @@ func TestRunEdit_InvalidEmail(t *testing.T) {
 
 func TestRunEdit_UserNotFound(t *testing.T) {
 	setupTestEnv(t)
-	err := runEdit([]string{"alice", "alice@example.com"})
+	err := runEdit([]string{"dev", "dev@example.com"})
 	if err == nil {
 		t.Fatal("expected error with nonexistent user, got nil")
 	}
@@ -39,11 +39,11 @@ func TestRunEdit_EmailAlreadyInUse(t *testing.T) {
 	setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.AddUser("bob", "bob@example.com")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.AddUser("ops", "ops@example.com")
 	_ = config.Save(store)
 
-	err := runEdit([]string{"alice", "bob@example.com"})
+	err := runEdit([]string{"dev", "ops@example.com"})
 	if err == nil {
 		t.Fatal("expected error when updating email to one already in use, got nil")
 	}
@@ -53,27 +53,27 @@ func TestRunEdit_SuccessInactiveUser(t *testing.T) {
 	setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.AddUser("bob", "bob@example.com")
-	_ = store.SetCurrent("bob")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.AddUser("ops", "ops@example.com")
+	_ = store.SetCurrent("ops")
 	_ = config.Save(store)
 
-	_ = git.Apply("bob", "bob@example.com")
+	_ = git.Apply("ops", "ops@example.com")
 
-	err := runEdit([]string{"alice", "alice-new@example.com"})
+	err := runEdit([]string{"dev", "dev-new@example.com"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	store, _ = config.Load()
-	user := store.FindUser("alice")
-	if user.Email != "alice-new@example.com" {
-		t.Errorf("expected email to be updated to alice-new@example.com, got %s", user.Email)
+	user := store.FindUser("dev")
+	if user.Email != "dev-new@example.com" {
+		t.Errorf("expected email to be updated to dev-new@example.com, got %s", user.Email)
 	}
 
-	// Verify git config is still bob's email
-	if git.CurrentEmail() != "bob@example.com" {
-		t.Errorf("expected git user.email to remain bob@example.com, got %s", git.CurrentEmail())
+	// Verify git config is still ops's email
+	if git.CurrentEmail() != "ops@example.com" {
+		t.Errorf("expected git user.email to remain ops@example.com, got %s", git.CurrentEmail())
 	}
 }
 
@@ -81,27 +81,27 @@ func TestRunEdit_SuccessActiveUser(t *testing.T) {
 	setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.SetCurrent("alice")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.SetCurrent("dev")
 	_ = config.Save(store)
 
-	// Since we set current to alice, apply alice's details initially
-	_ = git.Apply("alice", "alice@example.com")
+	// Since we set current to dev, apply dev's details initially
+	_ = git.Apply("dev", "dev@example.com")
 
-	err := runEdit([]string{"alice", "alice-new@example.com"})
+	err := runEdit([]string{"dev", "dev-new@example.com"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	store, _ = config.Load()
-	user := store.FindUser("alice")
-	if user.Email != "alice-new@example.com" {
-		t.Errorf("expected email to be updated to alice-new@example.com, got %s", user.Email)
+	user := store.FindUser("dev")
+	if user.Email != "dev-new@example.com" {
+		t.Errorf("expected email to be updated to dev-new@example.com, got %s", user.Email)
 	}
 
 	// Verify git config was updated automatically
-	if git.CurrentEmail() != "alice-new@example.com" {
-		t.Errorf("expected git user.email to have been updated to alice-new@example.com, got %s", git.CurrentEmail())
+	if git.CurrentEmail() != "dev-new@example.com" {
+		t.Errorf("expected git user.email to have been updated to dev-new@example.com, got %s", git.CurrentEmail())
 	}
 }
 
@@ -109,10 +109,10 @@ func TestRunEdit_SameEmail(t *testing.T) {
 	setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
+	_ = store.AddUser("dev", "dev@example.com")
 	_ = config.Save(store)
 
-	err := runEdit([]string{"alice", "alice@example.com"})
+	err := runEdit([]string{"dev", "dev@example.com"})
 	if err != nil {
 		t.Fatalf("expected editing with same email to succeed, got error: %v", err)
 	}

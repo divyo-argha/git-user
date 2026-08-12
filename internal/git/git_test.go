@@ -3,9 +3,11 @@ package git_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/testutil"
 )
 
 func TestIsIdentityInSync(t *testing.T) {
@@ -18,21 +20,21 @@ func TestIsIdentityInSync(t *testing.T) {
 	t.Setenv("HOME", dir)
 
 	// No git config yet → out of sync.
-	if git.IsIdentityInSync("work", "work@example.com") {
+	if git.IsIdentityInSync("eng", "eng@example.com") {
 		t.Error("expected out of sync with no git config")
 	}
 
 	// Matching identity → in sync.
-	cfg := "[user]\n\tname = work\n\temail = work@example.com\n"
+	cfg := "[user]\n\tname = eng\n\temail = eng@example.com\n"
 	if err := os.WriteFile(filepath.Join(dir, ".gitconfig"), []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if !git.IsIdentityInSync("work", "work@example.com") {
+	if !git.IsIdentityInSync("eng", "eng@example.com") {
 		t.Error("expected in sync when git config matches")
 	}
 
 	// Drifted identity (only name matches) → out of sync.
-	if git.IsIdentityInSync("work", "other@example.com") {
+	if git.IsIdentityInSync("eng", "other@example.com") {
 		t.Error("expected out of sync when email drifted")
 	}
 }
@@ -87,27 +89,23 @@ func TestCurrentBranchAndRepo(t *testing.T) {
 }
 
 func TestIsInstalled(t *testing.T) {
-	// Git should be installed for this project to work
+	// Git should be installed for this project to eng
 	if !git.IsInstalled() {
 		t.Error("IsInstalled() = false, but git should be available")
 	}
 }
 
+func TestIsInRepo(t *testing.T) {
+	// This test depends on whether we're in a git repo
+	// Just verify it doesn't panic
+	_ = git.IsInRepo()
+}
 func TestApply(t *testing.T) {
-	// Save current git config
-	oldName := git.CurrentName()
-	oldEmail := git.CurrentEmail()
-
-	// Ensure we restore it
-	defer func() {
-		if oldName != "" {
-			git.Apply(oldName, oldEmail)
-		}
-	}()
+	dir := testutil.Sandbox(t)
 
 	// Test applying new config
-	testName := "Test User"
-	testEmail := "test@example.com"
+	testName := "tester"
+	testEmail := "tester@example.com"
 
 	if err := git.Apply(testName, testEmail); err != nil {
 		t.Fatalf("Apply() failed: %v", err)
@@ -120,32 +118,57 @@ func TestApply(t *testing.T) {
 	if got := git.CurrentEmail(); got != testEmail {
 		t.Errorf("CurrentEmail() = %q, want %q", got, testEmail)
 	}
+
+	// The write must land in the sandboxed git config, never the real one.
+	data, err := os.ReadFile(filepath.Join(dir, ".gitconfig"))
+	if err != nil {
+		t.Fatalf("reading sandboxed .gitconfig: %v", err)
+	}
+	if !strings.Contains(string(data), testName) {
+		t.Errorf("sandboxed .gitconfig missing applied identity:\n%s", data)
+	}
 }
 
 func TestConfigureSSH(t *testing.T) {
-	testKeyPath := "/home/user/.ssh/test_key"
+	testutil.Sandbox(t)
+	testKeyPath := filepath.Join(t.TempDir(), "test_key")
 
 	if err := git.ConfigureSSH(testKeyPath); err != nil {
 		t.Fatalf("ConfigureSSH() failed: %v", err)
 	}
 
+	if got := git.CurrentSSHCommand(); !strings.Contains(got, testKeyPath) {
+		t.Errorf("CurrentSSHCommand() = %q, want it to contain %q", got, testKeyPath)
+	}
+
 	// Clean up
-	defer git.RemoveSSHConfig()
-}
-
-func TestRemoveSSHConfig(t *testing.T) {
-	// Set a test SSH config
-	testKeyPath := "/tmp/test_key"
-	git.ConfigureSSH(testKeyPath)
-
-	// Remove it
 	if err := git.RemoveSSHConfig(); err != nil {
 		t.Fatalf("RemoveSSHConfig() failed: %v", err)
 	}
 }
 
+func TestRemoveSSHConfig(t *testing.T) {
+	testutil.Sandbox(t)
+
+	// Set a test SSH config
+	testKeyPath := filepath.Join(t.TempDir(), "test_key")
+	if err := git.ConfigureSSH(testKeyPath); err != nil {
+		t.Fatalf("ConfigureSSH() failed: %v", err)
+	}
+
+	// Remove it
+	if err := git.RemoveSSHConfig(); err != nil {
+		t.Fatalf("RemoveSSHConfig() failed: %v", err)
+	}
+
+	if got := git.CurrentSSHCommand(); got != "" {
+		t.Errorf("CurrentSSHCommand() = %q after remove, want empty", got)
+	}
+}
+
 func TestConfigureSigning(t *testing.T) {
-	testKeyPath := "/home/user/.ssh/test_key"
+	dir := testutil.Sandbox(t)
+	testKeyPath := filepath.Join(t.TempDir(), "test_key")
 
 	if err := git.ConfigureSigning(testKeyPath, "ssh"); err != nil {
 		t.Fatalf("ConfigureSigning() failed: %v", err)
@@ -167,10 +190,11 @@ func TestConfigureSigning(t *testing.T) {
 	if got := git.CurrentSigningKey(); got != "" {
 		t.Errorf("Expected empty signing key after remove, got %q", got)
 	}
-}
 
-func TestIsInRepo(t *testing.T) {
-	// This test depends on whether we're in a git repo
-	// Just verify it doesn't panic
-	_ = git.IsInRepo()
+	// Nothing may have escaped the sandbox.
+	if data, err := os.ReadFile(filepath.Join(dir, ".gitconfig")); err == nil {
+		if strings.Contains(string(data), "/private/") || strings.Contains(string(data), "/Users/") {
+			t.Errorf("sandboxed gitconfig unexpectedly contains real paths:\n%s", data)
+		}
+	}
 }

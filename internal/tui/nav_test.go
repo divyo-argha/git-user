@@ -38,10 +38,10 @@ func pumpApp(a *App, m tea.Msg) *App {
 func buildDetailRootedApp(t *testing.T, startDetail string) *App {
 	t.Helper()
 	store := &config.Store{
-		Current: "work",
+		Current: "eng",
 		Users: []config.User{
-			{Name: "work", Email: "work@corp.com", SSHKey: "/tmp/k"},
-			{Name: "home", Email: "home@personal.com"},
+			{Name: "eng", Email: "eng@corp.com", SSHKey: "/tmp/k"},
+			{Name: "private", Email: "private@example.com"},
 		},
 	}
 	th := theme.DefaultTheme()
@@ -59,7 +59,7 @@ func TestNavStartDetailEscReturnsToDashboard(t *testing.T) {
 	// Regression: launching straight into a detail screen (which happens after
 	// switch/rename/bind/etc. in cli/tui.go's relaunch loop) used to leave the
 	// screen stack as [Detail] only, so Esc / "← Back" were no-ops.
-	app := buildDetailRootedApp(t, "work")
+	app := buildDetailRootedApp(t, "eng")
 	if len(app.screenStack) != 2 {
 		t.Fatalf("expected stack [Dashboard, Detail], got %d", len(app.screenStack))
 	}
@@ -91,8 +91,8 @@ func TestNavStartDetailEscReturnsToDashboard(t *testing.T) {
 
 func TestNavDashboardEnterDetailEsc(t *testing.T) {
 	store := &config.Store{
-		Current: "work",
-		Users:   []config.User{{Name: "work", Email: "work@corp.com"}},
+		Current: "eng",
+		Users:   []config.User{{Name: "eng", Email: "eng@corp.com"}},
 	}
 	th := theme.DefaultTheme()
 	app := NewApp(store, screens.NewDashboard(store, th))

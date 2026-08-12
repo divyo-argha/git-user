@@ -292,9 +292,9 @@ func TestEnsureMacOSKeychainConfigured(t *testing.T) {
 	originalHome := os.Getenv("HOME")
 	defer os.Setenv("HOME", originalHome)
 
-	tmpDir, err := os.MkdirTemp("", "ssh-home-test-*")
+	tmpDir, err := os.MkdirTemp("", "ssh-private-test-*")
 	if err != nil {
-		t.Fatalf("Failed to create temp home dir: %v", err)
+		t.Fatalf("Failed to create temp private dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 

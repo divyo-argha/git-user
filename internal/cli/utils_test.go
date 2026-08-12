@@ -7,9 +7,9 @@ import (
 )
 
 func TestExpandPath(t *testing.T) {
-	home, err := os.UserHomeDir()
+	private, err := os.UserHomeDir()
 	if err != nil {
-		t.Skip("Cannot get home directory")
+		t.Skip("Cannot get private directory")
 	}
 
 	tests := []struct {
@@ -20,7 +20,7 @@ func TestExpandPath(t *testing.T) {
 		{
 			name:     "tilde expansion",
 			input:    "~/.ssh/id_rsa",
-			expected: filepath.Join(home, ".ssh/id_rsa"),
+			expected: filepath.Join(private, ".ssh/id_rsa"),
 		},
 		{
 			name:     "absolute path unchanged",
@@ -35,7 +35,7 @@ func TestExpandPath(t *testing.T) {
 		{
 			name:     "tilde only",
 			input:    "~/",
-			expected: home,
+			expected: private,
 		},
 	}
 
@@ -66,7 +66,7 @@ func TestGenerateAndDisplayKey_KeyExists(t *testing.T) {
 	// Create a temporary directory for testing
 	tmpDir := t.TempDir()
 
-	// Override home directory for this test
+	// Override private directory for this test
 	oldHome := os.Getenv("HOME")
 	os.Setenv("HOME", tmpDir)
 	defer os.Setenv("HOME", oldHome)

@@ -23,7 +23,7 @@ func TestKeyringIntegration(t *testing.T) {
 		t.Fatalf("failed to load config: %v", err)
 	}
 
-	err = store.AddUser("work", "work@example.com")
+	err = store.AddUser("eng", "eng@example.com")
 	if err != nil {
 		t.Fatalf("failed to add user: %v", err)
 	}
@@ -53,10 +53,10 @@ func TestKeyringIntegration(t *testing.T) {
 	}
 
 	// Call checkAndPromptPassphrase
-	checkAndPromptPassphrase("work", keyPath)
+	checkAndPromptPassphrase("eng", keyPath)
 
 	// Verify it was stored in the mocked keyring
-	secret, err := keyring.GetKeychainPassphrase("work")
+	secret, err := keyring.GetKeychainPassphrase("eng")
 	if err != nil {
 		t.Fatalf("failed to retrieve stored passphrase: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestKeyringIntegration(t *testing.T) {
 	// Test switch retrieves it automatically without prompt
 	// Save the key path to the user config
 	store, _ = config.Load()
-	user := store.FindUser("work")
+	user := store.FindUser("eng")
 	user.SSHKey = keyPath
 	_ = config.Save(store)
 
@@ -79,19 +79,19 @@ func TestKeyringIntegration(t *testing.T) {
 
 	// We need to bypass actual ssh-agent operations or stub them
 	// Let's run switch
-	err = runSwitch([]string{"work"})
+	err = runSwitch([]string{"eng"})
 	if err != nil {
 		t.Fatalf("failed to switch user: %v", err)
 	}
 
 	// Test removal deletes it from keyring
-	err = runRemove([]string{"work", "--force"})
+	err = runRemove([]string{"eng", "--force"})
 	if err != nil {
 		t.Fatalf("failed to remove user: %v", err)
 	}
 
 	// Verify deleted from keyring
-	_, err = keyring.GetKeychainPassphrase("work")
+	_, err = keyring.GetKeychainPassphrase("eng")
 	if err == nil {
 		t.Fatal("expected keychain entry to be deleted, but it was found")
 	}

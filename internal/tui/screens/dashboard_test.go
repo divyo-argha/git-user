@@ -14,10 +14,10 @@ func TestDashboard(t *testing.T) {
 	th := theme.DefaultTheme()
 
 	store := &config.Store{
-		Current: "work",
+		Current: "eng",
 		Users: []config.User{
 			{Name: "personal", Email: "personal@example.com"},
-			{Name: "work", Email: "work@company.com"},
+			{Name: "eng", Email: "eng@company.com"},
 		},
 	}
 
@@ -67,9 +67,9 @@ func TestDashboard(t *testing.T) {
 func TestDashboardOutOfSyncWarningAndFix(t *testing.T) {
 	th := theme.DefaultTheme()
 	store := &config.Store{
-		Current: "work",
+		Current: "eng",
 		Users: []config.User{
-			{Name: "work", Email: "work@company.com"},
+			{Name: "eng", Email: "eng@company.com"},
 		},
 	}
 	dash := NewDashboard(store, th)

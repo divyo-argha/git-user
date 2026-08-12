@@ -13,38 +13,38 @@ import (
 
 func TestAddAndFind(t *testing.T) {
 	s := &config.Store{}
-	if err := s.AddUser("alice", "alice@example.com"); err != nil {
+	if err := s.AddUser("dev", "dev@example.com"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	u := s.FindUser("alice")
+	u := s.FindUser("dev")
 	if u == nil {
 		t.Fatal("user not found after add")
 	}
-	if u.Email != "alice@example.com" {
-		t.Errorf("expected alice@example.com, got %s", u.Email)
+	if u.Email != "dev@example.com" {
+		t.Errorf("expected dev@example.com, got %s", u.Email)
 	}
 }
 
 func TestDuplicateAdd(t *testing.T) {
 	s := &config.Store{}
-	_ = s.AddUser("bob", "bob@example.com")
-	if err := s.AddUser("bob", "bob2@example.com"); err == nil {
+	_ = s.AddUser("ops", "ops@example.com")
+	if err := s.AddUser("ops", "ops-backup@example.com"); err == nil {
 		t.Fatal("expected duplicate error, got nil")
 	}
 }
 
 func TestRemoveActive(t *testing.T) {
 	s := &config.Store{}
-	_ = s.AddUser("carol", "carol@example.com")
-	_ = s.SetCurrent("carol")
+	_ = s.AddUser("qa", "qa@example.com")
+	_ = s.SetCurrent("qa")
 
-	if err := s.RemoveUser("carol", false); err == nil {
+	if err := s.RemoveUser("qa", false); err == nil {
 		t.Fatal("expected error removing active user without force")
 	}
-	if err := s.RemoveUser("carol", true); err != nil {
+	if err := s.RemoveUser("qa", true); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if s.FindUser("carol") != nil {
+	if s.FindUser("qa") != nil {
 		t.Fatal("user still present after force remove")
 	}
 	if s.Current != "" {
@@ -66,10 +66,10 @@ func TestUpdateUser(t *testing.T) {
 func TestBindSSHKey(t *testing.T) {
 	s := &config.Store{}
 	_ = s.AddUser("eve", "eve@example.com")
-	if err := s.BindSSHKey("eve", "/home/eve/.ssh/id_ed25519"); err != nil {
+	if err := s.BindSSHKey("eve", "/private/eve/.ssh/id_ed25519"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if u := s.FindUser("eve"); u.SSHKey != "/home/eve/.ssh/id_ed25519" {
+	if u := s.FindUser("eve"); u.SSHKey != "/private/eve/.ssh/id_ed25519" {
 		t.Errorf("unexpected ssh key: %s", u.SSHKey)
 	}
 }
@@ -200,10 +200,10 @@ func TestTempProfile(t *testing.T) {
 
 	s := &config.Store{}
 	_ = s.AddUser("perm", "perm@example.com")
-	_ = s.AddUser("temp", "temp@example.com")
+	_ = s.AddUser("guest", "guest@example.com")
 
 	// Mark temp user
-	u := s.FindUser("temp")
+	u := s.FindUser("guest")
 	u.IsTemporary = true
 
 	if err := config.Save(s); err != nil {
@@ -216,7 +216,7 @@ func TestTempProfile(t *testing.T) {
 	if err := json.Unmarshal(data, &stored); err != nil {
 		t.Fatalf("failed to parse config.json: %v", err)
 	}
-	if stored.FindUser("temp") != nil {
+	if stored.FindUser("guest") != nil {
 		t.Errorf("temp user should not be in config.json")
 	}
 
@@ -226,7 +226,7 @@ func TestTempProfile(t *testing.T) {
 	if err := json.Unmarshal(tempData, &tempUsers); err != nil {
 		t.Fatalf("failed to parse temp config: %v", err)
 	}
-	if len(tempUsers) != 1 || tempUsers[0].Name != "temp" {
+	if len(tempUsers) != 1 || tempUsers[0].Name != "guest" {
 		t.Errorf("temp config does not contain temp user")
 	}
 
@@ -235,10 +235,10 @@ func TestTempProfile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
-	if loaded.FindUser("perm") == nil || loaded.FindUser("temp") == nil {
+	if loaded.FindUser("perm") == nil || loaded.FindUser("guest") == nil {
 		t.Errorf("Load did not merge users correctly")
 	}
-	if !loaded.FindUser("temp").IsTemporary {
+	if !loaded.FindUser("guest").IsTemporary {
 		t.Errorf("Loaded temp user missing IsTemporary flag")
 	}
 
@@ -256,7 +256,7 @@ func TestSaveGuardDetectsExternalChange(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
-	if err := loaded.AddUser("alice", "alice@example.com"); err != nil {
+	if err := loaded.AddUser("dev", "dev@example.com"); err != nil {
 		t.Fatalf("AddUser failed: %v", err)
 	}
 	if err := config.Save(loaded); err != nil {
@@ -269,7 +269,7 @@ func TestSaveGuardDetectsExternalChange(t *testing.T) {
 	if err != nil {
 		t.Fatalf("external Load failed: %v", err)
 	}
-	if err := external.RemoveUser("alice", true); err != nil {
+	if err := external.RemoveUser("dev", true); err != nil {
 		t.Fatalf("external RemoveUser failed: %v", err)
 	}
 	if err := config.Save(external); err != nil {
@@ -277,8 +277,8 @@ func TestSaveGuardDetectsExternalChange(t *testing.T) {
 	}
 
 	// The original store is now stale — saving it must be refused so it cannot
-	// resurrect alice (or any profile the external session removed).
-	if err := loaded.AddUser("bob", "bob@example.com"); err != nil {
+	// resurrect dev (or any profile the external session removed).
+	if err := loaded.AddUser("ops", "ops@example.com"); err != nil {
 		t.Fatalf("AddUser failed: %v", err)
 	}
 	if err := config.Save(loaded); !errors.Is(err, config.ErrConfigChanged) {
@@ -290,10 +290,10 @@ func TestSaveGuardDetectsExternalChange(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload failed: %v", err)
 	}
-	if onDisk.FindUser("bob") != nil {
+	if onDisk.FindUser("ops") != nil {
 		t.Error("stale store wrote to disk despite guard")
 	}
-	if onDisk.FindUser("alice") != nil {
+	if onDisk.FindUser("dev") != nil {
 		t.Error("stale store resurrected removed profile")
 	}
 }
@@ -307,7 +307,7 @@ func TestSaveGuardAllowsConsecutiveSaves(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
-	if err := loaded.AddUser("carol", "carol@example.com"); err != nil {
+	if err := loaded.AddUser("qa", "qa@example.com"); err != nil {
 		t.Fatalf("AddUser failed: %v", err)
 	}
 	// Saving the same loaded store twice must succeed (the hash is updated on
@@ -342,8 +342,8 @@ func TestSyncIncludeIfsHonorsEnvConfigPath(t *testing.T) {
 	t.Setenv("GIT_USER_CONFIG", filepath.Join(dir, "config.json"))
 
 	s := &config.Store{}
-	_ = s.AddUser("work", "work@corp.com")
-	_ = s.BindPathToUser("work", dir)
+	_ = s.AddUser("eng", "eng@corp.com")
+	_ = s.BindPathToUser("eng", dir)
 
 	if err := config.Save(s); err != nil {
 		t.Fatalf("Save failed: %v", err)
@@ -351,9 +351,9 @@ func TestSyncIncludeIfsHonorsEnvConfigPath(t *testing.T) {
 
 	// The profile snippet must be written into the directory that ConfigPath()
 	// resolves to (honoring GIT_USER_CONFIG), not the default ~/.git-users dir.
-	snippet := filepath.Join(dir, "profile-work.gitconfig")
+	snippet := filepath.Join(dir, "profile-eng.gitconfig")
 	if _, err := os.Stat(snippet); err != nil {
-		t.Errorf("expected profile-work.gitconfig in env config dir: %v", err)
+		t.Errorf("expected profile-eng.gitconfig in env config dir: %v", err)
 	}
 
 	// Clean up the includeIf entry added to the real global gitconfig.

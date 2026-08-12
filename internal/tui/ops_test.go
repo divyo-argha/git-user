@@ -6,19 +6,18 @@ import (
 	"testing"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/testutil"
 )
 
 func withTempConfig(t *testing.T) {
 	t.Helper()
-	dir := t.TempDir()
-	t.Setenv("HOME", dir)
-	t.Setenv("GIT_USER_CONFIG", filepath.Join(dir, "config.json"))
+	testutil.Sandbox(t)
 }
 
 func TestExpandPath(t *testing.T) {
-	home, _ := os.UserHomeDir()
+	private, _ := os.UserHomeDir()
 	got := expandPath("~/foo")
-	want := filepath.Join(home, "foo")
+	want := filepath.Join(private, "foo")
 	if got != want {
 		t.Errorf("expandPath ~/foo = %q, want %q", got, want)
 	}
@@ -49,33 +48,33 @@ func TestIsValidEmail(t *testing.T) {
 func TestOpRenameAndChangeEmail(t *testing.T) {
 	withTempConfig(t)
 	store := &config.Store{
-		Current: "work",
+		Current: "eng",
 		Users: []config.User{
-			{Name: "work", Email: "work@corp.com"},
-			{Name: "home", Email: "home@personal.com"},
+			{Name: "eng", Email: "eng@corp.com"},
+			{Name: "private", Email: "private@example.com"},
 		},
 	}
 
-	if err := opRename(store, "work", "work-renamed"); err != nil {
+	if err := opRename(store, "eng", "eng-renamed"); err != nil {
 		t.Fatalf("opRename: %v", err)
 	}
-	if store.Current != "work-renamed" {
+	if store.Current != "eng-renamed" {
 		t.Errorf("expected current to follow rename, got %q", store.Current)
 	}
-	if store.FindUser("work-renamed") == nil {
+	if store.FindUser("eng-renamed") == nil {
 		t.Error("expected renamed user to exist")
 	}
-	if err := opRename(store, "work", "home"); err == nil {
+	if err := opRename(store, "eng", "private"); err == nil {
 		t.Error("expected error renaming to an existing name")
 	}
 
-	if err := opChangeEmail(store, "home", "new@home.com"); err != nil {
+	if err := opChangeEmail(store, "private", "new@private.com"); err != nil {
 		t.Fatalf("opChangeEmail: %v", err)
 	}
-	if store.FindUser("home").Email != "new@home.com" {
+	if store.FindUser("private").Email != "new@private.com" {
 		t.Error("expected email to be updated")
 	}
-	if err := opChangeEmail(store, "home", "work@corp.com"); err == nil {
+	if err := opChangeEmail(store, "private", "eng@corp.com"); err == nil {
 		t.Error("expected error when email is already used")
 	}
 }
@@ -83,27 +82,27 @@ func TestOpRenameAndChangeEmail(t *testing.T) {
 func TestOpBindPathAndUnbindPath(t *testing.T) {
 	withTempConfig(t)
 	store := &config.Store{
-		Users: []config.User{{Name: "work", Email: "work@corp.com"}},
+		Users: []config.User{{Name: "eng", Email: "eng@corp.com"}},
 	}
 	dir := t.TempDir()
 
-	if err := opBindPath(store, "work", dir); err != nil {
+	if err := opBindPath(store, "eng", dir); err != nil {
 		t.Fatalf("opBindPath: %v", err)
 	}
-	if len(store.FindUser("work").BindPaths) != 1 {
+	if len(store.FindUser("eng").BindPaths) != 1 {
 		t.Error("expected one bound path")
 	}
-	if err := opBindPath(store, "work", "definitely/missing/dir"); err == nil {
+	if err := opBindPath(store, "eng", "definitely/missing/dir"); err == nil {
 		t.Error("expected error binding a missing directory")
 	}
-	if err := opBindPath(store, "work", "/etc/hosts"); err == nil {
+	if err := opBindPath(store, "eng", "/etc/hosts"); err == nil {
 		t.Error("expected error binding a file path")
 	}
 
-	if err := opUnbindPath(store, "work", dir); err != nil {
+	if err := opUnbindPath(store, "eng", dir); err != nil {
 		t.Fatalf("opUnbindPath: %v", err)
 	}
-	if len(store.FindUser("work").BindPaths) != 0 {
+	if len(store.FindUser("eng").BindPaths) != 0 {
 		t.Error("expected no bound paths after unbind")
 	}
 }
@@ -111,33 +110,33 @@ func TestOpBindPathAndUnbindPath(t *testing.T) {
 func TestOpUnbindAndRemove(t *testing.T) {
 	withTempConfig(t)
 	store := &config.Store{
-		Current: "work",
+		Current: "eng",
 		Users: []config.User{
-			{Name: "work", Email: "work@corp.com", SSHKey: "/fake/key"},
-			{Name: "home", Email: "home@personal.com"},
+			{Name: "eng", Email: "eng@corp.com", SSHKey: "/fake/key"},
+			{Name: "private", Email: "private@example.com"},
 		},
 	}
 
 	// Unbind the active identity's key.
-	if err := opUnbind(store, "work"); err != nil {
+	if err := opUnbind(store, "eng"); err != nil {
 		t.Fatalf("opUnbind: %v", err)
 	}
-	if store.FindUser("work").SSHKey != "" {
+	if store.FindUser("eng").SSHKey != "" {
 		t.Error("expected SSH key binding to be removed")
 	}
 
 	// Remove a non-active identity (avoids clearing real git config in tests).
-	key, err := opRemove(store, "home")
+	key, err := opRemove(store, "private")
 	if err != nil {
 		t.Fatalf("opRemove: %v", err)
 	}
 	if key != "" {
 		t.Errorf("expected no key for removed user, got %q", key)
 	}
-	if store.FindUser("home") != nil {
-		t.Error("expected home user to be removed")
+	if store.FindUser("private") != nil {
+		t.Error("expected private user to be removed")
 	}
-	if store.Current != "work" {
+	if store.Current != "eng" {
 		t.Error("expected current identity unchanged")
 	}
 }
@@ -147,17 +146,17 @@ func TestOpRemoveInactiveWhileSignedOut(t *testing.T) {
 	store := &config.Store{
 		Current: "",
 		Users: []config.User{
-			{Name: "home", Email: "home@personal.com"},
+			{Name: "private", Email: "private@example.com"},
 		},
 	}
-	key, err := opRemove(store, "home")
+	key, err := opRemove(store, "private")
 	if err != nil {
 		t.Fatalf("opRemove: %v", err)
 	}
 	if key != "" {
 		t.Errorf("expected no key path, got %q", key)
 	}
-	if store.FindUser("home") != nil {
+	if store.FindUser("private") != nil {
 		t.Error("expected user to be removed")
 	}
 	if store.Current != "" {
@@ -170,16 +169,16 @@ func TestOpImportOriginalValidation(t *testing.T) {
 	store := &config.Store{
 		Current: "",
 		Users: []config.User{
-			{Name: "work", Email: "work@corp.com"},
+			{Name: "eng", Email: "eng@corp.com"},
 		},
 	}
 
 	// Duplicate name.
-	if _, err := opImportOriginal(store, "work", "orig@x.com"); err == nil {
+	if _, err := opImportOriginal(store, "eng", "orig@x.com"); err == nil {
 		t.Error("expected error for duplicate name")
 	}
 	// Duplicate email.
-	if _, err := opImportOriginal(store, "orig", "work@corp.com"); err == nil {
+	if _, err := opImportOriginal(store, "orig", "eng@corp.com"); err == nil {
 		t.Error("expected error for duplicate email")
 	}
 	// Invalid email.
@@ -209,14 +208,14 @@ func TestOpImportOriginalValidation(t *testing.T) {
 func TestOpRegisterFinishNoKey(t *testing.T) {
 	withTempConfig(t)
 	store := &config.Store{}
-	res, err := opRegisterFinish(store, "temp", "temp@corp.com", true, "", "", false)
+	res, err := opRegisterFinish(store, "guest", "guest@corp.com", true, "", "", false)
 	if err != nil {
 		t.Fatalf("opRegisterFinish: %v", err)
 	}
 	if !res.showReport {
 		t.Error("expected report screen for registration")
 	}
-	u := store.FindUser("temp")
+	u := store.FindUser("guest")
 	if u == nil {
 		t.Fatal("expected user to be created")
 	}
@@ -226,8 +225,8 @@ func TestOpRegisterFinishNoKey(t *testing.T) {
 }
 
 func TestNeedsPassphraseForSwitchNoKey(t *testing.T) {
-	store := &config.Store{Users: []config.User{{Name: "work", Email: "work@corp.com"}}}
-	if needsPassphraseForSwitch(store, "work") {
+	store := &config.Store{Users: []config.User{{Name: "eng", Email: "eng@corp.com"}}}
+	if needsPassphraseForSwitch(store, "eng") {
 		t.Error("expected no passphrase needed when no SSH key")
 	}
 }

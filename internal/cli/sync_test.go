@@ -45,7 +45,7 @@ func TestRunSync_SetupAndSync(t *testing.T) {
 
 	// Set up initial user profile
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
+	_ = store.AddUser("dev", "dev@example.com")
 	_ = config.Save(store)
 
 	// Run sync (triggers setup workflow and initial backup creation + push)
@@ -61,8 +61,8 @@ func TestRunSync_SetupAndSync(t *testing.T) {
 	}
 
 	// Verify the backup.bundle exists on sync directory
-	home, _ := os.UserHomeDir()
-	bundlePath := filepath.Join(home, ".git-users", "sync", "backup.bundle")
+	private, _ := os.UserHomeDir()
+	bundlePath := filepath.Join(private, ".git-users", "sync", "backup.bundle")
 	if _, err := os.Stat(bundlePath); os.IsNotExist(err) {
 		t.Fatal("expected backup.bundle to exist in sync directory")
 	}
@@ -98,19 +98,19 @@ func TestRunSync_SetupAndSync(t *testing.T) {
 	}
 	_ = config.Save(store2)
 
-	// Run sync on the second device (should fetch backup.bundle and import alice)
+	// Run sync on the second device (should fetch backup.bundle and import dev)
 	err = runSync([]string{})
 	if err != nil {
 		t.Fatalf("unexpected error during sync on second device: %v", err)
 	}
 
-	// Verify alice is imported successfully
+	// Verify dev is imported successfully
 	store2, _ = config.Load()
-	alice := store2.FindUser("alice")
-	if alice == nil || alice.Email != "alice@example.com" {
-		t.Fatal("failed to import alice profile on second device sync")
+	dev := store2.FindUser("dev")
+	if dev == nil || dev.Email != "dev@example.com" {
+		t.Fatal("failed to import dev profile on second device sync")
 	}
 
-	// Restore original home for cleanup
+	// Restore original private for cleanup
 	os.Setenv("HOME", oldHome)
 }

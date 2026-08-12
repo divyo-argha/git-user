@@ -24,7 +24,7 @@ func TestStateManagement(t *testing.T) {
 	// 2. Save state
 	meta := TempKeyMetadata{
 		KeyPath:      "/path/to/key1",
-		IdentityName: "work",
+		IdentityName: "eng",
 		CreatedAt:    time.Now(),
 		ProcessPID:   1234,
 		Fingerprint:  "fingerprint1",
@@ -41,14 +41,14 @@ func TestStateManagement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadTempState failed: %v", err)
 	}
-	if len(state.ActiveKeys) != 1 || state.ActiveKeys[0].IdentityName != "work" {
+	if len(state.ActiveKeys) != 1 || state.ActiveKeys[0].IdentityName != "eng" {
 		t.Errorf("Unexpected active keys state: %+v", state.ActiveKeys)
 	}
 
 	// 4. Add key to state
 	meta2 := TempKeyMetadata{
 		KeyPath:      "/path/to/key2",
-		IdentityName: "home",
+		IdentityName: "private",
 		CreatedAt:    time.Now(),
 		ProcessPID:   5678,
 		Fingerprint:  "fingerprint2",
@@ -154,10 +154,10 @@ func TestTempService(t *testing.T) {
 		PublicKeyPath:  "/path/to/public",
 		Fingerprint:    "fingerprint",
 		CreatedAt:      time.Now(),
-		IdentityName:   "work-temp",
+		IdentityName:   "eng-temp",
 	}
 
-	err = service.AddKey("work-temp", keyInfo)
+	err = service.AddKey("eng-temp", keyInfo)
 	if err != nil {
 		t.Fatalf("AddKey failed: %v", err)
 	}
@@ -166,17 +166,17 @@ func TestTempService(t *testing.T) {
 		t.Errorf("Expected 1 active key, got %d", len(service.GetActiveKeys()))
 	}
 
-	retrieved, exists := service.GetKey("work-temp")
+	retrieved, exists := service.GetKey("eng-temp")
 	if !exists || retrieved.Fingerprint != "fingerprint" {
 		t.Errorf("Failed to retrieve key, got exists=%v", exists)
 	}
 
-	err = service.RemoveKey("work-temp")
+	err = service.RemoveKey("eng-temp")
 	if err != nil {
 		t.Fatalf("RemoveKey failed: %v", err)
 	}
 
-	_, exists = service.GetKey("work-temp")
+	_, exists = service.GetKey("eng-temp")
 	if exists {
 		t.Error("Expected key to be removed")
 	}

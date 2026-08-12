@@ -20,18 +20,18 @@ func TestRunBind_Errors(t *testing.T) {
 	}
 
 	// User not found
-	err = runBind([]string{"alice"})
+	err = runBind([]string{"dev"})
 	if err == nil {
 		t.Fatal("expected error with nonexistent user, got nil")
 	}
 
 	// Register user
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
+	_ = store.AddUser("dev", "dev@example.com")
 	_ = config.Save(store)
 
 	// SSH key file does not exist
-	err = runBind([]string{"alice", "--ssh-key", "/nonexistent/key"})
+	err = runBind([]string{"dev", "--ssh-key", "/nonexistent/key"})
 	if err == nil {
 		t.Fatal("expected error with nonexistent key file, got nil")
 	}
@@ -42,22 +42,22 @@ func TestRunBind_Success(t *testing.T) {
 
 	// Pre-create user and a dummy key
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.SetCurrent("alice")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.SetCurrent("dev")
 	_ = config.Save(store)
 
 	keyPath := filepath.Join(tmpDir, "dummy_id")
 	_ = os.WriteFile(keyPath, []byte("private key"), 0600)
 
 	// Run bind on active user
-	err := runBind([]string{"alice", "--ssh-key", keyPath})
+	err := runBind([]string{"dev", "--ssh-key", keyPath})
 	if err != nil {
 		t.Fatalf("unexpected error binding key: %v", err)
 	}
 
 	// Verify key was bound in config
 	store, _ = config.Load()
-	user := store.FindUser("alice")
+	user := store.FindUser("dev")
 	if user.SSHKey != keyPath {
 		t.Errorf("expected bound SSH key to be %s, got %s", keyPath, user.SSHKey)
 	}
@@ -78,19 +78,19 @@ func TestRunBind_NoSign(t *testing.T) {
 	tmpDir := setupTestEnv(t)
 
 	store, _ := config.Load()
-	_ = store.AddUser("bob", "bob@example.com")
+	_ = store.AddUser("ops", "ops@example.com")
 	_ = config.Save(store)
 
 	keyPath := filepath.Join(tmpDir, "dummy_id2")
 	_ = os.WriteFile(keyPath, []byte("private key"), 0600)
 
-	err := runBind([]string{"bob", "--ssh-key", keyPath, "--no-sign"})
+	err := runBind([]string{"ops", "--ssh-key", keyPath, "--no-sign"})
 	if err != nil {
 		t.Fatalf("unexpected error binding key: %v", err)
 	}
 
 	store, _ = config.Load()
-	user := store.FindUser("bob")
+	user := store.FindUser("ops")
 	if user.SSHKey != keyPath {
 		t.Errorf("expected bound SSH key to be %s", keyPath)
 	}
@@ -104,7 +104,7 @@ func TestRunBind_Interactive(t *testing.T) {
 
 	// Pre-create user and key
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
+	_ = store.AddUser("dev", "dev@example.com")
 	_ = config.Save(store)
 
 	keyPath := filepath.Join(tmpDir, "dummy_id")
@@ -114,12 +114,12 @@ func TestRunBind_Interactive(t *testing.T) {
 	ui.SelectFn = func(label string, options []string) (int, error) {
 		return 2, nil
 	}
-	err := runBind([]string{"alice"})
+	err := runBind([]string{"dev"})
 	if err != nil {
 		t.Fatalf("unexpected error on interactive cancel: %v", err)
 	}
 	store, _ = config.Load()
-	if store.FindUser("alice").SSHKey != "" {
+	if store.FindUser("dev").SSHKey != "" {
 		t.Fatal("expected user to have no SSH key bound")
 	}
 
@@ -130,13 +130,13 @@ func TestRunBind_Interactive(t *testing.T) {
 	ui.PromptFn = func(label string) (string, error) {
 		return keyPath, nil
 	}
-	err = runBind([]string{"alice"})
+	err = runBind([]string{"dev"})
 	if err != nil {
 		t.Fatalf("unexpected error on interactive bind: %v", err)
 	}
 
 	store, _ = config.Load()
-	if store.FindUser("alice").SSHKey != keyPath {
+	if store.FindUser("dev").SSHKey != keyPath {
 		t.Errorf("expected SSH key path to be bound to %s", keyPath)
 	}
 }

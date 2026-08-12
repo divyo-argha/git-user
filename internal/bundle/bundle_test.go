@@ -7,7 +7,7 @@ import (
 )
 
 var testIdentities = []bundle.Identity{
-	{Name: "work", Email: "work@example.com", PrivateKey: []byte("fake-private"), PublicKey: []byte("fake-public")},
+	{Name: "eng", Email: "eng@example.com", PrivateKey: []byte("fake-private"), PublicKey: []byte("fake-public")},
 	{Name: "personal", Email: "me@gmail.com"},
 }
 

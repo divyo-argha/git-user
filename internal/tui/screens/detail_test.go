@@ -14,9 +14,9 @@ func TestDetail(t *testing.T) {
 
 	store := &config.Store{
 		Current: "personal",
-		Users:   []config.User{{Name: "work", Email: "work@company.com"}},
+		Users:   []config.User{{Name: "eng", Email: "eng@company.com"}},
 	}
-	detail := NewDetail(store, "work", th)
+	detail := NewDetail(store, "eng", th)
 
 	// Test Initial cursor focus on switch for inactive profile
 	selected := detail.actions.Selected()
@@ -64,10 +64,10 @@ func TestDetail(t *testing.T) {
 
 	// Test active profile detail view
 	storeActive := &config.Store{
-		Current: "work",
-		Users:   []config.User{{Name: "work", Email: "work@company.com", SSHKey: "/path/to/key"}},
+		Current: "eng",
+		Users:   []config.User{{Name: "eng", Email: "eng@company.com", SSHKey: "/path/to/key"}},
 	}
-	detailActive := NewDetail(storeActive, "work", th)
+	detailActive := NewDetail(storeActive, "eng", th)
 	viewStr := detailActive.View(80, 24)
 	if viewStr == "" {
 		t.Errorf("Active profile View rendered empty string")

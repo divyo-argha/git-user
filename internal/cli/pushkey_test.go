@@ -20,8 +20,8 @@ func TestRunPubkeyPush_Errors(t *testing.T) {
 
 	// Setup active user without key
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.SetCurrent("alice")
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.SetCurrent("dev")
 	_ = config.Save(store)
 
 	// Case 2: No SSH key bound

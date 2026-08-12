@@ -27,11 +27,11 @@ func TestRunExport_Errors(t *testing.T) {
 
 	// Register a user
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
+	_ = store.AddUser("dev", "dev@example.com")
 	_ = config.Save(store)
 
 	// User not found
-	err = runExport([]string{"bob"})
+	err = runExport([]string{"ops"})
 	if err == nil {
 		t.Fatal("expected error for nonexistent user, got nil")
 	}
@@ -69,8 +69,8 @@ func TestRunExportAndImport_Success(t *testing.T) {
 	_ = os.WriteFile(keyPath+".pub", []byte("public key data"), 0644)
 
 	store, _ := config.Load()
-	_ = store.AddUser("alice", "alice@example.com")
-	_ = store.BindSSHKey("alice", keyPath)
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.BindSSHKey("dev", keyPath)
 	_ = config.Save(store)
 
 	// Mock passphrase entry
@@ -130,16 +130,16 @@ func TestRunExportAndImport_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to load config: %v", err)
 	}
-	user := store.FindUser("alice")
+	user := store.FindUser("dev")
 	if user == nil {
-		t.Fatal("user alice was not imported")
+		t.Fatal("user dev was not imported")
 	}
-	if user.Email != "alice@example.com" {
-		t.Errorf("expected email to be alice@example.com, got %s", user.Email)
+	if user.Email != "dev@example.com" {
+		t.Errorf("expected email to be dev@example.com, got %s", user.Email)
 	}
 
 	// Verify imported SSH keys exist
-	expectedKeyPath := filepath.Join(tmpDir, ".ssh", "git_alice")
+	expectedKeyPath := filepath.Join(tmpDir, ".ssh", "git_dev")
 	if _, err := os.Stat(expectedKeyPath); err != nil {
 		t.Errorf("imported private key file does not exist: %s", expectedKeyPath)
 	}
@@ -164,9 +164,9 @@ func TestExportSkipsTemp(t *testing.T) {
 
 	store, _ := config.Load()
 	_ = store.AddUser("perm", "perm@example.com")
-	_ = store.AddUser("temp", "temp@example.com")
+	_ = store.AddUser("guest", "guest@example.com")
 
-	u := store.FindUser("temp")
+	u := store.FindUser("guest")
 	u.IsTemporary = true
 	_ = config.Save(store)
 
@@ -199,7 +199,7 @@ func TestExportSkipsTemp(t *testing.T) {
 	}
 
 	importedStore, _ := config.Load()
-	if importedStore.FindUser("temp") != nil {
+	if importedStore.FindUser("guest") != nil {
 		t.Errorf("temporary profile was exported and imported")
 	}
 	if importedStore.FindUser("perm") == nil {
