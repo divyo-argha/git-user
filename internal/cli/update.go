@@ -56,8 +56,8 @@ func RunUpdate() error {
 	}
 
 	// Compare remote version against currently installed version
-	if !isNewerVersion(release.TagName, version.Version) {
-		ui.Success(fmt.Sprintf("git-user is already up to date (%s). Latest GitHub release: %s", version.Version, release.TagName))
+	if !isNewerVersion(release.TagName, version.GetVersion()) {
+		ui.Success(fmt.Sprintf("git-user is already up to date (%s). Latest GitHub release: %s", version.GetVersion(), release.TagName))
 		return nil
 	}
 
@@ -89,10 +89,18 @@ func RunUpdate() error {
 		return fmt.Errorf("no binary found for %s/%s in release %s", goos, goarch, release.TagName)
 	}
 
-	// Download to temp file (must be in same dir as binary for cross-device rename safety)
-	tmpFile, err := os.CreateTemp(filepath.Dir(execPath), "git-user-update-*")
+	// Download to a temp file. Prefer the install directory so the final swap
+	// is a same-filesystem rename; fall back to the system temp dir when the
+	// install directory is not writable by this user (e.g. a sudo install of
+	// the binary into /usr/local/bin). The replacement logic then promotes
+	// itself with sudo.
+	tmpDir := filepath.Dir(execPath)
+	tmpFile, err := os.CreateTemp(tmpDir, "git-user-update-*")
 	if err != nil {
-		return fmt.Errorf("creating temp file: %w", err)
+		tmpFile, err = os.CreateTemp("", "git-user-update-*")
+		if err != nil {
+			return fmt.Errorf("creating temp file: %w", err)
+		}
 	}
 	tmpPath := tmpFile.Name()
 	defer os.Remove(tmpPath)
@@ -115,20 +123,16 @@ func RunUpdate() error {
 		return fmt.Errorf("chmod: %w", err)
 	}
 
-	// Replace: move old binary aside, move new one in
-	backupPath := execPath + ".bak"
-	if err := os.Rename(execPath, backupPath); err != nil {
-		return fmt.Errorf("backing up current binary: %w", err)
+	// Replace the installed binary (platform-specific: handles running
+	// executables and permission escalation).
+	msg, err := installBinary(execPath, newBinary)
+	if err != nil {
+		return err
 	}
-
-	if err := os.Rename(newBinary, execPath); err != nil {
-		// Rollback
-		os.Rename(backupPath, execPath)
-		return fmt.Errorf("installing new binary: %w", err)
+	if msg != "" {
+		fmt.Printf("\n%s\n", msg)
+		return nil
 	}
-
-	// Clean up backup
-	os.Remove(backupPath)
 
 	fmt.Printf("\n\033[32m✨ git-user updated to %s\033[0m\n", release.TagName)
 	return nil
@@ -203,6 +207,10 @@ func extractBinary(archivePath, binaryName string) (string, error) {
 	return "", fmt.Errorf("binary %q not found in archive", binaryName)
 }
 
+// installBinary replaces the installed binary with a freshly downloaded one.
+// Implementations are platform-specific (update_unix.go / update_windows.go),
+// where a non-empty message is printed instead of the default "updated"
+// banner (used when the swap completes after this process exits).
 func handleNpmUpdate() error {
 	ui.Info("Detected npm installation. Checking registry for updates...")
 
@@ -215,11 +223,22 @@ func handleNpmUpdate() error {
 			Version string `json:"version"`
 		}
 		if err := json.NewDecoder(resp.Body).Decode(&npmPkg); err == nil && npmPkg.Version != "" {
-			if !isNewerVersion(npmPkg.Version, version.Version) {
-				ui.Success(fmt.Sprintf("git-user is already up to date (%s). Latest npm version: %s", version.Version, npmPkg.Version))
+			if !isNewerVersion(npmPkg.Version, version.GetVersion()) {
+				ui.Success(fmt.Sprintf("git-user is already up to date (%s). Latest npm version: %s", version.GetVersion(), npmPkg.Version))
 				return nil
 			}
 		}
+	}
+
+	// On Windows the running executable is locked by the OS, so npm cannot
+	// replace it in place. Hand the update to a background process that runs
+	// npm once this process has exited.
+	if runtime.GOOS == "windows" {
+		if err := scheduleNpmUpdateWindows(); err != nil {
+			return fmt.Errorf("scheduling npm update: %w", err)
+		}
+		ui.Success("✨ git-userhub update scheduled — it will finish in the background after this command exits")
+		return nil
 	}
 
 	ui.Info("Updating git-userhub via npm...")

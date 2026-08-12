@@ -158,7 +158,7 @@ func Execute() error {
 	}
 
 	if args[0] == "--version" || args[0] == "-v" {
-		fmt.Printf("git-user %s\n", version.Version)
+		fmt.Printf("git-user %s\n", version.GetVersion())
 		return nil
 	}
 

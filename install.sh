@@ -86,10 +86,14 @@ cd "$TMP_DIR"
 curl -fsSL "$LATEST_URL" -o release.tar.gz
 tar -xzf release.tar.gz "$BIN_NAME"
 
-# Install with explicit mode (works with both mv and sudo paths)
+# Install with explicit mode. Unlink any previous version first: writing over
+# a *running* binary fails with "text file busy" on macOS (BSD install),
+# while unlink+install works on both macOS and Linux.
 if [ -n "$SUDO" ]; then
+    $SUDO rm -f "$INSTALL_DIR/$BIN_NAME"
     $SUDO install -m 755 "$BIN_NAME" "$INSTALL_DIR/$BIN_NAME"
 else
+    rm -f "$INSTALL_DIR/$BIN_NAME"
     install -m 755 "$BIN_NAME" "$INSTALL_DIR/$BIN_NAME"
 fi
 

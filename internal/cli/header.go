@@ -45,7 +45,7 @@ func renderHeader(store *config.Store, termHeight int) string {
 func renderLogoHeader(store *config.Store) string {
 	logoLines := logo.GetTrimmedLogo()
 
-	versionLine := fmt.Sprintf("  \x1b[38;2;148;163;184mVersion %s\x1b[0m", version.Version)
+	versionLine := fmt.Sprintf("  \x1b[38;2;148;163;184mVersion %s\x1b[0m", version.GetVersion())
 
 	dotStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#9ECE6A"))
 	actName := lipgloss.NewStyle().Foreground(lipgloss.Color("#9ECE6A")).Bold(true)

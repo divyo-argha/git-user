@@ -102,6 +102,7 @@ npm install -g git-userhub
 > Published as `git-userhub` on npm.
 > After install, the command is `git-user`.
 > Windows (x64/arm64) is supported through this route.
+> Keep it current with `git-user --update` (npm-managed installs update via npm).
 
 </td>
 <td width="33%" valign="top">
@@ -115,6 +116,10 @@ go install github.com/divyo-argha/git-user@latest
 ```bash
 git-user --update
 ```
+> Works on macOS, Linux, and Windows (x64/arm64). On macOS/Linux, updates
+> that need `sudo` (e.g. a curl install into `/usr/local/bin`) prompt for
+> your password. On Windows the running executable is locked by the OS, so
+> the new binary is applied in the background right after the command exits.
 
 </td>
 </tr>
