@@ -3,12 +3,15 @@ package cli
 import (
 	"archive/tar"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -16,6 +19,41 @@ import (
 	"github.com/divyo-argha/git-user/internal/ui"
 	"github.com/divyo-argha/git-user/internal/version"
 )
+
+// githubRelease is the subset of the GitHub Releases API response RunUpdate
+// needs to locate a platform binary asset and its checksums.txt.
+type githubRelease struct {
+	TagName    string `json:"tag_name"`
+	Draft      bool   `json:"draft"`
+	Prerelease bool   `json:"prerelease"`
+	Assets     []struct {
+		Name               string `json:"name"`
+		BrowserDownloadURL string `json:"browser_download_url"`
+	} `json:"assets"`
+}
+
+// findAssetURL returns the browser_download_url of the release asset whose
+// name matches the given OS/arch, or "" if none matches.
+func findAssetURL(rel githubRelease, osName, archName string) string {
+	for _, asset := range rel.Assets {
+		name := strings.ToLower(asset.Name)
+		if strings.Contains(name, osName) && strings.Contains(name, strings.ToLower(archName)) {
+			return asset.BrowserDownloadURL
+		}
+	}
+	return ""
+}
+
+// findChecksumsURL returns the browser_download_url of the release's
+// checksums.txt asset, or "" if the release has none.
+func findChecksumsURL(rel githubRelease) string {
+	for _, asset := range rel.Assets {
+		if strings.EqualFold(asset.Name, "checksums.txt") {
+			return asset.BrowserDownloadURL
+		}
+	}
+	return ""
+}
 
 func RunUpdate() error {
 	execPath, err := os.Executable()
@@ -32,16 +70,6 @@ func RunUpdate() error {
 		return handleNpmUpdate()
 	}
 
-	type githubRelease struct {
-		TagName    string `json:"tag_name"`
-		Draft      bool   `json:"draft"`
-		Prerelease bool   `json:"prerelease"`
-		Assets     []struct {
-			Name               string `json:"name"`
-			BrowserDownloadURL string `json:"browser_download_url"`
-		} `json:"assets"`
-	}
-
 	goos := runtime.GOOS
 	goarch := runtime.GOARCH
 
@@ -56,16 +84,6 @@ func RunUpdate() error {
 		ext = ".exe"
 	}
 
-	findAssetURL := func(rel githubRelease) string {
-		for _, asset := range rel.Assets {
-			name := strings.ToLower(asset.Name)
-			if strings.Contains(name, osName) && strings.Contains(name, strings.ToLower(archName)) {
-				return asset.BrowserDownloadURL
-			}
-		}
-		return ""
-	}
-
 	var release githubRelease
 	var downloadURL string
 
@@ -76,7 +94,7 @@ func RunUpdate() error {
 		if resp.StatusCode == http.StatusOK {
 			var rel githubRelease
 			if err := json.NewDecoder(resp.Body).Decode(&rel); err == nil {
-				if url := findAssetURL(rel); url != "" {
+				if url := findAssetURL(rel, osName, archName); url != "" {
 					release = rel
 					downloadURL = url
 				}
@@ -97,7 +115,7 @@ func RunUpdate() error {
 						if rel.Draft {
 							continue
 						}
-						if url := findAssetURL(rel); url != "" {
+						if url := findAssetURL(rel, osName, archName); url != "" {
 							release = rel
 							downloadURL = url
 							break
@@ -142,6 +160,20 @@ func RunUpdate() error {
 		return fmt.Errorf("downloading binary: %w", err)
 	}
 
+	// Verify the download against the release's checksums.txt before this
+	// binary is ever extracted or executed. This is the actual security
+	// boundary for self-update: without it, a tampered or substituted release
+	// asset would be installed (and, when the install directory requires
+	// sudo, run as root) with nothing to catch it.
+	checksumsURL := findChecksumsURL(release)
+	if checksumsURL == "" {
+		return fmt.Errorf("release %s has no checksums.txt — refusing to install an unverified binary", release.TagName)
+	}
+	if err := verifyChecksum(tmpPath, checksumsURL, path.Base(downloadURL)); err != nil {
+		return fmt.Errorf("verifying download integrity: %w", err)
+	}
+	ui.Success("Checksum verified")
+
 	// Extract binary from tar.gz
 	newBinary, err := extractBinary(tmpPath, "git-user"+ext)
 	if err != nil {
@@ -154,8 +186,8 @@ func RunUpdate() error {
 		return fmt.Errorf("chmod: %w", err)
 	}
 
-	// Verify the downloaded binary runs and reports the expected version
-	// before replacing the installed copy.
+	// Cosmetic confirmation only (the checksum check above is the actual
+	// security boundary): run the new binary and check its printed version.
 	versionOK := false
 	if verOut, verErr := exec.Command(newBinary, "--version").Output(); verErr == nil {
 		actual := strings.TrimSpace(string(verOut))
@@ -212,6 +244,59 @@ func downloadFile(url, dest string) error {
 
 	_, err = io.Copy(f, resp.Body)
 	return err
+}
+
+// verifyChecksum downloads a GoReleaser-style checksums.txt from checksumsURL
+// and confirms filePath's SHA-256 matches the entry for assetName. It errors
+// if the checksums file can't be fetched, has no entry for assetName, or the
+// computed hash doesn't match — the caller must treat any error as "do not
+// install this file".
+func verifyChecksum(filePath, checksumsURL, assetName string) error {
+	req, _ := http.NewRequest("GET", checksumsURL, nil)
+	req.Header.Set("User-Agent", "git-user-updater")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("downloading checksums.txt: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("downloading checksums.txt: HTTP %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("reading checksums.txt: %w", err)
+	}
+
+	expected := ""
+	for _, line := range strings.Split(string(body), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 2 && fields[1] == assetName {
+			expected = strings.ToLower(fields[0])
+			break
+		}
+	}
+	if expected == "" {
+		return fmt.Errorf("no checksum entry for %s in checksums.txt", assetName)
+	}
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return fmt.Errorf("hashing downloaded file: %w", err)
+	}
+	actual := hex.EncodeToString(h.Sum(nil))
+
+	if actual != expected {
+		return fmt.Errorf("checksum mismatch for %s: expected %s, got %s", assetName, expected, actual)
+	}
+	return nil
 }
 
 // extractBinary extracts a named file from a .tar.gz archive into a temp file.
