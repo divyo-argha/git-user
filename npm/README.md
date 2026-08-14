@@ -56,10 +56,11 @@ git-user switch personal --local
 ```
 
 ### 4. Interactive Terminal UI (TUI)
-Prefer an interactive visual menu?
+Prefer an interactive visual menu? Launch the keyboard-driven TUI:
 ```bash
 git-user tui
 ```
+*Navigate with <kbd>↑</kbd> / <kbd>↓</kbd> (or <kbd>k</kbd> / <kbd>j</kbd>), switch panes with <kbd>Tab ⇥</kbd>, and select with <kbd>Enter ↵</kbd>.*
 
 ---
 
@@ -83,7 +84,7 @@ When you switch identities, `git-user` updates your environment atomically in **
 | 🪝 **Pre-Commit Guard** | Block accidental commits if the wrong identity is active | [Learn More →](https://github.com/divyo-argha/git-user#-%EF%B8%8F-pre-commit-hooks) |
 | 🖋️ **Commit Signing** | Native SSH & GPG commit signing support | [Learn More →](https://github.com/divyo-argha/git-user#-%EF%B8%8F-commit-signing-git-user-sign) |
 | 🔄 **Encrypted Sync** | Sync identities across machines via a private Git repo | [Learn More →](https://github.com/divyo-argha/git-user#-%EF%B8%8F-cross-device-sync-git-user-sync) |
-| 🖥️ **Rich TUI** | Keyboard-navigable terminal user interface | [Learn More →](https://github.com/divyo-argha/git-user#-%EF%B8%8F-interactive-tui-git-user-tui) |
+| 🖥️ **Rich TUI** | Keyboard-navigable (<kbd>↑</kbd> <kbd>↓</kbd> <kbd>↵</kbd> <kbd>Tab</kbd>) terminal interface | [Learn More →](https://github.com/divyo-argha/git-user#-%EF%B8%8F-interactive-tui-git-user-tui) |
 | 🎨 **Terminal Prompt** | Show active Git identity in Zsh, Bash, Fish, or Starship prompt | [Integration Guide →](https://github.com/divyo-argha/git-user/blob/main/TERMINAL-INTEGRATION.md) |
 
 ---

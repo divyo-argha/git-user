@@ -34,35 +34,35 @@ func IsEscKey(msg tea.KeyMsg) bool {
 
 // DashboardHelp returns the help text for the main dashboard.
 func DashboardHelp() string {
-	return "  Tab/←/→ switch pane  ↑/↓ navigate  s switch  Enter select  / filter  q quit"
+	return "Tab/←/→•switch pane  ↑/↓•navigate  s•switch  Enter•select  /•filter  q•quit"
 }
 
 // DetailHelp returns the help text for the detail screen.
 func DetailHelp() string {
-	return "  ↑/↓ navigate  s switch profile  Enter select  Esc back  q quit"
+	return "↑/↓•navigate  s•switch profile  Enter•select  Esc•back  q•quit"
 }
 
 // FormHelp returns the help text for inline forms.
 func FormHelp() string {
-	return "  Tab next field  Shift+Tab prev field  Enter submit  Esc cancel"
+	return "Tab•next field  Shift+Tab•prev field  Enter•submit  Esc•cancel"
 }
 
 // ConfirmHelp returns the help text for confirmation dialogs.
 func ConfirmHelp() string {
-	return "  ←/→/↑/↓ select  y yes  n no  Enter confirm  Esc cancel"
+	return "←/→/↑/↓•select  y•yes  n•no  Enter•confirm  Esc•cancel"
 }
 
 // FilterHelp returns the help text when filter mode is active.
 func FilterHelp() string {
-	return "  Type to filter  Enter select  Esc clear filter"
+	return "Type to filter  Enter•select  Esc•clear filter"
 }
 
 // ImportExportHelp returns the help text for the Import/Export sub-screen.
 func ImportExportHelp() string {
-	return "  ↑/↓/j/k navigate  Enter select  Esc back"
+	return "↑/↓/j/k•navigate  Enter•select  Esc•back"
 }
 
 // OptionsHelp returns the help text for generic option/choice screens.
 func OptionsHelp() string {
-	return "  ↑/↓/j/k navigate  Enter select  Esc cancel"
+	return "↑/↓/j/k•navigate  Enter•select  Esc•cancel"
 }

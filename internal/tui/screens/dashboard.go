@@ -49,7 +49,7 @@ func (d *Dashboard) ShortHelp() string {
 		return core.FilterHelp()
 	}
 	if d.syncOut {
-		return core.DashboardHelp() + "  f re-apply active identity"
+		return core.DashboardHelp() + "  f•re-apply active identity"
 	}
 	return core.DashboardHelp()
 }

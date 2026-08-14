@@ -86,7 +86,7 @@ func TestDashboardOutOfSyncWarningAndFix(t *testing.T) {
 	}
 
 	// Help text advertises the fix key.
-	if !strings.Contains(dash.ShortHelp(), "f re-apply") {
+	if !strings.Contains(dash.ShortHelp(), "f•re-apply") && !strings.Contains(dash.ShortHelp(), "f re-apply") {
 		t.Errorf("ShortHelp should advertise the fix key, got: %q", dash.ShortHelp())
 	}
 

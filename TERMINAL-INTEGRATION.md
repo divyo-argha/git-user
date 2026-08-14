@@ -265,7 +265,7 @@ Scroll **all the way to the bottom** of the file. Right before the very last `}`
 ```
 
 **Step 4: Save and reload**
-Save the file (in nano: `Ctrl+O`, `Enter`, `Ctrl+X`) and reload your terminal configuration:
+Save the file (in nano: <kbd>Ctrl+O</kbd>, <kbd>Enter ↵</kbd>, <kbd>Ctrl+X</kbd>) and reload your terminal configuration:
 ```bash
 source ~/.zshrc
 ```

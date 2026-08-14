@@ -52,7 +52,7 @@
 ## 📑 Table of Contents
 
 **Getting Started**
-- [😤 The Problem](#-the-problem)
+- [🎯 The Problem](#-the-problem)
 - [📦 Install](#-install)
 - [🗑️ Uninstall](#-uninstall)
 - [⚡ Quick Start](#-quick-start)
@@ -85,7 +85,7 @@
 
 ---
 
-## 😤 The Problem
+## 🎯 The Problem
 
 You're a developer with multiple lives — work, personal, freelance, open source. Each one has its own Git account, its own SSH key, its own email.
 
@@ -95,7 +95,7 @@ And every few weeks, this happens:
 # You just pushed 3 commits to your client's repo.
 # Then you check the author.
 
-Author: you@personal.com   ← 💀 wrong account. again.
+Author: you@personal.com   ← ⚠️ wrong account. again.
 
 # Or your work email leaked onto your public GitHub profile.
 # Or your client can see your personal email in their repo history.
@@ -341,16 +341,16 @@ Launch the full terminal UI with `git-user` (no arguments) or `git-user tui`.
 
 ```
 ┌─────────────────────────────────────────────┐
-│  🐙 GIT-USER  Dashboard                     │
+│  GIT-USER  Dashboard                        │
 │  Active: work (you@company.com)             │
 │  ssh-agent: Connected                       │
 │                                             │
 │  ── Identities ──────────────────────────── │
-│  ▶ work        you@company.com      active  │
-│    personal    you@gmail.com               │
-│    client-a    you@client.com              │
+│  ● work        you@company.com      ACTIVE  │
+│  ○ personal    you@gmail.com                │
+│  ○ client-a    you@client.com               │
 │                                             │
-│  [a] Add identity   [x] Select  [q] Quit    │
+│  Tab pane · ↑/↓ navigate · s switch · q quit│
 └─────────────────────────────────────────────┘
 ```
 
@@ -372,7 +372,19 @@ Launch the full terminal UI with `git-user` (no arguments) or `git-user tui`.
   fix-remote, and more
 - **Stats** — commit author identity audit for your repositories
 
-Everything is keyboard-driven: use `↑`/`↓` to navigate and `Enter` to select.
+### ⌨️ Keyboard Navigation
+
+Everything in `git-user` is keyboard-driven for maximum speed:
+
+| Key | Action | Context |
+| :--- | :--- | :--- |
+| <kbd>↑</kbd> / <kbd>↓</kbd> or <kbd>k</kbd> / <kbd>j</kbd> | Navigate profiles & menu options | Lists & Menus |
+| <kbd>Enter ↵</kbd> | Select item / Confirm action / Submit form | Everywhere |
+| <kbd>Tab ⇥</kbd> / <kbd>←</kbd> / <kbd>→</kbd> | Switch active pane (Identities ↔ Utilities) | Dashboard |
+| <kbd>s</kbd> | Instantly switch to highlighted identity | Dashboard / Detail |
+| <kbd>/</kbd> | Open live real-time filter search | Dashboard |
+| <kbd>Esc</kbd> | Go back / Dismiss dialog / Clear search filter | Everywhere |
+| <kbd>q</kbd> | Quit application | Everywhere |
 
 ---
 
@@ -639,10 +651,12 @@ git-user completion zsh > "${fpath[1]}/_git-user"
 git-user completion fish > ~/.config/fish/completions/git-user.fish
 ```
 
+Press <kbd>Tab ⇥</kbd> for instant context-aware completions:
+
 ```bash
-git-user sw<TAB>          # → git-user switch
-git-user switch <TAB>     # → work  personal  client-a
-git-user remove <TAB>     # → your identity names
+git-user sw<Tab>          # → git-user switch
+git-user switch <Tab>     # → work  personal  client-a
+git-user remove <Tab>     # → your identity names
 ```
 
 ---
