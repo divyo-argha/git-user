@@ -15,7 +15,6 @@ Create a new identity (guided setup).
 Flags:
   -n, --name <name>            Identity name (e.g., 'work', 'personal')
   -e, --email <email>          Email address
-  -p, --passphrase <pass>      Passphrase for the SSH key
   -t, --temp                   Create as a temporary identity
   -h, --help                   Show this help
 
@@ -30,7 +29,6 @@ Switch to an identity.
 Flags:
   -c <name> [-e email]       Create a new identity and switch to it
   -e, --email <email>        Email address (with -c)
-  -p, --passphrase <pass>    Passphrase for the SSH key (with -c)
   -t, --temp                 Create as a temporary identity (with -c)
   --skip-ssh                 Skip SSH key setup (with -c)
   -l, --local                Switch only for the current repository
@@ -154,12 +152,32 @@ Generate shell completion (bash, zsh, or fish).`,
 		"hook": `Usage: git-user hook <install|uninstall|check>
 
 Manage the git pre-commit identity-checking hook.`,
-		"audit": `Usage: git-user audit
+		"audit": `Usage: git-user audit [--fix]
 
-Run a security audit on your identity setup. ` + "`security`" + ` is a hidden alias.`,
+Run a security audit on your identity setup. ` + "`security`" + ` is a hidden alias.
+
+Flags:
+  --fix    Prompt to automatically chmod misconfigured config/key files to 0600`,
 		"security": `Usage: git-user security
 
 Hidden alias for git-user audit.`,
+		"log": `Usage: git-user log [flags]
+
+Show the audit log of identity switches (timestamp, identity, directory).
+` + "`history`" + ` is a hidden alias.
+
+Flags:
+  -n, --limit <count>          Show only the last <count> entries (default 20)
+  --all                        Show all recorded entries
+  --plain                      Tab-separated output for scripting
+
+Examples:
+  git-user log
+  git-user log --all
+  git-user log -n 5 --plain`,
+		"history": `Usage: git-user history
+
+Hidden alias for git-user log.`,
 		"logout": `Usage: git-user logout
 
 Sign out and clear the active identity.`,

@@ -188,12 +188,13 @@ func opDoctor(store *config.Store) (opResult, error) {
 
 	configPath := config.ConfigPath()
 	if info, err := os.Stat(configPath); err == nil {
-		mode := info.Mode().Perm()
-		if mode != 0600 {
-			report += fmt.Sprintf("⚠ Config file has insecure permissions: %o (fix: chmod 600 %s)\n", mode, configPath)
-			issues++
-		} else {
-			report += "✓ Config file permissions OK (0600)\n"
+		if pc := config.CheckFilePermissions(info.Mode()); pc.Applicable {
+			if !pc.Secure {
+				report += fmt.Sprintf("⚠ Config file has insecure permissions: %o (fix: chmod 600 %s)\n", info.Mode().Perm(), configPath)
+				issues++
+			} else {
+				report += "✓ Config file permissions OK (0600)\n"
+			}
 		}
 	}
 
@@ -231,12 +232,13 @@ func opDoctor(store *config.Store) (opResult, error) {
 			issues++
 			continue
 		}
-		mode := info.Mode().Perm()
-		if mode != 0600 {
-			report += fmt.Sprintf("  ⚠ Insecure key permissions: %o (fix: chmod 600 %s)\n", mode, u.SSHKey)
-			issues++
-		} else {
-			report += fmt.Sprintf("  ✓ Key permissions OK (0600): %s\n", filepath.Base(u.SSHKey))
+		if pc := config.CheckFilePermissions(info.Mode()); pc.Applicable {
+			if !pc.Secure {
+				report += fmt.Sprintf("  ⚠ Insecure key permissions: %o (fix: chmod 600 %s)\n", info.Mode().Perm(), u.SSHKey)
+				issues++
+			} else {
+				report += fmt.Sprintf("  ✓ Key permissions OK (0600): %s\n", filepath.Base(u.SSHKey))
+			}
 		}
 
 		protected, err := isSSHKeyPassphraseProtected(u.SSHKey)

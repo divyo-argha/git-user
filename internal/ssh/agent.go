@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -283,4 +284,27 @@ func VerifyPassphrase(keyPath, passphrase string) bool {
 	}
 
 	return false
+}
+
+// IsPassphraseProtected reports whether the private key at keyPath is
+// encrypted with a passphrase. This is the single source of truth for that
+// check — internal/cli and internal/tui both call it instead of maintaining
+// their own copies, so behavior can't silently drift between the two.
+func IsPassphraseProtected(keyPath string) (bool, error) {
+	data, err := os.ReadFile(keyPath)
+	if err != nil {
+		return false, err
+	}
+
+	_, err = ssh.ParseRawPrivateKey(data)
+	if err == nil {
+		return false, nil
+	}
+
+	var passphraseErr *ssh.PassphraseMissingError
+	if errors.As(err, &passphraseErr) {
+		return true, nil
+	}
+
+	return false, err
 }

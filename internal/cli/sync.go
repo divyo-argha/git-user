@@ -169,6 +169,10 @@ func runSync(args []string) error {
 				ui.Warn(fmt.Sprintf("Skipping remote identity with invalid name %q", rid.Name))
 				continue
 			}
+			if !config.ValidEmail(rid.Email) {
+				ui.Warn(fmt.Sprintf("Skipping remote identity %q with invalid email", rid.Name))
+				continue
+			}
 
 			var keyPath string
 			if len(rid.PrivateKey) > 0 {

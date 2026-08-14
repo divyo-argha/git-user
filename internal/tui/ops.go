@@ -6,13 +6,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/ssh"
-	xssh "golang.org/x/crypto/ssh"
 )
 
 // opResult carries the outcome of an in-TUI operation. Detail is rendered on a
@@ -60,25 +58,11 @@ func plural(n int) string {
 }
 
 func isValidEmail(email string) bool {
-	pattern := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
-	matched, _ := regexp.MatchString(pattern, email)
-	return matched
+	return config.ValidEmail(email)
 }
 
 func isSSHKeyPassphraseProtected(keyPath string) (bool, error) {
-	data, err := os.ReadFile(keyPath)
-	if err != nil {
-		return false, err
-	}
-	_, err = xssh.ParseRawPrivateKey(data)
-	if err == nil {
-		return false, nil
-	}
-	var passphraseErr *xssh.PassphraseMissingError
-	if errors.As(err, &passphraseErr) {
-		return true, nil
-	}
-	return false, err
+	return ssh.IsPassphraseProtected(keyPath)
 }
 
 // needsPassphraseForSwitch reports whether switching to the identity requires

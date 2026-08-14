@@ -83,7 +83,7 @@ func TestRunBindPath_Success(t *testing.T) {
 		t.Fatalf("failed to read snippet file: %v", err)
 	}
 	contentStr := string(content)
-	if !strings.Contains(contentStr, "name = eng") || !strings.Contains(contentStr, "email = eng@example.com") {
+	if !strings.Contains(contentStr, `name = "eng"`) || !strings.Contains(contentStr, `email = "eng@example.com"`) {
 		t.Errorf("snippet content mismatch:\n%s", contentStr)
 	}
 

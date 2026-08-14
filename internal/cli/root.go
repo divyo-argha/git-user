@@ -57,6 +57,7 @@ COMMANDS
     sign <name>                Manage commit signing for an identity
     config <list|set|unset>    Manage custom git configurations for an identity
     hook <install|uninstall>   Manage git pre-commit hooks
+    log [-n <count>|--all]     Show the identity-switch audit log
     logout                     Sign out and clear active identity
     tui                        Interactive menu
     completion <shell>         Generate shell completion (bash/zsh/fish)
@@ -67,6 +68,7 @@ ALIASES
   sw                         switch
   rm                         remove
   lo, signout                logout
+  history                    log (hidden alias)
   import-original            switch --original (hidden alias)
   pubkey push                pubkey publish (hidden alias)
   security                   audit (hidden alias)
@@ -213,6 +215,8 @@ func Execute() error {
 		return runConfig(rest)
 	case "sync":
 		return runSync(rest)
+	case "log", "history":
+		return runLog(rest)
 	default:
 		// Try as identity name → detail view
 		if handleUnknownArg(sub) {

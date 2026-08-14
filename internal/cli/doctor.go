@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
@@ -22,14 +21,15 @@ func runDoctor(args []string) error {
 	ui.Info("Checking config file permissions...")
 	configPath := config.ConfigPath()
 	info, err := os.Stat(configPath)
-	if err == nil && runtime.GOOS != "windows" {
-		mode := info.Mode().Perm()
-		if mode != 0600 {
-			ui.Warn(fmt.Sprintf("Config file has insecure permissions: %o", mode))
-			ui.Info(fmt.Sprintf("  Fix: chmod 600 %s", configPath))
-			issues++
-		} else {
-			ui.Success("Config file permissions OK (0600)")
+	if err == nil {
+		if pc := config.CheckFilePermissions(info.Mode()); pc.Applicable {
+			if !pc.Secure {
+				ui.Warn(fmt.Sprintf("Config file has insecure permissions: %o", info.Mode().Perm()))
+				ui.Info(fmt.Sprintf("  Fix: chmod 600 %s", configPath))
+				issues++
+			} else {
+				ui.Success("Config file permissions OK (0600)")
+			}
 		}
 	}
 
@@ -77,10 +77,9 @@ func runDoctor(args []string) error {
 					ui.Error(fmt.Sprintf("Error checking SSH key: %v", err))
 					issues++
 				} else {
-					if runtime.GOOS != "windows" {
-						mode := info.Mode().Perm()
-						if mode != 0600 {
-							ui.Warn(fmt.Sprintf("SSH key has incorrect permissions: %o (should be 0600)", mode))
+					if pc := config.CheckFilePermissions(info.Mode()); pc.Applicable {
+						if !pc.Secure {
+							ui.Warn(fmt.Sprintf("SSH key has incorrect permissions: %o (should be 0600)", info.Mode().Perm()))
 							ui.Info(fmt.Sprintf("  Fix: Run 'chmod 600 %s'", user.SSHKey))
 							issues++
 						} else {
@@ -116,8 +115,8 @@ func runDoctor(args []string) error {
 		for _, u := range store.Users {
 			if u.SSHKey != "" {
 				info, err := os.Stat(u.SSHKey)
-				if err == nil && runtime.GOOS != "windows" {
-					if info.Mode().Perm() != 0600 {
+				if err == nil {
+					if pc := config.CheckFilePermissions(info.Mode()); pc.Applicable && !pc.Secure {
 						ui.Warn(fmt.Sprintf("Profile %q SSH key has insecure permissions: %o", u.Name, info.Mode().Perm()))
 						ui.Info(fmt.Sprintf("  Fix: chmod 600 %s", u.SSHKey))
 						issues++

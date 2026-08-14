@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/identity"
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/ssh"
 	"os"
@@ -39,8 +40,7 @@ func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
 			if prev.IsTemporary {
 				store.RemoveUser(prev.Name, true)
 				if prev.SSHKey != "" {
-					_ = os.Remove(prev.SSHKey)
-					_ = os.Remove(prev.SSHKey + ".pub")
+					_ = identity.SecureDeleteKeyPair(prev.SSHKey)
 				}
 				_ = keyring.DeleteKeychainPassphrase(prev.Name)
 			}
@@ -118,6 +118,8 @@ func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
 	if err := config.Save(store); err != nil {
 		return opResult{}, fmt.Errorf("saving config: %w", err)
 	}
+	wd, _ := os.Getwd()
+	_ = config.AppendSwitchLog(user.Name, wd)
 
 	report := fmt.Sprintf("Switched to %q (%s)\n", user.Name, user.Email)
 	if !user.SignDisabled && user.SignKey != "" {
