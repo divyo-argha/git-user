@@ -34,7 +34,7 @@ func (r *Report) Init() tea.Cmd { return nil }
 func (r *Report) Title() string { return r.title }
 
 func (r *Report) ShortHelp() string {
-	return "  ↑/↓/j/k scroll • ctrl+d/u page • c copy • Esc back • q quit"
+	return "↑/↓/j/k•scroll  ctrl+d/u•page  c•copy  Esc•back  q•quit"
 }
 
 // maxScrollOffset returns the highest valid offset for the current maxLines.

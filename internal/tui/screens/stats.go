@@ -56,7 +56,7 @@ func (s *StatsScreen) Init() tea.Cmd { return nil }
 func (s *StatsScreen) Title() string { return "Commit Identity Audit" }
 
 func (s *StatsScreen) ShortHelp() string {
-	return "  ↑/↓ select author • ←/→ toggle view (Commits/Lines) • Esc back • q quit"
+	return "↑/↓•select author  ←/→•toggle view (Commits/Lines)  Esc•back  q•quit"
 }
 
 func (s *StatsScreen) maxScrollOffset() int {
