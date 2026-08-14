@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/ssh"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -38,7 +39,7 @@ func TestKeyringIntegration(t *testing.T) {
 		t.Fatalf("generating key: %v", err)
 	}
 
-	if err := changeSSHKeyPassphrase(keyPath, "", "correct-passphrase"); err != nil {
+	if err := ssh.ChangeKeyPassphrase(keyPath, "", "correct-passphrase"); err != nil {
 		t.Fatalf("failed to set passphrase on key: %v", err)
 	}
 

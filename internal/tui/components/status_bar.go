@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
@@ -47,12 +46,9 @@ func (s StatusBar) View(width, termHeight int) string {
 func (s StatusBar) viewFull() string {
 	logoLines := logo.GetTrimmedLogo()
 
-	versionLine := fmt.Sprintf("  \x1b[38;2;148;163;184mVersion %s\x1b[0m", version.GetVersion())
+	versionLine := "  " + s.theme.Subtle().Render(fmt.Sprintf("Version %s", version.GetVersion()))
 
-	dotStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#9ECE6A"))
-	actName := lipgloss.NewStyle().Foreground(lipgloss.Color("#9ECE6A")).Bold(true)
-	actEmail := lipgloss.NewStyle().Foreground(lipgloss.Color("#787C99"))
-	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#7AA2F7")).Bold(true)
+	labelStyle := s.theme.PaneTitle()
 
 	var infoLines []string
 
@@ -60,33 +56,33 @@ func (s StatusBar) viewFull() string {
 		if u := s.store.CurrentUser(); u != nil {
 			infoLines = append(infoLines, fmt.Sprintf("  %s  %s %s",
 				labelStyle.Render("Active profile :"),
-				dotStyle.Render("●"),
-				actName.Render(u.Name)+" "+actEmail.Render("("+u.Email+")"),
+				s.theme.Active().Render("●"),
+				s.theme.Active().Render(u.Name)+" "+s.theme.Subtle().Render("("+u.Email+")"),
 			))
 		} else {
 			infoLines = append(infoLines, fmt.Sprintf("  %s  %s",
 				labelStyle.Render("Active profile :"),
-				lipgloss.NewStyle().Foreground(lipgloss.Color("#F7768E")).Render(s.store.Current+" (missing)"),
+				s.theme.DangerText().Render(s.store.Current+" (missing)"),
 			))
 		}
 	} else {
 		infoLines = append(infoLines, fmt.Sprintf("  %s  %s",
 			labelStyle.Render("Active profile :"),
-			lipgloss.NewStyle().Foreground(lipgloss.Color("#565F89")).Render("None (logged out)"),
+			s.theme.Dim().Render("None (logged out)"),
 		))
 	}
 
 	if s.agentChecked {
 		if s.agentConnected {
-			agentStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#9ECE6A")).Bold(true).Render("Connected")
-			countStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#787C99")).Render(fmt.Sprintf("(%d keys loaded)", s.agentKeyCount))
+			agentStr := s.theme.SuccessStyle().Render("Connected")
+			countStr := s.theme.Subtle().Render(fmt.Sprintf("(%d keys loaded)", s.agentKeyCount))
 			infoLines = append(infoLines, fmt.Sprintf("  %s  %s %s",
 				labelStyle.Render("SSH Agent      :"),
 				agentStr,
 				countStr,
 			))
 		} else {
-			agentStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#F7768E")).Render("Not reachable")
+			agentStr := s.theme.DangerText().Render("Not reachable")
 			infoLines = append(infoLines, fmt.Sprintf("  %s  %s",
 				labelStyle.Render("SSH Agent      :"),
 				agentStr,
@@ -95,16 +91,16 @@ func (s StatusBar) viewFull() string {
 	} else {
 		infoLines = append(infoLines, fmt.Sprintf("  %s  %s",
 			labelStyle.Render("SSH Agent      :"),
-			lipgloss.NewStyle().Foreground(lipgloss.Color("#565F89")).Render("checking..."),
+			s.theme.Dim().Render("checking..."),
 		))
 	}
 
 	repoName := git.CurrentRepoName()
 	branch := git.CurrentBranch()
 	if repoName != "" {
-		repoStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#BB9AF7")).Bold(true).Render(repoName)
+		repoStr := s.theme.Selected().Render(repoName)
 		if branch != "" {
-			repoStr += " " + lipgloss.NewStyle().Foreground(lipgloss.Color("#787C99")).Render("("+branch+")")
+			repoStr += " " + s.theme.Subtle().Render("("+branch+")")
 		}
 		infoLines = append(infoLines, fmt.Sprintf("  %s  %s",
 			labelStyle.Render("Repository     :"),

@@ -56,7 +56,7 @@ func (s *StatsScreen) Init() tea.Cmd { return nil }
 func (s *StatsScreen) Title() string { return "Commit Identity Audit" }
 
 func (s *StatsScreen) ShortHelp() string {
-	return "  ↑/↓ select author • ←/→ toggle view (Commits/Lines) • Esc back • q quit"
+	return "↑/↓•select author  ←/→•toggle view (Commits/Lines)  Esc•back  q•quit"
 }
 
 func (s *StatsScreen) maxScrollOffset() int {
@@ -78,8 +78,10 @@ func (s *StatsScreen) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			return s, func() tea.Msg { return core.ScreenPopMsg{} }
 		}
 		switch msg.String() {
-		case core.KeyCtrlC, core.KeyQuit:
+		case core.KeyCtrlC:
 			return s, tea.Quit
+		case core.KeyQuit:
+			return s, func() tea.Msg { return core.ActionResultMsg{Kind: "quit-confirm"} }
 
 		case core.KeyLeft, core.KeyRight, core.KeyTab:
 			if s.sortMode == stats.SortByCommits {

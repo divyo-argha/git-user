@@ -9,8 +9,37 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
+
+// identityNamePattern restricts identity names to characters that are safe
+// to embed in a filesystem path component. This is the only thing standing
+// between an untrusted name (from `git-user import`, `git-user sync`, or
+// direct user input) and a path-traversal write to an arbitrary file via
+// DefaultSSHKeyPath below.
+var identityNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,64}$`)
+
+// ValidIdentityName reports whether name is safe to use both as a config
+// identity name and as a filesystem path component (see DefaultSSHKeyPath).
+func ValidIdentityName(name string) bool {
+	return identityNamePattern.MatchString(name)
+}
+
+// DefaultSSHKeyPath returns the default SSH private key path git-user
+// generates for an identity: ~/.ssh/git_<name>. It is the only place that
+// turns an identity name into a filesystem path, so name is validated here
+// rather than trusted by each caller.
+func DefaultSSHKeyPath(name string) (string, error) {
+	if !ValidIdentityName(name) {
+		return "", fmt.Errorf("identity name %q is invalid — use only letters, digits, dots, hyphens, and underscores", name)
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolving home directory: %w", err)
+	}
+	return filepath.Join(home, ".ssh", "git_"+name), nil
+}
 
 type User struct {
 	Name           string            `json:"name"`
@@ -256,6 +285,9 @@ func (s *Store) AddUser(name, email string) error {
 	if name == "" || email == "" {
 		return errors.New("name and email must not be empty")
 	}
+	if !ValidIdentityName(name) {
+		return fmt.Errorf("identity name %q is invalid — use only letters, digits, dots, hyphens, and underscores", name)
+	}
 	if s.IsNameTaken(name) {
 		return fmt.Errorf("user %q already exists", name)
 	}
@@ -291,6 +323,9 @@ func (s *Store) RemoveUser(name string, force bool) error {
 func (s *Store) RenameUser(name, newName string) error {
 	if s.FindUser(name) == nil {
 		return fmt.Errorf("user %q not found", name)
+	}
+	if !ValidIdentityName(newName) {
+		return fmt.Errorf("identity name %q is invalid — use only letters, digits, dots, hyphens, and underscores", newName)
 	}
 	if name != newName && s.FindUser(newName) != nil {
 		return fmt.Errorf("user %q already exists", newName)

@@ -42,9 +42,15 @@ fi
 
 LATEST_URL="$(printf '%s' "$RELEASE_JSON" | grep -i "browser_download_url.*${PLATFORM}_${ARCHITECTURE}.tar.gz" | cut -d '"' -f 4)"
 LATEST_TAG="$(printf '%s' "$RELEASE_JSON" | grep -i '"tag_name"' | cut -d '"' -f 4)"
+CHECKSUMS_URL="$(printf '%s' "$RELEASE_JSON" | grep -i "browser_download_url.*checksums.txt" | cut -d '"' -f 4)"
 
 if [ -z "$LATEST_URL" ]; then
     echo "Error: Could not find a release for $PLATFORM $ARCHITECTURE"
+    exit 1
+fi
+
+if [ -z "$CHECKSUMS_URL" ]; then
+    echo "Error: Release $LATEST_TAG has no checksums.txt — refusing to install an unverified binary."
     exit 1
 fi
 
@@ -84,6 +90,37 @@ cd "$TMP_DIR"
 
 # Download and extract (fail loudly on HTTP errors or truncated archives)
 curl -fsSL "$LATEST_URL" -o release.tar.gz
+
+# Verify the download against the release's checksums.txt before extracting
+# or installing anything. This is the actual security boundary for this
+# installer: without it, a tampered or substituted release asset would be
+# installed (and, when sudo is required below, run as root) with nothing to
+# catch it.
+curl -fsSL "$CHECKSUMS_URL" -o checksums.txt
+ARCHIVE_NAME="$(basename "$LATEST_URL")"
+EXPECTED_SHA256="$(grep " ${ARCHIVE_NAME}\$" checksums.txt | awk '{print $1}')"
+if [ -z "$EXPECTED_SHA256" ]; then
+    echo "Error: No checksum entry for $ARCHIVE_NAME in checksums.txt"
+    exit 1
+fi
+
+if command -v sha256sum >/dev/null 2>&1; then
+    ACTUAL_SHA256="$(sha256sum release.tar.gz | awk '{print $1}')"
+elif command -v shasum >/dev/null 2>&1; then
+    ACTUAL_SHA256="$(shasum -a 256 release.tar.gz | awk '{print $1}')"
+else
+    echo "Error: neither sha256sum nor shasum is available to verify the download"
+    exit 1
+fi
+
+if [ "$EXPECTED_SHA256" != "$ACTUAL_SHA256" ]; then
+    echo "Error: checksum verification FAILED for $ARCHIVE_NAME"
+    echo "  expected: $EXPECTED_SHA256"
+    echo "  actual:   $ACTUAL_SHA256"
+    exit 1
+fi
+echo "✅ Checksum verified"
+
 tar -xzf release.tar.gz "$BIN_NAME"
 
 # Install with explicit mode. Unlink any previous version first: writing over

@@ -132,7 +132,11 @@ func runImport(args []string) error {
 		}
 
 		if len(id.PrivateKey) > 0 {
-			keyPath := filepath.Join(sshDir, fmt.Sprintf("git_%s", id.Name))
+			keyPath, err := config.DefaultSSHKeyPath(id.Name)
+			if err != nil {
+				ui.Errorf("skipping %q: %v", id.Name, err)
+				continue
+			}
 			if err := os.WriteFile(keyPath, id.PrivateKey, 0600); err != nil {
 				ui.Errorf("writing private key for %q: %v", id.Name, err)
 				continue

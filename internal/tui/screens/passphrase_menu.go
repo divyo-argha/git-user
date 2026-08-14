@@ -92,7 +92,7 @@ func (pm *PassphraseMenu) Init() tea.Cmd {
 func (pm *PassphraseMenu) Title() string { return "Passphrase Options: " + pm.name }
 
 func (pm *PassphraseMenu) ShortHelp() string {
-	return "↑/↓: navigate • enter: select/toggle • esc: back"
+	return "↑/↓•navigate  ⏎•select/toggle  Esc•back"
 }
 
 func (pm *PassphraseMenu) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
@@ -121,8 +121,10 @@ func (pm *PassphraseMenu) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		return pm, func() tea.Msg { return core.ScreenPopMsg{} }
 	}
 	switch msg.String() {
-	case core.KeyCtrlC, core.KeyQuit:
+	case core.KeyCtrlC:
 		return pm, tea.Quit
+	case core.KeyQuit:
+		return pm, func() tea.Msg { return core.ActionResultMsg{Kind: "quit-confirm"} }
 	case core.KeyUp, core.KeyK:
 		pm.actions.CursorUp()
 	case core.KeyDown, core.KeyJ:

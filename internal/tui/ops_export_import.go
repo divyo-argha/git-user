@@ -146,7 +146,11 @@ func opImport(store *config.Store, bundlePath, passphrase string, force bool) (o
 			continue
 		}
 		if len(id.PrivateKey) > 0 {
-			keyPath := filepath.Join(sshDir, fmt.Sprintf("git_%s", id.Name))
+			keyPath, err := config.DefaultSSHKeyPath(id.Name)
+			if err != nil {
+				report += fmt.Sprintf("Skipping %q: %v\n", id.Name, err)
+				continue
+			}
 			if err := os.WriteFile(keyPath, id.PrivateKey, 0600); err != nil {
 				report += fmt.Sprintf("Could not write private key for %q: %v\n", id.Name, err)
 				continue

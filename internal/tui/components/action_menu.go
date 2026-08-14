@@ -164,7 +164,7 @@ func (m ActionMenu) View(width, height int, isActive bool) string {
 		isCursor := i == m.cursor
 		label := item.Label
 
-		if item.Disabled || item.Key == "quit" {
+		if item.Disabled {
 			label = m.theme.Dim().Render(label)
 		}
 

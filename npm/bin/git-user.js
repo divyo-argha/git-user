@@ -66,6 +66,18 @@ if (!fs.existsSync(binPath)) {
   process.exit(1);
 }
 
+// Refuse to chmod or execute through a symlink. A legitimately npm-installed
+// platform package always has a regular file here (npm extracts one from the
+// tarball) — a symlink at this exact path can only mean another party with
+// write access to this install directory (e.g. a shared/writable node_modules)
+// substituted it, and fs.chmodSync/execFileSync would otherwise silently
+// follow it to whatever it points at.
+if (fs.lstatSync(binPath).isSymbolicLink()) {
+  console.error(`Error: expected a regular file at ${binPath}, found a symlink.`);
+  console.error('This should never happen for a package installed from npm — refusing to run it.');
+  process.exit(1);
+}
+
 // Ensure binary is executable on non-Windows platforms
 if (platform !== 'win32') {
   try {
