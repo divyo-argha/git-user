@@ -71,6 +71,31 @@ func TestRunSwitch_UserNotFound(t *testing.T) {
 	}
 }
 
+func TestRunSwitch_AlreadyActive(t *testing.T) {
+	setupTestEnv(t)
+
+	if err := runSwitch([]string{"-c", "dev", "-e", "dev@example.com", "--skip-ssh"}); err != nil {
+		t.Fatalf("unexpected error creating/switching: %v", err)
+	}
+
+	entriesBefore, err := config.ReadSwitchLog()
+	if err != nil {
+		t.Fatalf("reading switch log: %v", err)
+	}
+
+	if err := runSwitch([]string{"dev"}); err != nil {
+		t.Fatalf("unexpected error re-switching to already-active identity: %v", err)
+	}
+
+	entriesAfter, err := config.ReadSwitchLog()
+	if err != nil {
+		t.Fatalf("reading switch log: %v", err)
+	}
+	if len(entriesAfter) != len(entriesBefore) {
+		t.Errorf("expected no new switch-log entry for a no-op switch, had %d before and %d after", len(entriesBefore), len(entriesAfter))
+	}
+}
+
 func TestRunSwitch_CreateAndSwitch(t *testing.T) {
 	_ = setupTestEnv(t)
 

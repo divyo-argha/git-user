@@ -117,6 +117,11 @@ func runSwitch(args []string) error {
 		return fmt.Errorf("user not found")
 	}
 
+	if !localMode && store.Current == name && git.IsIdentityInSync(user.Name, user.Email) {
+		ui.Info(fmt.Sprintf("Already using identity %q (%s) — nothing to do.", user.Name, user.Email))
+		return nil
+	}
+
 	// Auto-logout: unload the previous identity's key from ssh-agent
 	if store.Current != "" && store.Current != name {
 		if prev := store.CurrentUser(); prev != nil {

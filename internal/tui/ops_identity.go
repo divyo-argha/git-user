@@ -26,6 +26,10 @@ func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
 		return opResult{}, fmt.Errorf("identity %q not found", name)
 	}
 
+	if store.Current == name && git.IsIdentityInSync(user.Name, user.Email) {
+		return opResult{detail: fmt.Sprintf("Already using identity %q (%s) — nothing to do.", user.Name, user.Email)}, nil
+	}
+
 	var warnings []string
 
 	// Auto-logout: unload the previous identity's key and clean up temporaries.
