@@ -160,10 +160,19 @@ func runSync(args []string) error {
 	for _, rid := range remoteIdentities {
 		existing := store.FindUser(rid.Name)
 		if existing == nil {
-			// Profile doesn't exist locally, import it
+			// Profile doesn't exist locally, import it. Validate the name
+			// *before* computing any path — this identity's Name comes from
+			// a remote git repo, so it must never reach a filesystem path
+			// unvalidated (a name like "../../../.bashrc" would otherwise
+			// let a malicious sync remote overwrite an arbitrary file).
+			if !config.ValidIdentityName(rid.Name) {
+				ui.Warn(fmt.Sprintf("Skipping remote identity with invalid name %q", rid.Name))
+				continue
+			}
+
 			var keyPath string
 			if len(rid.PrivateKey) > 0 {
-				keyPath = filepath.Join(home, ".ssh", fmt.Sprintf("git_%s", rid.Name))
+				keyPath, _ = config.DefaultSSHKeyPath(rid.Name)
 				_ = os.WriteFile(keyPath, rid.PrivateKey, 0600)
 				if len(rid.PublicKey) > 0 {
 					_ = os.WriteFile(keyPath+".pub", rid.PublicKey, 0644)
@@ -179,7 +188,11 @@ func runSync(args []string) error {
 		} else {
 			// Profile exists. If local profile does not have SSH key but remote does, import remote key
 			if existing.SSHKey == "" && len(rid.PrivateKey) > 0 {
-				keyPath := filepath.Join(home, ".ssh", fmt.Sprintf("git_%s", rid.Name))
+				keyPath, err := config.DefaultSSHKeyPath(rid.Name)
+				if err != nil {
+					ui.Warn(fmt.Sprintf("Skipping remote key for %q: %v", rid.Name, err))
+					continue
+				}
 				_ = os.WriteFile(keyPath, rid.PrivateKey, 0600)
 				if len(rid.PublicKey) > 0 {
 					_ = os.WriteFile(keyPath+".pub", rid.PublicKey, 0644)

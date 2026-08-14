@@ -126,8 +126,10 @@ func expandPath(path string) string {
 // waits for the user to add it, then verifies the connection.
 // Returns the key path on success.
 func generateAndDisplayKey(name, email, passphrase string) (string, error) {
-	home, _ := os.UserHomeDir()
-	keyPath := filepath.Join(home, ".ssh", fmt.Sprintf("git_%s", name))
+	keyPath, err := config.DefaultSSHKeyPath(name)
+	if err != nil {
+		return "", err
+	}
 
 	if err := os.MkdirAll(filepath.Dir(keyPath), 0700); err != nil {
 		return "", fmt.Errorf("creating .ssh directory: %w", err)

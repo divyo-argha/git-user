@@ -51,9 +51,12 @@ func runRekey(args []string) error {
 
 	ui.Info(fmt.Sprintf("Rotating SSH key for identity: %s (%s)", user.Name, user.Email))
 
-	home, _ := os.UserHomeDir()
-	sshDir := filepath.Join(home, ".ssh")
-	keyPath := filepath.Join(sshDir, fmt.Sprintf("git_%s", name))
+	keyPath, err := config.DefaultSSHKeyPath(name)
+	if err != nil {
+		ui.Errorf("%v", err)
+		return err
+	}
+	sshDir := filepath.Dir(keyPath)
 
 	if err := os.MkdirAll(sshDir, 0700); err != nil {
 		ui.Errorf("creating .ssh directory: %v", err)

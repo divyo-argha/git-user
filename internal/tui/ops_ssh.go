@@ -16,8 +16,10 @@ import (
 
 // opGenerateKey creates an ed25519 key non-interactively.
 func opGenerateKey(name, email, passphrase string) (string, error) {
-	home, _ := os.UserHomeDir()
-	keyPath := filepath.Join(home, ".ssh", fmt.Sprintf("git_%s", name))
+	keyPath, err := config.DefaultSSHKeyPath(name)
+	if err != nil {
+		return "", err
+	}
 	if err := os.MkdirAll(filepath.Dir(keyPath), 0700); err != nil {
 		return "", fmt.Errorf("creating .ssh directory: %w", err)
 	}
@@ -172,9 +174,11 @@ func opRekey(store *config.Store, name, passphrase string) (opResult, error) {
 	if user == nil {
 		return opResult{}, fmt.Errorf("identity %q not found", name)
 	}
-	home, _ := os.UserHomeDir()
-	sshDir := filepath.Join(home, ".ssh")
-	keyPath := filepath.Join(sshDir, fmt.Sprintf("git_%s", name))
+	keyPath, err := config.DefaultSSHKeyPath(name)
+	if err != nil {
+		return opResult{}, err
+	}
+	sshDir := filepath.Dir(keyPath)
 	if err := os.MkdirAll(sshDir, 0700); err != nil {
 		return opResult{}, fmt.Errorf("creating .ssh directory: %w", err)
 	}

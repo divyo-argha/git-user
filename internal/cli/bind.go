@@ -118,9 +118,12 @@ func interactiveSSHSetup(name, email string, store *config.Store, noSign bool) e
 
 	switch idx {
 	case 0: // Auto-generate
-		home, _ := os.UserHomeDir()
-		sshDir := filepath.Join(home, ".ssh")
-		keyPath := filepath.Join(sshDir, fmt.Sprintf("git_%s", name))
+		keyPath, err := config.DefaultSSHKeyPath(name)
+		if err != nil {
+			ui.Errorf("%v", err)
+			return err
+		}
+		sshDir := filepath.Dir(keyPath)
 
 		if err := os.MkdirAll(sshDir, 0700); err != nil {
 			ui.Error("Could not create .ssh directory")
