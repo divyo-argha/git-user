@@ -92,7 +92,7 @@ func (pm *PassphraseMenu) Init() tea.Cmd {
 func (pm *PassphraseMenu) Title() string { return "Passphrase Options: " + pm.name }
 
 func (pm *PassphraseMenu) ShortHelp() string {
-	return "↑/↓: navigate • enter: select/toggle • esc: back"
+	return "↑/↓•navigate  ⏎•select/toggle  Esc•back"
 }
 
 func (pm *PassphraseMenu) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
