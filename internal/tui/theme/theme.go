@@ -25,6 +25,7 @@ type themeStyles struct {
 	// Text styles
 	Bold       lipgloss.Style
 	Dim        lipgloss.Style
+	Subtle     lipgloss.Style
 	Italic     lipgloss.Style
 	Success    lipgloss.Style
 	Error      lipgloss.Style
@@ -67,6 +68,7 @@ func (t Theme) buildStyles() themeStyles {
 	return themeStyles{
 		Bold:       lipgloss.NewStyle().Foreground(t.Text).Bold(true),
 		Dim:        lipgloss.NewStyle().Foreground(t.Muted),
+		Subtle:     lipgloss.NewStyle().Foreground(t.TextDim),
 		Italic:     lipgloss.NewStyle().Foreground(t.TextDim).Italic(true),
 		Success:    lipgloss.NewStyle().Foreground(t.Secondary).Bold(true),
 		Error:      lipgloss.NewStyle().Foreground(t.Danger).Bold(true),
@@ -88,6 +90,7 @@ func (t Theme) buildStyles() themeStyles {
 
 func (t Theme) Bold() lipgloss.Style          { return t.styles.Bold }
 func (t Theme) Dim() lipgloss.Style           { return t.styles.Dim }
+func (t Theme) Subtle() lipgloss.Style        { return t.styles.Subtle }
 func (t Theme) ItalicStyle() lipgloss.Style   { return t.styles.Italic }
 func (t Theme) SuccessStyle() lipgloss.Style  { return t.styles.Success }
 func (t Theme) ErrorStyle() lipgloss.Style    { return t.styles.Error }
