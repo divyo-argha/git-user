@@ -164,43 +164,16 @@ func AddSSHKeyWithPassphrase(keyPath, passphrase string) error {
 		}
 	}
 
-	exe, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("getting executable path: %w", err)
-	}
-
 	// Try with --apple-use-keychain / -K on macOS
 	args := []string{keyPath}
 	if runtime.GOOS == "darwin" {
 		args = []string{"--apple-use-keychain", keyPath}
 	}
 
-	cmd := exec.Command("ssh-add", args...)
-	env := os.Environ()
-
-	env = append(env, "GIT_USER_ASKPASS_MODE=true")
-	env = append(env, "GIT_USER_PASSPHRASE="+passphrase)
-	env = append(env, "SSH_ASKPASS="+exe)
-	env = append(env, "SSH_ASKPASS_REQUIRE=force")
-
-	hasDisplay := false
-	for _, e := range env {
-		if strings.HasPrefix(e, "DISPLAY=") {
-			hasDisplay = true
-			break
-		}
-	}
-	if !hasDisplay {
-		env = append(env, "DISPLAY=dummy:0")
-	}
-
-	cmd.Env = env
-	if out, err := cmd.CombinedOutput(); err != nil {
-		_ = out
+	secrets := map[string]string{EnvPassphrase: passphrase}
+	if _, err := runViaAskpass("ssh-add", args, secrets); err != nil {
 		// Fallback to standard ssh-add keyPath
-		cmdFallback := exec.Command("ssh-add", keyPath)
-		cmdFallback.Env = env
-		outFallback, errFallback := cmdFallback.CombinedOutput()
+		outFallback, errFallback := runViaAskpass("ssh-add", []string{keyPath}, secrets)
 		if errFallback != nil {
 			return fmt.Errorf("ssh-add failed: %v, output: %s", errFallback, string(outFallback))
 		}
@@ -242,29 +215,13 @@ func addKeyToMacOSKeychain(keyPath, passphrase string) error {
 		return nil
 	}
 	for _, flag := range []string{"--apple-use-keychain", "-K"} {
-		cmd := exec.Command("ssh-add", flag, keyPath)
+		var err error
 		if passphrase != "" {
-			exe, err := os.Executable()
-			if err == nil {
-				env := os.Environ()
-				env = append(env, "GIT_USER_ASKPASS_MODE=true")
-				env = append(env, "GIT_USER_PASSPHRASE="+passphrase)
-				env = append(env, "SSH_ASKPASS="+exe)
-				env = append(env, "SSH_ASKPASS_REQUIRE=force")
-				hasDisplay := false
-				for _, e := range env {
-					if strings.HasPrefix(e, "DISPLAY=") {
-						hasDisplay = true
-						break
-					}
-				}
-				if !hasDisplay {
-					env = append(env, "DISPLAY=dummy:0")
-				}
-				cmd.Env = env
-			}
+			_, err = runViaAskpass("ssh-add", []string{flag, keyPath}, map[string]string{EnvPassphrase: passphrase})
+		} else {
+			_, err = exec.Command("ssh-add", flag, keyPath).CombinedOutput()
 		}
-		if _, err := cmd.CombinedOutput(); err == nil {
+		if err == nil {
 			return nil
 		}
 	}
@@ -310,9 +267,11 @@ func VerifyPassphrase(keyPath, passphrase string) bool {
 		return true
 	}
 
-	// Fall back to ssh-keygen validation for OpenSSH format keys with unsupported kdf
-	cmd := exec.Command("ssh-keygen", "-y", "-P", passphrase, "-f", keyPath)
-	out, errCmd := cmd.CombinedOutput()
+	// Fall back to ssh-keygen validation for OpenSSH format keys with unsupported kdf.
+	// The passphrase is supplied via SSH_ASKPASS (see verifyPassphraseViaAskpass),
+	// never as a command-line argument, since argv is visible to other local
+	// users via `ps`/`/proc/<pid>/cmdline`.
+	out, errCmd := verifyPassphraseViaAskpass(keyPath, passphrase)
 	if errCmd == nil && len(out) > 0 {
 		outStr := strings.TrimSpace(string(out))
 		if strings.HasPrefix(outStr, "ssh-") || strings.HasPrefix(outStr, "ecdsa-") || strings.HasPrefix(outStr, "sk-") {

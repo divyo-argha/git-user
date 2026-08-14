@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -25,9 +24,8 @@ func opGenerateKey(name, email, passphrase string) (string, error) {
 	if _, err := os.Stat(keyPath); err == nil {
 		return keyPath, nil
 	}
-	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", passphrase)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("ssh-keygen failed: %w: %s", err, strings.TrimSpace(string(out)))
+	if err := ssh.GenerateKey(keyPath, email, passphrase); err != nil {
+		return "", fmt.Errorf("ssh-keygen failed: %w", err)
 	}
 	if passphrase != "" {
 		_ = keyring.SetKeychainPassphrase(name, passphrase)
@@ -197,13 +195,12 @@ func opRekey(store *config.Store, name, passphrase string) (opResult, error) {
 		}
 	}
 
-	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", user.Email, "-f", keyPath, "-N", passphrase)
-	if out, err := cmd.CombinedOutput(); err != nil {
+	if err := ssh.GenerateKey(keyPath, user.Email, passphrase); err != nil {
 		if hasOldKey {
 			_ = os.Rename(backupPath, keyPath)
 			_ = os.Rename(backupPath+".pub", keyPath+".pub")
 		}
-		return opResult{}, fmt.Errorf("generating SSH key: %w: %s", err, strings.TrimSpace(string(out)))
+		return opResult{}, fmt.Errorf("generating SSH key: %w", err)
 	}
 	if passphrase != "" {
 		_ = keyring.SetKeychainPassphrase(name, passphrase)
@@ -229,15 +226,6 @@ func opRekey(store *config.Store, name, passphrase string) (opResult, error) {
 	return opResult{detail: report, showReport: true}, nil
 }
 
-// changeSSHKeyPassphrase changes an SSH key passphrase non-interactively.
-func changeSSHKeyPassphrase(keyPath, oldPassphrase, newPassphrase string) error {
-	cmd := exec.Command("ssh-keygen", "-p", "-f", keyPath, "-P", oldPassphrase, "-N", newPassphrase)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("ssh-keygen: %w: %s", err, strings.TrimSpace(string(out)))
-	}
-	return nil
-}
-
 // opPassphraseSet sets or changes an identity's key passphrase.
 func opPassphraseSet(store *config.Store, name, oldPass, newPass string) error {
 	user := store.FindUser(name)
@@ -247,7 +235,7 @@ func opPassphraseSet(store *config.Store, name, oldPass, newPass string) error {
 	if newPass == "" {
 		return fmt.Errorf("passphrase must not be empty")
 	}
-	if err := changeSSHKeyPassphrase(user.SSHKey, oldPass, newPass); err != nil {
+	if err := ssh.ChangeKeyPassphrase(user.SSHKey, oldPass, newPass); err != nil {
 		return err
 	}
 	if user.GetPassphraseMode() == "persistent" {
@@ -277,7 +265,7 @@ func opPassphraseRemove(store *config.Store, name, currentPass string) error {
 	if store.Current != name {
 		return fmt.Errorf("must switch to profile %q to remove its passphrase", name)
 	}
-	if err := changeSSHKeyPassphrase(user.SSHKey, currentPass, ""); err != nil {
+	if err := ssh.ChangeKeyPassphrase(user.SSHKey, currentPass, ""); err != nil {
 		return err
 	}
 	_ = keyring.DeleteKeychainPassphrase(name)

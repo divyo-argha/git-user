@@ -8,6 +8,7 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/ssh"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -145,7 +146,7 @@ func interactiveSSHSetup(name, email string, store *config.Store, noSign bool) e
 			if err == nil && newPass != "" {
 				confirm, errConfirm := readPassphrase(ConfirmPassphrasePrompt)
 				if errConfirm == nil && newPass == confirm {
-					if errApply := changeSSHKeyPassphrase(keyPath, "", newPass); errApply != nil {
+					if errApply := ssh.ChangeKeyPassphrase(keyPath, "", newPass); errApply != nil {
 						ui.Errorf("Could not add passphrase: %v", errApply)
 					} else {
 						ui.Success("Passphrase applied securely!")

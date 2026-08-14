@@ -4,6 +4,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/divyo-argha/git-user/internal/ssh"
 )
 
 func TestChangeSSHKeyPassphrase(t *testing.T) {
@@ -24,7 +26,7 @@ func TestChangeSSHKeyPassphrase(t *testing.T) {
 		t.Fatal("new key should start unprotected")
 	}
 
-	if err := changeSSHKeyPassphrase(keyPath, "", "new-secret"); err != nil {
+	if err := ssh.ChangeKeyPassphrase(keyPath, "", "new-secret"); err != nil {
 		t.Fatalf("adding passphrase: %v", err)
 	}
 
@@ -36,15 +38,15 @@ func TestChangeSSHKeyPassphrase(t *testing.T) {
 		t.Fatal("key should be protected after adding passphrase")
 	}
 
-	if err := changeSSHKeyPassphrase(keyPath, "wrong-secret", "another-secret"); err == nil {
+	if err := ssh.ChangeKeyPassphrase(keyPath, "wrong-secret", "another-secret"); err == nil {
 		t.Fatal("expected wrong current passphrase to fail")
 	}
 
-	if err := changeSSHKeyPassphrase(keyPath, "new-secret", "another-secret"); err != nil {
+	if err := ssh.ChangeKeyPassphrase(keyPath, "new-secret", "another-secret"); err != nil {
 		t.Fatalf("changing passphrase: %v", err)
 	}
 
-	if err := changeSSHKeyPassphrase(keyPath, "another-secret", ""); err != nil {
+	if err := ssh.ChangeKeyPassphrase(keyPath, "another-secret", ""); err != nil {
 		t.Fatalf("removing passphrase: %v", err)
 	}
 

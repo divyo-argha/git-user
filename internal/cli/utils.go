@@ -149,7 +149,7 @@ func generateAndDisplayKey(name, email, passphrase string) (string, error) {
 	ui.Success("SSH key generated!")
 
 	if passphrase != "" {
-		if err := changeSSHKeyPassphrase(keyPath, "", passphrase); err != nil {
+		if err := ssh.ChangeKeyPassphrase(keyPath, "", passphrase); err != nil {
 			ui.Errorf("Could not add passphrase: %v", err)
 		} else {
 			ui.Success("Passphrase applied securely!")
@@ -166,7 +166,7 @@ func generateAndDisplayKey(name, email, passphrase string) (string, error) {
 			ui.Error("Passphrases do not match.")
 			return keyPath, nil
 		}
-		if err := changeSSHKeyPassphrase(keyPath, "", newPass); err != nil {
+		if err := ssh.ChangeKeyPassphrase(keyPath, "", newPass); err != nil {
 			ui.Errorf("Could not add passphrase: %v", err)
 		} else {
 			ui.Success("Passphrase applied securely!")
@@ -252,7 +252,7 @@ func checkAndPromptPassphrase(name string, keyPath string) {
 		if ui.Confirm("Would you like to add a passphrase to protect this identity now?", true) {
 			newPassphrase, err := promptRequiredPassphrase()
 			if err == nil && newPassphrase != "" {
-				if err := changeSSHKeyPassphrase(keyPath, "", newPassphrase); err != nil {
+				if err := ssh.ChangeKeyPassphrase(keyPath, "", newPassphrase); err != nil {
 					ui.Errorf("Could not add passphrase: %v", err)
 				} else {
 					ui.Success("Passphrase added successfully!")

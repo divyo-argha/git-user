@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
@@ -89,30 +88,6 @@ HELP
 
 Config: ~/.git-users/config.json
 `
-
-func init() {
-	if os.Getenv("GIT_USER_ASKPASS_MODE") == "true" {
-		prompt := ""
-		if len(os.Args) > 1 {
-			prompt = strings.ToLower(os.Args[1])
-		}
-
-		if strings.Contains(prompt, "old") || strings.Contains(prompt, "current") {
-			fmt.Println(os.Getenv("GIT_USER_OLD_PASSPHRASE"))
-		} else if strings.Contains(prompt, "new") || strings.Contains(prompt, "again") || strings.Contains(prompt, "confirm") {
-			fmt.Println(os.Getenv("GIT_USER_NEW_PASSPHRASE"))
-		} else {
-			if val := os.Getenv("GIT_USER_PASSPHRASE"); val != "" {
-				fmt.Println(val)
-			} else if val := os.Getenv("GIT_USER_OLD_PASSPHRASE"); val != "" {
-				fmt.Println(val)
-			} else {
-				fmt.Println(os.Getenv("GIT_USER_NEW_PASSPHRASE"))
-			}
-		}
-		os.Exit(0)
-	}
-}
 
 func Execute() error {
 
