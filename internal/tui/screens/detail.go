@@ -277,8 +277,10 @@ func (d *Detail) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		return d, func() tea.Msg { return core.ScreenPopMsg{} }
 	}
 	switch msg.String() {
-	case core.KeyCtrlC, core.KeyQuit:
+	case core.KeyCtrlC:
 		return d, tea.Quit
+	case core.KeyQuit:
+		return d, func() tea.Msg { return core.ActionResultMsg{Kind: "quit-confirm"} }
 	case "s", "S":
 		user := d.store.FindUser(d.name)
 		if user != nil && user.Name != d.store.Current {
