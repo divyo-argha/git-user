@@ -313,8 +313,14 @@ func VerifyPassphrase(keyPath, passphrase string) bool {
 	// Fall back to ssh-keygen validation for OpenSSH format keys with unsupported kdf
 	cmd := exec.Command("ssh-keygen", "-y", "-P", passphrase, "-f", keyPath)
 	out, errCmd := cmd.CombinedOutput()
-	if errCmd == nil && len(out) > 0 && strings.HasPrefix(string(out), "ssh-") {
-		return true
+	if errCmd == nil && len(out) > 0 {
+		outStr := strings.TrimSpace(string(out))
+		if strings.HasPrefix(outStr, "ssh-") || strings.HasPrefix(outStr, "ecdsa-") || strings.HasPrefix(outStr, "sk-") {
+			return true
+		}
+		if _, _, _, _, errPub := ssh.ParseAuthorizedKey(out); errPub == nil {
+			return true
+		}
 	}
 
 	return false

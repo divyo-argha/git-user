@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -103,6 +104,29 @@ func TestVerifyPassphrase(t *testing.T) {
 	// Verify with missing file
 	if VerifyPassphrase(filepath.Join(tmpDir, "does-not-exist"), passphrase) {
 		t.Errorf("Expected false for non-existent file")
+	}
+
+	// 3. Test with OpenSSH ed25519 and ecdsa keys if ssh-keygen is present
+	ed25519Key := filepath.Join(tmpDir, "id_ed25519")
+	cmdEd := exec.Command("ssh-keygen", "-t", "ed25519", "-N", "ed25519-secret", "-f", ed25519Key, "-q")
+	if err := cmdEd.Run(); err == nil {
+		if !VerifyPassphrase(ed25519Key, "ed25519-secret") {
+			t.Errorf("Expected true for ed25519 with correct passphrase")
+		}
+		if VerifyPassphrase(ed25519Key, "bad-secret") {
+			t.Errorf("Expected false for ed25519 with wrong passphrase")
+		}
+	}
+
+	ecdsaKey := filepath.Join(tmpDir, "id_ecdsa")
+	cmdEc := exec.Command("ssh-keygen", "-t", "ecdsa", "-N", "ecdsa-secret", "-f", ecdsaKey, "-q")
+	if err := cmdEc.Run(); err == nil {
+		if !VerifyPassphrase(ecdsaKey, "ecdsa-secret") {
+			t.Errorf("Expected true for ecdsa with correct passphrase")
+		}
+		if VerifyPassphrase(ecdsaKey, "bad-secret") {
+			t.Errorf("Expected false for ecdsa with wrong passphrase")
+		}
 	}
 }
 
