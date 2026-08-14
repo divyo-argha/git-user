@@ -63,23 +63,23 @@ func (d *Detail) refreshActions() {
 			items = append(items, components.ActionItem{Label: "Directory Bindings", IsSection: true})
 			for _, p := range user.BindPaths {
 				items = append(items, components.ActionItem{
-					Label: fmt.Sprintf("  📁 %s", p),
+					Label: fmt.Sprintf("  • %s", p),
 					Key:   "unbind-path:" + p,
 				})
 			}
-			items = append(items, components.ActionItem{Label: "➕ Bind a directory to this profile", Key: "bind-path"})
+			items = append(items, components.ActionItem{Label: "+ Bind a directory to this profile", Key: "bind-path"})
 		} else {
 			items = append(items, components.ActionItem{Label: "Directory Bindings", IsSection: true})
 			items = append(items, components.ActionItem{Label: d.theme.Dim().Render("  No directories bound"), Key: ""})
-			items = append(items, components.ActionItem{Label: "➕ Bind a directory to this profile", Key: "bind-path"})
+			items = append(items, components.ActionItem{Label: "+ Bind a directory to this profile", Key: "bind-path"})
 		}
 
 		items = append(items, components.ActionItem{Label: "Primary Action", IsSection: true})
-		items = append(items, components.ActionItem{Label: "⚡ Switch to this identity", Key: "switch"})
+		items = append(items, components.ActionItem{Label: "→ Switch to this identity", Key: "switch"})
 
 		items = append(items, components.ActionItem{Label: "Management Options", IsSection: true})
-		items = append(items, components.ActionItem{Label: "📤 Export this identity", Key: "export"})
-		items = append(items, components.ActionItem{Label: "🗑  Remove identity", Key: "remove", IsDanger: true})
+		items = append(items, components.ActionItem{Label: "› Export this identity", Key: "export"})
+		items = append(items, components.ActionItem{Label: "› Remove identity", Key: "remove", IsDanger: true})
 
 		items = append(items, components.ActionItem{Label: "", IsSection: true})
 		items = append(items, components.ActionItem{Label: "← Back", Key: "back"})
@@ -124,13 +124,13 @@ func (d *Detail) refreshActions() {
 	}
 	items = append(items, components.ActionItem{Label: fmt.Sprintf("Passphrase   : %s", passphraseStr), Key: "passphrase", Disabled: user.SSHKey == ""})
 
-	sessionStr := d.theme.Dim().Render("Test Connection ⚡")
+	sessionStr := d.theme.Dim().Render("Test Connection")
 	if user.SSHKey != "" {
 		if d.keyLoadedChecked {
 			if d.keyLoaded {
 				sessionStr = d.theme.SuccessStyle().Render("Loaded in agent ✓")
 			} else {
-				sessionStr = d.theme.Dim().Render("Test Connection ⚡")
+				sessionStr = d.theme.Dim().Render("Test Connection")
 			}
 		} else {
 			sessionStr = d.theme.Dim().Render("checking...")
@@ -172,35 +172,35 @@ func (d *Detail) refreshActions() {
 	// ── UTILITIES ─────────────────────────────────────────────────────────────
 	items = append(items, components.ActionItem{Label: "Utilities", IsSection: true})
 	if isActive {
-		items = append(items, components.ActionItem{Label: "🔑 Show public key", Key: "pubkey"})
+		items = append(items, components.ActionItem{Label: "› Show public key", Key: "pubkey"})
 	} else {
 		items = append(items, components.ActionItem{
-			Label:    d.theme.Dim().Render("🔑 Show public key (switch to this identity first)"),
+			Label:    d.theme.Dim().Render("› Show public key (switch to this identity first)"),
 			Key:      "pubkey-locked",
 			Disabled: true,
 		})
 	}
 	if user.SSHKey != "" {
 		if isActive {
-			items = append(items, components.ActionItem{Label: "🚀 Publish SSH key to platform", Key: "pubkey-push"})
+			items = append(items, components.ActionItem{Label: "› Publish SSH key to platform", Key: "pubkey-push"})
 		} else {
 			items = append(items, components.ActionItem{
-				Label:    d.theme.Dim().Render("🚀 Publish SSH key to platform (switch to this identity first)"),
+				Label:    d.theme.Dim().Render("› Publish SSH key to platform (switch to this identity first)"),
 				Key:      "pubkey-push-locked",
 				Disabled: true,
 			})
 		}
 	}
-	items = append(items, components.ActionItem{Label: "🔄 Rotate SSH key", Key: "rekey"})
+	items = append(items, components.ActionItem{Label: "› Rotate SSH key", Key: "rekey"})
 	if user.SSHKey != "" {
-		items = append(items, components.ActionItem{Label: "🗑  Remove SSH key", Key: "unbind"})
+		items = append(items, components.ActionItem{Label: "› Remove SSH key", Key: "unbind"})
 	}
-	items = append(items, components.ActionItem{Label: "⚙  Custom git config", Key: "config"})
-	items = append(items, components.ActionItem{Label: "📤 Export this identity", Key: "export"})
+	items = append(items, components.ActionItem{Label: "› Custom git config", Key: "config"})
+	items = append(items, components.ActionItem{Label: "› Export this identity", Key: "export"})
 
 	// ── DANGER ZONE ───────────────────────────────────────────────────────────
 	items = append(items, components.ActionItem{Label: "Danger Zone", IsSection: true})
-	items = append(items, components.ActionItem{Label: "🗑  Remove identity", Key: "remove", IsDanger: true})
+	items = append(items, components.ActionItem{Label: "› Remove identity", Key: "remove", IsDanger: true})
 
 	// ── FOOTER ────────────────────────────────────────────────────────────────
 	items = append(items, components.ActionItem{Label: "", IsSection: true})

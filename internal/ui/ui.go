@@ -205,7 +205,7 @@ func UserRow(name, email, sshKey string, active bool) {
 	)
 
 	if sshKey != "" {
-		content += "\n" + styleDim.Render("🔑 "+sshKey)
+		content += "\n" + styleDim.Render("key: "+sshKey)
 	}
 
 	fmt.Println(cardStyle.Render(content))

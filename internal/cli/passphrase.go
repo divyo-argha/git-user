@@ -129,7 +129,7 @@ func runPassphrase(args []string) error {
 	if !set && !remove {
 		if protected {
 			ui.Info(fmt.Sprintf("SSH key for %q is currently passphrase protected.", user.Name))
-			idx, err := ui.Select("Select passphrase action:", []string{"🔒 Set / Change Passphrase", "🔓 Remove Passphrase"})
+			idx, err := ui.Select("Select passphrase action:", []string{"› Set / Change Passphrase", "› Remove Passphrase"})
 			if err != nil {
 				ui.Info("Cancelled")
 				return nil

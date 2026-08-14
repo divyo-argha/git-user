@@ -51,22 +51,22 @@ func (pm *PassphraseMenu) refreshActions() {
 	var items []components.ActionItem
 
 	mode := user.GetPassphraseMode()
-	modeLabel := "Persistent Keychain 🔑"
+	modeLabel := "Persistent Keychain"
 	switch mode {
 	case "login":
-		modeLabel = "Session Agent (Ask on Login) ⏳"
+		modeLabel = "Session Agent (Ask on Login)"
 	case "everytime":
-		modeLabel = "Ask Every Time 🔒"
+		modeLabel = "Ask Every Time"
 	}
 
 	items = append(items, components.ActionItem{Label: "Security & Behavior", IsSection: true})
-	items = append(items, components.ActionItem{Label: fmt.Sprintf("⚙ Behavior   : %s", modeLabel), Key: "passphrase-mode"})
-	items = append(items, components.ActionItem{Label: "⚡ Lock Key   : Unload from SSH Agent", Key: "lock-key", Disabled: pm.keyLoadedChecked && !pm.keyLoaded})
-	items = append(items, components.ActionItem{Label: "🧪 Verify     : Test Key Passphrase", Key: "passphrase-verify", Disabled: !pm.passphraseProtected})
+	items = append(items, components.ActionItem{Label: fmt.Sprintf("  Behavior   : %s", modeLabel), Key: "passphrase-mode"})
+	items = append(items, components.ActionItem{Label: "  Lock Key   : Unload from SSH Agent", Key: "lock-key", Disabled: pm.keyLoadedChecked && !pm.keyLoaded})
+	items = append(items, components.ActionItem{Label: "  Verify     : Test Key Passphrase", Key: "passphrase-verify", Disabled: !pm.passphraseProtected})
 
 	items = append(items, components.ActionItem{Label: "Passphrase Management", IsSection: true})
-	items = append(items, components.ActionItem{Label: "🔒 Change     : Set / Change Passphrase", Key: "passphrase-set"})
-	items = append(items, components.ActionItem{Label: "🔓 Remove     : Remove Passphrase", Key: "passphrase-remove", Disabled: pm.passphraseChecked && !pm.passphraseProtected})
+	items = append(items, components.ActionItem{Label: "› Change     : Set / Change Passphrase", Key: "passphrase-set"})
+	items = append(items, components.ActionItem{Label: "› Remove     : Remove Passphrase", Key: "passphrase-remove", Disabled: pm.passphraseChecked && !pm.passphraseProtected})
 
 	items = append(items, components.ActionItem{Label: "", IsSection: true})
 	items = append(items, components.ActionItem{Label: "← Back", Key: "back"})
@@ -150,17 +150,17 @@ func (pm *PassphraseMenu) handleEnter() (core.Screen, tea.Cmd) {
 		}
 		curr := user.GetPassphraseMode()
 		next := "persistent"
-		labelMsg := "Persistent Keychain 🔑"
+		labelMsg := "Persistent Keychain"
 		switch curr {
 		case "persistent":
 			next = "login"
-			labelMsg = "Session Agent (Ask on Login) ⏳"
+			labelMsg = "Session Agent (Ask on Login)"
 		case "login":
 			next = "everytime"
-			labelMsg = "Ask Every Time 🔒"
+			labelMsg = "Ask Every Time"
 		case "everytime":
 			next = "persistent"
-			labelMsg = "Persistent Keychain 🔑"
+			labelMsg = "Persistent Keychain"
 		}
 		user.PassphraseMode = next
 		_ = config.Save(pm.store)
@@ -221,7 +221,7 @@ func (pm *PassphraseMenu) View(width, height int) string {
 
 	var lines []string
 	lines = append(lines, "")
-	lines = append(lines, pm.theme.Bold().Render("  🔑 PASSPHRASE OPTIONS: "+pm.name))
+	lines = append(lines, pm.theme.Bold().Render("  PASSPHRASE OPTIONS: "+pm.name))
 	lines = append(lines, "")
 
 	user := pm.store.FindUser(pm.name)

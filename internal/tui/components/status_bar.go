@@ -102,7 +102,7 @@ func (s StatusBar) viewFull() string {
 	repoName := git.CurrentRepoName()
 	branch := git.CurrentBranch()
 	if repoName != "" {
-		repoStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#BB9AF7")).Bold(true).Render("📁 " + repoName)
+		repoStr := lipgloss.NewStyle().Foreground(lipgloss.Color("#BB9AF7")).Bold(true).Render(repoName)
 		if branch != "" {
 			repoStr += " " + lipgloss.NewStyle().Foreground(lipgloss.Color("#787C99")).Render("("+branch+")")
 		}

@@ -30,12 +30,12 @@ type FirstRun struct {
 
 var firstRunOptions = []firstRunOption{
 	{
-		label: "🗂  Import existing identity",
+		label: "↓ Import existing identity",
 		key:   "import",
 		desc:  "Bring your existing ~/.gitconfig identity into git-user",
 	},
 	{
-		label: "⏭   Skip for now",
+		label: "→ Skip for now",
 		key:   "skip",
 		desc:  "Register identities manually from the dashboard instead",
 	},

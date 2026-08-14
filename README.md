@@ -290,7 +290,7 @@ There are other tools that try to solve this. Here's how git-user is different:
 ### 🛡️ Security & Passphrases
 - Passphrase-protected keys enforced by default
 - Secure native OS Keychain integration (macOS Keychain, Linux Keyring) to store passphrases safely
-- Clean passphrase prompts — just `Enter Passphrase 🔑`, no key paths on screen
+- Clean passphrase prompts — just `Enter Passphrase:`, no key paths on screen
 - `audit` audits every identity: permissions, passphrase, key existence
 - `passphrase` add, change, or remove (`--remove`) passphrase security for the active identity
 - All config writes are atomic (temp file + rename) — crash-safe

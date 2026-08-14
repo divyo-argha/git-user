@@ -413,7 +413,7 @@ func (a *App) pushExportForm(names []string) tea.Cmd {
 // The passphrase is asked entirely inside the TUI.
 func (a *App) switchPassphraseFormCmd(name string) tea.Cmd {
 	return pushCmd(screens.NewForm("Enter Passphrase", "", "switch-pass:"+name, []screens.FormInput{
-		{Label: "Enter Passphrase 🔑:", IsPassword: true},
+		{Label: "Enter Passphrase:", IsPassword: true},
 	}, a.theme))
 }
 
@@ -421,7 +421,7 @@ func (a *App) switchPassphraseFormCmd(name string) tea.Cmd {
 // running the SSH connection check.
 func (a *App) checkSSHPassphraseFormCmd(name string) tea.Cmd {
 	return pushCmd(screens.NewForm("Check SSH Connection", "", "check-ssh-pass:"+name, []screens.FormInput{
-		{Label: "Enter Passphrase 🔑:", IsPassword: true},
+		{Label: "Enter Passphrase:", IsPassword: true},
 	}, a.theme))
 }
 

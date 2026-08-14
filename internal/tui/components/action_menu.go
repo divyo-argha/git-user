@@ -37,26 +37,26 @@ func NewActionMenu(title string, items []ActionItem, th theme.Theme) ActionMenu 
 // converting.
 func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 	items := []ActionItem{
-		{IsSection: true, Label: "⚡ Quick Actions"},
-		{Label: "🚪 Sign out (logout)", Key: "logout"},
+		{IsSection: true, Label: "Quick Actions"},
+		{Label: "→ Sign out (logout)", Key: "logout"},
 	}
 
 	if showFixRemote {
-		items = append(items, ActionItem{Label: "🔗 Fix remotes (HTTPS → SSH)", Key: "fix-remote"})
+		items = append(items, ActionItem{Label: "⇄ Fix remotes (HTTPS → SSH)", Key: "fix-remote"})
 	}
 
 	items = append(items,
-		ActionItem{IsSection: true, Label: "🛡 Health & Security"},
-		ActionItem{Label: "🩺 Doctor (health & security check)", Key: "doctor"},
-		ActionItem{Label: "🗂 Import existing git identity", Key: "import-original"},
-		ActionItem{Label: "📦 Import / Export bundles…", Key: "import-export"},
-		ActionItem{IsSection: true, Label: "👤 Profiles & System"},
-		ActionItem{Label: "⏱ Create temporary profile", Key: "register-temp"},
-		ActionItem{Label: "📥 Clone repository", Key: "clone"},
-		ActionItem{Label: "📊 Commit identity stats", Key: "stats"},
-		ActionItem{Label: "🪝 Git hooks", Key: "hook"},
-		ActionItem{Label: "🔄 Sync identities", Key: "sync"},
-		ActionItem{Label: "🔄 Update git-user", Key: "update"},
+		ActionItem{IsSection: true, Label: "Health & Security"},
+		ActionItem{Label: "✦ Doctor (health & security check)", Key: "doctor"},
+		ActionItem{Label: "↓ Import existing git identity", Key: "import-original"},
+		ActionItem{Label: "⇪ Import / Export bundles…", Key: "import-export"},
+		ActionItem{IsSection: true, Label: "Profiles & System"},
+		ActionItem{Label: "~ Create temporary profile", Key: "register-temp"},
+		ActionItem{Label: "↓ Clone repository", Key: "clone"},
+		ActionItem{Label: "◈ Commit identity stats", Key: "stats"},
+		ActionItem{Label: "⚓ Git hooks", Key: "hook"},
+		ActionItem{Label: "↻ Sync identities", Key: "sync"},
+		ActionItem{Label: "▲ Update git-user", Key: "update"},
 	)
 	return NewActionMenu("System Utilities", items, th)
 }

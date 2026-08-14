@@ -19,27 +19,27 @@ type importExportOption struct {
 
 var importExportOptions = []importExportOption{
 	{
-		label: "📤  Export current identity",
+		label: "› Export current identity",
 		key:   "export-current",
 		desc:  "Bundle the active identity's keys into an encrypted file",
 	},
 	{
-		label: "📦  Export all identities",
+		label: "› Export all identities",
 		key:   "export-all",
 		desc:  "Bundle all non-temporary identities (skips passphrase-protected keys)",
 	},
 	{
-		label: "📥  Import identities",
+		label: "› Import identities",
 		key:   "import",
 		desc:  "Restore identities from an encrypted bundle file",
 	},
 	{
-		label: "🗂  Import original gitconfig",
+		label: "› Import original gitconfig",
 		key:   "import-original",
 		desc:  "Import your existing ~/.gitconfig identity (you pick the name)",
 	},
 	{
-		label: "←   Back",
+		label: "← Back",
 		key:   "back",
 		desc:  "Return to previous menu",
 	},

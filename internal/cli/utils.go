@@ -17,8 +17,8 @@ import (
 // PassphrasePrompt is the only text shown when a profile's key passphrase is
 // requested — no key path, nothing else.
 const (
-	PassphrasePrompt        = "Enter Passphrase 🔑: "
-	ConfirmPassphrasePrompt = "Confirm Passphrase 🔑: "
+	PassphrasePrompt        = "Enter Passphrase: "
+	ConfirmPassphrasePrompt = "Confirm Passphrase: "
 )
 
 func verifySSHConnection() error {

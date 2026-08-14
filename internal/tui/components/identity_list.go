@@ -155,7 +155,7 @@ func (l IdentityList) ViewWithFilter(width, height int, isActive, filterMode boo
 			matchCount++
 		}
 	}
-	filterBar := l.theme.InfoStyle().Render(fmt.Sprintf("  🔍 Filter: %s▌  (%d match)", filterQuery, matchCount))
+	filterBar := l.theme.InfoStyle().Render(fmt.Sprintf("  / Filter: %s▌  (%d match)", filterQuery, matchCount))
 	listView := l.View(width, height-1, isActive)
 	return filterBar + "\n" + listView
 }
@@ -171,7 +171,7 @@ func (l IdentityList) View(width, height int, isActive bool) string {
 
 	if len(l.items) <= 1 {
 		lines = append(lines, "")
-		lines = append(lines, l.theme.WarningStyle().Render("  💡 Welcome to git-user!"))
+		lines = append(lines, l.theme.InfoStyle().Render("  ✦ Welcome to git-user!"))
 		lines = append(lines, l.theme.Dim().Render("  No custom profiles registered yet."))
 		lines = append(lines, l.theme.Dim().Render("  Select '+ Register new identity' below."))
 		lines = append(lines, "")
@@ -276,13 +276,13 @@ func (l IdentityList) renderIdentityLine(item IdentityItem, isCursor, isActive b
 
 	var badges []string
 	if item.HasSSHKey {
-		badges = append(badges, l.theme.PillBadge().Render("🔑 SSH"))
+		badges = append(badges, l.theme.PillBadge().Render("SSH"))
 	}
 	if item.HasSigning {
-		badges = append(badges, l.theme.PillBadge().Render("🔏 SIGN"))
+		badges = append(badges, l.theme.PillBadge().Render("SIGN"))
 	}
 	if item.BindCount > 0 {
-		badges = append(badges, l.theme.Dim().Render(fmt.Sprintf("📁 %d paths", item.BindCount)))
+		badges = append(badges, l.theme.Dim().Render(fmt.Sprintf("• %d paths", item.BindCount)))
 	}
 
 	badgeStr := ""
@@ -296,7 +296,7 @@ func (l IdentityList) renderIdentityLine(item IdentityItem, isCursor, isActive b
 	}
 
 	if item.IsTemporary {
-		nameStr += "  " + l.theme.PillWarning().Render("⏱ TEMP")
+		nameStr += "  " + l.theme.PillWarning().Render("TEMP")
 	}
 
 	fullLine := prefix + nameStr + badgeStr
