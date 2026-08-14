@@ -158,7 +158,7 @@ func (d *Dashboard) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		}
 	case core.KeyEsc:
 		// Root screen: nothing to go back to.
-		return d, core.ShowToastCmd("At the main menu — press q or select Quit to exit", theme.ToastStyleInfo, 2*time.Second)
+		return d, core.ShowToastCmd("At the main menu — press q to quit", theme.ToastStyleInfo, 2*time.Second)
 	case core.KeyFilter:
 		// '/' enters filter mode on the identities pane.
 		d.filterMode = true
@@ -231,9 +231,6 @@ func (d *Dashboard) handleEnter() (core.Screen, tea.Cmd) {
 		item := d.actions.Selected()
 		if item == nil {
 			return d, nil
-		}
-		if item.Key == "quit" {
-			return d, tea.Quit
 		}
 		return d, func() tea.Msg {
 			return core.ActionResultMsg{Kind: item.Key}
