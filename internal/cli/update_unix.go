@@ -52,6 +52,7 @@ fi
 exit 1`
 
 	cmd := exec.Command("sudo", "sh", "-c", script, "git-user-update", execPath, newBinary)
+	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
