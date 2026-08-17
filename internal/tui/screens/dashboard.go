@@ -67,6 +67,9 @@ func (d *Dashboard) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		}
 	case core.SyncStatusMsg:
 		d.syncOut = msg.Err == nil && !msg.InSync
+	case core.VersionCheckMsg:
+		d.actions.SetUpdateStatus(msg.LatestVersion, msg.UpdateAvailable)
+		return d, nil
 	case tea.MouseMsg:
 		return d.handleMouse(msg)
 	case tea.KeyMsg:
@@ -313,3 +316,8 @@ func (d *Dashboard) SetStore(store *config.Store) {
 	d.store = store
 	d.identities.Refresh(store)
 }
+
+func (d *Dashboard) SetVersionStatus(latestVersion string, updateAvailable bool) {
+	d.actions.SetUpdateStatus(latestVersion, updateAvailable)
+}
+

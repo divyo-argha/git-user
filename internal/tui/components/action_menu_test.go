@@ -82,3 +82,39 @@ func TestSystemActions(t *testing.T) {
 		t.Errorf("SystemActions should include fix-remote when showFixRemote=true")
 	}
 }
+
+func TestSystemActions_UpdateStatus(t *testing.T) {
+	th := theme.DefaultTheme()
+	m := SystemActions(th, false)
+
+	// By default update item should be disabled and show "up to date"
+	var updateItem *ActionItem
+	for i := range m.items {
+		if m.items[i].Key == "update" {
+			updateItem = &m.items[i]
+			break
+		}
+	}
+	if updateItem == nil {
+		t.Fatalf("Update action item not found in SystemActions")
+	}
+	if !updateItem.Disabled {
+		t.Errorf("Expected update item to be disabled by default")
+	}
+
+	// Enable when update is available
+	m.SetUpdateStatus("v5.0.0", true)
+	if updateItem.Disabled {
+		t.Errorf("Expected update item to be enabled when update is available")
+	}
+	if updateItem.Label != "▲ Update git-user (v5.0.0 available)" {
+		t.Errorf("Unexpected label: %s", updateItem.Label)
+	}
+
+	// Disable again when up to date
+	m.SetUpdateStatus("v4.8.0", false)
+	if !updateItem.Disabled {
+		t.Errorf("Expected update item to be disabled when up to date")
+	}
+}
+

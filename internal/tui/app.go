@@ -9,6 +9,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/tui/components"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
+	"github.com/divyo-argha/git-user/internal/version"
 )
 
 // App is the root tea.Model that coordinates all screens.
@@ -100,6 +101,7 @@ func (a *App) runTaskCmd(kind, name string, fn func() (opResult, error)) tea.Cmd
 func (a *App) Init() tea.Cmd {
 	cmds := []tea.Cmd{
 		core.CheckAgentCmd(),
+		core.CheckVersionCmd(version.GetVersion()),
 		animateTickCmd(),
 		a.spinner.Init(),
 	}
@@ -137,6 +139,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case core.AgentStatusMsg:
 		a.statusBar.SetAgentStatus(msg.Connected, msg.KeyCount)
+		return a, nil
+
+	case core.VersionCheckMsg:
+		a.statusBar.SetVersionStatus(msg.LatestVersion, msg.UpdateAvailable)
+		if s := a.activeScreen(); s != nil {
+			newScreen, cmd := s.Update(msg)
+			a.screenStack[len(a.screenStack)-1] = newScreen
+			return a, cmd
+		}
 		return a, nil
 
 	case core.StoreRefreshedMsg:

@@ -1,7 +1,9 @@
 package core
 
 import (
+	"encoding/json"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -11,6 +13,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
+	"github.com/divyo-argha/git-user/internal/version"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 )
@@ -246,4 +249,45 @@ func extractUsername(output, platform string) string {
 		}
 	}
 	return ""
+}
+
+// ── Version Check Commands ───────────────────────────────────────────────────
+
+// CheckVersionCmd checks GitHub releases asynchronously for a newer version.
+// It fails silently if the network is unreachable or offline.
+func CheckVersionCmd(currentVersion string) tea.Cmd {
+	return func() tea.Msg {
+		client := &http.Client{
+			Timeout: 3 * time.Second,
+		}
+		req, err := http.NewRequest("GET", "https://api.github.com/repos/divyo-argha/git-user/releases/latest", nil)
+		if err != nil {
+			return VersionCheckMsg{CurrentVersion: currentVersion, UpdateAvailable: false}
+		}
+		req.Header.Set("User-Agent", "git-user-tui")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return VersionCheckMsg{CurrentVersion: currentVersion, UpdateAvailable: false}
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return VersionCheckMsg{CurrentVersion: currentVersion, UpdateAvailable: false}
+		}
+
+		var rel struct {
+			TagName string `json:"tag_name"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil || rel.TagName == "" {
+			return VersionCheckMsg{CurrentVersion: currentVersion, UpdateAvailable: false}
+		}
+
+		updateAvailable := version.IsNewerVersion(rel.TagName, currentVersion)
+		return VersionCheckMsg{
+			CurrentVersion:  currentVersion,
+			LatestVersion:   rel.TagName,
+			UpdateAvailable: updateAvailable,
+		}
+	}
 }

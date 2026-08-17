@@ -56,9 +56,28 @@ func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 		ActionItem{Label: "◈ Commit identity stats", Key: "stats"},
 		ActionItem{Label: "⚓ Git hooks", Key: "hook"},
 		ActionItem{Label: "↻ Sync identities", Key: "sync"},
-		ActionItem{Label: "▲ Update git-user", Key: "update"},
+		ActionItem{Label: "▲ Update git-user (up to date)", Key: "update", Disabled: true},
 	)
 	return NewActionMenu("System Utilities", items, th)
+}
+
+// SetUpdateStatus dynamically enables or disables the update action item.
+func (m *ActionMenu) SetUpdateStatus(latestVersion string, updateAvailable bool) {
+	for i := range m.items {
+		if m.items[i].Key == "update" {
+			if updateAvailable && latestVersion != "" {
+				m.items[i].Label = "▲ Update git-user (" + latestVersion + " available)"
+				m.items[i].Disabled = false
+			} else {
+				m.items[i].Label = "▲ Update git-user (up to date)"
+				m.items[i].Disabled = true
+			}
+			if m.items[m.cursor].Disabled {
+				m.cursor = m.nextSelectable(-1)
+			}
+			return
+		}
+	}
 }
 
 func (m *ActionMenu) CursorUp()           { m.cursor = m.prevSelectable(m.cursor) }

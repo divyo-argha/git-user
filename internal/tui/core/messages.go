@@ -133,3 +133,13 @@ type TaskResultMsg struct {
 	ShowReport bool   // push a Report screen with Detail
 	Err        error
 }
+
+// ── Version Check ─────────────────────────────────────────────────────────────
+
+// VersionCheckMsg reports the result of the asynchronous remote release check.
+type VersionCheckMsg struct {
+	CurrentVersion  string
+	LatestVersion   string
+	UpdateAvailable bool
+}
+

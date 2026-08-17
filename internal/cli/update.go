@@ -401,35 +401,10 @@ func isNpmInstall(execPath string) bool {
 }
 
 func parseVersion(v string) (int, int, int) {
-	v = strings.TrimPrefix(v, "v")
-	v = strings.TrimPrefix(v, "V")
-	parts := strings.Split(v, ".")
-	var major, minor, patch int
-	if len(parts) > 0 {
-		fmt.Sscanf(parts[0], "%d", &major)
-	}
-	if len(parts) > 1 {
-		fmt.Sscanf(parts[1], "%d", &minor)
-	}
-	if len(parts) > 2 {
-		patchStr := parts[2]
-		if idx := strings.IndexAny(patchStr, "-+"); idx != -1 {
-			patchStr = patchStr[:idx]
-		}
-		fmt.Sscanf(patchStr, "%d", &patch)
-	}
-	return major, minor, patch
+	return version.ParseVersion(v)
 }
 
 func isNewerVersion(remoteTag, currentVersion string) bool {
-	rMaj, rMin, rPat := parseVersion(remoteTag)
-	cMaj, cMin, cPat := parseVersion(currentVersion)
-
-	if rMaj != cMaj {
-		return rMaj > cMaj
-	}
-	if rMin != cMin {
-		return rMin > cMin
-	}
-	return rPat > cPat
+	return version.IsNewerVersion(remoteTag, currentVersion)
 }
+

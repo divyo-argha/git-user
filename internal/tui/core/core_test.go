@@ -438,3 +438,22 @@ func TestIdentityRemovedMsg(t *testing.T) {
 		t.Error("IdentityRemovedMsg.Name mismatch")
 	}
 }
+
+func TestVersionCheckMsg(t *testing.T) {
+	msg := VersionCheckMsg{
+		CurrentVersion:  "v4.8.0",
+		LatestVersion:   "v5.0.0",
+		UpdateAvailable: true,
+	}
+	if !msg.UpdateAvailable || msg.LatestVersion != "v5.0.0" {
+		t.Errorf("VersionCheckMsg fields mismatch: %+v", msg)
+	}
+}
+
+func TestCheckVersionCmd_Offline(t *testing.T) {
+	cmd := CheckVersionCmd("v4.8.0")
+	if cmd == nil {
+		t.Fatal("CheckVersionCmd returned nil")
+	}
+}
+
