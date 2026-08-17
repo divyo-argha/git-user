@@ -51,7 +51,7 @@ func opConfigSet(store *config.Store, name, key, value string) (opResult, error)
 	if store.Current == name {
 		_ = applyActiveCustomConfig(key, value, false)
 	}
-	return opResult{detail: fmt.Sprintf("Set config %q = %q for identity %q", key, value, name), showReport: true}, nil
+	return opResult{detail: fmt.Sprintf("Set config %q = %q for identity %q", key, value, name)}, nil
 }
 
 // opConfigUnset removes a custom git config key from an identity.
@@ -72,5 +72,5 @@ func opConfigUnset(store *config.Store, name, key string) (opResult, error) {
 	if store.Current == name {
 		_ = unsetActiveCustomConfig(key, false)
 	}
-	return opResult{detail: fmt.Sprintf("Unset config %q for identity %q", key, name), showReport: true}, nil
+	return opResult{detail: fmt.Sprintf("Unset config %q for identity %q", key, name)}, nil
 }

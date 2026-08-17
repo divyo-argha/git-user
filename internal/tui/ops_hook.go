@@ -55,7 +55,7 @@ func hookInstall() (opResult, error) {
 		if !isGitUserHook(content) {
 			return opResult{}, fmt.Errorf("pre-commit hook already exists and was not created by git-user")
 		}
-		return opResult{detail: "pre-commit hook already installed", showReport: true}, nil
+		return opResult{detail: "pre-commit hook already installed"}, nil
 	}
 
 	if err := os.MkdirAll(hooksDir, 0755); err != nil {
@@ -75,7 +75,7 @@ exit $?
 	}
 	report := "Pre-commit hook installed\n"
 	report += "The hook will verify your identity before each commit\n"
-	return opResult{detail: report, showReport: true}, nil
+	return opResult{detail: report}, nil
 }
 
 func hookUninstall() (opResult, error) {
@@ -88,7 +88,7 @@ func hookUninstall() (opResult, error) {
 	content, err := os.ReadFile(hookPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return opResult{detail: "No pre-commit hook found — nothing to remove", showReport: true}, nil
+			return opResult{detail: "No pre-commit hook found — nothing to remove"}, nil
 		}
 		return opResult{}, fmt.Errorf("failed to read hook: %v", err)
 	}
@@ -99,7 +99,7 @@ func hookUninstall() (opResult, error) {
 	if err := os.Remove(hookPath); err != nil {
 		return opResult{}, fmt.Errorf("failed to remove hook: %v", err)
 	}
-	return opResult{detail: "Pre-commit hook removed", showReport: true}, nil
+	return opResult{detail: "Pre-commit hook removed"}, nil
 }
 
 func hookCheck() (opResult, error) {
@@ -117,7 +117,7 @@ func hookCheck() (opResult, error) {
 	if git.CurrentEmail() != user.Email {
 		return opResult{}, fmt.Errorf("identity mismatch — expected %s <%s>, git config has %s", user.Name, user.Email, git.CurrentEmail())
 	}
-	return opResult{detail: "Identity verified — commit is using the correct identity", showReport: true}, nil
+	return opResult{detail: "Identity verified — commit is using the correct identity"}, nil
 }
 
 func isGitUserHook(content []byte) bool {

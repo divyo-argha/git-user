@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/identity"
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/ssh"
 	"os"
@@ -25,6 +26,10 @@ func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
 		return opResult{}, fmt.Errorf("identity %q not found", name)
 	}
 
+	if store.Current == name && git.IsIdentityInSync(user.Name, user.Email) {
+		return opResult{detail: fmt.Sprintf("Already using identity %q (%s) — nothing to do.", user.Name, user.Email)}, nil
+	}
+
 	var warnings []string
 
 	// Auto-logout: unload the previous identity's key and clean up temporaries.
@@ -39,8 +44,7 @@ func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
 			if prev.IsTemporary {
 				store.RemoveUser(prev.Name, true)
 				if prev.SSHKey != "" {
-					_ = os.Remove(prev.SSHKey)
-					_ = os.Remove(prev.SSHKey + ".pub")
+					_ = identity.SecureDeleteKeyPair(prev.SSHKey)
 				}
 				_ = keyring.DeleteKeychainPassphrase(prev.Name)
 			}
@@ -118,6 +122,8 @@ func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
 	if err := config.Save(store); err != nil {
 		return opResult{}, fmt.Errorf("saving config: %w", err)
 	}
+	wd, _ := os.Getwd()
+	_ = config.AppendSwitchLog(user.Name, wd)
 
 	report := fmt.Sprintf("Switched to %q (%s)\n", user.Name, user.Email)
 	if !user.SignDisabled && user.SignKey != "" {

@@ -3,20 +3,17 @@ package cli
 import (
 	"fmt"
 	"os"
-	"regexp"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
 func isValidEmail(email string) bool {
-	pattern := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
-	matched, _ := regexp.MatchString(pattern, email)
-	return matched
+	return config.ValidEmail(email)
 }
 
 func runRegister(args []string) error {
-	var name, email, passphrase string
+	var name, email string
 	var isTemp bool
 	var err error
 
@@ -32,13 +29,13 @@ func runRegister(args []string) error {
 				email = args[i+1]
 				i++
 			}
-		case "--passphrase", "-p":
-			if i+1 < len(args) {
-				passphrase = args[i+1]
-				i++
-			}
 		case "--temp", "-t":
 			isTemp = true
+		case "--passphrase", "-p":
+			ui.Warn("--passphrase is no longer accepted as a CLI argument (it could leak via `ps` or shell history) — you'll be prompted for it interactively instead.")
+			if i+1 < len(args) {
+				i++ // skip the (now ignored) value
+			}
 		}
 	}
 
@@ -120,7 +117,7 @@ func runRegister(args []string) error {
 
 	switch idx {
 	case 0: // Generate new key
-		sshKeyPath, err = generateAndDisplayKey(name, email, passphrase)
+		sshKeyPath, err = generateAndDisplayKey(name, email)
 		if err != nil {
 			ui.Warn("Key generation failed. You can set up SSH later with: git-user bind-key")
 		}

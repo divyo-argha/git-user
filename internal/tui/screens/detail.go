@@ -23,6 +23,7 @@ type Detail struct {
 	passphraseChecked   bool
 	platformStatuses    map[string]string // "checking", "connected", "not_added", "network_error"
 	platformUsernames   map[string]string
+	spin                components.Spinner
 }
 
 func NewDetail(store *config.Store, name string, th theme.Theme) *Detail {
@@ -32,9 +33,23 @@ func NewDetail(store *config.Store, name string, th theme.Theme) *Detail {
 		theme:             th,
 		platformStatuses:  map[string]string{"GitHub": "checking", "GitLab": "checking", "Bitbucket": "checking"},
 		platformUsernames: make(map[string]string),
+		spin:              components.NewSpinner(th),
 	}
 	d.refreshActions()
 	return d
+}
+
+// anyPlatformChecking reports whether at least one platform-connection check
+// is still in flight, so the aggregate spinner keeps ticking until all three
+// resolve (or the identity has no key / is inactive, in which case none of
+// them ever start "checking").
+func (d *Detail) anyPlatformChecking() bool {
+	for _, status := range d.platformStatuses {
+		if status == "checking" {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *Detail) refreshActions() {
@@ -146,7 +161,7 @@ func (d *Detail) refreshActions() {
 		var statusStr string
 		switch status {
 		case "checking":
-			statusStr = d.theme.Dim().Render("checking...")
+			statusStr = d.spin.View() + " " + d.theme.Dim().Render("checking...")
 		case "connected":
 			username := d.platformUsernames[p]
 			statusStr = d.theme.SuccessStyle().Render(fmt.Sprintf("Connected ✓ (%s)", username))
@@ -154,8 +169,13 @@ func (d *Detail) refreshActions() {
 			statusStr = d.theme.Dim().Render("Not added")
 		case "network_error":
 			statusStr = d.theme.WarningStyle().Render("Network error ⚠ (stale state)")
-		default:
+		case "":
 			statusStr = d.theme.Dim().Render("Not configured")
+		default:
+			// Unrecognized status string (e.g. a future typo or new status
+			// type not yet handled here) — flag it distinctly rather than
+			// silently rendering as the genuine not-configured state.
+			statusStr = d.theme.ErrorStyle().Render(fmt.Sprintf("Unknown status ⚠ (%q)", status))
 		}
 		items = append(items, components.ActionItem{Label: fmt.Sprintf("%-13s: %s", p, statusStr), Key: ""})
 	}
@@ -217,6 +237,7 @@ func (d *Detail) Init() tea.Cmd {
 	user := d.store.FindUser(d.name)
 	if user != nil && user.Name == d.store.Current && user.SSHKey != "" {
 		return tea.Batch(
+			d.spin.Init(),
 			core.CheckKeyLoadedCmd(user.SSHKey),
 			core.CheckKeyPassphraseCmd(user.SSHKey),
 			core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "GitHub", "git@github.com", []string{"Hi ", "successfully authenticated"}),
@@ -268,6 +289,14 @@ func (d *Detail) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		}
 	case tea.KeyMsg:
 		return d.handleKey(msg)
+	default:
+		// Keep the spinner ticking (its own tea.Tick messages land here) only
+		// while a platform-connection check is still in flight.
+		if d.anyPlatformChecking() {
+			var cmd tea.Cmd
+			d.spin, cmd = d.spin.Update(msg)
+			return d, cmd
+		}
 	}
 	return d, nil
 }

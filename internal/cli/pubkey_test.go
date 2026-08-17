@@ -72,7 +72,7 @@ func TestRunPubkey_Success(t *testing.T) {
 	readPassphraseFn = func(prompt string) (string, error) {
 		return "testpass", nil
 	}
-	err := runSwitch([]string{"-c", "dev", "dev@example.com", "--passphrase", "testpass"})
+	err := runSwitch([]string{"-c", "dev", "dev@example.com"})
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)
 	}

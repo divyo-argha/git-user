@@ -115,3 +115,77 @@ func TestRunSync_RejectsPathTraversalIdentityName(t *testing.T) {
 		t.Fatalf("path-traversal write succeeded — found attacker-controlled file at %s", traversalTarget)
 	}
 }
+
+// TestRunSync_RejectsConfigInjectionEmail proves that a malicious sync remote
+// cannot use a crafted identity Email containing embedded newlines to inject
+// arbitrary directives into the hand-written .gitconfig snippet that
+// syncIncludeIfs generates for bind-path identities (e.g. smuggling in a
+// [core] sshCommand override). config.AddUser now validates email format
+// before an identity is ever merged into the store, so a malicious email
+// never reaches the snippet writer in the first place.
+func TestRunSync_RejectsConfigInjectionEmail(t *testing.T) {
+	tmpDir := setupTestEnv(t)
+
+	_ = exec.Command("git", "config", "--global", "user.name", "Test User").Run()
+	_ = exec.Command("git", "config", "--global", "user.email", "test@example.com").Run()
+
+	remoteRepoDir := filepath.Join(tmpDir, "remote-backup-repo")
+	if err := os.Mkdir(remoteRepoDir, 0755); err != nil {
+		t.Fatalf("failed to create remote dir: %v", err)
+	}
+	runGitCmd(t, remoteRepoDir, "init", "--bare")
+	runGitCmd(t, remoteRepoDir, "symbolic-ref", "HEAD", "refs/heads/main")
+
+	passphrase := "secretpass"
+
+	// A valid name, but an Email crafted to break out of the snippet's
+	// `email = ...` line and inject a new [core] section if it were ever
+	// written unescaped.
+	maliciousEmail := "attacker@example.com\"\n[core]\n\tsshCommand = evil-command\n"
+	maliciousIdentities := []bundle.Identity{
+		{
+			Name:  "attacker-profile",
+			Email: maliciousEmail,
+		},
+	}
+	encrypted, err := bundle.Encrypt(maliciousIdentities, passphrase)
+	if err != nil {
+		t.Fatalf("failed to craft malicious bundle: %v", err)
+	}
+
+	pushDir := filepath.Join(tmpDir, "attacker-push-clone")
+	if err := os.MkdirAll(pushDir, 0700); err != nil {
+		t.Fatalf("failed to create push clone dir: %v", err)
+	}
+	runGitCmd(t, pushDir, "init")
+	runGitCmd(t, pushDir, "config", "user.name", "attacker")
+	runGitCmd(t, pushDir, "config", "user.email", "attacker@example.com")
+	runGitCmd(t, pushDir, "remote", "add", "origin", remoteRepoDir)
+	runGitCmd(t, pushDir, "branch", "-M", "main")
+	if err := os.WriteFile(filepath.Join(pushDir, "backup.bundle"), encrypted, 0600); err != nil {
+		t.Fatalf("failed to write malicious bundle: %v", err)
+	}
+	runGitCmd(t, pushDir, "add", "backup.bundle")
+	runGitCmd(t, pushDir, "commit", "-m", "malicious update")
+	runGitCmd(t, pushDir, "push", "origin", "main")
+
+	store, _ := config.Load()
+	store.Sync = &config.SyncConfig{RepoURL: remoteRepoDir, DeviceName: "victim-device"}
+	_ = config.Save(store)
+
+	readPassphraseFn = func(prompt string) (string, error) {
+		return passphrase, nil
+	}
+	t.Cleanup(func() { readPassphraseFn = nil })
+
+	if err := runSync([]string{}); err != nil {
+		t.Fatalf("unexpected error during sync: %v", err)
+	}
+
+	// The identity must not have been merged — its malformed email is
+	// rejected by config.AddUser before it can ever reach a config file.
+	store, _ = config.Load()
+	if u := store.FindUser("attacker-profile"); u != nil {
+		t.Fatal("identity with a config-injection email should not have been imported")
+	}
+}

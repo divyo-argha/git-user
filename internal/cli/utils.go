@@ -124,8 +124,10 @@ func expandPath(path string) string {
 
 // generateAndDisplayKey creates an ed25519 key at keyPath, prints the public key,
 // waits for the user to add it, then verifies the connection.
-// Returns the key path on success.
-func generateAndDisplayKey(name, email, passphrase string) (string, error) {
+// Returns the key path on success. The passphrase is always collected via an
+// interactive prompt (never accepted as a CLI argument) so it never lands on
+// argv, in /proc/<pid>/cmdline, or in shell history.
+func generateAndDisplayKey(name, email string) (string, error) {
 	keyPath, err := config.DefaultSSHKeyPath(name)
 	if err != nil {
 		return "", err
@@ -150,30 +152,21 @@ func generateAndDisplayKey(name, email, passphrase string) (string, error) {
 	}
 	ui.Success("SSH key generated!")
 
-	if passphrase != "" {
-		if err := ssh.ChangeKeyPassphrase(keyPath, "", passphrase); err != nil {
-			ui.Errorf("Could not add passphrase: %v", err)
-		} else {
-			ui.Success("Passphrase applied securely!")
-			promptAndStoreKeychain(name, keyPath, passphrase)
-		}
+	ui.Info("You will be prompted to set a passphrase for the key.")
+	newPass, err := readPassphrase(PassphrasePrompt)
+	if err != nil || newPass == "" {
+		return keyPath, nil
+	}
+	confirm, err := readPassphrase(ConfirmPassphrasePrompt)
+	if err != nil || newPass != confirm {
+		ui.Error("Passphrases do not match.")
+		return keyPath, nil
+	}
+	if err := ssh.ChangeKeyPassphrase(keyPath, "", newPass); err != nil {
+		ui.Errorf("Could not add passphrase: %v", err)
 	} else {
-		ui.Info("You will be prompted to set a passphrase for the key.")
-		newPass, err := readPassphrase(PassphrasePrompt)
-		if err != nil || newPass == "" {
-			return keyPath, nil
-		}
-		confirm, err := readPassphrase(ConfirmPassphrasePrompt)
-		if err != nil || newPass != confirm {
-			ui.Error("Passphrases do not match.")
-			return keyPath, nil
-		}
-		if err := ssh.ChangeKeyPassphrase(keyPath, "", newPass); err != nil {
-			ui.Errorf("Could not add passphrase: %v", err)
-		} else {
-			ui.Success("Passphrase applied securely!")
-			promptAndStoreKeychain(name, keyPath, newPass)
-		}
+		ui.Success("Passphrase applied securely!")
+		promptAndStoreKeychain(name, keyPath, newPass)
 	}
 
 	pubKeyBytes, err := os.ReadFile(keyPath + ".pub")

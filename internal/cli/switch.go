@@ -2,13 +2,14 @@ package cli
 
 import (
 	"fmt"
-	"github.com/divyo-argha/git-user/internal/keyring"
-	"github.com/divyo-argha/git-user/internal/ssh"
 	"os"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/identity"
+	"github.com/divyo-argha/git-user/internal/keyring"
+	"github.com/divyo-argha/git-user/internal/ssh"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -42,7 +43,6 @@ func runSwitch(args []string) error {
 	createMode := false
 	name := ""
 	email := ""
-	passphrase := ""
 	isTemp := false
 	skipSSH := false
 
@@ -52,9 +52,9 @@ func runSwitch(args []string) error {
 		for i := 1; i < len(args); i++ {
 			switch args[i] {
 			case "--passphrase", "-p":
+				ui.Warn("--passphrase is no longer accepted as a CLI argument (it could leak via `ps` or shell history) — you'll be prompted for it interactively instead.")
 				if i+1 < len(args) {
-					passphrase = args[i+1]
-					i++
+					i++ // skip the (now ignored) value
 				}
 			case "--temp", "-t":
 				isTemp = true
@@ -70,7 +70,7 @@ func runSwitch(args []string) error {
 			}
 		}
 		if len(otherArgs) < 1 {
-			ui.Error("usage: git-user switch -c <name> [-e <email>] [--passphrase <passphrase>] [--skip-ssh]")
+			ui.Error("usage: git-user switch -c <name> [-e <email>] [--skip-ssh]")
 			return fmt.Errorf("missing name")
 		}
 		name = otherArgs[0]
@@ -102,7 +102,7 @@ func runSwitch(args []string) error {
 			return fmt.Errorf("user exists")
 		}
 
-		if err := quickRegister(name, email, passphrase, isTemp, skipSSH, store); err != nil {
+		if err := quickRegister(name, email, isTemp, skipSSH, store); err != nil {
 			return err
 		}
 
@@ -115,6 +115,11 @@ func runSwitch(args []string) error {
 		ui.Info("Create it with: git-user register")
 		ui.Info("Or create and switch: git-user switch -c " + name)
 		return fmt.Errorf("user not found")
+	}
+
+	if !localMode && store.Current == name && git.IsIdentityInSync(user.Name, user.Email) {
+		ui.Info(fmt.Sprintf("Already using identity %q (%s) — nothing to do.", user.Name, user.Email))
+		return nil
 	}
 
 	// Auto-logout: unload the previous identity's key from ssh-agent
@@ -131,8 +136,7 @@ func runSwitch(args []string) error {
 				store.RemoveUser(prev.Name, true)
 				ui.Info(fmt.Sprintf("Temporary identity %q deleted.", prev.Name))
 				if prev.SSHKey != "" {
-					_ = os.Remove(prev.SSHKey)
-					_ = os.Remove(prev.SSHKey + ".pub")
+					_ = identity.SecureDeleteKeyPair(prev.SSHKey)
 					ui.Info(fmt.Sprintf("Temporary SSH key files deleted: %s", prev.SSHKey))
 				}
 				_ = keyring.DeleteKeychainPassphrase(prev.Name)
@@ -228,6 +232,7 @@ func runSwitch(args []string) error {
 		if !user.SignDisabled && user.SignKey != "" {
 			ui.Success(fmt.Sprintf("Commit Signing: Enabled (%s)", user.SignFormat))
 		}
+		_ = config.AppendSwitchLog(user.Name, currentDir())
 	} else {
 		if git.IsInRepo() && git.HasLocalOverride() {
 			git.ClearIdentityScope(true)
@@ -274,6 +279,7 @@ func runSwitch(args []string) error {
 		if !user.SignDisabled && user.SignKey != "" {
 			ui.Success(fmt.Sprintf("Commit Signing: Enabled (%s)", user.SignFormat))
 		}
+		_ = config.AppendSwitchLog(user.Name, currentDir())
 	}
 
 	if user.SSHKey != "" && ssh.IsSSHKeyLoaded(user.SSHKey) {
@@ -311,7 +317,7 @@ func runSwitch(args []string) error {
 	return nil
 }
 
-func quickRegister(name, email, passphrase string, isTemp, skipSSH bool, store *config.Store) error {
+func quickRegister(name, email string, isTemp, skipSSH bool, store *config.Store) error {
 	ui.Banner("QUICK SETUP: " + name)
 	fmt.Println()
 
@@ -367,7 +373,7 @@ func quickRegister(name, email, passphrase string, isTemp, skipSSH bool, store *
 
 	switch idx {
 	case 0: // Auto-generate
-		path, err := generateAndDisplayKey(name, email, passphrase)
+		path, err := generateAndDisplayKey(name, email)
 		if err != nil {
 			ui.Warn("Key generation failed")
 			break
@@ -552,4 +558,14 @@ func applyUserSSHConfig(user *config.User, local bool) error {
 		return git.ConfigureSSHScope(user.SSHKey, local)
 	}
 	return git.RemoveSSHConfigScope(local)
+}
+
+// currentDir returns the working directory for the switch-log entry, or ""
+// if it can't be determined.
+func currentDir() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return wd
 }

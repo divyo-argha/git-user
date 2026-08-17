@@ -2,6 +2,7 @@ package ui
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -11,6 +12,13 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/divyo-argha/git-user/logo"
 )
+
+// ErrNotInteractive is returned by Prompt/Select when stdout is not a
+// terminal (e.g. a script or CI job piping output). Without this check,
+// each would either block waiting on an invisible prompt or launch a
+// raw-mode Bubble Tea program that renders garbled escape sequences into
+// the pipe instead of failing clearly.
+var ErrNotInteractive = errors.New("this command requires an interactive terminal — pass the needed value as a flag instead")
 
 // ── Tokyo Night Palette ───────────────────────────────────────────────────────
 // Single source of truth — matches internal/tui/theme/theme.go exactly.
@@ -231,6 +239,9 @@ func Prompt(label string) (string, error) {
 	if PromptFn != nil {
 		return PromptFn(label)
 	}
+	if !IsTTY() {
+		return "", ErrNotInteractive
+	}
 	fmt.Printf("%s %s ", styleAccent.Render("?"), styleText.Bold(true).Render(label))
 	reader := bufio.NewReader(os.Stdin)
 	text, err := reader.ReadString('\n')
@@ -300,6 +311,9 @@ func Select(label string, options []string) (int, error) {
 	if SelectFn != nil {
 		return SelectFn(label, options)
 	}
+	if !IsTTY() {
+		return -1, ErrNotInteractive
+	}
 	m := SelectModel{
 		label:   label,
 		options: options,
@@ -324,6 +338,10 @@ func Select(label string, options []string) (int, error) {
 func Confirm(question string, defaultYes bool) bool {
 	if ConfirmFn != nil {
 		return ConfirmFn(question, defaultYes)
+	}
+	if !IsTTY() {
+		Warn("Not an interactive terminal — using default answer (" + map[bool]string{true: "yes", false: "no"}[defaultYes] + ") for: " + question)
+		return defaultYes
 	}
 	options := []string{"Yes", "No"}
 	cursor := 0

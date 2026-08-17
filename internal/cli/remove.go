@@ -2,10 +2,10 @@ package cli
 
 import (
 	"fmt"
-	"github.com/divyo-argha/git-user/internal/keyring"
-	"os"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/identity"
+	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -57,9 +57,11 @@ func runRemove(args []string) error {
 
 	if sshKey != "" {
 		if ui.Confirm(fmt.Sprintf("Delete SSH key file %s?", sshKey), false) {
-			os.Remove(sshKey)
-			os.Remove(sshKey + ".pub")
-			ui.Success("SSH key files deleted")
+			if err := identity.SecureDeleteKeyPair(sshKey); err != nil {
+				ui.Warn(fmt.Sprintf("Failed to securely delete SSH key files: %v", err))
+			} else {
+				ui.Success("SSH key files deleted")
+			}
 		}
 	}
 

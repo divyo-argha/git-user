@@ -104,6 +104,9 @@ func opSync(store *config.Store, repoURL, passphrase string) (opResult, error) {
 			if !config.ValidIdentityName(rid.Name) {
 				continue
 			}
+			if !config.ValidEmail(rid.Email) {
+				continue
+			}
 			var keyPath string
 			if len(rid.PrivateKey) > 0 {
 				keyPath, _ = config.DefaultSSHKeyPath(rid.Name)
