@@ -154,7 +154,7 @@ func Execute() error {
 		return runList(rest)
 	case "switch", "sw":
 		return runSwitch(rest)
-	case "current":
+	case "current", "whoami":
 		return runCurrent(rest)
 	case "prompt":
 		return runPrompt(rest)

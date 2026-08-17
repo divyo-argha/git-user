@@ -24,6 +24,7 @@ var commands = []commandSpec{
 	{name: "list", desc: "List all identities"},
 	{name: "ls", desc: "List all identities (alias)"},
 	{name: "current", desc: "Show active identity"},
+	{name: "whoami", desc: "Show active identity (alias)"},
 	{name: "prompt", desc: "Output active identity for terminal integration"},
 	{name: "remove", desc: "Delete an identity", takesID: true},
 	{name: "rm", desc: "Delete an identity (alias)", takesID: true},

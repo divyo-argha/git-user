@@ -7,14 +7,17 @@ import (
 )
 
 // clipboardWrite writes text to the system clipboard using the first available
-// clipboard tool: pbcopy (macOS), xclip (Linux/X11), xsel (Linux/X11 fallback),
-// or wl-copy (Wayland).
+// clipboard tool: pbcopy (macOS), wl-copy (Wayland), xclip/xsel (Linux/X11),
+// or clip.exe / PowerShell (Windows).
 func clipboardWrite(text string) error {
 	tools := [][]string{
 		{"pbcopy"},
+		{"wl-copy"},
 		{"xclip", "-selection", "clipboard"},
 		{"xsel", "--clipboard", "--input"},
-		{"wl-copy"},
+		{"clip.exe"},
+		{"clip"},
+		{"powershell.exe", "-NoProfile", "-Command", "Set-Clipboard"},
 	}
 	for _, tool := range tools {
 		if _, err := exec.LookPath(tool[0]); err != nil {
@@ -26,5 +29,5 @@ func clipboardWrite(text string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("no clipboard tool found (tried pbcopy, xclip, xsel, wl-copy)")
+	return fmt.Errorf("no clipboard tool found (tried pbcopy, wl-copy, xclip, xsel, clip)")
 }
