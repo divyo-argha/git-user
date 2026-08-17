@@ -92,7 +92,6 @@ Config: ~/.git-users/config.json
 `
 
 func Execute() error {
-
 	args := os.Args[1:]
 
 	sub := ""
@@ -100,7 +99,9 @@ func Execute() error {
 		sub = args[0]
 	}
 
-	if shouldPromptFirstRunImport(sub) {
+	normSub := normalizeSubcommand(sub)
+
+	if shouldPromptFirstRunImport(normSub) {
 		if err := maybePromptFirstRunImport(); err != nil {
 			return err
 		}
@@ -114,15 +115,9 @@ func Execute() error {
 		return runTui()
 	}
 
-	if args[0] == "--help" || args[0] == "-h" {
-		ui.PrintLogo()
-		fmt.Print(usage)
-		return nil
-	}
-
-	if args[0] == "help" {
+	if normSub == "help" {
 		if len(args) > 1 {
-			runSubcommandHelp(args[1])
+			runSubcommandHelp(normalizeSubcommand(args[1]))
 		} else {
 			ui.PrintLogo()
 			fmt.Print(usage)
@@ -130,35 +125,34 @@ func Execute() error {
 		return nil
 	}
 
-	if args[0] == "--update" || args[0] == "update" {
+	if normSub == "update" {
 		return RunUpdate()
 	}
 
-	if args[0] == "--version" || args[0] == "-v" {
+	if normSub == "version" {
 		fmt.Printf("git-user %s\n", version.GetVersion())
 		return nil
 	}
 
-	sub = args[0]
 	rest := args[1:]
 
 	if wantsHelp(rest) {
-		runSubcommandHelp(sub)
+		runSubcommandHelp(normSub)
 		return nil
 	}
 
-	switch sub {
-	case "register", "reg":
+	switch normSub {
+	case "register":
 		return runRegister(rest)
-	case "list", "ls":
+	case "list":
 		return runList(rest)
-	case "switch", "sw":
+	case "switch":
 		return runSwitch(rest)
-	case "current", "whoami":
+	case "current":
 		return runCurrent(rest)
 	case "prompt":
 		return runPrompt(rest)
-	case "remove", "rm":
+	case "remove":
 		return runRemove(rest)
 	case "edit":
 		return runEdit(rest)
@@ -167,15 +161,12 @@ func Execute() error {
 	case "pubkey":
 		if len(rest) > 0 {
 			switch rest[0] {
-			case "publish":
-				return runPubkeyPush(rest[1:])
-			case "push":
-				// Hidden backwards-compatible alias.
+			case "publish", "push", "--publish", "--push":
 				return runPubkeyPush(rest[1:])
 			}
 		}
 		return runPubkey(rest)
-	case "bind-key", "bind":
+	case "bind-key":
 		return runBind(rest)
 	case "bind-path":
 		return runBindPath(rest)
@@ -197,15 +188,15 @@ func Execute() error {
 		return runImport(rest)
 	case "doctor":
 		return runDoctor(rest)
-	case "tui", "-i", "--interactive":
+	case "tui":
 		return runTui()
 	case "completion":
 		return runCompletion(rest)
 	case "hook":
 		return runHook(rest)
-	case "audit", "security":
+	case "audit":
 		return runSecurityCheck(rest)
-	case "logout", "lo", "signout":
+	case "logout":
 		return runLogout(rest)
 	case "clone":
 		return runClone(rest)
@@ -215,7 +206,7 @@ func Execute() error {
 		return runConfig(rest)
 	case "sync":
 		return runSync(rest)
-	case "log", "history":
+	case "log":
 		return runLog(rest)
 	default:
 		// Try as identity name → detail view
@@ -224,6 +215,89 @@ func Execute() error {
 		}
 		ui.Errorf("unknown command %q — run 'git-user --help' for usage", sub)
 		return fmt.Errorf("unknown command")
+	}
+}
+
+// normalizeSubcommand normalizes flag aliases and command variations to canonical command names.
+func normalizeSubcommand(sub string) string {
+	switch sub {
+	// Help & Version
+	case "--help", "-h", "-?", "help":
+		return "help"
+	case "--version", "-v", "-V", "version":
+		return "version"
+	case "--update", "-u", "update", "--upgrade":
+		return "update"
+
+	// Core Identity Commands
+	case "current", "--current", "-c", "whoami", "--whoami", "active", "--active":
+		return "current"
+	case "list", "--list", "-l", "ls", "--ls":
+		return "list"
+	case "switch", "--switch", "-s", "sw", "--sw", "use", "--use":
+		return "switch"
+	case "register", "--register", "-r", "reg", "--reg", "add", "--add", "-a":
+		return "register"
+	case "remove", "--remove", "rm", "--rm", "-rm", "delete", "--delete", "-d", "del", "--del":
+		return "remove"
+	case "edit", "--edit":
+		return "edit"
+	case "rename", "--rename":
+		return "rename"
+	case "logout", "--logout", "signout", "--signout", "lo", "--lo":
+		return "logout"
+
+	// Keys & Signing
+	case "pubkey", "--pubkey", "-k", "key", "--key":
+		return "pubkey"
+	case "bind-key", "--bind-key", "bind", "--bind":
+		return "bind-key"
+	case "bind-path", "--bind-path":
+		return "bind-path"
+	case "unbind-path", "--unbind-path":
+		return "unbind-path"
+	case "passphrase", "--passphrase":
+		return "passphrase"
+	case "rekey", "--rekey":
+		return "rekey"
+	case "sign", "--sign":
+		return "sign"
+
+	// Diagnostics & Security
+	case "doctor", "--doctor":
+		return "doctor"
+	case "audit", "--audit", "security", "--security":
+		return "audit"
+	case "stats", "--stats":
+		return "stats"
+	case "log", "--log", "history", "--history":
+		return "log"
+
+	// Workflows & Integration
+	case "prompt", "--prompt":
+		return "prompt"
+	case "clone", "--clone":
+		return "clone"
+	case "fix-remote", "--fix-remote":
+		return "fix-remote"
+	case "export", "--export":
+		return "export"
+	case "import", "--import":
+		return "import"
+	case "import-original", "--import-original":
+		return "import-original"
+	case "sync", "--sync":
+		return "sync"
+	case "hook", "--hook", "hooks", "--hooks":
+		return "hook"
+	case "config", "--config":
+		return "config"
+	case "completion", "--completion":
+		return "completion"
+	case "tui", "--tui", "-i", "--interactive":
+		return "tui"
+	default:
+		return sub
 	}
 }
 

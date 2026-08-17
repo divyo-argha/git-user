@@ -133,7 +133,7 @@ func RunUpdate() error {
 
 	// Compare remote version against currently installed version
 	if !isNewerVersion(release.TagName, version.GetVersion()) {
-		ui.Success(fmt.Sprintf("git-user is already up to date (%s). Latest available release: %s", version.GetVersion(), release.TagName))
+		ui.PrintUpdateCurrent(version.GetVersion())
 		return nil
 	}
 
@@ -213,11 +213,7 @@ func RunUpdate() error {
 		return nil
 	}
 
-	if versionOK {
-		fmt.Printf("\n\033[32m✨ git-user successfully updated: %s → %s (verified)\033[0m\n", version.GetVersion(), release.TagName)
-	} else {
-		fmt.Printf("\n\033[32m✨ git-user successfully updated: %s → %s\033[0m — run 'git-user --version' to confirm\n", version.GetVersion(), release.TagName)
-	}
+	ui.PrintUpdateSuccess(version.GetVersion(), release.TagName, versionOK)
 	return nil
 }
 
@@ -362,7 +358,7 @@ func handleNpmUpdate() error {
 		if err := json.NewDecoder(resp.Body).Decode(&npmPkg); err == nil && npmPkg.Version != "" {
 			targetVersion = npmPkg.Version
 			if !isNewerVersion(npmPkg.Version, version.GetVersion()) {
-				ui.Success(fmt.Sprintf("git-user is already up to date (%s). Latest npm version: %s", version.GetVersion(), npmPkg.Version))
+				ui.PrintUpdateCurrent(version.GetVersion())
 				return nil
 			}
 		}
@@ -388,7 +384,7 @@ func handleNpmUpdate() error {
 		return nil
 	}
 
-	ui.Success(fmt.Sprintf("✨ git-userhub successfully updated: %s → %s", version.GetVersion(), targetVersion))
+	ui.PrintUpdateSuccess(version.GetVersion(), targetVersion, true)
 	return nil
 }
 

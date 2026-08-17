@@ -34,7 +34,7 @@ func (r *Report) Init() tea.Cmd { return nil }
 func (r *Report) Title() string { return r.title }
 
 func (r *Report) ShortHelp() string {
-	return "↑/↓/j/k•scroll  ctrl+d/u•page  c•copy  Esc•back  q•quit"
+	return "↑/↓/j/k•scroll  ctrl+d/u•page  c•copy  Enter/Esc•back  q•quit"
 }
 
 // maxScrollOffset returns the highest valid offset for the current maxLines.
@@ -49,7 +49,7 @@ func (r *Report) maxScrollOffset() int {
 func (r *Report) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if core.IsEscKey(msg) || msg.String() == "b" || msg.String() == "B" {
+		if core.IsEscKey(msg) || msg.String() == "b" || msg.String() == "B" || msg.String() == core.KeyEnter {
 			return r, func() tea.Msg { return core.ScreenPopMsg{} }
 		}
 		switch msg.String() {
@@ -152,7 +152,7 @@ func (r *Report) View(width, height int) string {
 	}
 
 	sb.WriteString("\n")
-	sb.WriteString(r.theme.Dim().Render("  Press Esc to go back"))
+	sb.WriteString(r.theme.Dim().Render("  Press Enter or Esc to go back"))
 	if len(hints) > 0 {
 		sb.WriteString(r.theme.Dim().Render("   (" + strings.Join(hints, " • ") + ")"))
 	}

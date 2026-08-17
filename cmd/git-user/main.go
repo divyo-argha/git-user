@@ -21,10 +21,10 @@ func main() {
 	}
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
-		case "--version", "-v", "version":
+		case "--version", "-v", "-V", "version":
 			printVersion()
 			os.Exit(0)
-		case "--update", "update":
+		case "--update", "-u", "update", "--upgrade":
 			if err := cli.RunUpdate(); err != nil {
 				os.Exit(1)
 			}
@@ -86,7 +86,16 @@ func checkOrphanedKeys() {
 	if len(os.Args) > 1 {
 		cmdStr := os.Args[1]
 		// Skip for these commands
-		skipCommands := []string{"--help", "-h", "help", "--version", "-v", "version", "completion", "prompt", "pubkey"}
+		skipCommands := []string{
+			"--help", "-h", "help",
+			"--version", "-v", "-V", "version",
+			"--update", "-u", "update", "--upgrade",
+			"completion", "--completion",
+			"prompt", "--prompt",
+			"pubkey", "--pubkey", "-k", "key", "--key",
+			"current", "--current", "-c", "whoami", "--whoami", "active", "--active",
+			"list", "--list", "-l", "ls", "--ls",
+		}
 		for _, skip := range skipCommands {
 			if cmdStr == skip {
 				return

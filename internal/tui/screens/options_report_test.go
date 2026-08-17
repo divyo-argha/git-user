@@ -101,4 +101,15 @@ func TestReportRenderAndScroll(t *testing.T) {
 	if _, ok := msg.(core.ScreenPopMsg); !ok {
 		t.Fatalf("expected ScreenPopMsg on esc, got %#v", msg)
 	}
+
+	// Enter also pops.
+	_, enterCmd := r.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if enterCmd == nil {
+		t.Fatal("expected cmd on enter")
+	}
+	enterMsg := enterCmd()
+	if _, ok := enterMsg.(core.ScreenPopMsg); !ok {
+		t.Fatalf("expected ScreenPopMsg on enter, got %#v", enterMsg)
+	}
 }
+

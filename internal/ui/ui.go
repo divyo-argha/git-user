@@ -137,6 +137,56 @@ func PrintLogo() {
 	fmt.Println(strings.Join(lines, "\n"))
 }
 
+// PrintUpdateSuccess renders the Unicode logo and an aesthetic version transition card.
+func PrintUpdateSuccess(oldVer, newVer string, verified bool) {
+	fmt.Println()
+	PrintLogo()
+	fmt.Println()
+
+	var sb strings.Builder
+	sb.WriteString(lipgloss.NewStyle().Foreground(colSecond).Bold(true).Render("✨ Successfully updated git-user!"))
+	sb.WriteString("\n\n   ")
+	sb.WriteString(lipgloss.NewStyle().Foreground(colMuted).Render(oldVer))
+	sb.WriteString(lipgloss.NewStyle().Foreground(colPrimary).Bold(true).Render(" ──▶ "))
+	sb.WriteString(lipgloss.NewStyle().Foreground(colSecond).Bold(true).Render(newVer))
+	if verified {
+		sb.WriteString(" " + lipgloss.NewStyle().Foreground(colSecond).Render("(verified)"))
+	}
+
+	card := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(colSecond).
+		Padding(1, 3).
+		Render(sb.String())
+
+	fmt.Println(card)
+	fmt.Println(lipgloss.NewStyle().Foreground(colMuted).Render("  Run 'git-user' to launch the interactive dashboard."))
+	fmt.Println()
+}
+
+// PrintUpdateCurrent renders the Unicode logo and an up-to-date card.
+func PrintUpdateCurrent(ver string) {
+	fmt.Println()
+	PrintLogo()
+	fmt.Println()
+
+	var sb strings.Builder
+	sb.WriteString(lipgloss.NewStyle().Foreground(colSecond).Bold(true).Render("✨ git-user is already up to date!"))
+	sb.WriteString("\n\n   ")
+	sb.WriteString(lipgloss.NewStyle().Foreground(colSecond).Bold(true).Render(ver))
+	sb.WriteString(" " + lipgloss.NewStyle().Foreground(colMuted).Render("(latest release)"))
+
+	card := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(colSecond).
+		Padding(1, 3).
+		Render(sb.String())
+
+	fmt.Println(card)
+	fmt.Println(lipgloss.NewStyle().Foreground(colMuted).Render("  Run 'git-user' to launch the interactive dashboard."))
+	fmt.Println()
+}
+
 // ── Core Output ───────────────────────────────────────────────────────────────
 
 // Success prints a green ✔ message.

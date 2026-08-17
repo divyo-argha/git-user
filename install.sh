@@ -64,7 +64,8 @@ if [ ! -w "$INSTALL_DIR" ]; then
     SUDO="sudo"
 fi
 
-# Pre-install check: an older install elsewhere in PATH would shadow the new binary
+# Pre-install check: capture existing version and check if an older install elsewhere in PATH shadows
+PREV_VERSION="$("$BIN_NAME" --version 2>/dev/null | awk '{print $2}' || true)"
 EXISTING="$(command -v "$BIN_NAME" 2>/dev/null || true)"
 if [ -n "$EXISTING" ] && [ "$EXISTING" != "$INSTALL_DIR/$BIN_NAME" ]; then
     echo ""
@@ -135,31 +136,40 @@ else
 fi
 
 echo ""
-echo "✅ Successfully installed $BIN_NAME $LATEST_TAG to $INSTALL_DIR"
+printf "  \033[38;2;249;115;22m▄▀▀ █ ▀█▀\033[0m       \033[38;2;226;232;240m█ █ ▀▀▀ █▀▀ █▀▄\033[0m\n"
+printf "  \033[38;2;249;115;22m█ ▄ █  █ \033[0m  \033[38;2;148;163;184m▄▄▄\033[0m  \033[38;2;226;232;240m█ █ ▀▀▄ █▀  █▀▀\033[0m\n"
+printf "  \033[38;2;249;115;22m▀▀▀ ▀  ▀ \033[0m       \033[38;2;226;232;240m▀▀▀ ▀▀▀ ▀▀▀ ▀ ▀\033[0m\n"
+echo ""
+
+if [ -n "$PREV_VERSION" ] && [ "$PREV_VERSION" != "$LATEST_TAG" ]; then
+    printf "╭──────────────────────────────────────────────╮\n"
+    printf "│ \033[1;32m✨ Successfully updated git-user!\033[0m            │\n"
+    printf "│                                              │\n"
+    printf "│    \033[90m%-7s\033[0m \033[1;34m──▶\033[0m \033[1;32m%-7s\033[0m \033[32m(verified)\033[0m        │\n" "$PREV_VERSION" "$LATEST_TAG"
+    printf "╰──────────────────────────────────────────────╯\n"
+else
+    printf "╭──────────────────────────────────────────────╮\n"
+    printf "│ \033[1;32m✨ Successfully installed git-user!\033[0m          │\n"
+    printf "│                                              │\n"
+    printf "│    \033[1;32m%-7s\033[0m \033[32m(verified)\033[0m                 │\n" "$LATEST_TAG"
+    printf "╰──────────────────────────────────────────────╯\n"
+fi
+printf "  \033[90mRun 'git-user' to launch the interactive dashboard.\033[0m\n\n"
 
 # Verify the installed binary runs and reports the expected version
 INSTALLED_VER="$("$INSTALL_DIR/$BIN_NAME" --version 2>/dev/null || true)"
-if [ -n "$INSTALLED_VER" ]; then
-    if printf '%s' "$INSTALLED_VER" | grep -q "$LATEST_TAG"; then
-        echo "✅ Verified: $INSTALLED_VER"
-    else
-        echo "⚠ Installed binary reports: $INSTALLED_VER (expected $LATEST_TAG)"
-    fi
-else
+if [ -z "$INSTALLED_VER" ]; then
     echo "⚠ Could not run the installed binary — check it with: $INSTALL_DIR/$BIN_NAME --version"
 fi
 
 # Post-install check: confirm which binary '$BIN_NAME' actually resolves to.
 # An older install that appears earlier in PATH would shadow the new version.
 RESOLVED="$(command -v "$BIN_NAME" 2>/dev/null || true)"
-if [ "$RESOLVED" = "$INSTALL_DIR/$BIN_NAME" ]; then
-    echo "Run '$BIN_NAME --help' to get started."
-    echo "(In terminals opened before this install, run 'hash -r' first.)"
-elif [ -z "$RESOLVED" ]; then
+if [ -z "$RESOLVED" ]; then
     echo "Note: $INSTALL_DIR is not in this shell's PATH, so run:"
     echo "    $INSTALL_DIR/$BIN_NAME --help"
     echo "or add $INSTALL_DIR to your PATH and open a new terminal."
-else
+elif [ "$RESOLVED" != "$INSTALL_DIR/$BIN_NAME" ]; then
     echo ""
     echo "⚠  '$BIN_NAME' still resolves to an older copy at:"
     echo "     $RESOLVED"

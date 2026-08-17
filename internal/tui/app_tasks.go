@@ -65,6 +65,20 @@ func (a *App) handleTaskResult(msg core.TaskResultMsg) (tea.Model, tea.Cmd) {
 		}
 	case "logout":
 		cmds = append(cmds, core.ShowToastCmd(firstLine(msg.Detail), theme.ToastStyleSuccess, 3*time.Second))
+	case "update":
+		if msg.Success && !strings.Contains(strings.ToLower(msg.Detail), "requires administrator") {
+			a.statusBar.SetVersionStatus("", false)
+			for _, s := range a.screenStack {
+				if d, ok := s.(*screens.Dashboard); ok {
+					d.SetVersionStatus("", false)
+				}
+			}
+		}
+		if msg.ShowReport {
+			cmds = append(cmds, pushCmd(screens.NewReport(titleForKind(msg.Kind), msg.Detail, a.theme)))
+		} else {
+			cmds = append(cmds, core.ShowToastCmd(firstLine(msg.Detail), theme.ToastStyleSuccess, 3*time.Second))
+		}
 	default:
 		if msg.ShowReport {
 			cmds = append(cmds, pushCmd(screens.NewReport(titleForKind(msg.Kind), msg.Detail, a.theme)))
