@@ -1,6 +1,6 @@
 package version
 
-var Version = "v4.7.10"
+var Version = "v4.8.0"
 
 var BuildVersion = ""
 
