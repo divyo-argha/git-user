@@ -22,17 +22,25 @@ func opUpdate() (opResult, error) {
 	}
 
 	out, err := runCaptured("", selfPath, "update")
-	out = strings.TrimSpace(out)
+	cleanOut := stripAnsi(strings.TrimSpace(out))
 
 	if err != nil {
-		if out != "" {
-			return opResult{}, fmt.Errorf("%s\n%s", err.Error(), out)
+		if strings.Contains(strings.ToLower(cleanOut), "sudo") || strings.Contains(strings.ToLower(err.Error()), "sudo") {
+			msg := "Updating git-user requires administrator (sudo) privileges.\n\n" +
+				"Please exit git-user and run from your terminal:\n" +
+				"  sudo git-user --update\n\n" +
+				"Or reinstall using the installer:\n" +
+				"  curl -fsSL https://raw.githubusercontent.com/divyo-argha/git-user/main/install.sh | bash"
+			return opResult{detail: msg, showReport: true}, nil
+		}
+		if cleanOut != "" {
+			return opResult{}, fmt.Errorf("%s\n%s", err.Error(), cleanOut)
 		}
 		return opResult{}, fmt.Errorf("update failed: %v", err)
 	}
 
-	if out == "" {
-		out = "Update complete. Restart git-user to use the new version."
+	if cleanOut == "" {
+		cleanOut = "Update complete. Restart git-user to use the new version."
 	}
-	return opResult{detail: out, showReport: true}, nil
+	return opResult{detail: cleanOut, showReport: true}, nil
 }

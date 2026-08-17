@@ -83,3 +83,23 @@ func needsPassphraseForSwitch(store *config.Store, name string) bool {
 	}
 	return true
 }
+
+func stripAnsi(s string) string {
+	var result strings.Builder
+	inEsc := false
+	for _, r := range s {
+		if r == '\x1b' {
+			inEsc = true
+			continue
+		}
+		if inEsc {
+			if r == 'm' {
+				inEsc = false
+			}
+			continue
+		}
+		result.WriteRune(r)
+	}
+	return result.String()
+}
+

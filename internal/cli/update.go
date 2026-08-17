@@ -154,7 +154,7 @@ func RunUpdate() error {
 	defer os.Remove(tmpPath)
 	tmpFile.Close()
 
-	ui.Info(fmt.Sprintf("Updating git-user %s → %s (%s %s)", version.GetVersion(), release.TagName, goos, goarch))
+	ui.Info(fmt.Sprintf("Updating git-user: %s → %s (%s %s)", version.GetVersion(), release.TagName, goos, goarch))
 	ui.Info(fmt.Sprintf("Downloading git-user %s from GitHub releases...", release.TagName))
 	if err := downloadFile(downloadURL, tmpPath); err != nil {
 		return fmt.Errorf("downloading binary: %w", err)
@@ -214,9 +214,9 @@ func RunUpdate() error {
 	}
 
 	if versionOK {
-		fmt.Printf("\n\033[32m✨ git-user updated to %s (verified)\033[0m\n", release.TagName)
+		fmt.Printf("\n\033[32m✨ git-user successfully updated: %s → %s (verified)\033[0m\n", version.GetVersion(), release.TagName)
 	} else {
-		fmt.Printf("\n\033[32m✨ git-user updated to %s\033[0m — run 'git-user --version' to confirm\n", release.TagName)
+		fmt.Printf("\n\033[32m✨ git-user successfully updated: %s → %s\033[0m — run 'git-user --version' to confirm\n", version.GetVersion(), release.TagName)
 	}
 	return nil
 }
@@ -368,7 +368,7 @@ func handleNpmUpdate() error {
 		}
 	}
 
-	ui.Info(fmt.Sprintf("Updating git-userhub %s → %s via npm...", version.GetVersion(), targetVersion))
+	ui.Info(fmt.Sprintf("Updating git-userhub: %s → %s via npm...", version.GetVersion(), targetVersion))
 
 	// On Windows the running executable is locked by the OS, so npm cannot
 	// replace it in place. Hand the update to a background process that runs
@@ -388,7 +388,7 @@ func handleNpmUpdate() error {
 		return nil
 	}
 
-	ui.Success(fmt.Sprintf("✨ git-userhub updated via npm to %s", targetVersion))
+	ui.Success(fmt.Sprintf("✨ git-userhub successfully updated: %s → %s", version.GetVersion(), targetVersion))
 	return nil
 }
 
