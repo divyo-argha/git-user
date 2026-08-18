@@ -1,10 +1,11 @@
 package screens
 
 import (
-	"github.com/divyo-argha/git-user/internal/tui/core"
+	"errors"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 )
 
@@ -87,5 +88,45 @@ func TestFormSkippable(t *testing.T) {
 		if v != "" {
 			t.Errorf("Expected value %d to be empty on skip, got %q", i, v)
 		}
+	}
+}
+
+func TestFormValidation(t *testing.T) {
+	th := theme.DefaultTheme()
+
+	validateFirst := func(s string) error {
+		if s == "invalid" {
+			return errors.New("invalid input")
+		}
+		return nil
+	}
+
+	form := NewForm("Title", "Desc", "ctx", []FormInput{
+		{Label: "First", Value: "invalid", Validate: validateFirst},
+		{Label: "Second"},
+	}, th)
+
+	// Enter on first input when invalid should block move and set error message
+	updated, cmd := form.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	form = updated.(*Form)
+	if form.cursor != 0 {
+		t.Errorf("Expected focus to remain at 0 on validation error, got %d", form.cursor)
+	}
+	if cmd != nil {
+		t.Errorf("Expected nil cmd when validation fails on enter, got non-nil")
+	}
+	if form.errMessage == "" {
+		t.Errorf("Expected error message to be set when validation fails")
+	}
+
+	// Fix input value
+	form.inputs[0].SetValue("valid")
+	updated, _ = form.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	form = updated.(*Form)
+	if form.cursor != 1 {
+		t.Errorf("Expected focus to move to 1 after fixing input, got %d", form.cursor)
+	}
+	if form.errMessage != "" {
+		t.Errorf("Expected error message to be cleared, got %q", form.errMessage)
 	}
 }

@@ -2,15 +2,15 @@ package cli
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/validate"
 )
 
 func isValidEmail(email string) bool {
-	return config.ValidEmail(email)
+	return validate.Email(email) == nil
 }
 
 func runRegister(args []string) error {
@@ -48,10 +48,18 @@ func runRegister(args []string) error {
 		if err != nil {
 			return err
 		}
-		if name == "" {
-			ui.Error("Name is required.")
-			return fmt.Errorf("missing name")
+	}
+
+	for {
+		if err := validate.IdentityName(name); err != nil {
+			ui.Warn(err.Error())
+			name, err = ui.Prompt("Enter a valid identity name:")
+			if err != nil {
+				return err
+			}
+			continue
 		}
+		break
 	}
 
 	if email == "" {
@@ -59,18 +67,18 @@ func runRegister(args []string) error {
 		if err != nil {
 			return err
 		}
-		if email == "" {
-			ui.Error("Email is required.")
-			return fmt.Errorf("missing email")
-		}
 	}
 
-	for !isValidEmail(email) {
-		ui.Warn("Invalid email format")
-		email, err = ui.Prompt("Enter a valid email address:")
-		if err != nil {
-			return err
+	for {
+		if err := validate.Email(email); err != nil {
+			ui.Warn(err.Error())
+			email, err = ui.Prompt("Enter a valid email address:")
+			if err != nil {
+				return err
+			}
+			continue
 		}
+		break
 	}
 
 	store, err := config.Load()
@@ -108,39 +116,43 @@ func runRegister(args []string) error {
 	}
 
 	fmt.Println()
-	ui.Banner("SSH KEY SETUP")
-	fmt.Println()
+	ui.Info("SSH Key Setup:")
 
-	idx, err := ui.Select("Choose how to set up your SSH key:", []string{
-		"Generate new key automatically (recommended)",
-		"Use existing key (provide path)",
-		"Skip for now (set up later)",
+	idx, err := ui.Select("Choose SSH key setup:", []string{
+		"Auto-generate (recommended)",
+		"Use existing key",
+		"Skip for now",
 	})
 	if err != nil {
-		idx = 0 // Default to generate
+		idx = 0 // Default to auto-generate
 	}
 
 	var sshKeyPath string
 
 	switch idx {
-	case 0: // Generate new key
-		sshKeyPath, err = generateAndDisplayKey(name, email)
+	case 0: // Auto-generate
+		path, err := generateAndDisplayKey(name, email)
 		if err != nil {
-			ui.Warn("Key generation failed. You can set up SSH later with: git-user bind-key")
+			ui.Warn("Key generation failed, skipping SSH setup")
+			break
 		}
+		sshKeyPath = path
 
 	case 1: // Use existing key
 		keyPath, err := ui.Prompt("Enter path to your SSH private key:")
-		if err == nil && keyPath != "" {
-			expandedPath := expandPath(keyPath)
-			if _, err := os.Stat(expandedPath); err == nil {
-				sshKeyPath = expandedPath
-				ui.Success(fmt.Sprintf("Using existing key: %s", sshKeyPath))
-			} else {
-				ui.Warn(fmt.Sprintf("Key file not found: %s", keyPath))
-				ui.Info("You can bind a key later with: git-user bind-key " + name + " --ssh-key <path>")
-			}
+		if err != nil {
+			return err
 		}
+		if keyPath == "" {
+			ui.Error("No path provided")
+			return fmt.Errorf("no path")
+		}
+		if err := validate.SSHKeyPath(keyPath, true); err != nil {
+			ui.Error(err.Error())
+			return err
+		}
+		sshKeyPath = validate.ExpandPath(keyPath)
+		ui.Success("Using existing key")
 
 	case 2: // Skip
 		ui.Info("Skipping SSH key setup")

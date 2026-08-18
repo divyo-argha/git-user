@@ -2,13 +2,15 @@ package tui
 
 import (
 	"fmt"
+	"os"
+	"strings"
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
-	"os"
-	"strings"
-	"time"
+	"github.com/divyo-argha/git-user/internal/validate"
 )
 
 // ── Form Results ──────────────────────────────────────────────────────────────
@@ -27,11 +29,11 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 
 	switch action {
 	case "register", "register-temp":
-		if msg.Values[0] == "" || msg.Values[1] == "" {
-			return a, core.ShowToastCmd("Profile name and email are required", theme.ToastStyleError, 3*time.Second)
+		if err := validate.IdentityName(msg.Values[0]); err != nil {
+			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
 		}
-		if !isValidEmail(msg.Values[1]) {
-			return a, core.ShowToastCmd("Invalid email format", theme.ToastStyleError, 3*time.Second)
+		if err := validate.Email(msg.Values[1]); err != nil {
+			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
 		}
 		if a.store.IsNameTaken(msg.Values[0]) {
 			return a, core.ShowToastCmd(fmt.Sprintf("identity %q already exists", msg.Values[0]), theme.ToastStyleError, 3*time.Second)
@@ -52,8 +54,8 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 		))
 
 	case "rename":
-		if msg.Values[0] == "" {
-			return a, core.ShowToastCmd("New name cannot be empty", theme.ToastStyleError, 3*time.Second)
+		if err := validate.IdentityName(msg.Values[0]); err != nil {
+			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
 		}
 		return a, a.runTaskCmd("rename", rest, func() (opResult, error) {
 			err := opRename(a.store, rest, msg.Values[0])
@@ -61,11 +63,8 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 		})
 
 	case "email":
-		if msg.Values[0] == "" {
-			return a, core.ShowToastCmd("New email cannot be empty", theme.ToastStyleError, 3*time.Second)
-		}
-		if !isValidEmail(msg.Values[0]) {
-			return a, core.ShowToastCmd("Invalid email format", theme.ToastStyleError, 3*time.Second)
+		if err := validate.Email(msg.Values[0]); err != nil {
+			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
 		}
 		return a, a.runTaskCmd("email", rest, func() (opResult, error) {
 			err := opChangeEmail(a.store, rest, msg.Values[0])
@@ -88,13 +87,10 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 	case "ssh-keypath":
 		fields := strings.Split(rest, "|")
 		name, email, mode := field(fields, 0), field(fields, 1), field(fields, 2)
+		if err := validate.SSHKeyPath(msg.Values[0], true); err != nil {
+			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
+		}
 		keyPath := expandPath(msg.Values[0])
-		if keyPath == "" {
-			return a, core.ShowToastCmd("No key path provided", theme.ToastStyleError, 3*time.Second)
-		}
-		if _, err := os.Stat(keyPath); err != nil {
-			return a, core.ShowToastCmd(fmt.Sprintf("Key file not found: %s", msg.Values[0]), theme.ToastStyleError, 3*time.Second)
-		}
 		return a, pushCmd(screens.NewConfirm(
 			"Would you like to sign your Git commits automatically using this identity's SSH key?",
 			fmt.Sprintf("ssh-sign:%s|%s|%s|existing||%s", name, email, mode, keyPath),
@@ -102,8 +98,8 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 		))
 
 	case "bind-path":
-		if msg.Values[0] == "" {
-			return a, core.ShowToastCmd("Path cannot be empty", theme.ToastStyleError, 3*time.Second)
+		if err := validate.BindPath(msg.Values[0], true); err != nil {
+			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
 		}
 		return a, a.runTaskCmd("bind-path", rest, func() (opResult, error) {
 			err := opBindPath(a.store, rest, msg.Values[0])
@@ -111,12 +107,8 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 		})
 
 	case "export", "export-all":
-		pass := msg.Values[0]
-		if pass == "" {
-			return a, core.ShowToastCmd("Passphrase must not be empty", theme.ToastStyleError, 3*time.Second)
-		}
-		if pass != msg.Values[1] {
-			return a, core.ShowToastCmd("Passphrases do not match", theme.ToastStyleError, 3*time.Second)
+		if err := validate.PassphraseMatch(msg.Values[0], msg.Values[1], 8); err != nil {
+			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
 		}
 		var names []string
 		all := false
@@ -126,14 +118,18 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 			names = strings.Split(rest, ",")
 		}
 		return a, a.runTaskCmd("export", "", func() (opResult, error) {
-			return opExport(a.store, names, all, pass)
+			return opExport(a.store, names, all, msg.Values[0])
 		})
 
 	case "import:path":
 		if msg.Values[0] == "" {
 			return a, core.ShowToastCmd("Bundle path cannot be empty", theme.ToastStyleError, 3*time.Second)
 		}
-		return a, pushCmd(screens.NewForm("Import Bundle", "Enter the passphrase for the bundle", "import-pass:"+msg.Values[0], []screens.FormInput{
+		bundlePath := expandPath(msg.Values[0])
+		if _, err := os.Stat(bundlePath); err != nil {
+			return a, core.ShowToastCmd(fmt.Sprintf("Bundle file not found: %s", msg.Values[0]), theme.ToastStyleError, 3*time.Second)
+		}
+		return a, pushCmd(screens.NewForm("Import Bundle", "Enter the passphrase for the bundle", "import-pass:"+bundlePath, []screens.FormInput{
 			{Label: "Passphrase:", IsPassword: true},
 		}, a.theme))
 
@@ -148,25 +144,29 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 	case "import-original":
 		name := msg.Values[0]
 		email := msg.Values[1]
-		if name == "" {
-			return a, core.ShowToastCmd("Profile name is required", theme.ToastStyleError, 3*time.Second)
+		if err := validate.IdentityName(name); err != nil {
+			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
+		}
+		if err := validate.Email(email); err != nil {
+			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
 		}
 		return a.startOriginalImport(name, email)
 
 	case "import-original-name":
 		// User chose to import under a different (unique) name; keep email.
 		name := msg.Values[0]
-		if name == "" {
-			return a, core.ShowToastCmd("Profile name is required", theme.ToastStyleError, 3*time.Second)
+		if err := validate.IdentityName(name); err != nil {
+			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
 		}
 		return a.startOriginalImport(name, rest)
 
 	case "import-original-email":
 		// User chose a new email too; name is carried in the context.
-		if msg.Values[0] == "" {
-			return a, core.ShowToastCmd("Email is required", theme.ToastStyleError, 3*time.Second)
+		email := msg.Values[0]
+		if err := validate.Email(email); err != nil {
+			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
 		}
-		return a.startOriginalImport(rest, msg.Values[0])
+		return a.startOriginalImport(rest, email)
 
 	case "import-rename-conflict":
 		// Rename the conflicting profile to a free name, then import the
@@ -181,7 +181,10 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 			email = fields[1]
 		}
 		newName := msg.Values[0]
-		if newName == "" || newName == conflictName {
+		if err := validate.IdentityName(newName); err != nil {
+			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
+		}
+		if newName == conflictName {
 			return a, core.ShowToastCmd("Please enter a different name for the conflicting profile", theme.ToastStyleError, 3*time.Second)
 		}
 		if a.store.IsNameTaken(newName) {
@@ -194,7 +197,7 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 
 	case "push-cred:github", "push-cred:gitlab":
 		platform := strings.TrimPrefix(action, "push-cred:")
-		if msg.Values[0] == "" {
+		if strings.TrimSpace(msg.Values[0]) == "" {
 			return a, core.ShowToastCmd("Token required to interact with the API", theme.ToastStyleError, 3*time.Second)
 		}
 		return a, a.runTaskCmd("pubkey-push", platform, func() (opResult, error) {
@@ -202,7 +205,7 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 		})
 
 	case "push-cred:bitbucket":
-		if msg.Values[0] == "" || msg.Values[1] == "" {
+		if strings.TrimSpace(msg.Values[0]) == "" || strings.TrimSpace(msg.Values[1]) == "" {
 			return a, core.ShowToastCmd("Username and App Password are required", theme.ToastStyleError, 3*time.Second)
 		}
 		return a, a.runTaskCmd("pubkey-push", "bitbucket", func() (opResult, error) {
@@ -264,22 +267,19 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 		})
 
 	case "clone":
-		if msg.Values[0] == "" {
-			return a, core.ShowToastCmd("Repository URL is required", theme.ToastStyleError, 3*time.Second)
+		if err := validate.RepoURL(msg.Values[0]); err != nil {
+			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
 		}
 		repoURL := msg.Values[0]
 		destDir := msg.Values[1]
 		return a.handleCloneIdentity(fmt.Sprintf("%s|%s", repoURL, destDir))
 
 	case "sync-setup":
-		if msg.Values[0] == "" {
-			return a, core.ShowToastCmd("Repository URL is required", theme.ToastStyleError, 3*time.Second)
+		if err := validate.RepoURL(msg.Values[0]); err != nil {
+			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
 		}
-		if msg.Values[1] == "" {
-			return a, core.ShowToastCmd("Passphrase is required", theme.ToastStyleError, 3*time.Second)
-		}
-		if msg.Values[1] != msg.Values[2] {
-			return a, core.ShowToastCmd("Passphrases do not match", theme.ToastStyleError, 3*time.Second)
+		if err := validate.PassphraseMatch(msg.Values[1], msg.Values[2], 8); err != nil {
+			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
 		}
 		return a, a.runTaskCmd("sync", "", func() (opResult, error) {
 			return opSync(a.store, msg.Values[0], msg.Values[1])
@@ -291,16 +291,19 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 		})
 
 	case "config-set":
-		if msg.Values[0] == "" {
-			return a, core.ShowToastCmd("Config key is required", theme.ToastStyleError, 3*time.Second)
+		if err := validate.GitConfigKey(msg.Values[0]); err != nil {
+			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
+		}
+		if err := validate.GitConfigValue(msg.Values[1]); err != nil {
+			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
 		}
 		return a, a.runTaskCmd("config", rest, func() (opResult, error) {
 			return opConfigSet(a.store, rest, msg.Values[0], msg.Values[1])
 		})
 
 	case "config-unset":
-		if msg.Values[0] == "" {
-			return a, core.ShowToastCmd("Config key is required", theme.ToastStyleError, 3*time.Second)
+		if err := validate.GitConfigKey(msg.Values[0]); err != nil {
+			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
 		}
 		return a, a.runTaskCmd("config", rest, func() (opResult, error) {
 			return opConfigUnset(a.store, rest, msg.Values[0])
@@ -322,6 +325,13 @@ func field(fields []string, i int) string {
 // unique name, pick a new email, or rename the conflicting profile) entirely
 // within the TUI before performing the actual import.
 func (a *App) startOriginalImport(name, email string) (tea.Model, tea.Cmd) {
+	if err := validate.IdentityName(name); err != nil {
+		return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
+	}
+	if err := validate.Email(email); err != nil {
+		return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
+	}
+
 	if a.store.IsNameTaken(name) {
 		conflicting := name
 		return a, pushCmd(screens.NewOptions(
@@ -337,12 +347,6 @@ func (a *App) startOriginalImport(name, email string) (tea.Model, tea.Cmd) {
 		))
 	}
 
-	if email == "" {
-		return a, core.ShowToastCmd("Email is required", theme.ToastStyleError, 3*time.Second)
-	}
-	if !isValidEmail(email) {
-		return a, core.ShowToastCmd("Invalid email format", theme.ToastStyleError, 3*time.Second)
-	}
 	if a.store.IsEmailTaken(email) {
 		// The original identity's email is already used by a registered
 		// profile — but the original identity is being imported precisely to

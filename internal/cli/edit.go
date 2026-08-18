@@ -6,6 +6,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/validate"
 )
 
 func runEdit(args []string) error {
@@ -17,9 +18,9 @@ func runEdit(args []string) error {
 	name := args[0]
 	newEmail := args[1]
 
-	if !isValidEmail(newEmail) {
-		ui.Error("invalid email format")
-		return fmt.Errorf("invalid email")
+	if err := validate.Email(newEmail); err != nil {
+		ui.Errorf("%v", err)
+		return err
 	}
 
 	store, err := config.Load()

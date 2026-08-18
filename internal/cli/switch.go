@@ -11,6 +11,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/ssh"
 	"github.com/divyo-argha/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/validate"
 )
 
 func runSwitch(args []string) error {
@@ -347,15 +348,28 @@ func quickRegister(name, email string, isTemp, skipSSH bool, store *config.Store
 
 	var err error
 
+	if err := validate.IdentityName(name); err != nil {
+		ui.Errorf("%v", err)
+		return err
+	}
+
 	if email == "" {
 		email, err = ui.Prompt("Email address:")
 		if err != nil {
 			return err
 		}
-		if email == "" {
-			ui.Error("Email is required.")
-			return fmt.Errorf("missing email")
+	}
+
+	for {
+		if err := validate.Email(email); err != nil {
+			ui.Warn(err.Error())
+			email, err = ui.Prompt("Enter a valid email address:")
+			if err != nil {
+				return err
+			}
+			continue
 		}
+		break
 	}
 
 	if err := store.AddUser(name, email); err != nil {
@@ -407,12 +421,11 @@ func quickRegister(name, email string, isTemp, skipSSH bool, store *config.Store
 	case 1: // Use existing key
 		keyPath, err := ui.Prompt("Path to SSH key:")
 		if err == nil && keyPath != "" {
-			expanded := expandPath(keyPath)
-			if _, err := os.Stat(expanded); err == nil {
-				sshKeyPath = expanded
+			if err := validate.SSHKeyPath(keyPath, true); err == nil {
+				sshKeyPath = validate.ExpandPath(keyPath)
 				ui.Success("Using existing key")
 			} else {
-				ui.Warn("Key not found")
+				ui.Warn(err.Error())
 			}
 		}
 

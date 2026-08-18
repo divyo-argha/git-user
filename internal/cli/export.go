@@ -9,6 +9,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/bundle"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/validate"
 )
 
 func runExport(args []string) error {
@@ -68,13 +69,9 @@ func runExport(args []string) error {
 	if err != nil {
 		return err
 	}
-	if passphrase != confirm {
-		ui.Error("Passphrases do not match.")
-		return fmt.Errorf("passphrase mismatch")
-	}
-	if passphrase == "" {
-		ui.Error("Passphrase must not be empty.")
-		return fmt.Errorf("empty passphrase")
+	if err := validate.PassphraseMatch(passphrase, confirm, 8); err != nil {
+		ui.Errorf("%v", err)
+		return err
 	}
 
 	var identities []bundle.Identity

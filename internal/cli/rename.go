@@ -6,6 +6,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/validate"
 )
 
 // runRename renames an identity, keeping the active git config in sync when the
@@ -18,9 +19,9 @@ func runRename(args []string) error {
 
 	oldName := args[0]
 	newName := args[1]
-	if newName == "" {
-		ui.Error("new name must not be empty")
-		return fmt.Errorf("empty name")
+	if err := validate.IdentityName(newName); err != nil {
+		ui.Errorf("%v", err)
+		return err
 	}
 
 	store, err := config.Load()

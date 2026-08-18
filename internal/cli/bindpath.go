@@ -2,11 +2,11 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/validate"
 )
 
 func runBindPath(args []string) error {
@@ -30,27 +30,17 @@ func runBindPath(args []string) error {
 		return fmt.Errorf("user not found")
 	}
 
+	if err := validate.BindPath(path, true); err != nil {
+		ui.Errorf("%v", err)
+		return err
+	}
+
 	// Resolve absolute path
-	expanded := expandPath(path)
+	expanded := validate.ExpandPath(path)
 	abs, err := filepath.Abs(expanded)
 	if err != nil {
 		ui.Errorf("invalid path: %v", err)
 		return err
-	}
-
-	// Verify target directory exists
-	info, err := os.Stat(abs)
-	if err != nil {
-		if os.IsNotExist(err) {
-			ui.Errorf("directory %q does not exist", path)
-			return err
-		}
-		ui.Errorf("error reading directory: %v", err)
-		return err
-	}
-	if !info.IsDir() {
-		ui.Errorf("path %q is a file, not a directory", path)
-		return fmt.Errorf("path is not a directory")
 	}
 
 	if err := store.BindPathToUser(name, abs); err != nil {
