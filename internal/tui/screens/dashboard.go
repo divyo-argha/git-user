@@ -321,3 +321,11 @@ func (d *Dashboard) SetVersionStatus(latestVersion string, updateAvailable bool)
 	d.actions.SetUpdateStatus(latestVersion, updateAvailable)
 }
 
+// SelectedActionKey returns the Key of the currently selected action menu item.
+func (d *Dashboard) SelectedActionKey() string {
+	if item := d.actions.Selected(); item != nil {
+		return item.Key
+	}
+	return ""
+}
+
