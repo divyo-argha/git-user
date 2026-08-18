@@ -36,6 +36,8 @@ COMMANDS
   SSH & Keys
     pubkey                     Show public key for active identity
     pubkey publish [platform]  Publish public SSH key to GitHub, GitLab, or Bitbucket
+    pubkey test [name]         Test connections on GitHub, GitLab, and Bitbucket
+    connections [name]         Check connections to GitHub, GitLab, and Bitbucket
     bind-key <name> [--ssh-key <p>] Add/link SSH key (interactive if no path)
     bind-path <name> <path>    Bind a directory path to an identity for auto-switching
     unbind-path <name> <path>  Unbind a directory path from an identity
@@ -71,8 +73,10 @@ ALIASES
   rm                         remove
   lo, signout                logout
   history                    log (hidden alias)
+  check-ssh, check           connections (hidden alias)
   import-original            switch --original (hidden alias)
   pubkey push                pubkey publish (hidden alias)
+  pubkey check               pubkey test (hidden alias)
   security                   audit (hidden alias)
   -i, --interactive          tui
   (running git-user alone also opens the TUI on a terminal)
@@ -165,9 +169,13 @@ func Execute() error {
 			switch rest[0] {
 			case "publish", "push", "--publish", "--push":
 				return runPubkeyPush(rest[1:])
+			case "check", "test", "status", "--check", "--test", "--status":
+				return runCheckSSH(rest[1:])
 			}
 		}
 		return runPubkey(rest)
+	case "connections", "check-ssh":
+		return runCheckSSH(rest)
 	case "bind-key":
 		return runBind(rest)
 	case "bind-path":
@@ -270,6 +278,8 @@ func normalizeSubcommand(sub string) string {
 		return "sign"
 
 	// Diagnostics & Security
+	case "connections", "--connections", "check-ssh", "--check-ssh", "check", "--check", "test-ssh", "--test-ssh":
+		return "connections"
 	case "doctor", "--doctor":
 		return "doctor"
 	case "refresh", "--refresh", "repair", "--repair", "fix", "--fix":

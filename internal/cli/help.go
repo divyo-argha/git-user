@@ -72,14 +72,42 @@ Update an identity's email address.`,
 
 Rename an identity. The active git config user.name is updated automatically
 when the active identity is renamed. Useful for resolving an import conflict.`,
-		"pubkey": `Usage: git-user pubkey [publish [platform]]
+		"pubkey": `Usage: git-user pubkey [publish [platform] | test [name]]
 
 Show the public SSH key for the active identity.
-  pubkey publish [platform]  Publish the key to github, gitlab, or bitbucket.
-  (push is a hidden alias for publish)
+  pubkey                     Show public key for active identity
+  pubkey publish [platform]  Publish key to github, gitlab, or bitbucket
+  pubkey test [name]         Test connections on GitHub, GitLab, and Bitbucket
+  (push is an alias for publish; check and status are aliases for test)
 
 Flags:
   -h, --help                   Show this help`,
+		"connections": `Usage: git-user connections [name] [flags]
+
+Check which Git platforms (GitHub, GitLab, Bitbucket) have accepted this
+identity's SSH key, or report if nothing is connected.
+
+Aliases: check-ssh, check, test-ssh, pubkey test, pubkey check
+
+Flags:
+  --plain                      Plain, machine-readable output
+  --json                       JSON output
+  -h, --help                   Show this help
+
+Examples:
+  git-user connections
+  git-user connections work
+  git-user pubkey test
+  git-user check-ssh`,
+		"check-ssh": `Usage: git-user check-ssh [name] [flags]
+
+Alias for git-user connections.`,
+		"check": `Usage: git-user check [name] [flags]
+
+Alias for git-user connections.`,
+		"test-ssh": `Usage: git-user test-ssh [name] [flags]
+
+Alias for git-user connections.`,
 		"bind-key": `Usage: git-user bind-key <name> [flags]
 
 Add or link an SSH key to an identity. ` + "`bind`" + ` is a hidden alias.

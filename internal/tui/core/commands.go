@@ -5,13 +5,12 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
-	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	gituserssh "github.com/divyo-argha/git-user/internal/ssh"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 	"github.com/divyo-argha/git-user/internal/version"
 	"golang.org/x/crypto/ssh"
@@ -172,83 +171,18 @@ type KeyPassphraseMsg struct {
 // CheckPlatformConnectionCmd runs ssh -T against a Git host and returns auth status.
 func CheckPlatformConnectionCmd(profileName, keyPath, platform, host string, successPatterns []string) tea.Cmd {
 	return func() tea.Msg {
-		args := []string{"-T", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=4", "-o", "ConnectionAttempts=1"}
-		if keyPath != "" {
-			args = append(args, "-i", keyPath, "-o", "IdentitiesOnly=yes")
-		}
-		args = append(args, host)
-
-		cmd := exec.Command("ssh", args...)
-		// Note: SSH_AUTH_SOCK is deliberately kept, so identities already
-		// loaded in the agent are used instead of forcing a passphrase
-		// prompt on the tty from inside the TUI.
-
-		output, err := cmd.CombinedOutput()
-		out := string(output)
-
-		// Check for network errors or unreachability
-		// Common ssh exit code for timeout/network failure is 255.
-		// Also parse standard connection failed strings.
-		if err != nil && (strings.Contains(out, "Connection timed out") || strings.Contains(out, "Connection refused") || strings.Contains(out, "Could not resolve hostname")) {
-			return PlatformConnectionMsg{
-				ProfileName: profileName,
-				Platform:    platform,
-				Status:      "network_error",
-			}
-		}
-
-		for _, marker := range successPatterns {
-			if strings.Contains(out, marker) {
-				// Try to extract username
-				username := extractUsername(out, platform)
-				return PlatformConnectionMsg{
-					ProfileName: profileName,
-					Platform:    platform,
-					Status:      "connected",
-					Username:    username,
-				}
-			}
-		}
-
+		res := gituserssh.CheckPlatformConnection(keyPath, platform, host, successPatterns)
 		return PlatformConnectionMsg{
 			ProfileName: profileName,
-			Platform:    platform,
-			Status:      "not_added",
+			Platform:    res.Platform,
+			Status:      res.Status,
+			Username:    res.Username,
 		}
 	}
 }
 
 func extractUsername(output, platform string) string {
-	switch platform {
-	case "GitHub":
-		// "Hi username! You've successfully authenticated..."
-		idx := strings.Index(output, "Hi ")
-		if idx != -1 {
-			end := strings.Index(output[idx+3:], "!")
-			if end != -1 {
-				return "@" + output[idx+3:idx+3+end]
-			}
-		}
-	case "GitLab":
-		// "Welcome to GitLab, @username!"
-		idx := strings.Index(output, "Welcome to GitLab, ")
-		if idx != -1 {
-			end := strings.Index(output[idx+19:], "!")
-			if end != -1 {
-				return output[idx+19 : idx+19+end]
-			}
-		}
-	case "Bitbucket":
-		// "logged in as username."
-		idx := strings.Index(output, "logged in as ")
-		if idx != -1 {
-			end := strings.Index(output[idx+13:], ".")
-			if end != -1 {
-				return "@" + output[idx+13:idx+13+end]
-			}
-		}
-	}
-	return ""
+	return gituserssh.ExtractPlatformUsername(output, platform)
 }
 
 // ── Version Check Commands ───────────────────────────────────────────────────

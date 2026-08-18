@@ -79,16 +79,40 @@ func opCheckSSH(store *config.Store, name, passphrase string) (opResult, error) 
 			return opResult{}, fmt.Errorf("could not load key into agent: %w", err)
 		}
 	}
-	report := fmt.Sprintf("Checking SSH connection for %s (%s)\n\n", user.Name, user.Email)
-	ok, detail := verifySSHConnectionWithKey(user.SSHKey)
-	if ok {
-		report += "SSH connection verified successfully!\n"
-	} else {
-		report += "SSH verification failed.\n"
-		report += detail
+	results := ssh.CheckAllPlatforms(user.SSHKey)
+	report := fmt.Sprintf("Checking SSH connection for %s (%s)\nSSH Key: %s\n\nPlatform Status:\n", user.Name, user.Email, user.SSHKey)
+	connectedCount := 0
+	var connectedNames []string
+	for _, res := range results {
+		switch res.Status {
+		case "connected":
+			connectedCount++
+			if res.Username != "" {
+				connectedNames = append(connectedNames, fmt.Sprintf("%s (%s)", res.Platform, res.Username))
+				report += fmt.Sprintf("  • %-10s : Connected ✓ (%s)\n", res.Platform, res.Username)
+			} else {
+				connectedNames = append(connectedNames, res.Platform)
+				report += fmt.Sprintf("  • %-10s : Connected ✓\n", res.Platform)
+			}
+		case "network_error":
+			report += fmt.Sprintf("  • %-10s : Network error (could not connect)\n", res.Platform)
+		case "not_added":
+			report += fmt.Sprintf("  • %-10s : Not connected (key not added)\n", res.Platform)
+		default:
+			report += fmt.Sprintf("  • %-10s : Not connected\n", res.Platform)
+		}
 	}
+
+	report += "\n"
+	if connectedCount == 0 {
+		report += "Result: Nothing connected — this SSH key is not added to GitHub, GitLab, or Bitbucket.\n"
+		report += "Publish it using 'Publish SSH key to platform' or copy it via 'Show public key'.\n"
+	} else {
+		report += fmt.Sprintf("Result: Connected to %s\n", strings.Join(connectedNames, ", "))
+	}
+
 	if !ssh.IsSSHKeyLoaded(user.SSHKey) {
-		report += "\nKey is not loaded in the SSH agent. Unlock it by switching to this identity.\n"
+		report += "\nNote: Key is not loaded in the SSH agent. Unlock it by switching to this identity.\n"
 	}
 	return opResult{detail: report, showReport: true}, nil
 }
