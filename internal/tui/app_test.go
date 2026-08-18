@@ -463,4 +463,27 @@ func TestAppDetailedHandlers(t *testing.T) {
 		}
 		_ = cmd
 	}
+
+	// 9. Declining commit signing on "ssh-sign" must still complete
+	// registration (and thus still show the public key report) instead of
+	// being treated as cancelling the whole flow.
+	updated, cmd := app.Update(core.ConfirmResultMsg{
+		Context:   "ssh-sign:decline-sign|decline-sign@corp.com|register|skip||",
+		Confirmed: false,
+	})
+	app = updated.(*App)
+	if cmd == nil {
+		t.Fatalf("Expected a task cmd for declined ssh-sign, not a cancel toast")
+	}
+	msg := cmd()
+	result, ok := msg.(core.TaskResultMsg)
+	if !ok {
+		t.Fatalf("Expected core.TaskResultMsg for declined ssh-sign, got %#v", msg)
+	}
+	if !result.Success {
+		t.Errorf("Expected declined ssh-sign to still succeed, got err: %v", result.Err)
+	}
+	if app.store.FindUser("decline-sign") == nil {
+		t.Errorf("Expected identity to be registered even though commit signing was declined")
+	}
 }
