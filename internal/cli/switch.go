@@ -15,18 +15,38 @@ import (
 
 func runSwitch(args []string) error {
 	localMode := false
+	sessionMode := false
 	var filteredArgs []string
 	for _, a := range args {
 		if a == "--local" || a == "-l" {
 			localMode = true
+		} else if a == "--session" || a == "-s" {
+			sessionMode = true
 		} else {
 			filteredArgs = append(filteredArgs, a)
 		}
 	}
 	args = filteredArgs
 
+	if sessionMode {
+		targetName := ""
+		if len(args) > 0 && args[0] != "-c" {
+			targetName = args[0]
+		}
+		ui.Info("To switch Git identity for only this terminal session, run:")
+		if targetName != "" {
+			fmt.Printf("  eval \"$(git-user env %s)\"\n", targetName)
+		} else {
+			fmt.Println("  eval \"$(git-user env <name>)\"")
+		}
+		fmt.Println()
+		ui.Info("Or enable seamless per-session switching by adding to your shell config (~/.zshrc, ~/.bashrc):")
+		fmt.Println("  eval \"$(git-user init)\"")
+		return nil
+	}
+
 	if len(args) < 1 {
-		ui.Error("usage: git-user switch [-c] <name> [-e <email>] [--local]")
+		ui.Error("usage: git-user switch [-c] <name> [-e <email>] [--local] [--session]")
 		return fmt.Errorf("missing arguments")
 	}
 

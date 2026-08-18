@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-// clipboardWrite writes text to the system clipboard using the first available
+// ClipboardWrite writes text to the system clipboard using the first available
 // clipboard tool: pbcopy (macOS), wl-copy (Wayland), xclip/xsel (Linux/X11),
 // or clip.exe / PowerShell (Windows).
-func clipboardWrite(text string) error {
+func ClipboardWrite(text string) error {
 	tools := [][]string{
 		{"pbcopy"},
 		{"wl-copy"},

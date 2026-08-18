@@ -56,6 +56,7 @@ func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 		ActionItem{Label: "◈ Commit identity stats", Key: "stats"},
 		ActionItem{Label: "⚓ Git hooks", Key: "hook"},
 		ActionItem{Label: "↻ Sync identities", Key: "sync"},
+		ActionItem{Label: "⌘ Shell integration (per-terminal sessions)", Key: "shell-integration"},
 		ActionItem{Label: "▲ Update git-user (up to date)", Key: "update", Disabled: true},
 	)
 	return NewActionMenu("System Utilities", items, th)

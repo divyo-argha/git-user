@@ -32,6 +32,16 @@ func runPrompt(args []string) error {
 		return nil
 	}
 
+	// Check session override first
+	if session := os.Getenv("GIT_USER_SESSION"); session != "" {
+		fmt.Printf("%s (session)", session)
+		return nil
+	}
+	if authorName := os.Getenv("GIT_AUTHOR_NAME"); authorName != "" {
+		fmt.Printf("%s (session)", authorName)
+		return nil
+	}
+
 	// Output the active identity name if there is one
 	if store.Current != "" {
 		u := store.CurrentUser()

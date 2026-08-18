@@ -134,6 +134,16 @@ type TaskResultMsg struct {
 	Err        error
 }
 
+// ── External Process (suspend/resume) ───────────────────────────────────────
+
+// ShellSessionEndedMsg is delivered when a subshell launched via
+// tea.ExecProcess (an isolated shell scoped to one identity) exits and the
+// TUI regains the terminal.
+type ShellSessionEndedMsg struct {
+	Name string
+	Err  error
+}
+
 // ── Version Check ─────────────────────────────────────────────────────────────
 
 // VersionCheckMsg reports the result of the asynchronous remote release check.

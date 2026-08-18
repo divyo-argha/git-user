@@ -62,6 +62,7 @@
 - [✨ Features](#-features)
 - [🖥️ Interactive TUI](#-interactive-tui)
 - [🔄 How It Works](#-how-it-works)
+- [⚡ Per-Terminal Session Isolation](#-per-terminal-session-isolation-multi-terminal-workflows)
 - [📂 Directory-Based Auto-Switching](#-directory-based-auto-switching)
 - [📂 Local Repository Overrides](#-local-repository-overrides-git-user-switch--l)
 - [🚪 Logout / Void State](#-logout--void-state)
@@ -431,6 +432,78 @@ Each switch: under one second. No config editing. No SSH juggling.
 
 ---
 
+## ⚡ Per-Terminal Session Isolation (Multi-Terminal Workflows)
+
+Need to run **different Git identities in different terminal tabs or split panes** at the same time—even in the **exact same project directory**? 
+
+`git-user` provides process-level session isolation using Git's native environment variables (`GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_SSH_COMMAND`, etc.). Session overrides live only inside the active terminal process: they take immediate precedence in that tab while leaving your global `~/.gitconfig` and project `.git/config` completely untouched.
+
+### 1. Seamless Shell Integration (`git-user init`)
+
+Add the shell integration hook to your shell profile once:
+
+```bash
+# Bash / Zsh — add to ~/.bashrc or ~/.zshrc:
+eval "$(git-user init)"
+
+# Fish — add to ~/.config/fish/config.fish:
+git-user init fish | source
+
+# PowerShell — add to $PROFILE:
+Invoke-Expression (& git-user init powershell)
+```
+
+Now you can switch identities per-session with `--session` (or `-s`):
+
+```bash
+# In Terminal A:
+git-user switch --session work       # or: git-user sw -s work
+git push                             # commits & pushes as 'work' ✓
+
+# In Terminal B (same directory):
+git-user switch --session personal   # or: git-user sw -s personal
+git push                             # commits & pushes as 'personal' ✓
+```
+
+To restore the global default profile in that terminal:
+```bash
+git-user logout --session            # or: git-user lo -s
+```
+
+### 2. Manual Shell Export (`git-user env`)
+
+If you prefer not to use shell wrappers, you can export the environment variables directly:
+
+```bash
+# Activate 'work' in this terminal only
+eval "$(git-user env work)"
+
+# Revert to global active profile
+eval "$(git-user env --unset)"
+```
+
+### 3. Isolated Subshells (`git-user shell`)
+
+Launch a clean, temporary subshell locked to a profile. All Git operations inside this subshell use that profile:
+
+```bash
+git-user shell work
+# (inside subshell) git commit -m "work update"
+exit
+# Back to your previous environment!
+```
+
+### 4. One-Off Command Execution (`git-user exec`)
+
+Run a single command under an identity without changing anything in your shell:
+
+```bash
+git-user exec work -- git push origin main
+git-user exec personal -- git commit -m "personal contribution"
+```
+
+---
+
 ## 📂 Directory-Based Auto-Switching
 
 You can bind specific workspace directories to your Git identities. When you enter those directories (or any subdirectories), Git will automatically switch to the correct identity natively, without requiring any manual switching commands or shell hooks.
@@ -495,11 +568,16 @@ What happens:
 |---------|-------------|
 | `register` | Create a new identity (guided setup with SSH) |
 | `switch <name> [--local]` | Switch to an identity (globally, or locally in repository config) |
+| `switch <name> --session` | Switch identity for the current terminal session only |
 | `switch -c <name> [-e <email>]` | Create and switch in one command |
 | `switch -c <name> [--passphrase <pass>]` | Create and switch, setting the key passphrase |
 | `switch -c <name> --temp` | Create a temporary identity that is removed on logout |
 | `switch -c <name> --skip-ssh` | Create and switch, skipping SSH key setup (attach later with `bind-key`) |
 | `switch --original` | Import and switch to the original pre-git-user identity |
+| `env <name> [--unset]` | Output shell export/unset statements for terminal session isolation |
+| `shell <name>` | Launch an isolated subshell locked to a Git identity |
+| `exec <name> -- <cmd...>` | Execute a single command using a Git identity's environment |
+| `init [shell]` | Generate shell integration wrapper function (for `eval "$(git-user init)"`) |
 | `list` | Show all identities |
 | `current` | Show active identity |
 | `prompt` | Output active identity for terminal integration |
@@ -532,7 +610,9 @@ What happens:
 | `--update` | Update to the latest version (shows version transition + binary verification) |
 | `--version` / `-v` | Show version |
 
-**Aliases:** `ls` → `list` · `sw` → `switch` · `rm` → `remove` · `reg` → `register` · `lo` / `signout` → `logout` · `bind` → `bind-key` · `pubkey push` → `pubkey publish` · `security` → `audit` · `import-original` → `switch --original` · `tui` / `-i` / `--interactive` → interactive menu
+**Aliases:** `ls` → `list` · `sw` → `switch` · `rm` → `remove` · `reg` → `register` · `whoami` → `current` · `lo` / `signout` → `logout` · `bind` → `bind-key` · `pubkey push` → `pubkey publish` · `security` → `audit` · `import-original` → `switch --original` · `tui` / `-i` / `--interactive` → interactive menu
+
+> **Dual Flag/Subcommand Convention:** All commands can be run either as subcommands (`git-user current`, `git-user list`) or as standard flags (`git-user --current`, `git-user -c`, `git-user --list`, `git-user -l`, `git-user --switch <name>`, `git-user -s <name>`).
 
 > **Machine-readable output:** `list` and `current` print `name <email>` (plus a
 > ` # active` marker on `list`) when piped or with `--plain`. Add `--json` for

@@ -176,6 +176,8 @@ func titleForKind(kind string) string {
 		return "Custom Git Config"
 	case "switch":
 		return "Switched Identity"
+	case "switch-session":
+		return "Session Switch Command Copied"
 	case "logout":
 		return "Signed Out"
 	case "update":

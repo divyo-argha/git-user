@@ -166,7 +166,7 @@ func (r *Report) View(width, height int) string {
 func copyToClipboardCmd(lines []string) tea.Cmd {
 	return func() tea.Msg {
 		text := strings.Join(lines, "\n")
-		if err := clipboardWrite(text); err != nil {
+		if err := ClipboardWrite(text); err != nil {
 			return core.ToastMsg{
 				Text:     "Copy failed: " + err.Error(),
 				Style:    theme.ToastStyleError,

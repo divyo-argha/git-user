@@ -7,6 +7,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/identity"
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/ssh"
+	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"os"
 )
 
@@ -137,6 +138,28 @@ func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
 	}
 
 	return opResult{detail: report, showReport: len(warnings) > 0}, nil
+}
+
+// opSwitchSession copies the shell command that activates an identity for the
+// current terminal session only (via GIT_AUTHOR_*/GIT_CONFIG_PARAMETERS env
+// vars). It never touches the global gitconfig or the config store, so other
+// terminals — and this one after the session ends — are unaffected.
+func opSwitchSession(store *config.Store, name string) (opResult, error) {
+	user := store.FindUser(name)
+	if user == nil {
+		return opResult{}, fmt.Errorf("identity %q not found", name)
+	}
+
+	cmd := fmt.Sprintf(`eval "$(git-user env %s)"`, name)
+	if err := screens.ClipboardWrite(cmd); err != nil {
+		return opResult{}, fmt.Errorf("copy to clipboard: %w", err)
+	}
+
+	detail := fmt.Sprintf(
+		"Copied to clipboard: %s\n\nPaste it into the terminal you want %q active in and press Enter. It only affects that terminal session — your global identity and other terminals are unaffected.",
+		cmd, name,
+	)
+	return opResult{detail: detail}, nil
 }
 
 // applyUserSSHConfig mirrors the CLI logic for core.sshCommand.

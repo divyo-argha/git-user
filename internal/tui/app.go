@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -206,6 +207,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case core.ActionResultMsg:
 		return a.handleAction(msg)
+
+	case core.ShellSessionEndedMsg:
+		if msg.Err != nil {
+			return a, tea.Batch(
+				core.ShowToastCmd(fmt.Sprintf("Shell session for %q exited with an error: %v", msg.Name, msg.Err), theme.ToastStyleError, 4*time.Second),
+				core.RefreshStoreCmd(),
+			)
+		}
+		return a, tea.Batch(
+			core.ShowToastCmd(fmt.Sprintf("Back from isolated shell for %q", msg.Name), theme.ToastStyleSuccess, 3*time.Second),
+			core.RefreshStoreCmd(),
+		)
 
 	case tea.KeyMsg:
 		if s := a.activeScreen(); s != nil {

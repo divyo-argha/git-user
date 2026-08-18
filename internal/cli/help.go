@@ -208,6 +208,54 @@ Examples:
 		"sync": `Usage: git-user sync
 
 Synchronize identities across devices using a private repository.`,
+		"env": `Usage: git-user env [name] [flags]
+
+Output shell export statements to isolate an identity to the current terminal session.
+
+Flags:
+  -u, --unset                  Output unset statements to restore global identity
+  --shell <sh|fish|pwsh|cmd>   Target shell format (auto-detected if omitted)
+  --fish                       Shortcut for --shell fish
+  --powershell, --pwsh         Shortcut for --shell powershell
+  --cmd                        Shortcut for --shell cmd
+  -h, --help                   Show this help
+
+Examples:
+  eval "$(git-user env work)"         # Activate 'work' profile in this terminal only
+  eval "$(git-user env --unset)"      # Revert to global active profile
+  git-user env work --fish | source   # Fish shell activation`,
+		"shell": `Usage: git-user shell <name>
+
+Launch an isolated subshell locked to the specified Git identity.
+All git commands executed in this subshell will use this identity.
+
+Type 'exit' to leave the subshell and return to your default environment.
+
+Examples:
+  git-user shell work
+  git-user shell personal`,
+		"exec": `Usage: git-user exec <name> -- <command...>
+
+Execute a single command using the specified Git identity's environment.
+
+Examples:
+  git-user exec work -- git push origin main
+  git-user exec personal -- git commit -m "personal commit"`,
+		"init": `Usage: git-user init [shell]
+
+Generate a shell integration wrapper function to enable seamless per-terminal switching.
+
+Supported shells: bash, zsh, fish, powershell
+
+Installation:
+  # Bash / Zsh (add to ~/.bashrc or ~/.zshrc):
+  eval "$(git-user init)"
+
+  # Fish (add to ~/.config/fish/config.fish):
+  git-user init fish | source
+
+  # PowerShell (add to $PROFILE):
+  Invoke-Expression (& git-user init powershell)`,
 	}
 	if u, ok := usage[sub]; ok {
 		return u

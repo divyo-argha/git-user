@@ -12,6 +12,29 @@ import (
 	"time"
 )
 
+// shellIntegrationSnippet is a static reference card shown on a Report screen
+// (which has clipboard-copy built in). It intentionally does not reuse
+// internal/cli/init.go's shell-wrapper templates — internal/tui cannot
+// import internal/cli (import cycle), and this is documentation text, not
+// logic worth sharing. The TUI never writes to any rc file itself; the CLI's
+// `git-user init install` remains the way to actually install these hooks.
+const shellIntegrationSnippet = `Add one line to your shell config to enable
+seamless per-terminal identity switching (used by "Switch (this terminal
+only)" and any 'git-user switch --session <name>' / 'git-user env <name>'
+call):
+
+Bash / Zsh — add to ~/.bashrc or ~/.zshrc:
+  eval "$(git-user init)"
+
+Fish — add to ~/.config/fish/config.fish:
+  git-user init fish | source
+
+PowerShell — add to $PROFILE:
+  Invoke-Expression (& git-user init powershell)
+
+Or let git-user install it for you from a terminal:
+  git-user init install`
+
 // ── Action Handling ───────────────────────────────────────────────────────────
 
 func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
@@ -75,6 +98,21 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		return a, a.runTaskCmd("switch", msg.Name, func() (opResult, error) {
 			return opSwitch(a.store, msg.Name, "")
 		})
+
+	case "switch-session":
+		return a, a.runTaskCmd("switch-session", msg.Name, func() (opResult, error) {
+			return opSwitchSession(a.store, msg.Name)
+		})
+
+	case "shell-session":
+		user := a.store.FindUser(msg.Name)
+		if user == nil {
+			return a, core.ShowToastCmd("identity not found", theme.ToastStyleError, 3*time.Second)
+		}
+		return a, openIdentityShellCmd(msg.Name, user)
+
+	case "shell-integration":
+		return a, pushCmd(screens.NewReport("Shell Integration", shellIntegrationSnippet, a.theme))
 
 	case "fix-sync":
 		// Re-apply the active identity when the git config drifted (e.g. a

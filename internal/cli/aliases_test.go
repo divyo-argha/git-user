@@ -84,6 +84,18 @@ func TestNormalizeSubcommand(t *testing.T) {
 		{"update", "update"},
 		{"--upgrade", "update"},
 
+		// Terminal Sessions
+		{"env", "env"},
+		{"--env", "env"},
+		{"shell", "shell"},
+		{"--shell", "shell"},
+		{"exec", "exec"},
+		{"--exec", "exec"},
+		{"run", "exec"},
+		{"--run", "exec"},
+		{"init", "init"},
+		{"--init", "init"},
+
 		// Keys
 		{"pubkey", "pubkey"},
 		{"--pubkey", "pubkey"},

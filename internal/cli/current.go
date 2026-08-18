@@ -18,9 +18,35 @@ func runCurrent(args []string) error {
 	}
 
 	var u *config.User
-	isLocalOverride := git.IsInRepo() && git.HasLocalOverride()
+	sessionName := os.Getenv("GIT_USER_SESSION")
+	authorName := os.Getenv("GIT_AUTHOR_NAME")
+	authorEmail := os.Getenv("GIT_AUTHOR_EMAIL")
+	isSessionOverride := sessionName != "" || authorName != "" || authorEmail != ""
+	isLocalOverride := !isSessionOverride && git.IsInRepo() && git.HasLocalOverride()
 
-	if isLocalOverride {
+	if isSessionOverride {
+		if sessionName != "" {
+			u = store.FindUser(sessionName)
+		}
+		if u == nil && authorName != "" {
+			for i := range store.Users {
+				if store.Users[i].Name == authorName || (store.Users[i].Email == authorEmail && authorEmail != "") {
+					u = &store.Users[i]
+					break
+				}
+			}
+		}
+		if u == nil {
+			displayName := sessionName
+			if displayName == "" {
+				displayName = authorName
+			}
+			u = &config.User{
+				Name:  displayName,
+				Email: authorEmail,
+			}
+		}
+	} else if isLocalOverride {
 		gitName := git.CurrentName()
 		gitEmail := git.CurrentEmail()
 		for i := range store.Users {
@@ -51,17 +77,19 @@ func runCurrent(args []string) error {
 	if ui.IsJSONOutput(args) {
 		enc := json.NewEncoder(os.Stdout)
 		_ = enc.Encode(struct {
-			Name   string `json:"name"`
-			Email  string `json:"email"`
-			Local  bool   `json:"local_override,omitempty"`
-			Temp   bool   `json:"temp,omitempty"`
-			HasKey bool   `json:"has_ssh_key"`
+			Name    string `json:"name"`
+			Email   string `json:"email"`
+			Session bool   `json:"session_override,omitempty"`
+			Local   bool   `json:"local_override,omitempty"`
+			Temp    bool   `json:"temp,omitempty"`
+			HasKey  bool   `json:"has_ssh_key"`
 		}{
-			Name:   u.Name,
-			Email:  u.Email,
-			Local:  isLocalOverride,
-			Temp:   u.IsTemporary,
-			HasKey: u.SSHKey != "",
+			Name:    u.Name,
+			Email:   u.Email,
+			Session: isSessionOverride,
+			Local:   isLocalOverride,
+			Temp:    u.IsTemporary,
+			HasKey:  u.SSHKey != "",
 		})
 		return nil
 	}
@@ -71,7 +99,9 @@ func runCurrent(args []string) error {
 		return nil
 	}
 
-	if isLocalOverride {
+	if isSessionOverride {
+		ui.Banner("Active Identity (Terminal Session Override)")
+	} else if isLocalOverride {
 		ui.Banner("Active Identity (Local Repo Override)")
 	} else {
 		ui.Banner("Active Identity")
@@ -79,7 +109,7 @@ func runCurrent(args []string) error {
 
 	ui.UserRow(u.Name, u.Email, u.SSHKey, true)
 
-	if !isLocalOverride {
+	if !isSessionOverride && !isLocalOverride {
 		if !git.IsIdentityInSync(u.Name, u.Email) {
 			ui.Divider()
 			ui.Warn("Git config is out of sync with active identity")

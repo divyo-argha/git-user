@@ -96,9 +96,17 @@ When you switch identities, `git-user` updates your environment atomically in **
 git-user register                      # Guided setup for a new identity
 git-user switch <name>                 # Switch active global identity
 git-user switch <name> --local         # Switch identity for current repository only
+git-user switch <name> --session       # Switch identity for current terminal session only
 git-user switch -c <name> -e <email>   # Create and switch in one step
 git-user current                       # Print currently active identity
 git-user list                          # List all registered identities
+
+# Terminal Session Isolation (Multi-Terminal Workflows)
+eval "$(git-user init)"                # Enable seamless per-session switching
+git-user switch --session <name>       # Lock current terminal tab to an identity
+eval "$(git-user env <name>)"          # Export identity env vars directly
+git-user shell <name>                  # Launch an isolated subshell for an identity
+git-user exec <name> -- <cmd...>       # Run a single command under an identity
 
 # Directory & Auto-Switching
 git-user bind-path <name> <dir>        # Bind directory to auto-switch identity

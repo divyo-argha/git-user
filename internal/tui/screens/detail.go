@@ -91,6 +91,8 @@ func (d *Detail) refreshActions() {
 
 		items = append(items, components.ActionItem{Label: "Primary Action", IsSection: true})
 		items = append(items, components.ActionItem{Label: "→ Switch to this identity", Key: "switch"})
+		items = append(items, components.ActionItem{Label: "⚡ Switch (this terminal only) — copies activation command", Key: "switch-session"})
+		items = append(items, components.ActionItem{Label: "▶ Open isolated shell as this identity", Key: "shell-session"})
 
 		items = append(items, components.ActionItem{Label: "Management Options", IsSection: true})
 		items = append(items, components.ActionItem{Label: "› Export this identity", Key: "export"})

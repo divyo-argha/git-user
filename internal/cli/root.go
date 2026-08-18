@@ -21,17 +21,25 @@ QUICK START
 COMMANDS
 
   Identities
-    register                   Create new identity with SSH key
+    register                   Create a new identity (guided setup)
     switch <name>              Switch to an identity
     switch -c <name> [-e email] Create new identity and switch to it
     switch -c <name> --skip-ssh  Create and switch without SSH key setup
     switch --original          Import and switch to the original pre-git-user identity
+    switch --session <name>    Switch identity for current terminal session only
     list                       List all identities (accepts --plain, --json)
     current                    Show active identity (accepts --plain, --json)
     prompt                     Output active identity for terminal integration
     remove <name>              Delete an identity
     edit <name> <email>        Update email
     rename <old-name> <new-name> Rename an identity
+
+  Terminal Sessions & Isolation
+    env <name>                 Output export statements for current terminal session (eval "$(git-user env <name>)")
+    env --unset                Output unset statements to restore global profile (eval "$(git-user env --unset)")
+    shell <name>               Launch an isolated subshell for an identity
+    exec <name> -- <cmd...>    Execute a single command using an identity
+    init [shell]               Generate shell integration hook (eval "$(git-user init)")
 
   SSH & Keys
     pubkey                     Show public key for active identity
@@ -208,6 +216,14 @@ func Execute() error {
 		return runSync(rest)
 	case "log":
 		return runLog(rest)
+	case "env":
+		return runEnv(rest)
+	case "shell":
+		return runShell(rest)
+	case "exec":
+		return runExec(rest)
+	case "init":
+		return runInit(rest)
 	default:
 		// Try as identity name → detail view
 		if handleUnknownArg(sub) {
@@ -246,6 +262,16 @@ func normalizeSubcommand(sub string) string {
 		return "rename"
 	case "logout", "--logout", "signout", "--signout", "lo", "--lo":
 		return "logout"
+
+	// Terminal Sessions & Execution
+	case "env", "--env":
+		return "env"
+	case "shell", "--shell":
+		return "shell"
+	case "exec", "--exec", "run", "--run":
+		return "exec"
+	case "init", "--init":
+		return "init"
 
 	// Keys & Signing
 	case "pubkey", "--pubkey", "-k", "key", "--key":
