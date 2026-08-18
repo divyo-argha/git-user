@@ -282,15 +282,26 @@ func runSwitch(args []string) error {
 		_ = config.AppendSwitchLog(user.Name, currentDir())
 	}
 
-	if user.SSHKey != "" && ssh.IsSSHKeyLoaded(user.SSHKey) {
-		if err := verifySSHConnectionWithKey(user.SSHKey); err != nil {
-			ui.Warn("SSH verification failed. The key may not be added to your platform yet.")
-			ui.Info(fmt.Sprintf("Test manually with: ssh -i %s -o IdentitiesOnly=yes -T git@github.com", user.SSHKey))
+	if user.SSHKey != "" {
+		// Only an agent-loaded key is required when the key is passphrase
+		// protected — verifySSHConnectionWithKey passes -i explicitly, so an
+		// unprotected key never needs the agent at all. Gating on
+		// IsSSHKeyLoaded unconditionally (regardless of protection) skipped
+		// verification for every unprotected-key identity, silently hiding
+		// real connection problems until the next `git push` failed. Mirrors
+		// the same "protected && not loaded" check used by
+		// needsPassphraseForSwitch (internal/tui/ops.go).
+		protected, _ := isSSHKeyPassphraseProtected(user.SSHKey)
+		if !protected || ssh.IsSSHKeyLoaded(user.SSHKey) {
+			if err := verifySSHConnectionWithKey(user.SSHKey); err != nil {
+				ui.Warn("SSH verification failed. The key may not be added to your platform yet.")
+				ui.Info(fmt.Sprintf("Test manually with: ssh -i %s -o IdentitiesOnly=yes -T git@github.com", user.SSHKey))
+			} else {
+				ui.Success("SSH verified: Connection successful!")
+			}
 		} else {
-			ui.Success("SSH verified: Connection successful!")
+			ui.Info("Skipping SSH verification until the key is loaded")
 		}
-	} else if user.SSHKey != "" {
-		ui.Info("Skipping SSH verification until the key is loaded")
 	}
 
 	if git.IsInRepo() {

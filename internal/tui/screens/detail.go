@@ -12,18 +12,19 @@ import (
 )
 
 type Detail struct {
-	store               *config.Store
-	name                string
-	actions             components.ActionMenu
-	animFrame           uint64
-	theme               theme.Theme
-	keyLoaded           bool
-	keyLoadedChecked    bool
-	passphraseProtected bool
-	passphraseChecked   bool
-	platformStatuses    map[string]string // "checking", "connected", "not_added", "network_error"
-	platformUsernames   map[string]string
-	spin                components.Spinner
+	store                 *config.Store
+	name                  string
+	actions               components.ActionMenu
+	animFrame             uint64
+	theme                 theme.Theme
+	keyLoaded             bool
+	keyLoadedChecked      bool
+	passphraseProtected   bool
+	passphraseChecked     bool
+	platformStatuses      map[string]string // "checking", "connected", "not_added", "network_error", "locked"
+	platformUsernames     map[string]string
+	spin                  components.Spinner
+	platformChecksStarted bool
 }
 
 func NewDetail(store *config.Store, name string, th theme.Theme) *Detail {
@@ -73,6 +74,16 @@ func (d *Detail) refreshActions() {
 		items = append(items, components.ActionItem{Label: fmt.Sprintf("Email Address: %s", user.Email), Key: "email"})
 		items = append(items, components.ActionItem{Label: fmt.Sprintf("Status       : %s", d.theme.Dim().Render("○ Inactive Profile")), Key: ""})
 
+		// SSH reachability doesn't depend on this identity being the active
+		// one — verifySSHConnectionWithKey/CheckPlatformConnectionCmd probe
+		// with -i <key> directly, so any identity's key can be tested without
+		// switching to it first. Reuse the same live sections as the active
+		// profile below instead of only ever showing a stale "Not added".
+		items = append(items, d.sshSecurityItems(user)...)
+		items = append(items, d.verifiedPlatformItems()...)
+		items = append(items, components.ActionItem{Label: "Git Config Options", IsSection: true})
+		items = append(items, d.commitSigningItem(user))
+
 		// Show directory bindings even for inactive profiles.
 		if len(user.BindPaths) > 0 {
 			items = append(items, components.ActionItem{Label: "Directory Bindings", IsSection: true})
@@ -117,77 +128,14 @@ func (d *Detail) refreshActions() {
 	items = append(items, components.ActionItem{Label: fmt.Sprintf("Email Address: %s", user.Email), Key: "email"})
 
 	// ── SSH & SECURITY STATUS ─────────────────────────────────────────────────
-	items = append(items, components.ActionItem{Label: "SSH & Security", IsSection: true})
-
-	sshKeyStr := d.theme.Dim().Render("None")
-	if user.SSHKey != "" {
-		sshKeyStr = filepath.Base(user.SSHKey)
-	}
-	items = append(items, components.ActionItem{Label: fmt.Sprintf("SSH Key File : %s", sshKeyStr), Key: "bind"})
-
-	passphraseStr := d.theme.Dim().Render("Unknown")
-	if user.SSHKey != "" {
-		if d.passphraseChecked {
-			if d.passphraseProtected {
-				passphraseStr = d.theme.SuccessStyle().Render("Passphrase Protected ✓")
-			} else {
-				passphraseStr = d.theme.ErrorStyle().Render("No Passphrase ⚠")
-			}
-		} else {
-			passphraseStr = d.theme.Dim().Render("checking...")
-		}
-	}
-	items = append(items, components.ActionItem{Label: fmt.Sprintf("Passphrase   : %s", passphraseStr), Key: "passphrase", Disabled: user.SSHKey == ""})
-
-	sessionStr := d.theme.Dim().Render("Test Connection")
-	if user.SSHKey != "" {
-		if d.keyLoadedChecked {
-			if d.keyLoaded {
-				sessionStr = d.theme.SuccessStyle().Render("Loaded in agent ✓")
-			} else {
-				sessionStr = d.theme.Dim().Render("Test Connection")
-			}
-		} else {
-			sessionStr = d.theme.Dim().Render("checking...")
-		}
-	}
-	items = append(items, components.ActionItem{Label: fmt.Sprintf("SSH Connection: %s", sessionStr), Key: "check-ssh", Disabled: user.SSHKey == ""})
+	items = append(items, d.sshSecurityItems(user)...)
 
 	// ── PLATFORMS ─────────────────────────────────────────────────────────────
-	items = append(items, components.ActionItem{Label: "Verified Platforms", IsSection: true})
-	platformsList := []string{"GitHub", "GitLab", "Bitbucket"}
-	for _, p := range platformsList {
-		status := d.platformStatuses[p]
-		var statusStr string
-		switch status {
-		case "checking":
-			statusStr = d.spin.View() + " " + d.theme.Dim().Render("checking...")
-		case "connected":
-			username := d.platformUsernames[p]
-			statusStr = d.theme.SuccessStyle().Render(fmt.Sprintf("Connected ✓ (%s)", username))
-		case "not_added":
-			statusStr = d.theme.Dim().Render("Not added")
-		case "network_error":
-			statusStr = d.theme.WarningStyle().Render("Network error ⚠ (stale state)")
-		case "":
-			statusStr = d.theme.Dim().Render("Not configured")
-		default:
-			// Unrecognized status string (e.g. a future typo or new status
-			// type not yet handled here) — flag it distinctly rather than
-			// silently rendering as the genuine not-configured state.
-			statusStr = d.theme.ErrorStyle().Render(fmt.Sprintf("Unknown status ⚠ (%q)", status))
-		}
-		items = append(items, components.ActionItem{Label: fmt.Sprintf("%-13s: %s", p, statusStr), Key: ""})
-	}
+	items = append(items, d.verifiedPlatformItems()...)
 
 	// ── COMMIT SIGNING ────────────────────────────────────────────────────────
 	items = append(items, components.ActionItem{Label: "Git Config Options", IsSection: true})
-
-	signingLabel := d.theme.Dim().Render("Disabled")
-	if !user.SignDisabled && user.SignKey != "" {
-		signingLabel = d.theme.SuccessStyle().Render(fmt.Sprintf("Enabled (%s)", user.SignFormat))
-	}
-	items = append(items, components.ActionItem{Label: fmt.Sprintf("Commit Signing: %s", signingLabel), Key: "toggle-sign"})
+	items = append(items, d.commitSigningItem(user))
 
 	// ── UTILITIES ─────────────────────────────────────────────────────────────
 	items = append(items, components.ActionItem{Label: "Utilities", IsSection: true})
@@ -233,23 +181,156 @@ func (d *Detail) refreshActions() {
 	}
 }
 
+// sshSecurityItems renders the SSH key / passphrase / agent-load status rows.
+// These reflect the identity's key file on disk and are meaningful whether or
+// not the identity is the currently active one.
+func (d *Detail) sshSecurityItems(user *config.User) []components.ActionItem {
+	var items []components.ActionItem
+	items = append(items, components.ActionItem{Label: "SSH & Security", IsSection: true})
+
+	sshKeyStr := d.theme.Dim().Render("None")
+	if user.SSHKey != "" {
+		sshKeyStr = filepath.Base(user.SSHKey)
+	}
+	items = append(items, components.ActionItem{Label: fmt.Sprintf("SSH Key File : %s", sshKeyStr), Key: "bind"})
+
+	passphraseStr := d.theme.Dim().Render("Unknown")
+	if user.SSHKey != "" {
+		if d.passphraseChecked {
+			if d.passphraseProtected {
+				passphraseStr = d.theme.SuccessStyle().Render("Passphrase Protected ✓")
+			} else {
+				passphraseStr = d.theme.ErrorStyle().Render("No Passphrase ⚠")
+			}
+		} else {
+			passphraseStr = d.theme.Dim().Render("checking...")
+		}
+	}
+	items = append(items, components.ActionItem{Label: fmt.Sprintf("Passphrase   : %s", passphraseStr), Key: "passphrase", Disabled: user.SSHKey == ""})
+
+	sessionStr := d.theme.Dim().Render("Test Connection")
+	if user.SSHKey != "" {
+		if d.keyLoadedChecked {
+			if d.keyLoaded {
+				sessionStr = d.theme.SuccessStyle().Render("Loaded in agent ✓")
+			} else {
+				sessionStr = d.theme.Dim().Render("Test Connection")
+			}
+		} else {
+			sessionStr = d.theme.Dim().Render("checking...")
+		}
+	}
+	items = append(items, components.ActionItem{Label: fmt.Sprintf("SSH Connection: %s", sessionStr), Key: "check-ssh", Disabled: user.SSHKey == ""})
+
+	return items
+}
+
+// verifiedPlatformItems renders the live per-platform reachability rows. The
+// underlying probes run `ssh -i <key>` directly against each host, so they
+// work for any identity's key regardless of whether it's the active one.
+func (d *Detail) verifiedPlatformItems() []components.ActionItem {
+	var items []components.ActionItem
+	items = append(items, components.ActionItem{Label: "Verified Platforms", IsSection: true})
+	platformsList := []string{"GitHub", "GitLab", "Bitbucket"}
+	for _, p := range platformsList {
+		status := d.platformStatuses[p]
+		var statusStr string
+		switch status {
+		case "checking":
+			statusStr = d.spin.View() + " " + d.theme.Dim().Render("checking...")
+		case "connected":
+			username := d.platformUsernames[p]
+			statusStr = d.theme.SuccessStyle().Render(fmt.Sprintf("Connected ✓ (%s)", username))
+		case "not_added":
+			statusStr = d.theme.Dim().Render("Not added")
+		case "network_error":
+			statusStr = d.theme.WarningStyle().Render("Network error ⚠ (stale state)")
+		case "locked":
+			statusStr = d.theme.Dim().Render("Locked — unlock key to check")
+		case "":
+			statusStr = d.theme.Dim().Render("Not configured")
+		default:
+			// Unrecognized status string (e.g. a future typo or new status
+			// type not yet handled here) — flag it distinctly rather than
+			// silently rendering as the genuine not-configured state.
+			statusStr = d.theme.ErrorStyle().Render(fmt.Sprintf("Unknown status ⚠ (%q)", status))
+		}
+		items = append(items, components.ActionItem{Label: fmt.Sprintf("%-13s: %s", p, statusStr), Key: ""})
+	}
+	return items
+}
+
+// commitSigningItem renders the stored (not live) commit-signing state for an
+// identity. Toggling it is safe for an inactive identity too: handleToggleSign
+// only touches the live git config when the identity being toggled is also
+// the active one, otherwise it just updates the stored profile.
+func (d *Detail) commitSigningItem(user *config.User) components.ActionItem {
+	signingLabel := d.theme.Dim().Render("Disabled")
+	if !user.SignDisabled && user.SignKey != "" {
+		signingLabel = d.theme.SuccessStyle().Render(fmt.Sprintf("Enabled (%s)", user.SignFormat))
+	}
+	return components.ActionItem{Label: fmt.Sprintf("Commit Signing: %s", signingLabel), Key: "toggle-sign"}
+}
+
 func (d *Detail) Init() tea.Cmd {
 	user := d.store.FindUser(d.name)
-	if user != nil && user.Name == d.store.Current && user.SSHKey != "" {
+	if user != nil && user.SSHKey != "" {
+		// Reachability only depends on the key file, not on whether this
+		// identity is the active one — verifySSHConnectionWithKey and
+		// CheckPlatformConnectionCmd both pass -i <key> explicitly. So this
+		// runs for any identity with a bound key, active or not.
+		//
+		// The platform probes themselves (core.CheckPlatformConnectionCmd)
+		// run `ssh -i <key>` with no BatchMode and no agent guard, so a
+		// passphrase-protected key that isn't loaded yet would make ssh try
+		// to prompt on the real terminal — which the TUI has already claimed
+		// for its own raw-mode input, risking a hang. They're deferred until
+		// maybeStartPlatformChecks confirms it's safe (unprotected, or
+		// protected-and-loaded) once the key/passphrase checks land.
 		return tea.Batch(
 			d.spin.Init(),
 			core.CheckKeyLoadedCmd(user.SSHKey),
 			core.CheckKeyPassphraseCmd(user.SSHKey),
-			core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "GitHub", "git@github.com", []string{"Hi ", "successfully authenticated"}),
-			core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "GitLab", "git@gitlab.com", []string{"Welcome to GitLab", "successfully authenticated"}),
-			core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "Bitbucket", "git@bitbucket.org", []string{"logged in as", "successfully authenticated"}),
 		)
 	}
-	// If inactive or no SSH key exists, mark as not added
+	// No SSH key bound at all — nothing to check.
 	d.platformStatuses["GitHub"] = "not_added"
 	d.platformStatuses["GitLab"] = "not_added"
 	d.platformStatuses["Bitbucket"] = "not_added"
 	return nil
+}
+
+// maybeStartPlatformChecks starts the live per-platform SSH probes once it's
+// safe to do so, and only once. "Safe" means the key either needs no
+// passphrase at all, or is already unlocked in the agent — otherwise the
+// probes are skipped (status set to "locked") instead of risking ssh
+// prompting on a terminal the TUI itself owns. Waits for both the loaded and
+// passphrase checks to land before deciding, since either can be needed to
+// know which case applies.
+func (d *Detail) maybeStartPlatformChecks(user *config.User) tea.Cmd {
+	if d.platformChecksStarted || user == nil || user.SSHKey == "" {
+		return nil
+	}
+	if !d.passphraseChecked {
+		return nil
+	}
+	if d.passphraseProtected && !(d.keyLoadedChecked && d.keyLoaded) {
+		if !d.keyLoadedChecked {
+			return nil
+		}
+		d.platformChecksStarted = true
+		d.platformStatuses["GitHub"] = "locked"
+		d.platformStatuses["GitLab"] = "locked"
+		d.platformStatuses["Bitbucket"] = "locked"
+		return nil
+	}
+
+	d.platformChecksStarted = true
+	return tea.Batch(
+		core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "GitHub", "git@github.com", []string{"Hi ", "successfully authenticated"}),
+		core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "GitLab", "git@gitlab.com", []string{"Welcome to GitLab", "successfully authenticated"}),
+		core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "Bitbucket", "git@bitbucket.org", []string{"logged in as", "successfully authenticated"}),
+	)
 }
 
 func (d *Detail) Title() string { return "Identity: " + d.name }
@@ -271,13 +352,21 @@ func (d *Detail) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		if user != nil && msg.Path == user.SSHKey {
 			d.keyLoadedChecked = true
 			d.keyLoaded = msg.Loaded
+			cmd := d.maybeStartPlatformChecks(user)
 			d.refreshActions()
+			if cmd != nil {
+				return d, cmd
+			}
 		}
 	case core.KeyPassphraseMsg:
 		if user != nil && msg.Path == user.SSHKey {
 			d.passphraseChecked = true
 			d.passphraseProtected = msg.Protected
+			cmd := d.maybeStartPlatformChecks(user)
 			d.refreshActions()
+			if cmd != nil {
+				return d, cmd
+			}
 		}
 	case core.PlatformConnectionMsg:
 		if msg.ProfileName == d.name {
