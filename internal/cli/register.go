@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -77,6 +78,12 @@ func runRegister(args []string) error {
 		ui.Errorf("loading config: %v", err)
 		return err
 	}
+
+	// No active identity at all yet: this registration will become the
+	// active one automatically once it's fully set up below, instead of
+	// silently creating a correctly-configured identity that git never
+	// actually uses until a separate `switch` is remembered.
+	activateOnCreate := store.Current == ""
 
 	if store.IsNameTaken(name) {
 		ui.Errorf("identity %q already exists", name)
@@ -160,6 +167,29 @@ func runRegister(args []string) error {
 		}
 	}
 
+	activated := false
+	if activateOnCreate {
+		user := store.FindUser(name)
+		if user != nil {
+			if err := git.Apply(user.Name, user.Email); err != nil {
+				ui.Warn(fmt.Sprintf("applying git config: %v", err))
+			} else {
+				store.Current = name
+				activated = true
+				if sshKeyPath != "" {
+					if err := applyUserSSHConfig(user, false); err != nil {
+						ui.Warn(fmt.Sprintf("applying SSH config: %v", err))
+					}
+				}
+				if !user.SignDisabled && user.SignKey != "" {
+					if err := git.ConfigureSigning(user.SignKey, user.SignFormat); err != nil {
+						ui.Warn(fmt.Sprintf("applying signing config: %v", err))
+					}
+				}
+			}
+		}
+	}
+
 	if err := config.Save(store); err != nil {
 		ui.Errorf("saving config: %v", err)
 		return err
@@ -172,7 +202,11 @@ func runRegister(args []string) error {
 		ui.Success(fmt.Sprintf("SSH key configured: %s", sshKeyPath))
 	}
 	fmt.Println()
-	ui.Info(fmt.Sprintf("Activate with: git-user switch %s", name))
+	if activated {
+		ui.Success("This is your first identity, so it's now active.")
+	} else {
+		ui.Info(fmt.Sprintf("Activate with: git-user switch %s", name))
+	}
 	ui.Divider()
 
 	return nil

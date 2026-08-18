@@ -49,7 +49,7 @@ func FormHelp() string {
 
 // ConfirmHelp returns the help text for confirmation dialogs.
 func ConfirmHelp() string {
-	return "←/→/↑/↓•select  y•yes  n•no  Enter•confirm  Esc•cancel"
+	return "←/→/↑/↓•select  y•yes  n•no  Enter•confirm  Esc•cancel  q•quit"
 }
 
 // FilterHelp returns the help text when filter mode is active.
@@ -59,10 +59,10 @@ func FilterHelp() string {
 
 // ImportExportHelp returns the help text for the Import/Export sub-screen.
 func ImportExportHelp() string {
-	return "↑/↓/j/k•navigate  Enter•select  Esc•back"
+	return "↑/↓/j/k•navigate  Enter•select  Esc/b•back  q•quit"
 }
 
 // OptionsHelp returns the help text for generic option/choice screens.
 func OptionsHelp() string {
-	return "↑/↓/j/k•navigate  Enter•select  Esc•cancel"
+	return "↑/↓/j/k•navigate  Enter•select  Esc•cancel  q•quit"
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/bundle"
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -155,8 +156,12 @@ func runSync(args []string) error {
 		}
 	}
 
-	// Merge remote identities into local config
+	// Merge remote identities into local config. hadNoCurrent tracks whether
+	// there was no active identity before this sync ran, so at most one
+	// brand-new identity from the remote gets auto-activated below instead of
+	// silently importing keys/identities the live git config never reflects.
 	mergedCount := 0
+	hadNoCurrent := store.Current == ""
 	for _, rid := range remoteIdentities {
 		existing := store.FindUser(rid.Name)
 		if existing == nil {
@@ -189,6 +194,18 @@ func runSync(args []string) error {
 			}
 			mergedCount++
 			ui.Successf("Imported new identity: %s (%s)", rid.Name, rid.Email)
+
+			// No active identity at all yet: activate the first one this sync
+			// brings in, instead of leaving it inert until a manual switch.
+			if hadNoCurrent && store.Current == "" {
+				if u := store.FindUser(rid.Name); u != nil {
+					store.Current = rid.Name
+					if err := git.Apply(u.Name, u.Email); err == nil {
+						_ = applyUserSSHConfig(u, false)
+						ui.Info(fmt.Sprintf("Activated identity %q", rid.Name))
+					}
+				}
+			}
 		} else {
 			// Profile exists. If local profile does not have SSH key but remote does, import remote key
 			if existing.SSHKey == "" && len(rid.PrivateKey) > 0 {
@@ -204,6 +221,18 @@ func runSync(args []string) error {
 				_ = store.BindSSHKey(rid.Name, keyPath)
 				mergedCount++
 				ui.Successf("Imported SSH key for existing identity: %s", rid.Name)
+
+				// This identity now has a key but the live git config was set
+				// up (or last refreshed) when it had none — if it's the
+				// active identity, reapply core.sshCommand so the newly
+				// synced key actually gets used, not just stored.
+				if store.Current == existing.Name {
+					if err := applyUserSSHConfig(existing, false); err != nil {
+						ui.Warn(fmt.Sprintf("applying SSH config for %q: %v", existing.Name, err))
+					} else {
+						ui.Info(fmt.Sprintf("Applied synced SSH key to active identity %q", existing.Name))
+					}
+				}
 			}
 		}
 	}

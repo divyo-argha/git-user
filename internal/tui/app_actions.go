@@ -301,6 +301,16 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			return opDoctor(a.store)
 		})
 
+	case "refresh":
+		return a, a.runTaskCmd("refresh", "", func() (opResult, error) {
+			return opRefresh(a.store)
+		})
+
+	case "log":
+		return a, a.runTaskCmd("log", "", func() (opResult, error) {
+			return opLog()
+		})
+
 	case "stats":
 		if !git.IsInRepo() {
 			return a, core.ShowToastCmd("not in a git repository — run Stats inside a repository", theme.ToastStyleError, 4*time.Second)
@@ -349,6 +359,13 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		return a, a.runTaskCmd("update", "", func() (opResult, error) {
 			return opUpdate()
 		})
+
+	case "uninstall":
+		return a, pushCmd(screens.NewConfirm(
+			"Uninstall git-user? This restores your original git identity, removes git-user's config and stored passphrases, and deletes its data directory. SSH keys and the binary are kept — this cannot be undone.",
+			"uninstall-confirmed",
+			a.theme,
+		))
 	}
 
 	return a, nil

@@ -41,19 +41,33 @@ func runEdit(args []string) error {
 		}
 	}
 
+	// A repo-local override pointing at this identity's old email needs the
+	// same update applied at --local scope, or it goes stale.
+	localOverrideMatched := git.IsInRepo() && git.HasLocalOverride() &&
+		git.CurrentLocalName() == user.Name && git.CurrentLocalEmail() == user.Email
+
 	if err := store.UpdateUser(name, newEmail); err != nil {
 		ui.Errorf("%v", err)
 		return err
 	}
 
+	u := store.FindUser(name)
+
 	// If this is the active user, re-apply git config immediately.
 	if store.Current == name {
-		u := store.FindUser(name)
 		if err := git.Apply(u.Name, u.Email); err != nil {
 			ui.Errorf("re-applying git config: %v", err)
 			return err
 		}
 		ui.Info("Active identity updated — git config re-applied automatically.")
+	}
+
+	if localOverrideMatched {
+		if err := git.ApplyScope(u.Name, u.Email, true); err != nil {
+			ui.Warn(fmt.Sprintf("could not update this repo's local override: %v", err))
+		} else {
+			ui.Info("Updated this repository's local override to match the new email.")
+		}
 	}
 
 	if err := config.Save(store); err != nil {

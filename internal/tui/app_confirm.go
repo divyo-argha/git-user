@@ -71,10 +71,10 @@ func (a *App) handleConfirmResult(msg core.ConfirmResultMsg) (tea.Model, tea.Cmd
 		})
 
 	case "rekey":
-		return a, pushCmd(screens.NewForm("New Key Passphrase", "Optional: protect the new key (leave empty for no passphrase)", "rekey-pass:"+rest, []screens.FormInput{
+		return a, pushCmd(screens.NewForm("New Key Passphrase", "Optional: protect the new key (leave empty or press Esc to skip)", "rekey-pass:"+rest, []screens.FormInput{
 			{Label: "New Passphrase:", IsPassword: true},
 			{Label: "Confirm Passphrase:", IsPassword: true},
-		}, a.theme))
+		}, a.theme).Skippable())
 
 	case "unbind-path-confirm":
 		fields := strings.SplitN(rest, "|", 2)
@@ -91,6 +91,11 @@ func (a *App) handleConfirmResult(msg core.ConfirmResultMsg) (tea.Model, tea.Cmd
 	case "switch-https":
 		return a, a.runTaskCmd("fix-remote", "", func() (opResult, error) {
 			return opFixRemote()
+		})
+
+	case "uninstall-confirmed":
+		return a, a.runTaskCmd("uninstall", "", func() (opResult, error) {
+			return opUninstall(a.store)
 		})
 	}
 

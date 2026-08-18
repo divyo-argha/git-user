@@ -48,6 +48,8 @@ func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 	items = append(items,
 		ActionItem{IsSection: true, Label: "Health & Security"},
 		ActionItem{Label: "✦ Doctor (health & security check)", Key: "doctor"},
+		ActionItem{Label: "⟳ Refresh (fix config drift)", Key: "refresh"},
+		ActionItem{Label: "☰ Identity switch log", Key: "log"},
 		ActionItem{Label: "↓ Import existing git identity", Key: "import-original"},
 		ActionItem{Label: "⇪ Import / Export bundles…", Key: "import-export"},
 		ActionItem{IsSection: true, Label: "Profiles & System"},
@@ -57,6 +59,8 @@ func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 		ActionItem{Label: "⚓ Git hooks", Key: "hook"},
 		ActionItem{Label: "↻ Sync identities", Key: "sync"},
 		ActionItem{Label: "▲ Update git-user (up to date)", Key: "update", Disabled: true},
+		ActionItem{IsSection: true, Label: "Danger Zone"},
+		ActionItem{Label: "✖ Uninstall git-user", Key: "uninstall", IsDanger: true},
 	)
 	return NewActionMenu("System Utilities", items, th)
 }

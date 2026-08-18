@@ -195,16 +195,21 @@ func opLogout(store *config.Store) (opResult, error) {
 
 // opRename renames an identity.
 func opRename(store *config.Store, name, newName string) error {
+	oldUser := store.FindUser(name)
+	localOverrideMatched := oldUser != nil && git.IsInRepo() && git.HasLocalOverride() &&
+		git.CurrentLocalName() == oldUser.Name && git.CurrentLocalEmail() == oldUser.Email
+
 	if err := store.RenameUser(name, newName); err != nil {
 		return err
 	}
-	if store.Current == newName {
-		u := store.FindUser(newName)
-		if u != nil {
-			if err := git.Apply(u.Name, u.Email); err != nil {
-				return fmt.Errorf("re-applying git config: %w", err)
-			}
+	u := store.FindUser(newName)
+	if store.Current == newName && u != nil {
+		if err := git.Apply(u.Name, u.Email); err != nil {
+			return fmt.Errorf("re-applying git config: %w", err)
 		}
+	}
+	if localOverrideMatched && u != nil {
+		_ = git.ApplyScope(u.Name, u.Email, true)
 	}
 	return config.Save(store)
 }
@@ -216,14 +221,21 @@ func opChangeEmail(store *config.Store, name, newEmail string) error {
 			return fmt.Errorf("email already in use — each identity must have a unique email")
 		}
 	}
+	oldUser := store.FindUser(name)
+	localOverrideMatched := oldUser != nil && git.IsInRepo() && git.HasLocalOverride() &&
+		git.CurrentLocalName() == oldUser.Name && git.CurrentLocalEmail() == oldUser.Email
+
 	if err := store.UpdateUser(name, newEmail); err != nil {
 		return err
 	}
+	u := store.FindUser(name)
 	if store.Current == name {
-		u := store.FindUser(name)
 		if err := git.Apply(u.Name, u.Email); err != nil {
 			return fmt.Errorf("re-applying git config: %w", err)
 		}
+	}
+	if localOverrideMatched {
+		_ = git.ApplyScope(u.Name, u.Email, true)
 	}
 	return config.Save(store)
 }

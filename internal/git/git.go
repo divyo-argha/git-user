@@ -65,6 +65,20 @@ func CurrentGlobalEmail() string {
 	return out
 }
 
+// CurrentLocalName returns user.name set at --local scope only (empty if
+// none), unlike CurrentName which resolves global+local together.
+func CurrentLocalName() string {
+	out, _ := getConfig("user.name", true)
+	return out
+}
+
+// CurrentLocalEmail returns user.email set at --local scope only (empty if
+// none), unlike CurrentEmail which resolves global+local together.
+func CurrentLocalEmail() string {
+	out, _ := getConfig("user.email", true)
+	return out
+}
+
 func CurrentSSHCommand() string {
 	out, _ := getConfigResolved("core.sshCommand")
 	return out

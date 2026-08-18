@@ -38,6 +38,11 @@ func opGenerateKey(name, email, passphrase string) (string, error) {
 // opRegisterFinish completes profile creation: adds the user, binds the key if
 // generated, and configures commit signing.
 func opRegisterFinish(store *config.Store, name, email string, isTemp bool, keyPath, passphrase string, signEnabled bool) (opResult, error) {
+	// No active identity at all yet: this registration becomes the active one
+	// automatically below, instead of creating a fully-configured identity
+	// that git never actually uses until a separate switch is remembered.
+	activateOnCreate := store.Current == ""
+
 	if err := store.AddUser(name, email); err != nil {
 		return opResult{}, err
 	}
@@ -58,6 +63,23 @@ func opRegisterFinish(store *config.Store, name, email string, isTemp bool, keyP
 			store.ToggleSigning(name, true)
 		}
 	}
+
+	activated := false
+	if activateOnCreate {
+		if user := store.FindUser(name); user != nil {
+			if err := git.Apply(user.Name, user.Email); err == nil {
+				store.Current = name
+				activated = true
+				if keyPath != "" {
+					_ = git.ConfigureSSH(keyPath)
+				}
+				if signEnabled {
+					_ = git.ConfigureSigning(keyPath, "ssh")
+				}
+			}
+		}
+	}
+
 	if err := config.Save(store); err != nil {
 		return opResult{}, err
 	}
@@ -65,12 +87,16 @@ func opRegisterFinish(store *config.Store, name, email string, isTemp bool, keyP
 	report := fmt.Sprintf("Identity created: %s (%s)\n", name, email)
 	if keyPath != "" {
 		report += fmt.Sprintf("SSH key: %s\n", keyPath)
-		report += "Activate it from the dashboard or the profile detail view.\n"
 		if pub, err := os.ReadFile(keyPath + ".pub"); err == nil {
 			report += "\nPublic key:\n" + strings.TrimSpace(string(pub)) + "\n"
 		}
 	} else {
 		report += "No SSH key set — bind one later from the profile detail view.\n"
+	}
+	if activated {
+		report += "\nThis is your first identity, so it's now active.\n"
+	} else {
+		report += "\nActivate it from the dashboard or the profile detail view.\n"
 	}
 	return opResult{detail: report, showReport: true}, nil
 }
@@ -219,7 +245,23 @@ func opRekey(store *config.Store, name, passphrase string) (opResult, error) {
 		return opResult{}, err
 	}
 
-	report := fmt.Sprintf("SSH key rotated successfully for %s\nOld key backed up with .backup extension\n\n", name)
+	// If this is the active identity and the new key is passphrase-protected,
+	// load it into the agent now. Otherwise the next git operation against
+	// this identity would need to unlock it with no TUI-owned terminal free
+	// to answer an ssh passphrase prompt — mirrors the passphrase gate in
+	// `switch`. Unprotected keys need no agent entry.
+	agentNote := ""
+	if store.Current == name && passphrase != "" {
+		if ssh.EnsureSSHAgent() == nil {
+			if err := ssh.AddSSHKeyWithPassphrase(keyPath, passphrase); err != nil {
+				agentNote = fmt.Sprintf("⚠ Could not load new key into ssh-agent: %v\n\n", err)
+			} else {
+				agentNote = "New key unlocked and loaded into ssh-agent.\n\n"
+			}
+		}
+	}
+
+	report := fmt.Sprintf("SSH key rotated successfully for %s\nOld key backed up with .backup extension\n\n", name) + agentNote
 	if pub, err := os.ReadFile(keyPath + ".pub"); err == nil {
 		report += "REPLACE YOUR OLD KEY WITH THIS NEW PUBLIC KEY\n"
 		report += strings.TrimSpace(string(pub)) + "\n\n"

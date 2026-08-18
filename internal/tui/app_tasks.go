@@ -162,6 +162,12 @@ func titleForKind(kind string) string {
 		return "Security Audit"
 	case "doctor":
 		return "Diagnostics"
+	case "refresh":
+		return "Refresh"
+	case "log":
+		return "Identity Switch Log"
+	case "uninstall":
+		return "Uninstall"
 	case "fix-remote":
 		return "Remote Conversion"
 	case "clone":

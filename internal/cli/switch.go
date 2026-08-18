@@ -122,8 +122,14 @@ func runSwitch(args []string) error {
 		return nil
 	}
 
-	// Auto-logout: unload the previous identity's key from ssh-agent
-	if store.Current != "" && store.Current != name {
+	// Auto-logout: unload the previous identity's key from ssh-agent. This only
+	// applies to a global switch — a `--local` switch never changes the global
+	// "current" identity (store.Current, store.Save are untouched below for
+	// localMode), so the previous global identity is still active everywhere
+	// else. Running this for a local switch would incorrectly unload its key
+	// from the agent and, worse, permanently delete a temporary identity's key
+	// files while it's still the active identity outside this repo.
+	if !localMode && store.Current != "" && store.Current != name {
 		if prev := store.CurrentUser(); prev != nil {
 			if prev.SSHKey != "" && ssh.IsSSHKeyLoaded(prev.SSHKey) {
 				_ = ssh.RemoveSSHKey(prev.SSHKey)

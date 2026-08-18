@@ -7,6 +7,7 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/bundle"
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -63,8 +64,25 @@ func runImport(args []string) error {
 		return err
 	}
 
+	// originalCurrent is the identity that was active before this import ran.
+	// An --force (or interactive "Overwrite") conflict resolution can remove
+	// it out from under the user (config.Store.RemoveUser clears store.Current
+	// when the removed identity was active) — removeConflicting tracks that so
+	// whatever identity replaces it can be restored as current afterward,
+	// instead of leaving the live git config pointing at a now-gone identity.
+	originalCurrent := store.Current
+	originalCurrentRemoved := false
+	removeConflicting := func(uname string) {
+		if uname == originalCurrent {
+			originalCurrentRemoved = true
+		}
+		_ = store.RemoveUser(uname, true)
+	}
+
 	imported := 0
 	skipped := 0
+	var firstImportedName string
+	restoredCurrent := ""
 	for _, id := range identities {
 		conflictMsg := ""
 		if store.IsNameTaken(id.Name) {
@@ -76,12 +94,12 @@ func runImport(args []string) error {
 		if conflictMsg != "" {
 			if force {
 				if store.IsNameTaken(id.Name) {
-					_ = store.RemoveUser(id.Name, true)
+					removeConflicting(id.Name)
 				}
 				if store.IsEmailTaken(id.Email) {
 					for _, u := range store.Users {
 						if u.Email == id.Email {
-							_ = store.RemoveUser(u.Name, true)
+							removeConflicting(u.Name)
 							break
 						}
 					}
@@ -99,12 +117,12 @@ func runImport(args []string) error {
 					continue
 				} else if choice == 1 { // Overwrite
 					if store.IsNameTaken(id.Name) {
-						_ = store.RemoveUser(id.Name, true)
+						removeConflicting(id.Name)
 					}
 					if store.IsEmailTaken(id.Email) {
 						for _, u := range store.Users {
 							if u.Email == id.Email {
-								_ = store.RemoveUser(u.Name, true)
+								removeConflicting(u.Name)
 								break
 							}
 						}
@@ -150,6 +168,38 @@ func runImport(args []string) error {
 			ui.Success(fmt.Sprintf("Imported: %s (%s) — no SSH key", id.Name, id.Email))
 		}
 		imported++
+		if firstImportedName == "" {
+			firstImportedName = id.Name
+		}
+		if originalCurrentRemoved && store.Current == "" {
+			restoredCurrent = id.Name
+			originalCurrentRemoved = false
+		}
+	}
+
+	// Reactivate: prefer restoring whichever imported identity replaced the
+	// one that was active before this import overwrote it; otherwise, if
+	// there was no active identity at all, auto-activate the first freshly
+	// imported one instead of leaving it inert. Either way this keeps the
+	// live git config (name/email/SSH command/signing) from silently going
+	// stale or pointing at an identity that no longer exists.
+	activateName := restoredCurrent
+	if activateName == "" && originalCurrent == "" && firstImportedName != "" {
+		activateName = firstImportedName
+	}
+	if activateName != "" {
+		if u := store.FindUser(activateName); u != nil {
+			store.Current = activateName
+			if err := git.Apply(u.Name, u.Email); err == nil {
+				_ = applyUserSSHConfig(u, false)
+				if !u.SignDisabled && u.SignKey != "" {
+					_ = git.ConfigureSigning(u.SignKey, u.SignFormat)
+				} else {
+					git.RemoveSigningConfig()
+				}
+				ui.Info(fmt.Sprintf("Activated identity %q", activateName))
+			}
+		}
 	}
 
 	if err := config.Save(store); err != nil {
@@ -159,7 +209,11 @@ func runImport(args []string) error {
 
 	fmt.Println()
 	if imported > 0 {
-		ui.Info(fmt.Sprintf("Imported %d identit%s. Run 'git-user switch <name>' to activate one.", imported, plural(imported)))
+		if activateName == "" {
+			ui.Info(fmt.Sprintf("Imported %d identit%s. Run 'git-user switch <name>' to activate one.", imported, plural(imported)))
+		} else {
+			ui.Info(fmt.Sprintf("Imported %d identit%s.", imported, plural(imported)))
+		}
 	}
 	if skipped > 0 {
 		ui.Info(fmt.Sprintf("%d identit%s skipped (already exist).", skipped, plural(skipped)))

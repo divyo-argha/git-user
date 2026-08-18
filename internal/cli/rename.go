@@ -39,17 +39,34 @@ func runRename(args []string) error {
 		return fmt.Errorf("name exists")
 	}
 
+	// A repo-local override pointing at this identity (by its pre-rename
+	// name/email) needs the same rename applied at --local scope, or it goes
+	// stale — global-only awareness elsewhere in this codebase is exactly the
+	// kind of gap that left switch --local's own bugs unnoticed.
+	oldUser := store.FindUser(oldName)
+	localOverrideMatched := git.IsInRepo() && git.HasLocalOverride() &&
+		git.CurrentLocalName() == oldUser.Name && git.CurrentLocalEmail() == oldUser.Email
+
 	if err := store.RenameUser(oldName, newName); err != nil {
 		ui.Errorf("%v", err)
 		return err
 	}
 
+	u := store.FindUser(newName)
+
 	// If this is the active user, re-apply git config so the global user.name
 	// matches the new profile name.
 	if store.Current == newName {
-		u := store.FindUser(newName)
 		if err := git.Apply(u.Name, u.Email); err != nil {
 			ui.Errorf("re-applying git config: %v", err)
+		}
+	}
+
+	if localOverrideMatched {
+		if err := git.ApplyScope(u.Name, u.Email, true); err != nil {
+			ui.Warn(fmt.Sprintf("could not update this repo's local override: %v", err))
+		} else {
+			ui.Info("Updated this repository's local override to match the rename.")
 		}
 	}
 
