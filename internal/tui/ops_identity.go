@@ -82,10 +82,16 @@ func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
 			if passphrase != "" && mode == "persistent" {
 				_ = keyring.SetKeychainPassphrase(user.Name, passphrase)
 			}
-			if ssh.EnsureSSHAgent() == nil {
-				if err := ssh.AddSSHKeyWithPassphrase(user.SSHKey, p); err != nil {
-					warnings = append(warnings, fmt.Sprintf("Could not load key into agent: %v", err))
-				}
+			// EnsureSSHAgent prints its own guidance on failure, but that goes
+			// to raw stdout — invisible or corrupted under the TUI's
+			// alt-screen rendering, unlike everything else here which surfaces
+			// through `warnings` into the report/toast the user actually
+			// sees. Without this, a switch with no reachable agent would
+			// report success with no indication the key was never loaded.
+			if agentErr := ssh.EnsureSSHAgent(); agentErr != nil {
+				warnings = append(warnings, fmt.Sprintf("Key for %q was NOT loaded into any ssh-agent (no agent reachable) — the next push/pull may hang or fail asking for a passphrase.", user.Name))
+			} else if err := ssh.AddSSHKeyWithPassphrase(user.SSHKey, p); err != nil {
+				warnings = append(warnings, fmt.Sprintf("Could not load key into agent: %v", err))
 			}
 		}
 	}

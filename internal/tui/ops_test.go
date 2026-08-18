@@ -2,7 +2,9 @@ package tui
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/divyo-argha/git-user/internal/config"
@@ -228,5 +230,63 @@ func TestNeedsPassphraseForSwitchNoKey(t *testing.T) {
 	store := &config.Store{Users: []config.User{{Name: "eng", Email: "eng@corp.com"}}}
 	if needsPassphraseForSwitch(store, "eng") {
 		t.Error("expected no passphrase needed when no SSH key")
+	}
+}
+
+// TestOpSwitchWarnsWhenAgentUnreachable guards against a regression where
+// switching to a passphrase-protected identity with no reachable ssh-agent
+// (the test sandbox always clears SSH_AUTH_SOCK, exactly reproducing that
+// case) silently returned success with no warning that the key was never
+// actually loaded into any agent. EnsureSSHAgent prints its own message on
+// failure, but that's a raw stdout write the TUI's alt-screen swallows — the
+// only way the TUI user can find out is via the report/warnings this op
+// returns, which used to stay empty in this exact case.
+func TestOpSwitchWarnsWhenAgentUnreachable(t *testing.T) {
+	if _, err := exec.LookPath("ssh-keygen"); err != nil {
+		t.Skip("ssh-keygen not available")
+	}
+	withTempConfig(t)
+	dir := os.Getenv("HOME")
+
+	keyPath := filepath.Join(dir, "protected_key")
+	if err := exec.Command("ssh-keygen", "-t", "ed25519", "-C", "test@example.com", "-f", keyPath, "-N", "secret123").Run(); err != nil {
+		t.Fatalf("generating protected key: %v", err)
+	}
+
+	store, _ := config.Load()
+	_ = store.AddUser("protected", "protected@example.com")
+	_ = store.BindSSHKey("protected", keyPath)
+	_ = config.Save(store)
+
+	res, err := opSwitch(store, "protected", "secret123")
+	if err != nil {
+		t.Fatalf("opSwitch failed: %v", err)
+	}
+	if !res.showReport {
+		t.Error("expected the agent warning to force a report screen, not a fleeting toast")
+	}
+	if !strings.Contains(res.detail, "NOT loaded into any ssh-agent") {
+		t.Errorf("expected an explicit warning that the key was not loaded into any ssh-agent, got detail:\n%s", res.detail)
+	}
+}
+
+// TestOpRekeyWarnsWhenAgentUnreachable is opRekey's counterpart to
+// TestOpSwitchWarnsWhenAgentUnreachable: rotating the active identity's key
+// with a new passphrase but no reachable ssh-agent used to produce a report
+// with no mention that the freshly rotated key was never loaded anywhere.
+func TestOpRekeyWarnsWhenAgentUnreachable(t *testing.T) {
+	withTempConfig(t)
+
+	store, _ := config.Load()
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.SetCurrent("dev")
+	_ = config.Save(store)
+
+	res, err := opRekey(store, "dev", "secret123")
+	if err != nil {
+		t.Fatalf("opRekey failed: %v", err)
+	}
+	if !strings.Contains(res.detail, "NOT loaded into any ssh-agent") {
+		t.Errorf("expected an explicit warning that the new key was not loaded into any ssh-agent, got detail:\n%s", res.detail)
 	}
 }

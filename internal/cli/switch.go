@@ -196,8 +196,15 @@ func runSwitch(args []string) error {
 				}
 			}
 
-			// Load it into agent
-			if ssh.EnsureSSHAgent() == nil {
+			// Load it into agent. EnsureSSHAgent already prints its own
+			// "ssh-agent is not running" guidance when it fails, but that's
+			// easy to miss among the rest of this command's output and gives
+			// no indication afterward that the key never actually got loaded
+			// — call it out explicitly so "Switched to X" never reads as
+			// "and the key is ready to use" when it isn't.
+			if agentErr := ssh.EnsureSSHAgent(); agentErr != nil {
+				ui.Warn(fmt.Sprintf("Key for %q was NOT loaded into any ssh-agent — the next push/pull may hang or fail asking for a passphrase.", user.Name))
+			} else {
 				if err := ssh.AddSSHKeyWithPassphrase(user.SSHKey, passphrase); err != nil {
 					ui.Warn(fmt.Sprintf("Could not load key into agent: %v", err))
 				} else {

@@ -252,12 +252,16 @@ func opRekey(store *config.Store, name, passphrase string) (opResult, error) {
 	// `switch`. Unprotected keys need no agent entry.
 	agentNote := ""
 	if store.Current == name && passphrase != "" {
-		if ssh.EnsureSSHAgent() == nil {
-			if err := ssh.AddSSHKeyWithPassphrase(keyPath, passphrase); err != nil {
-				agentNote = fmt.Sprintf("⚠ Could not load new key into ssh-agent: %v\n\n", err)
-			} else {
-				agentNote = "New key unlocked and loaded into ssh-agent.\n\n"
-			}
+		// EnsureSSHAgent prints its own guidance on failure, but that's a raw
+		// stdout write invisible under the TUI's alt-screen — without this
+		// explicit note the report would say nothing at all about the new
+		// key never having been loaded anywhere.
+		if agentErr := ssh.EnsureSSHAgent(); agentErr != nil {
+			agentNote = "⚠ New key was NOT loaded into any ssh-agent (no agent reachable) — the next push/pull may hang or fail asking for a passphrase.\n\n"
+		} else if err := ssh.AddSSHKeyWithPassphrase(keyPath, passphrase); err != nil {
+			agentNote = fmt.Sprintf("⚠ Could not load new key into ssh-agent: %v\n\n", err)
+		} else {
+			agentNote = "New key unlocked and loaded into ssh-agent.\n\n"
 		}
 	}
 

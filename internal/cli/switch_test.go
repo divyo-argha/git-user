@@ -4,12 +4,50 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
+
+// TestRunSwitch_WarnsWhenAgentUnreachable guards against a regression where
+// switching to a passphrase-protected identity with no reachable ssh-agent
+// (EnsureSSHAgent's failure case — the test sandbox always clears
+// SSH_AUTH_SOCK) silently completed with a "Switched to X" success message
+// and no indication the key was never actually loaded anywhere, leaving the
+// next push/pull to hang or fail with zero warning ever having been given.
+func TestRunSwitch_WarnsWhenAgentUnreachable(t *testing.T) {
+	if _, err := exec.LookPath("ssh-keygen"); err != nil {
+		t.Skip("ssh-keygen not available")
+	}
+	tmpDir := setupTestEnv(t)
+
+	keyPath := filepath.Join(tmpDir, "protected_key")
+	if err := exec.Command("ssh-keygen", "-t", "ed25519", "-C", "test@example.com", "-f", keyPath, "-N", "secret123").Run(); err != nil {
+		t.Fatalf("generating protected key: %v", err)
+	}
+
+	store, _ := config.Load()
+	_ = store.AddUser("protected", "protected@example.com")
+	_ = store.BindSSHKey("protected", keyPath)
+	_ = config.Save(store)
+
+	readPassphraseFn = func(prompt string) (string, error) {
+		return "secret123", nil
+	}
+
+	out := captureStdout(t, func() {
+		if err := runSwitch([]string{"protected"}); err != nil {
+			t.Fatalf("runSwitch failed: %v", err)
+		}
+	})
+
+	if !strings.Contains(out, "NOT loaded into any ssh-agent") {
+		t.Errorf("expected an explicit warning that the key was not loaded into any ssh-agent, got output:\n%s", out)
+	}
+}
 
 func TestRunSwitch_SkipSSH(t *testing.T) {
 	_ = setupTestEnv(t)
