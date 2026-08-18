@@ -137,10 +137,19 @@ func PrintLogo() {
 	fmt.Println(strings.Join(lines, "\n"))
 }
 
+// PrintBanner prints the git-user design logo with the version line to stdout, matching the TUI banner.
+func PrintBanner(ver string) {
+	lines := logo.GetTrimmedLogo()
+	fmt.Println(strings.Join(lines, "\n"))
+	if ver != "" {
+		fmt.Printf("  %s\n", lipgloss.NewStyle().Foreground(lipgloss.Color("#787C99")).Render(fmt.Sprintf("Version %s", ver)))
+	}
+}
+
 // PrintUpdateSuccess renders the Unicode logo and an aesthetic version transition card.
 func PrintUpdateSuccess(oldVer, newVer string, verified bool) {
 	fmt.Println()
-	PrintLogo()
+	PrintBanner(newVer)
 	fmt.Println()
 
 	var sb strings.Builder
@@ -167,7 +176,7 @@ func PrintUpdateSuccess(oldVer, newVer string, verified bool) {
 // PrintUpdateCurrent renders the Unicode logo and an up-to-date card.
 func PrintUpdateCurrent(ver string) {
 	fmt.Println()
-	PrintLogo()
+	PrintBanner(ver)
 	fmt.Println()
 
 	var sb strings.Builder

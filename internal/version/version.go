@@ -16,6 +16,16 @@ func GetVersion() string {
 	return Version
 }
 
+// SetVersion updates the current in-memory version string (e.g. after a self-update).
+func SetVersion(v string) {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return
+	}
+	Version = v
+	BuildVersion = v
+}
+
 // ParseVersion extracts major, minor, and patch numbers from a version string.
 func ParseVersion(v string) (int, int, int) {
 	v = strings.TrimPrefix(v, "v")

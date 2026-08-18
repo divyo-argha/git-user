@@ -36,6 +36,12 @@ func (s *StatusBar) SetVersionStatus(latestVersion string, updateAvailable bool)
 	s.updateAvailable = updateAvailable
 }
 
+// LatestVersion returns the latest known remote version string.
+func (s StatusBar) LatestVersion() string { return s.latestVersion }
+
+// UpdateAvailable reports whether a newer remote version is available.
+func (s StatusBar) UpdateAvailable() bool { return s.updateAvailable }
+
 // SetAgentStatus updates the SSH agent status.
 func (s *StatusBar) SetAgentStatus(connected bool, keyCount int) {
 	s.agentConnected = connected
