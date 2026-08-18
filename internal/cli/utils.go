@@ -152,21 +152,20 @@ func generateAndDisplayKey(name, email string) (string, error) {
 	}
 	ui.Success("SSH key generated!")
 
-	ui.Info("You will be prompted to set a passphrase for the key.")
+	ui.Info("You will be prompted to set a passphrase for the key. Press Enter to skip.")
 	newPass, err := readPassphrase(PassphrasePrompt)
-	if err != nil || newPass == "" {
-		return keyPath, nil
-	}
-	confirm, err := readPassphrase(ConfirmPassphrasePrompt)
-	if err != nil || newPass != confirm {
-		ui.Error("Passphrases do not match.")
-		return keyPath, nil
-	}
-	if err := ssh.ChangeKeyPassphrase(keyPath, "", newPass); err != nil {
-		ui.Errorf("Could not add passphrase: %v", err)
-	} else {
-		ui.Success("Passphrase applied securely!")
-		promptAndStoreKeychain(name, keyPath, newPass)
+	if err != nil {
+		ui.Warn("Skipping passphrase setup.")
+	} else if newPass != "" {
+		confirm, err := readPassphrase(ConfirmPassphrasePrompt)
+		if err != nil || newPass != confirm {
+			ui.Error("Passphrases do not match. Skipping passphrase setup.")
+		} else if err := ssh.ChangeKeyPassphrase(keyPath, "", newPass); err != nil {
+			ui.Errorf("Could not add passphrase: %v", err)
+		} else {
+			ui.Success("Passphrase applied securely!")
+			promptAndStoreKeychain(name, keyPath, newPass)
+		}
 	}
 
 	pubKeyBytes, err := os.ReadFile(keyPath + ".pub")

@@ -19,13 +19,14 @@ type FormInput struct {
 
 // Form is a generic form screen.
 type Form struct {
-	title   string
-	help    string
-	context string // to identify the form result
-	inputs  []components.TextInput
-	labels  []string
-	cursor  int
-	theme   theme.Theme
+	title     string
+	help      string
+	context   string // to identify the form result
+	inputs    []components.TextInput
+	labels    []string
+	cursor    int
+	theme     theme.Theme
+	skippable bool
 }
 
 // NewForm creates a new generic form screen.
@@ -56,6 +57,14 @@ func NewForm(title, help, context string, fields []FormInput, th theme.Theme) *F
 	}
 }
 
+// Skippable marks the form so Esc submits it with empty values instead of
+// cancelling back to the previous screen — for optional steps (like setting a
+// passphrase) where declining should still complete the flow, not abandon it.
+func (f *Form) Skippable() *Form {
+	f.skippable = true
+	return f
+}
+
 func (f *Form) Init() tea.Cmd {
 	return components.TextInputBlink
 }
@@ -68,6 +77,12 @@ func (f *Form) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if core.IsEscKey(msg) {
+			if f.skippable {
+				values := make([]string, len(f.inputs))
+				return f, func() tea.Msg {
+					return core.FormResultMsg{Context: f.context, Values: values}
+				}
+			}
 			return f, func() tea.Msg { return core.ScreenPopMsg{} }
 		}
 		switch msg.String() {
@@ -156,7 +171,11 @@ func (f *Form) View(width, height int) string {
 		lines = append(lines, "")
 	}
 
-	lines = append(lines, f.theme.Dim().Render("  Enter to submit, Esc to cancel"))
+	footer := "  Enter to submit, Esc to cancel"
+	if f.skippable {
+		footer = "  Enter to submit, Esc to skip"
+	}
+	lines = append(lines, f.theme.Dim().Render(footer))
 	lines = append(lines, "")
 
 	content := strings.Join(lines, "\n")
