@@ -80,7 +80,7 @@ func (t Theme) buildStyles() themeStyles {
 		Active:   lipgloss.NewStyle().Foreground(t.Secondary).Bold(true),
 
 		PaneTitle:     lipgloss.NewStyle().Foreground(t.Primary).Bold(true),
-		SectionHeader: lipgloss.NewStyle().Foreground(t.TextDim).Italic(true),
+		SectionHeader: lipgloss.NewStyle().Foreground(t.TextDim).Bold(true),
 
 		Separator: lipgloss.NewStyle().Foreground(t.Muted),
 	}
@@ -267,8 +267,14 @@ const (
 	// width it is requested with (lipgloss Width excludes the 1-column border
 	// on each side).
 	PaneBorder = 2
-	// StatusBarHeight is the number of lines reserved for the status bar.
+	// StatusBarHeight is the number of lines reserved for the full status bar.
 	StatusBarHeight = 5
+	// CompactStatusBarHeight is the status bar's height once it collapses to a
+	// single line below StatusBarCompactBreakpoint terminal rows.
+	CompactStatusBarHeight = 1
+	// StatusBarCompactBreakpoint is the terminal height below which the status
+	// bar switches to its single-line compact view.
+	StatusBarCompactBreakpoint = 15
 	// HelpBarHeight is the number of lines reserved for the help footer.
 	HelpBarHeight = 2
 	// ChromeHeight is total lines consumed by status bar + help bar + margins.
@@ -290,7 +296,11 @@ func PaneWidth(termWidth int) int {
 
 // ContentHeight calculates the available height for screen content.
 func ContentHeight(termHeight int) int {
-	h := termHeight - ChromeHeight
+	sbHeight := StatusBarHeight
+	if termHeight > 0 && termHeight < StatusBarCompactBreakpoint {
+		sbHeight = CompactStatusBarHeight
+	}
+	h := termHeight - (sbHeight + HelpBarHeight + 3)
 	if h < 5 {
 		return 5
 	}

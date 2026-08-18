@@ -1,6 +1,7 @@
 package components
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -38,29 +39,29 @@ func NewActionMenu(title string, items []ActionItem, th theme.Theme) ActionMenu 
 func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 	items := []ActionItem{
 		{IsSection: true, Label: "Quick Actions"},
-		{Label: "→ Sign out (logout)", Key: "logout"},
+		{Label: "→ Sign out", Key: "logout"},
 	}
 
 	if showFixRemote {
-		items = append(items, ActionItem{Label: "⇄ Fix remotes (HTTPS → SSH)", Key: "fix-remote"})
+		items = append(items, ActionItem{Label: "⇄ Fix remote → SSH", Key: "fix-remote"})
 	}
 
 	items = append(items,
 		ActionItem{IsSection: true, Label: "Health & Security"},
-		ActionItem{Label: "✦ Doctor (health & security check)", Key: "doctor"},
-		ActionItem{Label: "⟳ Refresh (fix config drift)", Key: "refresh"},
+		ActionItem{Label: "✦ Doctor", Key: "doctor"},
+		ActionItem{Label: "⟳ Refresh", Key: "refresh"},
 		ActionItem{Label: "☰ Identity switch log", Key: "log"},
 		ActionItem{Label: "↓ Import existing git identity", Key: "import-original"},
-		ActionItem{Label: "⇪ Import / Export bundles…", Key: "import-export"},
+		ActionItem{Label: "⇪ Import/Export bundles", Key: "import-export"},
 		ActionItem{IsSection: true, Label: "Profiles & System"},
 		ActionItem{Label: "~ Create temporary profile", Key: "register-temp"},
 		ActionItem{Label: "↓ Clone repository", Key: "clone"},
 		ActionItem{Label: "◈ Commit identity stats", Key: "stats"},
 		ActionItem{Label: "⚓ Git hooks", Key: "hook"},
 		ActionItem{Label: "↻ Sync identities", Key: "sync"},
-		ActionItem{Label: "▲ Update git-user (up to date)", Key: "update", Disabled: true},
+		ActionItem{Label: "▲ Up to date", Key: "update", Disabled: true},
 		ActionItem{IsSection: true, Label: "Danger Zone"},
-		ActionItem{Label: "✖ Uninstall git-user", Key: "uninstall", IsDanger: true},
+		ActionItem{Label: "✖ Uninstall", Key: "uninstall", IsDanger: true},
 	)
 	return NewActionMenu("System Utilities", items, th)
 }
@@ -70,10 +71,10 @@ func (m *ActionMenu) SetUpdateStatus(latestVersion string, updateAvailable bool)
 	for i := range m.items {
 		if m.items[i].Key == "update" {
 			if updateAvailable && latestVersion != "" {
-				m.items[i].Label = "▲ Update git-user (" + latestVersion + " available)"
+				m.items[i].Label = "▲ Update available (" + latestVersion + ")"
 				m.items[i].Disabled = false
 			} else {
-				m.items[i].Label = "▲ Update git-user (up to date)"
+				m.items[i].Label = "▲ Up to date"
 				m.items[i].Disabled = true
 			}
 			if m.items[m.cursor].Disabled {
@@ -143,8 +144,8 @@ func (m *ActionMenu) PreferredWidth(minWidth, maxWidth int) int {
 	for _, item := range m.items {
 		var lineLen int
 		if item.IsSection {
-			// "  ── Label ──" — 2 spaces + 3 + label + 3
-			lineLen = 2 + 3 + lipgloss.Width(item.Label) + 3
+			// "  LABEL" — 2 spaces + uppercased label
+			lineLen = 2 + lipgloss.Width(strings.ToUpper(item.Label))
 		} else {
 			// "▶ Label" (cursor) or "  Label" (normal) — longest form is with cursor prefix
 			lineLen = 2 + lipgloss.Width(item.Label)
@@ -164,7 +165,8 @@ func (m *ActionMenu) PreferredWidth(minWidth, maxWidth int) int {
 	return w
 }
 
-// View renders the action menu.
+// View renders the action menu, windowed to height so it never overflows
+// its pane border regardless of terminal size.
 func (m ActionMenu) View(width, height int, isActive bool) string {
 	var lines []string
 
@@ -173,14 +175,53 @@ func (m ActionMenu) View(width, height int, isActive bool) string {
 		title = "System Utilities"
 	}
 	lines = append(lines, m.theme.PaneTitle().Render(title))
-	lines = append(lines, m.theme.SeparatorLine(width-6))
+	headerRows := 1
 
-	for i, item := range m.items {
+	total := len(m.items)
+
+	// How many item rows fit in the remaining pane height?
+	// Reserve 2 rows for potential top/bottom scroll indicators.
+	availRows := height - headerRows - 2
+	if availRows < 1 {
+		availRows = 1
+	}
+
+	visibleCount := availRows
+	if visibleCount > total {
+		visibleCount = total
+	}
+
+	// Keep cursor inside the window.
+	windowStart := m.cursor - visibleCount + 1
+	if windowStart < 0 {
+		windowStart = 0
+	}
+	if m.cursor < windowStart {
+		windowStart = m.cursor
+	}
+	windowEnd := windowStart + visibleCount
+	if windowEnd > total {
+		windowEnd = total
+		windowStart = windowEnd - visibleCount
+		if windowStart < 0 {
+			windowStart = 0
+		}
+	}
+
+	hiddenAbove := windowStart
+	hiddenBelow := total - windowEnd
+
+	if hiddenAbove > 0 {
+		lines = append(lines, m.theme.Dim().Render(fmt.Sprintf("  ▲ %d more above", hiddenAbove)))
+	} else {
+		lines = append(lines, "") // blank spacer keeps layout stable
+	}
+
+	for i := windowStart; i < windowEnd; i++ {
+		item := m.items[i]
+
 		if item.IsSection {
-			if i > 0 {
-				lines = append(lines, "")
-			}
-			lines = append(lines, "  "+m.theme.SectionHeader().Render("── "+item.Label+" ──"))
+			lines = append(lines, "  "+m.theme.SectionHeader().Render(strings.ToUpper(item.Label)))
 			continue
 		}
 
@@ -203,6 +244,10 @@ func (m ActionMenu) View(width, height int, isActive bool) string {
 		} else {
 			lines = append(lines, "  "+label)
 		}
+	}
+
+	if hiddenBelow > 0 {
+		lines = append(lines, m.theme.Dim().Render(fmt.Sprintf("  ▼ %d more below", hiddenBelow)))
 	}
 
 	return strings.Join(lines, "\n")

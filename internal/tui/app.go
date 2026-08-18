@@ -244,8 +244,6 @@ func (a *App) View() string {
 
 	var sb strings.Builder
 
-	sb.WriteString("\n")
-
 	statusView := a.statusBar.View(a.width, a.height)
 	sb.WriteString(statusView)
 	sb.WriteString("\n")
@@ -266,9 +264,8 @@ func (a *App) View() string {
 
 	if a.toast.IsVisible() {
 		sb.WriteString(a.toast.View(a.width))
+		sb.WriteString("\n")
 	}
-
-	sb.WriteString("\n")
 
 	sb.WriteString(a.helpBar.View(a.width))
 	sb.WriteString("\n")
