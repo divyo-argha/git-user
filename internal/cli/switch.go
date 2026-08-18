@@ -437,27 +437,12 @@ func quickRegister(name, email string, isTemp, skipSSH bool, store *config.Store
 	return nil
 }
 
-func runSwitchOriginal(args []string) error {
-	store, err := config.Load()
-	if err != nil {
-		ui.Errorf("loading config: %v", err)
-		return err
-	}
-
-	o := store.Original
-	if o == nil {
-		// No snapshot yet: this is a plain import of the current gitconfig
-		// identity (interactive name pick when none given).
-		ui.Info("No original identity snapshot exists yet — importing the current gitconfig identity instead.")
-		return runImportOriginal(args)
-	}
-
-	if o.Name == "" && o.Email == "" {
-		ui.Warn("Original gitconfig had no user.name or user.email set")
-	}
-
+// restoreOriginalGitConfig applies a pre-git-user gitconfig snapshot back onto
+// the live global git config: identity, SSH command, and signing. Shared by
+// `switch --original` and `uninstall`, which both need to put git back the
+// way it was before git-user ever touched it.
+func restoreOriginalGitConfig(o *config.OriginalConfig) error {
 	if err := git.Apply(o.Name, o.Email); err != nil {
-		ui.Errorf("restoring git config: %v", err)
 		return err
 	}
 
@@ -477,6 +462,33 @@ func runSwitchOriginal(args []string) error {
 		}
 	} else {
 		git.RemoveSigningConfig()
+	}
+
+	return nil
+}
+
+func runSwitchOriginal(args []string) error {
+	store, err := config.Load()
+	if err != nil {
+		ui.Errorf("loading config: %v", err)
+		return err
+	}
+
+	o := store.Original
+	if o == nil {
+		// No snapshot yet: this is a plain import of the current gitconfig
+		// identity (interactive name pick when none given).
+		ui.Info("No original identity snapshot exists yet — importing the current gitconfig identity instead.")
+		return runImportOriginal(args)
+	}
+
+	if o.Name == "" && o.Email == "" {
+		ui.Warn("Original gitconfig had no user.name or user.email set")
+	}
+
+	if err := restoreOriginalGitConfig(o); err != nil {
+		ui.Errorf("restoring git config: %v", err)
+		return err
 	}
 
 	if store.Current != "" {

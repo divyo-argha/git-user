@@ -51,7 +51,8 @@ COMMANDS
     sync                       Synchronize identities across devices using a private repository
 
   System
-    doctor                     Check setup
+    doctor                     Check setup (read-only diagnostics)
+    refresh                    Fix config conflicts doctor finds (re-syncs git config to match git-user's state)
     audit                      Run security audit
     stats                      Audit and show commit author identity stats
     sign <name>                Manage commit signing for an identity
@@ -59,6 +60,7 @@ COMMANDS
     hook <install|uninstall>   Manage git pre-commit hooks
     log [-n <count>|--all]     Show the identity-switch audit log
     logout                     Sign out and clear active identity
+    uninstall [--yes]          Remove git-user entirely: identities, keys, config, restore original git identity
     tui                        Interactive menu
     completion <shell>         Generate shell completion (bash/zsh/fish)
 
@@ -188,6 +190,10 @@ func Execute() error {
 		return runImport(rest)
 	case "doctor":
 		return runDoctor(rest)
+	case "refresh":
+		return runRefresh(rest)
+	case "uninstall":
+		return runUninstall(rest)
 	case "tui":
 		return runTui()
 	case "completion":
@@ -266,6 +272,10 @@ func normalizeSubcommand(sub string) string {
 	// Diagnostics & Security
 	case "doctor", "--doctor":
 		return "doctor"
+	case "refresh", "--refresh", "repair", "--repair", "fix", "--fix":
+		return "refresh"
+	case "uninstall", "--uninstall", "purge", "--purge":
+		return "uninstall"
 	case "audit", "--audit", "security", "--security":
 		return "audit"
 	case "stats", "--stats":
