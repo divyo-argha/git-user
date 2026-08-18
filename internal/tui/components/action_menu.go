@@ -50,7 +50,7 @@ func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 		ActionItem{IsSection: true, Label: "Health & Security"},
 		ActionItem{Label: "✦ Doctor", Key: "doctor"},
 		ActionItem{Label: "⟳ Refresh", Key: "refresh"},
-		ActionItem{Label: "☰ Identity switch log", Key: "log"},
+		ActionItem{Label: "≡ Identity switch log", Key: "log"},
 		ActionItem{Label: "↓ Import existing git identity", Key: "import-original"},
 		ActionItem{Label: "⇪ Import/Export bundles", Key: "import-export"},
 		ActionItem{IsSection: true, Label: "Profiles & System"},
