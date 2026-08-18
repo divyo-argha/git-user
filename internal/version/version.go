@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-var Version = "v4.9.1"
+var Version = "v4.9.2"
 
 var BuildVersion = ""
 
