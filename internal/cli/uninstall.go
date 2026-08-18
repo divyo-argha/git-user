@@ -190,6 +190,11 @@ func runUninstall(args []string) error {
 	}
 	if removeBinary {
 		if exe, err := os.Executable(); err == nil {
+			// Also remove sibling 'gu' symlink if it exists and points to this binary
+			guPath := filepath.Join(filepath.Dir(exe), "gu")
+			if target, err := filepath.EvalSymlinks(guPath); err == nil && target == exe {
+				_ = os.Remove(guPath)
+			}
 			if err := os.Remove(exe); err != nil {
 				ui.Warn(fmt.Sprintf("Could not remove binary at %s: %v — remove it manually.", exe, err))
 			} else {

@@ -169,7 +169,7 @@ func PrintUpdateSuccess(oldVer, newVer string, verified bool) {
 		Render(sb.String())
 
 	fmt.Println(card)
-	fmt.Println(lipgloss.NewStyle().Foreground(colMuted).Render("  Run 'git-user' to launch the interactive dashboard."))
+	fmt.Println(lipgloss.NewStyle().Foreground(colMuted).Render("  Run 'git-user' (or 'gu') to launch the interactive dashboard."))
 	fmt.Println()
 }
 
@@ -192,7 +192,7 @@ func PrintUpdateCurrent(ver string) {
 		Render(sb.String())
 
 	fmt.Println(card)
-	fmt.Println(lipgloss.NewStyle().Foreground(colMuted).Render("  Run 'git-user' to launch the interactive dashboard."))
+	fmt.Println(lipgloss.NewStyle().Foreground(colMuted).Render("  Run 'git-user' (or 'gu') to launch the interactive dashboard."))
 	fmt.Println()
 }
 
