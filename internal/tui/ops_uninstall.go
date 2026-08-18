@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -84,21 +85,26 @@ func uninstallRestoreOriginal(o *config.OriginalConfig) error {
 	if err := git.Apply(o.Name, o.Email); err != nil {
 		return err
 	}
+	var errs []error
 	if o.SSHCommand != "" {
-		_ = git.SetSSHCommand(o.SSHCommand)
+		if err := git.SetSSHCommand(o.SSHCommand); err != nil {
+			errs = append(errs, fmt.Errorf("restoring core.sshCommand: %w", err))
+		}
 	} else {
 		git.RemoveSSHConfig()
 	}
 	if o.SignKey != "" || o.CommitGPGSign != "" {
+		format := "gpg"
 		if o.SignFormat == "ssh" {
-			git.ConfigureSigning(o.SignKey, "ssh")
-		} else {
-			git.ConfigureSigning(o.SignKey, "gpg")
+			format = "ssh"
+		}
+		if err := git.ConfigureSigning(o.SignKey, format); err != nil {
+			errs = append(errs, fmt.Errorf("restoring signing config: %w", err))
 		}
 	} else {
 		git.RemoveSigningConfig()
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 // uninstallRemoveManagedIncludeIfs strips only the global includeIf entries

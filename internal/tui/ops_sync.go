@@ -20,6 +20,7 @@ import (
 func opSync(store *config.Store, repoURL, passphrase string) (opResult, error) {
 	home, _ := os.UserHomeDir()
 	syncDir := filepath.Join(home, ".git-users", "sync")
+	var setupWarnings []string
 
 	// 1. Setup sync config if not already configured.
 	if repoURL != "" {
@@ -28,7 +29,7 @@ func opSync(store *config.Store, repoURL, passphrase string) (opResult, error) {
 			deviceName = "device"
 		}
 		if err := keyring.KeyringSet("git-user-sync", "sync", passphrase); err != nil {
-			_ = err
+			setupWarnings = append(setupWarnings, fmt.Sprintf("Could not store the sync passphrase in the system keychain securely (%v) — storing in session only, you'll be asked for it again next time.", err))
 		}
 		store.Sync = &config.SyncConfig{
 			RepoURL:    repoURL,
@@ -167,11 +168,24 @@ func opSync(store *config.Store, repoURL, passphrase string) (opResult, error) {
 	// 6. Commit and push.
 	_ = runGitInDir(syncDir, "add", "backup.bundle")
 	commitMsg := fmt.Sprintf("Sync: %s at %s", store.Sync.DeviceName, time.Now().Format(time.RFC3339))
-	_ = runGitInDir(syncDir, "commit", "-m", commitMsg)
+	commitOut, commitErr := runCaptured(syncDir, "git", "commit", "-m", commitMsg)
+	// A non-nil error here is expected and benign when there's nothing new to
+	// sync ("nothing to commit"). Anything else (bad git identity in the sync
+	// repo, disk error) would otherwise be indistinguishable from that benign
+	// case — the push right after would silently just re-push the last
+	// commit, reporting "Pushed synchronized configurations" even though
+	// this device's changes were never actually captured.
+	commitFailed := commitErr != nil && !strings.Contains(strings.ToLower(commitOut), "nothing to commit")
 
 	report := fmt.Sprintf("Synced %d identities to %s\n", len(localIdentities), store.Sync.DeviceName)
 	if mergedCount > 0 {
 		report += fmt.Sprintf("Imported %d new identity/identities from remote\n", mergedCount)
+	}
+	for _, w := range setupWarnings {
+		report += "⚠ " + w + "\n"
+	}
+	if commitFailed {
+		report += fmt.Sprintf("⚠ Could not commit this device's changes locally (%v) — only previously-synced data was pushed, not the changes from this run.\n", commitErr)
 	}
 	if err := runGitInDir(syncDir, "push", "origin", "main"); err != nil {
 		report += "⚠ Could not push changes to remote (it might be offline)\n"

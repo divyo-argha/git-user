@@ -165,7 +165,10 @@ func (pm *PassphraseMenu) handleEnter() (core.Screen, tea.Cmd) {
 			labelMsg = "Persistent Keychain"
 		}
 		user.PassphraseMode = next
-		_ = config.Save(pm.store)
+		if err := config.Save(pm.store); err != nil {
+			user.PassphraseMode = curr
+			return pm, core.ShowToastCmd("⚠ Could not save passphrase mode: "+err.Error(), theme.ToastStyleError, 4*time.Second)
+		}
 		if next == "login" || next == "everytime" {
 			_ = keyring.DeleteKeychainPassphrase(user.Name)
 		}

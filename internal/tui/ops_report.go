@@ -198,25 +198,38 @@ func opRefresh(store *config.Store) (opResult, error) {
 		fixed++
 	} else {
 		before := refreshGitConfigFingerprint()
+		var applyErrs []string
 
 		if err := git.Apply(user.Name, user.Email); err != nil {
-			report += fmt.Sprintf("⚠ Could not re-apply name/email: %v\n", err)
+			applyErrs = append(applyErrs, fmt.Sprintf("re-apply name/email: %v", err))
 		}
+		var sshErr error
 		if user.SSHCommand != "" {
-			_ = git.SetSSHCommand(user.SSHCommand)
+			sshErr = git.SetSSHCommand(user.SSHCommand)
 		} else if user.SSHKey != "" {
-			_ = git.ConfigureSSH(user.SSHKey)
+			sshErr = git.ConfigureSSH(user.SSHKey)
 		} else {
-			_ = git.RemoveSSHConfig()
+			sshErr = git.RemoveSSHConfig()
+		}
+		if sshErr != nil {
+			applyErrs = append(applyErrs, fmt.Sprintf("re-apply SSH config: %v", sshErr))
 		}
 		if !user.SignDisabled && user.SignKey != "" {
-			_ = git.ConfigureSigning(user.SignKey, user.SignFormat)
+			if err := git.ConfigureSigning(user.SignKey, user.SignFormat); err != nil {
+				applyErrs = append(applyErrs, fmt.Sprintf("re-apply signing config: %v", err))
+			}
 		} else {
 			git.RemoveSigningConfig()
 		}
 
+		for _, e := range applyErrs {
+			report += "⚠ Could not " + e + "\n"
+		}
 		if before != refreshGitConfigFingerprint() {
 			report += fmt.Sprintf("Fixed: git config had drifted from identity %q — corrected.\n", user.Name)
+			fixed++
+		} else if len(applyErrs) > 0 {
+			report += fmt.Sprintf("Git config unchanged for identity %q — the fix attempt above failed, this was NOT verified as healthy.\n", user.Name)
 			fixed++
 		} else {
 			report += fmt.Sprintf("Git config already matched identity %q — nothing to fix.\n", user.Name)

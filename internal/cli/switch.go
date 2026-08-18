@@ -468,10 +468,12 @@ func restoreOriginalGitConfig(o *config.OriginalConfig) error {
 	}
 
 	if o.SignKey != "" || o.CommitGPGSign != "" {
+		format := "gpg"
 		if o.SignFormat == "ssh" {
-			git.ConfigureSigning(o.SignKey, "ssh")
-		} else {
-			git.ConfigureSigning(o.SignKey, "gpg")
+			format = "ssh"
+		}
+		if err := git.ConfigureSigning(o.SignKey, format); err != nil {
+			ui.Warn(fmt.Sprintf("could not restore signing config: %v", err))
 		}
 	} else {
 		git.RemoveSigningConfig()

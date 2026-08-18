@@ -251,6 +251,92 @@ func TestAppMessagesAndLifecycle(t *testing.T) {
 	}
 }
 
+// collectMsgs walks a tea.Cmd (including nested tea.Batch) and returns every
+// message it produces, for asserting on toasts/screens hidden inside a batch.
+func collectMsgs(cmd tea.Cmd) []tea.Msg {
+	var msgs []tea.Msg
+	var walk func(c tea.Cmd)
+	walk = func(c tea.Cmd) {
+		if c == nil {
+			return
+		}
+		m := c()
+		if m == nil {
+			return
+		}
+		msgs = append(msgs, m)
+		if b, ok := m.(tea.BatchMsg); ok {
+			for _, inner := range b {
+				walk(inner)
+			}
+		}
+	}
+	walk(cmd)
+	return msgs
+}
+
+// TestHandleToggleSignGivesFeedback guards against a regression where
+// toggling commit signing gave the user zero feedback of any kind (no toast,
+// no report) — it silently mutated the store and called config.Save with its
+// error return value dropped entirely, so a failed save was indistinguishable
+// from a successful one.
+func TestHandleToggleSignGivesFeedback(t *testing.T) {
+	withTempConfig(t)
+	store := &config.Store{Users: []config.User{{Name: "eng", Email: "eng@corp.com", SSHKey: "/tmp/nonexistent-key"}}}
+	th := theme.DefaultTheme()
+	app := NewApp(store, screens.NewDashboard(store, th))
+
+	// Happy path: a success toast must appear (previously there was none).
+	_, cmd := app.Update(core.ActionResultMsg{Kind: "toggle-sign", Name: "eng"})
+	msgs := collectMsgs(cmd)
+	foundToast := false
+	for _, m := range msgs {
+		if toast, ok := m.(core.ToastMsg); ok {
+			foundToast = true
+			if toast.Style != theme.ToastStyleSuccess {
+				t.Errorf("expected a success toast, got style %v: %q", toast.Style, toast.Text)
+			}
+		}
+	}
+	if !foundToast {
+		t.Error("expected handleToggleSign to produce a toast (previously it gave no feedback at all)")
+	}
+
+	// Failure path: force config.Save to fail via the store's stale-config
+	// guard (config.ErrConfigChanged — the file changed on disk after this
+	// store was loaded), and confirm the failure surfaces as an error toast
+	// instead of being silently dropped.
+	primer, _ := config.Load()
+	_ = primer.AddUser("eng", "eng@example.com")
+	if err := config.Save(primer); err != nil {
+		t.Fatalf("priming config: %v", err)
+	}
+	store2, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Modify the file on disk after store2 loaded it, so store2's own Save
+	// call below finds its loadedHash stale and returns ErrConfigChanged.
+	stale, _ := config.Load()
+	_ = stale.AddUser("someone-else", "someone-else@example.com")
+	if err := config.Save(stale); err != nil {
+		t.Fatalf("staling config: %v", err)
+	}
+
+	app2 := NewApp(store2, screens.NewDashboard(store2, th))
+	_, cmd2 := app2.Update(core.ActionResultMsg{Kind: "toggle-sign", Name: "eng"})
+	msgs2 := collectMsgs(cmd2)
+	foundErrorToast := false
+	for _, m := range msgs2 {
+		if toast, ok := m.(core.ToastMsg); ok && toast.Style == theme.ToastStyleError {
+			foundErrorToast = true
+		}
+	}
+	if !foundErrorToast {
+		t.Error("expected a failed config.Save to surface as an error toast, not silently succeed")
+	}
+}
+
 func TestHandleTaskResultSwitchShowsReportWhenWarnings(t *testing.T) {
 	withTempConfig(t)
 	store := &config.Store{Users: []config.User{{Name: "eng", Email: "eng@corp.com"}}}

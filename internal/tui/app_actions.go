@@ -444,28 +444,51 @@ func (a *App) checkSSHPassphraseFormCmd(name string) tea.Cmd {
 
 func (a *App) handleToggleSign(name string) (tea.Model, tea.Cmd) {
 	user := a.store.FindUser(name)
-	if user != nil {
-		if !user.SignDisabled && user.SignKey != "" {
-			a.store.ToggleSigning(user.Name, true)
-			if a.store.Current == user.Name {
-				git.RemoveSigningConfig()
-			}
-		} else {
-			if user.SSHKey != "" {
-				a.store.SetSigningKey(user.Name, user.SSHKey, "ssh")
-				if a.store.Current == user.Name {
-					_ = git.ConfigureSigning(user.SSHKey, "ssh")
-				}
-			} else {
-				a.store.ToggleSigning(user.Name, !user.SignDisabled)
-				if a.store.Current == user.Name {
-					if !user.SignDisabled {
-						git.RemoveSigningConfig()
-					}
-				}
+	if user == nil {
+		return a, core.RefreshStoreCmd()
+	}
+
+	var warnings []string
+	nowEnabled := user.SignDisabled || user.SignKey == ""
+
+	if !user.SignDisabled && user.SignKey != "" {
+		if err := a.store.ToggleSigning(user.Name, true); err != nil {
+			warnings = append(warnings, err.Error())
+		}
+		if a.store.Current == user.Name {
+			git.RemoveSigningConfig()
+		}
+	} else if user.SSHKey != "" {
+		if err := a.store.SetSigningKey(user.Name, user.SSHKey, "ssh"); err != nil {
+			warnings = append(warnings, err.Error())
+		}
+		if a.store.Current == user.Name {
+			if err := git.ConfigureSigning(user.SSHKey, "ssh"); err != nil {
+				warnings = append(warnings, fmt.Sprintf("applying signing config: %v", err))
 			}
 		}
-		config.Save(a.store)
+	} else {
+		if err := a.store.ToggleSigning(user.Name, !user.SignDisabled); err != nil {
+			warnings = append(warnings, err.Error())
+		}
+		if a.store.Current == user.Name && !user.SignDisabled {
+			git.RemoveSigningConfig()
+		}
 	}
-	return a, core.RefreshStoreCmd()
+
+	if err := config.Save(a.store); err != nil {
+		warnings = append(warnings, fmt.Sprintf("saving config: %v", err))
+	}
+
+	cmds := []tea.Cmd{core.RefreshStoreCmd()}
+	if len(warnings) > 0 {
+		cmds = append(cmds, core.ShowToastCmd("⚠ "+strings.Join(warnings, "; "), theme.ToastStyleError, 5*time.Second))
+	} else {
+		status := "disabled"
+		if nowEnabled {
+			status = "enabled"
+		}
+		cmds = append(cmds, core.ShowToastCmd(fmt.Sprintf("Commit signing %s for %q", status, name), theme.ToastStyleSuccess, 3*time.Second))
+	}
+	return a, tea.Batch(cmds...)
 }

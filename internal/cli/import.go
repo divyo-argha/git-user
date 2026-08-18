@@ -189,15 +189,21 @@ func runImport(args []string) error {
 	}
 	if activateName != "" {
 		if u := store.FindUser(activateName); u != nil {
-			store.Current = activateName
-			if err := git.Apply(u.Name, u.Email); err == nil {
-				_ = applyUserSSHConfig(u, false)
+			if err := git.Apply(u.Name, u.Email); err != nil {
+				ui.Warn(fmt.Sprintf("Could not activate identity %q: %v", activateName, err))
+			} else {
+				store.Current = activateName
+				ui.Info(fmt.Sprintf("Activated identity %q", activateName))
+				if err := applyUserSSHConfig(u, false); err != nil {
+					ui.Warn(fmt.Sprintf("Could not apply SSH config for %q: %v", activateName, err))
+				}
 				if !u.SignDisabled && u.SignKey != "" {
-					_ = git.ConfigureSigning(u.SignKey, u.SignFormat)
+					if err := git.ConfigureSigning(u.SignKey, u.SignFormat); err != nil {
+						ui.Warn(fmt.Sprintf("Could not apply signing config for %q: %v", activateName, err))
+					}
 				} else {
 					git.RemoveSigningConfig()
 				}
-				ui.Info(fmt.Sprintf("Activated identity %q", activateName))
 			}
 		}
 	}
