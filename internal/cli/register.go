@@ -50,10 +50,30 @@ func runRegister(args []string) error {
 		}
 	}
 
+	store, err := config.Load()
+	if err != nil {
+		ui.Errorf("loading config: %v", err)
+		return err
+	}
+
+	// No active identity at all yet: this registration will become the
+	// active one automatically once it's fully set up below, instead of
+	// silently creating a correctly-configured identity that git never
+	// actually uses until a separate `switch` is remembered.
+	activateOnCreate := store.Current == ""
+
 	for {
 		if err := validate.IdentityName(name); err != nil {
 			ui.Warn(err.Error())
 			name, err = ui.Prompt("Enter a valid identity name:")
+			if err != nil {
+				return err
+			}
+			continue
+		}
+		if store.IsNameTaken(name) {
+			ui.Warn(fmt.Sprintf("identity %q already exists", name))
+			name, err = ui.Prompt("Enter a different identity name:")
 			if err != nil {
 				return err
 			}
@@ -78,29 +98,15 @@ func runRegister(args []string) error {
 			}
 			continue
 		}
+		if store.IsEmailTaken(email) {
+			ui.Warn("Email already in use — each identity must have a unique email to prevent impersonation.")
+			email, err = ui.Prompt("Enter a different email address:")
+			if err != nil {
+				return err
+			}
+			continue
+		}
 		break
-	}
-
-	store, err := config.Load()
-	if err != nil {
-		ui.Errorf("loading config: %v", err)
-		return err
-	}
-
-	// No active identity at all yet: this registration will become the
-	// active one automatically once it's fully set up below, instead of
-	// silently creating a correctly-configured identity that git never
-	// actually uses until a separate `switch` is remembered.
-	activateOnCreate := store.Current == ""
-
-	if store.IsNameTaken(name) {
-		ui.Errorf("identity %q already exists", name)
-		return fmt.Errorf("user exists")
-	}
-
-	if store.IsEmailTaken(email) {
-		ui.Errorf("Email already in use — each identity must have a unique email to prevent impersonation.")
-		return fmt.Errorf("email exists")
 	}
 
 	if err := store.AddUser(name, email); err != nil {

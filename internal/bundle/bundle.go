@@ -115,5 +115,12 @@ func Decrypt(data []byte, passphrase string) ([]Identity, error) {
 	if err := json.Unmarshal(plain, &p); err != nil {
 		return nil, fmt.Errorf("decoding bundle: %w", err)
 	}
+	// Reject a bundle from a newer, incompatible format instead of silently
+	// unmarshaling it into the current payload shape — encoding/json ignores
+	// unrecognized fields and zero-fills missing ones, so a schema change
+	// would otherwise decrypt "successfully" into silently wrong identities.
+	if p.Version != version {
+		return nil, fmt.Errorf("unsupported bundle version %d (this build supports version %d)", p.Version, version)
+	}
 	return p.Identities, nil
 }

@@ -127,7 +127,12 @@ func runSwitch(args []string) error {
 			return err
 		}
 
-		store, _ = config.Load()
+		reloaded, err := config.Load()
+		if err != nil {
+			ui.Errorf("reloading config after registration: %v", err)
+			return err
+		}
+		store = reloaded
 	}
 
 	user := store.FindUser(name)
@@ -160,13 +165,16 @@ func runSwitch(args []string) error {
 				_ = ssh.RemoveSSHKey(prev.SSHKey)
 			}
 			if prev.IsTemporary {
-				store.RemoveUser(prev.Name, true)
-				ui.Info(fmt.Sprintf("Temporary identity %q deleted.", prev.Name))
-				if prev.SSHKey != "" {
-					_ = identity.SecureDeleteKeyPair(prev.SSHKey)
-					ui.Info(fmt.Sprintf("Temporary SSH key files deleted: %s", prev.SSHKey))
+				if err := store.RemoveUser(prev.Name, true); err != nil {
+					ui.Warn(fmt.Sprintf("Could not remove temporary identity record: %v", err))
+				} else {
+					ui.Info(fmt.Sprintf("Temporary identity %q deleted.", prev.Name))
+					if prev.SSHKey != "" {
+						_ = identity.SecureDeleteKeyPair(prev.SSHKey)
+						ui.Info(fmt.Sprintf("Temporary SSH key files deleted: %s", prev.SSHKey))
+					}
+					_ = keyring.DeleteKeychainPassphrase(prev.Name)
 				}
-				_ = keyring.DeleteKeychainPassphrase(prev.Name)
 			}
 		}
 	}
@@ -389,6 +397,14 @@ func quickRegister(name, email string, isTemp, skipSSH bool, store *config.Store
 			}
 			continue
 		}
+		if store.IsEmailTaken(email) {
+			ui.Warn("Email already in use — each identity must have a unique email")
+			email, err = ui.Prompt("Enter a different email address:")
+			if err != nil {
+				return err
+			}
+			continue
+		}
 		break
 	}
 
@@ -552,20 +568,28 @@ func runSwitchOriginal(args []string) error {
 	// to by name. This unifies `switch --original` with `import-original`.
 	origName := findOriginalIdentity(store)
 	if origName == "" && (o.Name != "" || o.Email != "") {
-		origName = o.Name
-		if origName == "" {
-			origName = "original"
-		}
-		if store.FindUser(origName) != nil {
-			ui.Errorf("identity %q already exists — original was not registered", origName)
+		if existing := store.FindUserByEmail(o.Email); o.Email != "" && existing != nil {
+			// Already registered under a different name — reuse it instead of
+			// creating a second profile with the same email (each identity
+			// must have a unique email to prevent impersonation).
+			origName = existing.Name
 		} else {
-			store.Users = append(store.Users, config.User{
-				Name:       origName,
-				Email:      o.Email,
-				SSHKey:     extractSSHKeyFromCommand(o.SSHCommand),
-				SSHCommand: o.SSHCommand,
-				Source:     "original",
-			})
+			candidate := o.Name
+			if candidate == "" {
+				candidate = "original"
+			}
+			if store.FindUser(candidate) != nil {
+				ui.Errorf("identity %q already exists — original was not registered", candidate)
+			} else {
+				store.Users = append(store.Users, config.User{
+					Name:       candidate,
+					Email:      o.Email,
+					SSHKey:     extractSSHKeyFromCommand(o.SSHCommand),
+					SSHCommand: o.SSHCommand,
+					Source:     "original",
+				})
+				origName = candidate
+			}
 		}
 	}
 

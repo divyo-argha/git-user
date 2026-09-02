@@ -105,11 +105,10 @@ func IsTTY() bool {
 
 // IsPlainOutput reports whether styled/banner output should be suppressed.
 // It returns true when stdout is not a terminal (pipes, CI) or the caller
-// passes an explicit --plain flag.
+// passes an explicit --plain flag. IsTTY (and therefore this) honors IsTTYFn
+// when set, so a mocked TTY state is respected the same as a real one rather
+// than being special-cased away.
 func IsPlainOutput(args []string) bool {
-	if IsTTYFn != nil {
-		return false
-	}
 	for _, a := range args {
 		if a == "--plain" {
 			return true
@@ -432,10 +431,10 @@ func Confirm(question string, defaultYes bool) bool {
 
 // typewriterModel animates a message character by character using Bubble Tea.
 type typewriterModel struct {
-	full string // complete rendered line (with ANSI)
-	raw  string // plain text for counting
-	pos  int    // chars revealed so far
-	done bool
+	full  string // complete rendered line (with ANSI)
+	runes []rune // plain text, decoded once so pos advances by rune, not byte
+	pos   int    // runes revealed so far
+	done  bool
 }
 
 type twTickMsg struct{}
@@ -451,9 +450,9 @@ func (m typewriterModel) Init() tea.Cmd { return twTick() }
 func (m typewriterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
 	case twTickMsg:
-		if m.pos < len(m.raw) {
+		if m.pos < len(m.runes) {
 			m.pos++
-			if m.pos >= len(m.raw) {
+			if m.pos >= len(m.runes) {
 				m.done = true
 				return m, tea.Quit
 			}
@@ -466,11 +465,11 @@ func (m typewriterModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m typewriterModel) View() string {
-	if m.done || m.pos >= len(m.raw) {
+	if m.done || m.pos >= len(m.runes) {
 		return "\r" + m.full + "\n"
 	}
 	// Show plain-text prefix up to m.pos + blinking cursor block
-	visible := m.raw[:m.pos]
+	visible := string(m.runes[:m.pos])
 	cursor := lipgloss.NewStyle().Foreground(colAccent).Render("█")
 	return "\r" + styleSuccess.Render("✔ "+visible) + cursor
 }
@@ -484,9 +483,9 @@ func AnimatedSuccess(msg string) {
 	}
 
 	m := typewriterModel{
-		full: styleSuccess.Render("✔ " + msg),
-		raw:  "✔ " + msg,
-		pos:  0,
+		full:  styleSuccess.Render("✔ " + msg),
+		runes: []rune("✔ " + msg),
+		pos:   0,
 	}
 
 	p := tea.NewProgram(m, tea.WithoutRenderer())

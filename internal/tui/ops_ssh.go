@@ -8,6 +8,7 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/identity"
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/ssh"
 )
@@ -212,6 +213,12 @@ func opAttachKey(store *config.Store, name, email, mode, choice, passphrase, key
 	} else {
 		isTemp := mode == "register-temp"
 		res, err = opRegisterFinish(store, name, email, isTemp, keyPath, passphrase, signEnabled)
+		if err == nil && isTemp && keyPath != "" {
+			// Best-effort: a failure here doesn't lose the key, it only means
+			// the crash-safety orphan scan won't catch it if this process dies
+			// before the normal switch/logout cleanup path runs.
+			_ = identity.RecordTempKey(name, keyPath)
+		}
 	}
 	if err != nil {
 		return res, err

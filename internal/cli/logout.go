@@ -33,14 +33,17 @@ func runLogout(args []string) error {
 	git.ClearIdentity()
 
 	if user.IsTemporary {
-		store.RemoveUser(user.Name, true)
-		ui.Info(fmt.Sprintf("Temporary identity %q deleted.", user.Name))
-		if user.SSHKey != "" {
-			_ = os.Remove(user.SSHKey)
-			_ = os.Remove(user.SSHKey + ".pub")
-			ui.Info(fmt.Sprintf("Temporary SSH key files deleted: %s", user.SSHKey))
+		if err := store.RemoveUser(user.Name, true); err != nil {
+			ui.Warn(fmt.Sprintf("Could not remove temporary identity record: %v", err))
+		} else {
+			ui.Info(fmt.Sprintf("Temporary identity %q deleted.", user.Name))
+			if user.SSHKey != "" {
+				_ = os.Remove(user.SSHKey)
+				_ = os.Remove(user.SSHKey + ".pub")
+				ui.Info(fmt.Sprintf("Temporary SSH key files deleted: %s", user.SSHKey))
+			}
+			_ = keyring.DeleteKeychainPassphrase(user.Name)
 		}
-		_ = keyring.DeleteKeychainPassphrase(user.Name)
 	}
 
 	// Clear store.Current

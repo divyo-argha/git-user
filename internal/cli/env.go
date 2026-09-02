@@ -147,16 +147,52 @@ func printExportScript(st ShellType, vars map[string]string) error {
 
 		switch st {
 		case ShellFish:
-			fmt.Printf("set -gx %s %q;\n", k, val)
+			fmt.Printf("set -gx %s %s;\n", k, fishQuote(val))
 		case ShellPowerShell:
-			fmt.Printf("$env:%s = %q\n", k, val)
+			fmt.Printf("$env:%s = %s\n", k, powershellQuote(val))
 		case ShellCmd:
-			fmt.Printf("set %s=%s\n", k, val)
+			fmt.Printf("set \"%s=%s\"\n", k, cmdSanitize(val))
 		default: // POSIX (bash/zsh/sh)
-			fmt.Printf("export %s=%q\n", k, val)
+			fmt.Printf("export %s=%s\n", k, posixQuote(val))
 		}
 	}
 	return nil
+}
+
+// posixQuote and fishQuote wrap a value in single quotes for their
+// respective shells so the caller's `eval "$(git-user env ...)"` can't run
+// command substitution or expansion on a value git-user doesn't control —
+// e.g. an identity name/email pulled in via bundle import or sync. Go's %q
+// verb was used here previously, but it escapes for Go string-literal
+// syntax, not shell syntax: it leaves $, `, and (in fish) parentheses
+// unescaped, so a crafted value — validate.Email's local-part regex allows
+// `, $, and / — would execute on eval instead of just being exported.
+func posixQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// fishQuote escapes for fish's single-quote rules, where a backslash is only
+// special immediately before another backslash or a single quote.
+func fishQuote(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `'`, `\'`)
+	return "'" + s + "'"
+}
+
+// powershellQuote escapes for PowerShell single-quoted strings, which unlike
+// double-quoted ones perform no interpolation at all — the only special
+// sequence is a doubled single quote for a literal one.
+func powershellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
+}
+
+// cmdSanitize strips characters cmd.exe's `set "VAR=value"` form can't
+// safely carry: an embedded double quote would close the quoted region
+// early, re-exposing the rest of the value to & | < > parsing, and a CR/LF
+// would split it into additional batch commands. Neither is meaningful data
+// to preserve in a git identity name/email/path.
+func cmdSanitize(s string) string {
+	return strings.NewReplacer(`"`, "", "\r", "", "\n", "").Replace(s)
 }
 
 func printUnsetScript(st ShellType) error {

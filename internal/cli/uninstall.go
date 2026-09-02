@@ -171,7 +171,15 @@ func runUninstall(args []string) error {
 	removePromptIntegration()
 
 	// 5. Remove git-user's own data directory.
-	if err := os.RemoveAll(dataDir); err != nil {
+	//
+	// GIT_USER_CONFIG is an unvalidated override (test sandboxing today, but
+	// nothing stops it being set elsewhere): if it ever pointed straight at a
+	// file with no dedicated parent directory, dataDir would resolve to $HOME
+	// or worse, and RemoveAll would wipe far more than git-user's own state.
+	// Refuse rather than risk that.
+	if !isGitUserDataDir(dataDir) {
+		ui.Warn(fmt.Sprintf("Refused to remove %s — it doesn't look like git-user's own data directory.", dataDir))
+	} else if err := os.RemoveAll(dataDir); err != nil {
 		ui.Warn(fmt.Sprintf("Could not remove %s: %v", dataDir, err))
 	} else {
 		ui.Success(fmt.Sprintf("Removed %s", dataDir))
@@ -206,6 +214,23 @@ func runUninstall(args []string) error {
 	fmt.Println()
 	ui.Success("git-user has been uninstalled.")
 	return nil
+}
+
+// isGitUserDataDir reports whether dir is safe to recursively delete as
+// git-user's own data directory: it must be named ".git-users" (the fixed
+// name git-user itself creates it under) and must not be the user's home
+// directory or filesystem root, however it was reached.
+func isGitUserDataDir(dir string) bool {
+	if dir == "" || dir == "." || dir == string(filepath.Separator) {
+		return false
+	}
+	if filepath.Base(dir) != ".git-users" {
+		return false
+	}
+	if home, err := os.UserHomeDir(); err == nil && dir == home {
+		return false
+	}
+	return true
 }
 
 // classifyIdentityKeys splits the SSH keys referenced by the config into ones

@@ -10,8 +10,8 @@ import (
 
 func TestEnvVars(t *testing.T) {
 	user := &config.User{
-		Name:          "alice",
-		Email:         "alice@example.com",
+		Name:       "alice",
+		Email:      "alice@example.com",
 		SSHKey:     "~/.ssh/git_alice",
 		SignKey:    "KEY123",
 		SignFormat: "ssh",
@@ -84,10 +84,14 @@ func TestRunEnv_Output(t *testing.T) {
 	n, _ := r.Read(buf)
 	output := string(buf[:n])
 
-	if !strings.Contains(output, "export GIT_AUTHOR_NAME=\"dev\"") {
+	// Single-quoted, not double-quoted: printExportScript must use real POSIX
+	// shell quoting (posixQuote) rather than Go's %q, or a value containing $
+	// or a backtick would run as a command when the caller does
+	// eval "$(git-user env ...)" instead of just being exported.
+	if !strings.Contains(output, "export GIT_AUTHOR_NAME='dev'") {
 		t.Errorf("expected export GIT_AUTHOR_NAME in output, got:\n%s", output)
 	}
-	if !strings.Contains(output, "export GIT_AUTHOR_EMAIL=\"dev@example.com\"") {
+	if !strings.Contains(output, "export GIT_AUTHOR_EMAIL='dev@example.com'") {
 		t.Errorf("expected export GIT_AUTHOR_EMAIL in output, got:\n%s", output)
 	}
 }

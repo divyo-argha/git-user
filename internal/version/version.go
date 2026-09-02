@@ -61,4 +61,3 @@ func IsNewerVersion(remoteTag, currentVersion string) bool {
 	}
 	return rPat > cPat
 }
-

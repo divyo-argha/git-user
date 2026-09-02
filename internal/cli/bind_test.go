@@ -63,7 +63,7 @@ func TestRunBind_Success(t *testing.T) {
 	}
 
 	// Verify git sshCommand was updated
-	expectedSSHCmd := "ssh -i \"" + keyPath + "\" -o IdentitiesOnly=yes"
+	expectedSSHCmd := "ssh -i '" + keyPath + "' -o IdentitiesOnly=yes"
 	if git.CurrentSSHCommand() != expectedSSHCmd {
 		t.Errorf("expected git core.sshCommand to be %q, got %q", expectedSSHCmd, git.CurrentSSHCommand())
 	}

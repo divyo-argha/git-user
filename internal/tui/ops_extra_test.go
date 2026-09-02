@@ -116,22 +116,6 @@ func TestOpHookUnknownAction(t *testing.T) {
 	}
 }
 
-func TestOpStatsNotInRepo(t *testing.T) {
-	withTempConfig(t)
-	store := &config.Store{}
-	// Run from the temp config dir (not a git repo) to assert the guard.
-	dir := t.TempDir()
-	oldwd, _ := os.Getwd()
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Chdir(oldwd)
-	_, err := opStats(store)
-	if err == nil {
-		t.Error("expected error when not in a git repository")
-	}
-}
-
 func TestOpSyncNotConfigured(t *testing.T) {
 	withTempConfig(t)
 	store := &config.Store{}

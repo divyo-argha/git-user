@@ -39,10 +39,14 @@ func runShell(args []string) error {
 	}
 
 	vars := EnvVars(user)
-	env := os.Environ()
+	// Overrides must come before the inherited environment — see the same
+	// note in exec.go: appending after os.Environ() lets a duplicate key
+	// from the parent shell win under first-match getenv() semantics.
+	env := make([]string, 0, len(vars)+len(os.Environ()))
 	for k, v := range vars {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
+	env = append(env, os.Environ()...)
 
 	ui.Banner(fmt.Sprintf("ISOLATED SHELL: %s", user.Name))
 	fmt.Printf("  Identity : %s <%s>\n", user.Name, user.Email)

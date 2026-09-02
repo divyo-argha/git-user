@@ -124,8 +124,21 @@ func ConfigureSSH(keyPath string) error {
 }
 
 func ConfigureSSHScope(keyPath string, local bool) error {
-	val := fmt.Sprintf("ssh -i %q -o IdentitiesOnly=yes", keyPath)
+	// core.sshCommand is executed via the shell by git itself (that's how
+	// GIT_SSH_COMMAND/core.sshCommand support flags and quoting), so the key
+	// path must be POSIX-shell-quoted here, not Go-quoted with %q — %q only
+	// escapes Go/C syntax and leaves shell metacharacters like $, `, ! live
+	// inside the double quotes it produces, which would let a key path
+	// containing e.g. $(...) run arbitrary commands the next time git shells
+	// out to ssh.
+	val := fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes", shellQuote(keyPath))
 	return setConfig("core.sshCommand", val, local)
+}
+
+// shellQuote wraps s in single quotes for safe interpolation into a POSIX
+// shell command string, escaping any embedded single quotes.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 func SetSSHCommand(val string) error {
@@ -243,7 +256,9 @@ func IsInRepo() bool {
 }
 
 func GetRemoteURL(remote string) (string, error) {
-	cmd := exec.Command("git", "remote", "get-url", remote)
+	// "--" stops a remote name from a malicious repo (e.g. "--upload-pack=…")
+	// from being parsed as a flag instead of the positional remote name.
+	cmd := exec.Command("git", "remote", "get-url", "--", remote)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -252,7 +267,7 @@ func GetRemoteURL(remote string) (string, error) {
 }
 
 func SetRemoteURL(remote, url string) error {
-	cmd := exec.Command("git", "remote", "set-url", remote, url)
+	cmd := exec.Command("git", "remote", "set-url", "--", remote, url)
 	return cmd.Run()
 }
 

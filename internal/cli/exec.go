@@ -39,10 +39,16 @@ func runExec(args []string) error {
 	}
 
 	vars := EnvVars(user)
-	env := os.Environ()
+	// Overrides must come before the inherited environment: most libc
+	// getenv() implementations return the first match for a duplicate key,
+	// so appending after os.Environ() would let an already-exported
+	// GIT_AUTHOR_NAME etc. (e.g. from a nested `git-user shell` session)
+	// silently win over the identity this command is supposed to enforce.
+	env := make([]string, 0, len(vars)+len(os.Environ()))
 	for k, v := range vars {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
+	env = append(env, os.Environ()...)
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	cmd.Env = env

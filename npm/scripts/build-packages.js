@@ -1,4 +1,4 @@
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -39,9 +39,19 @@ for (const target of targets) {
   console.log(`Compiling binary for ${pkgName}...`);
 
   try {
-    execSync(`GOOS=${target.os} GOARCH=${target.arch} go build -ldflags="-s -w -X main.buildVersion=v${version} -X main.date=${date}" -o "${outPath}" ./cmd/git-user`, {
+    // execFileSync with an argv array (no shell) — version/date are read from
+    // package.json and could in principle carry shell metacharacters if that
+    // file were ever populated by a less-trusted step; this way there's no
+    // shell around the call for them to break out of.
+    execFileSync('go', [
+      'build',
+      '-ldflags', `-s -w -X main.buildVersion=v${version} -X main.date=${date}`,
+      '-o', outPath,
+      './cmd/git-user',
+    ], {
       cwd: rootDir,
-      stdio: 'inherit'
+      stdio: 'inherit',
+      env: { ...process.env, GOOS: target.os, GOARCH: target.arch },
     });
   } catch (error) {
     console.error(`Failed to compile binary for ${pkgName}:`, error.message);

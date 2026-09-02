@@ -51,6 +51,17 @@ func runPubkeyPush(args []string) error {
 	} else {
 		// Auto-detect from git remotes
 		platform, customGitLabHost = detectPlatformFromRemotes()
+		if platform == "gitlab" && customGitLabHost != "" && customGitLabHost != "gitlab.com" {
+			// The host came from this repo's own remote URL, not something the
+			// user typed — a cloned repo with a spoofed "gitlab"-looking
+			// remote could point it anywhere. Confirm before a real access
+			// token gets sent to a host git-user only guessed at.
+			ui.Warn(fmt.Sprintf("Detected a GitLab-like remote pointing at %q.", customGitLabHost))
+			if !ui.Confirm(fmt.Sprintf("Send your GitLab personal access token to %q?", customGitLabHost), false) {
+				ui.Info("Cancelled")
+				return nil
+			}
+		}
 	}
 
 	if platform != "github" && platform != "gitlab" && platform != "bitbucket" {

@@ -46,6 +46,7 @@ func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
 				store.RemoveUser(prev.Name, true)
 				if prev.SSHKey != "" {
 					_ = identity.SecureDeleteKeyPair(prev.SSHKey)
+					_ = identity.ForgetTempKey(prev.SSHKey)
 				}
 				_ = keyring.DeleteKeychainPassphrase(prev.Name)
 			}
@@ -210,8 +211,11 @@ func opLogout(store *config.Store) (opResult, error) {
 	if user.IsTemporary {
 		store.RemoveUser(user.Name, true)
 		if user.SSHKey != "" {
-			_ = os.Remove(user.SSHKey)
-			_ = os.Remove(user.SSHKey + ".pub")
+			// SecureDeleteKeyPair (not plain os.Remove) to match the same
+			// temporary-key cleanup in opSwitch above — this is the same
+			// short-lived private key material, deleted for the same reason.
+			_ = identity.SecureDeleteKeyPair(user.SSHKey)
+			_ = identity.ForgetTempKey(user.SSHKey)
 		}
 		_ = keyring.DeleteKeychainPassphrase(user.Name)
 	}

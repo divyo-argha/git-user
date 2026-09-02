@@ -202,7 +202,7 @@ func Save(s *Store) error {
 
 	if len(tempUsers) > 0 {
 		tempData, _ := json.MarshalIndent(tempUsers, "", "  ")
-		_ = os.WriteFile(TempConfigPath(), tempData, 0600)
+		_ = writeFileAtomic(dir, TempConfigPath(), tempData)
 	} else {
 		DeleteTempConfig()
 	}
@@ -215,7 +215,19 @@ func Save(s *Store) error {
 		return fmt.Errorf("encoding config: %w", err)
 	}
 
-	tmp, err := os.CreateTemp(dir, "config-*.json")
+	if err := writeFileAtomic(dir, cPath, data); err != nil {
+		return fmt.Errorf("saving config: %w", err)
+	}
+	s.loadedHash = hashBytes(data)
+	return syncIncludeIfs(s)
+}
+
+// writeFileAtomic writes data to path via a temp file + rename in dir, so a
+// crash or power loss mid-write can never leave path holding truncated or
+// partially-written JSON — a reader always sees either the old or the new
+// content, never a corrupt mix.
+func writeFileAtomic(dir, path string, data []byte) error {
+	tmp, err := os.CreateTemp(dir, filepath.Base(path)+"-*.tmp")
 	if err != nil {
 		return fmt.Errorf("creating temp file: %w", err)
 	}
@@ -224,7 +236,7 @@ func Save(s *Store) error {
 	if _, err := tmp.Write(data); err != nil {
 		tmp.Close()
 		os.Remove(tmpName)
-		return fmt.Errorf("writing config: %w", err)
+		return fmt.Errorf("writing: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
 		os.Remove(tmpName)
@@ -234,12 +246,11 @@ func Save(s *Store) error {
 		os.Remove(tmpName)
 		return fmt.Errorf("setting permissions: %w", err)
 	}
-	if err := os.Rename(tmpName, cPath); err != nil {
+	if err := os.Rename(tmpName, path); err != nil {
 		os.Remove(tmpName)
-		return fmt.Errorf("saving config: %w", err)
+		return err
 	}
-	s.loadedHash = hashBytes(data)
-	return syncIncludeIfs(s)
+	return nil
 }
 
 func hashBytes(data []byte) string {
@@ -325,7 +336,11 @@ func (s *Store) RemoveUser(name string, force bool) error {
 	if s.Current == name && !force {
 		return fmt.Errorf("user %q is currently active; use --force to remove", name)
 	}
-	filtered := s.Users[:0]
+	// Filter into a fresh slice rather than reusing s.Users' backing array
+	// in place: any *User obtained from FindUser before this call points into
+	// that array, and shifting elements left underneath it would silently
+	// repoint the pointer at a different user.
+	filtered := make([]User, 0, len(s.Users))
 	for _, u := range s.Users {
 		if u.Name != name {
 			filtered = append(filtered, u)

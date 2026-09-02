@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -48,6 +49,12 @@ func main() {
 	var failedTests []string
 
 	scanner := bufio.NewScanner(stdoutPipe)
+	// go test -v output can include a single very long line (a large diff in
+	// an assertion failure — this repo's TUI tests compare sizeable report
+	// strings). The default 64KB scanner limit would otherwise stop Scan()
+	// silently; with nothing left reading the pipe, the child blocks on a
+	// full pipe write and cmd.Wait() below hangs forever.
+	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
 
 	// Regex patterns
 	// ok  	github.com/divyo-argha/git-user/cmd	19.167s	coverage: 36.0% of statements
@@ -108,6 +115,13 @@ func main() {
 				Coverage: "-",
 			})
 		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Printf("\033[1;33m⚠ warning: test output scanning stopped early: %v\033[0m\n", err)
+		// Drain whatever's left so the child isn't blocked on a full pipe,
+		// which would otherwise hang cmd.Wait() below forever.
+		_, _ = io.Copy(io.Discard, stdoutPipe)
 	}
 
 	testErr := cmd.Wait()

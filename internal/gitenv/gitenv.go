@@ -53,10 +53,20 @@ func Vars(u *config.User) map[string]string {
 	if len(gitParams) > 0 {
 		var quoted []string
 		for _, p := range gitParams {
-			quoted = append(quoted, fmt.Sprintf("'%s'", p))
+			quoted = append(quoted, sqQuote(p))
 		}
 		vars["GIT_CONFIG_PARAMETERS"] = strings.Join(quoted, " ")
 	}
 
 	return vars
+}
+
+// sqQuote wraps s in single quotes using the same escaping git's own
+// sq_dequote (config.c) expects when parsing GIT_CONFIG_PARAMETERS: an
+// embedded single quote is closed, escaped with a backslash, and reopened.
+// Without this, a value containing a literal quote — e.g. an email local
+// part like o'brien@example.com, which validate.Email explicitly allows —
+// corrupts the quoting and desyncs every parameter after it.
+func sqQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

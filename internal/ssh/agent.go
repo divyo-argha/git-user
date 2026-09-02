@@ -208,7 +208,29 @@ func EnsureMacOSKeychainConfigured() error {
 
 	block := "Host *\n  AddKeysToAgent yes\n  UseKeychain yes\n\n"
 	newContent := block + content
-	return os.WriteFile(configPath, []byte(newContent), 0600)
+
+	// Write via a temp file + rename instead of os.WriteFile directly: a
+	// failure partway through a direct write (e.g. disk full) would truncate
+	// the user's existing ~/.ssh/config, since WriteFile opens with O_TRUNC.
+	// rename() is atomic, so the original file is only ever replaced whole.
+	tmp, err := os.CreateTemp(sshDir, ".config-*.tmp")
+	if err != nil {
+		return fmt.Errorf("creating temp ssh config: %w", err)
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if _, err := tmp.WriteString(newContent); err != nil {
+		tmp.Close()
+		return fmt.Errorf("writing temp ssh config: %w", err)
+	}
+	if err := tmp.Chmod(0600); err != nil {
+		tmp.Close()
+		return fmt.Errorf("setting temp ssh config permissions: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("closing temp ssh config: %w", err)
+	}
+	return os.Rename(tmpPath, configPath)
 }
 
 func addKeyToMacOSKeychain(keyPath, passphrase string) error {

@@ -1,6 +1,8 @@
 package stats
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -147,8 +149,13 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 	}
 
 	cmd := exec.Command("git", args...)
-	out, err := cmd.Output()
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve git log: %w", err)
+	}
+	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("failed to retrieve git log: %w", err)
 	}
 
@@ -175,9 +182,16 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 	var currentGroup *emailGroup
 	var isCurrentCommitSigned bool
 
-	lines := strings.Split(string(out), "\n")
+	// Stream stdout line-by-line rather than buffering the whole `git log -p`
+	// output up front — on a large repo that output can run into the
+	// hundreds of MB, and every line is fully consumed on a single pass
+	// anyway. The scanner buffer is raised well past its 64KB default since a
+	// single diff line (e.g. a minified/bundled file) can exceed that.
+	scanner := bufio.NewScanner(stdout)
+	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
 
-	for _, line := range lines {
+	for scanner.Scan() {
+		line := scanner.Text()
 		if strings.HasPrefix(line, "COMMIT|") {
 			header := strings.TrimPrefix(line, "COMMIT|")
 			parts := strings.SplitN(header, "|", 3)
@@ -284,6 +298,17 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 				}
 			}
 		}
+	}
+	scanErr := scanner.Err()
+
+	if waitErr := cmd.Wait(); waitErr != nil {
+		if msg := strings.TrimSpace(stderr.String()); msg != "" {
+			return nil, fmt.Errorf("failed to retrieve git log: %s", msg)
+		}
+		return nil, fmt.Errorf("failed to retrieve git log: %w", waitErr)
+	}
+	if scanErr != nil {
+		return nil, fmt.Errorf("failed to read git log output: %w", scanErr)
 	}
 
 	var results []AuthorStat

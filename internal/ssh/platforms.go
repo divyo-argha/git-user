@@ -67,7 +67,12 @@ func ExtractPlatformUsername(output, platform string) string {
 
 // CheckPlatformConnection tests SSH connection to a single platform.
 func CheckPlatformConnection(keyPath, platform, host string, successPatterns []string) PlatformResult {
-	args := []string{"-T", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5", "-o", "ConnectionAttempts=1"}
+	// accept-new (not "no"): pin an unknown host's key on first contact like
+	// "no" does, but unlike "no" it still rejects a host whose key changed
+	// after being trusted — "no" silently accepts that on every single
+	// connection, which is exactly the MITM scenario host-key checking exists
+	// to catch.
+	args := []string{"-T", "-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=5", "-o", "ConnectionAttempts=1"}
 	if keyPath != "" {
 		args = append(args, "-i", keyPath, "-o", "IdentitiesOnly=yes")
 	}

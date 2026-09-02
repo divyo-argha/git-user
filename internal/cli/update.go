@@ -15,10 +15,16 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/divyo-argha/git-user/internal/ui"
 	"github.com/divyo-argha/git-user/internal/version"
 )
+
+// updateHTTPClient bounds every network call self-update makes. Without a
+// timeout, a stalled connection (a captive portal, a dead proxy) would hang
+// this process indefinitely instead of failing with an actionable error.
+var updateHTTPClient = &http.Client{Timeout: 2 * time.Minute}
 
 // githubRelease is the subset of the GitHub Releases API response RunUpdate
 // needs to locate a platform binary asset and its checksums.txt.
@@ -90,7 +96,7 @@ func RunUpdate() error {
 	// 1. Try fetching latest release from /releases/latest
 	latestReq, _ := http.NewRequest("GET", "https://api.github.com/repos/divyo-argha/git-user/releases/latest", nil)
 	latestReq.Header.Set("User-Agent", "git-user-updater")
-	if resp, err := http.DefaultClient.Do(latestReq); err == nil {
+	if resp, err := updateHTTPClient.Do(latestReq); err == nil {
 		if resp.StatusCode == http.StatusOK {
 			var rel githubRelease
 			if err := json.NewDecoder(resp.Body).Decode(&rel); err == nil {
@@ -107,7 +113,7 @@ func RunUpdate() error {
 	if downloadURL == "" {
 		allReq, _ := http.NewRequest("GET", "https://api.github.com/repos/divyo-argha/git-user/releases", nil)
 		allReq.Header.Set("User-Agent", "git-user-updater")
-		if resp, err := http.DefaultClient.Do(allReq); err == nil {
+		if resp, err := updateHTTPClient.Do(allReq); err == nil {
 			if resp.StatusCode == http.StatusOK {
 				var releases []githubRelease
 				if err := json.NewDecoder(resp.Body).Decode(&releases); err == nil {
@@ -221,7 +227,7 @@ func downloadFile(url, dest string) error {
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("User-Agent", "git-user-updater")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := updateHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -251,7 +257,7 @@ func verifyChecksum(filePath, checksumsURL, assetName string) error {
 	req, _ := http.NewRequest("GET", checksumsURL, nil)
 	req.Header.Set("User-Agent", "git-user-updater")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := updateHTTPClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("downloading checksums.txt: %w", err)
 	}
@@ -349,7 +355,7 @@ func handleNpmUpdate() error {
 	targetVersion := "latest"
 	req, _ := http.NewRequest("GET", "https://registry.npmjs.org/git-userhub/latest", nil)
 	req.Header.Set("User-Agent", "git-user-updater")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := updateHTTPClient.Do(req)
 	if err == nil && resp.StatusCode == http.StatusOK {
 		defer resp.Body.Close()
 		var npmPkg struct {
@@ -403,4 +409,3 @@ func parseVersion(v string) (int, int, int) {
 func isNewerVersion(remoteTag, currentVersion string) bool {
 	return version.IsNewerVersion(remoteTag, currentVersion)
 }
-

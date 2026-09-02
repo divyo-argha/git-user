@@ -20,6 +20,7 @@ type TempKeyInfo struct {
 	Fingerprint    string
 	CreatedAt      time.Time
 	IdentityName   string
+	ProcessPID     int
 }
 
 func NewTempService() (*TempService, error) {
@@ -81,6 +82,7 @@ func (ts *TempService) GetOrphanDetector() *OrphanDetector {
 }
 
 func (ts *TempService) AddKey(identityName string, keyInfo *TempKeyInfo) error {
+	keyInfo.ProcessPID = os.Getpid()
 	ts.activeKeys[identityName] = keyInfo
 	return ts.saveState()
 }
@@ -108,6 +110,7 @@ func (ts *TempService) loadState() error {
 			Fingerprint:    meta.Fingerprint,
 			CreatedAt:      meta.CreatedAt,
 			IdentityName:   meta.IdentityName,
+			ProcessPID:     meta.ProcessPID,
 		}
 		ts.activeKeys[meta.IdentityName] = keyInfo
 	}
@@ -122,11 +125,16 @@ func (ts *TempService) saveState() error {
 	}
 
 	for _, keyInfo := range ts.activeKeys {
+		// keyInfo.ProcessPID is preserved from disk on load (or set to this
+		// process's PID by AddKey when the entry is new) — always stamping
+		// os.Getpid() here would silently reassign ownership of every other
+		// process's still-tracked keys to this one on any unrelated save,
+		// masking them from orphan detection until this process also exits.
 		meta := TempKeyMetadata{
 			KeyPath:      keyInfo.PrivateKeyPath,
 			IdentityName: keyInfo.IdentityName,
 			CreatedAt:    keyInfo.CreatedAt,
-			ProcessPID:   os.Getpid(),
+			ProcessPID:   keyInfo.ProcessPID,
 			Fingerprint:  keyInfo.Fingerprint,
 		}
 		state.ActiveKeys = append(state.ActiveKeys, meta)

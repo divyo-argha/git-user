@@ -209,7 +209,7 @@ func TestRunSync_AppliesKeyToActiveIdentity(t *testing.T) {
 	if dev2 == nil || dev2.SSHKey == "" {
 		t.Fatal("expected \"dev\" to have received the synced SSH key")
 	}
-	expectedSSHCommand := "ssh -i \"" + dev2.SSHKey + "\" -o IdentitiesOnly=yes"
+	expectedSSHCommand := "ssh -i '" + dev2.SSHKey + "' -o IdentitiesOnly=yes"
 	if git.CurrentSSHCommand() != expectedSSHCommand {
 		t.Errorf("expected core.sshCommand to point at the newly synced key for the active identity, got %q, want %q", git.CurrentSSHCommand(), expectedSSHCommand)
 	}

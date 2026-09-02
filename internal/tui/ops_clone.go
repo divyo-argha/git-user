@@ -78,15 +78,27 @@ func repoDirName(repoURL string) string {
 	return "repository"
 }
 
-// configureRepoLocal applies local git configuration for the identity.
+// configureRepoLocal applies local git configuration for the identity,
+// mirroring what opSwitch/opBind apply globally: identity, SSH command
+// (custom override or derived key path), commit signing, and any custom
+// config keys — previously this only set name/email/key/signing and silently
+// dropped a custom SSHCommand override and CustomConfig entries.
 func configureRepoLocal(repoPath string, u *config.User) error {
 	commands := [][]string{
 		{"config", "--local", "user.name", u.Name},
 		{"config", "--local", "user.email", u.Email},
 	}
 
-	if u.SSHKey != "" {
-		sshVal := fmt.Sprintf("ssh -i %q -o IdentitiesOnly=yes", u.SSHKey)
+	if u.SSHCommand != "" {
+		commands = append(commands, []string{"config", "--local", "core.sshCommand", u.SSHCommand})
+	} else if u.SSHKey != "" {
+		// core.sshCommand is executed via the shell by git itself, so the key
+		// path must be POSIX-shell-quoted here, not Go-quoted with %q — %q
+		// only escapes Go/C syntax and leaves shell metacharacters like $, `,
+		// ! live inside the double quotes it produces, which would let a key
+		// path containing e.g. $(...) run arbitrary commands the next time
+		// this repo shells out to ssh. Mirrors internal/git.ConfigureSSHScope.
+		sshVal := fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes", cloneShellQuote(u.SSHKey))
 		commands = append(commands, []string{"config", "--local", "core.sshCommand", sshVal})
 	}
 
@@ -98,10 +110,22 @@ func configureRepoLocal(repoPath string, u *config.User) error {
 		commands = append(commands, []string{"config", "--local", "commit.gpgsign", "true"})
 	}
 
+	for k, v := range u.CustomConfig {
+		commands = append(commands, []string{"config", "--local", k, v})
+	}
+
 	for _, c := range commands {
 		if out, err := runCaptured(repoPath, "git", c...); err != nil {
 			return fmt.Errorf("failed running git %v: %w\n%s", c, err, strings.TrimSpace(out))
 		}
 	}
 	return nil
+}
+
+// cloneShellQuote wraps s in single quotes for safe interpolation into a
+// POSIX shell command string, escaping any embedded single quotes. Mirrors
+// internal/git's unexported shellQuote; duplicated here rather than exported
+// across the package boundary for this one call site.
+func cloneShellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

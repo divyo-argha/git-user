@@ -157,9 +157,8 @@ func (m *Manager) RestoreSnapshot() error {
 		if err := git.SetSSHCommand(snapshot.SSHCommand); err != nil {
 			return fmt.Errorf("restoring SSH command: %w", err)
 		}
-	} else {
-		if err := git.RemoveSSHConfig(); err != nil {
-		}
+	} else if err := git.RemoveSSHConfig(); err != nil {
+		return fmt.Errorf("clearing SSH command: %w", err)
 	}
 
 	if !snapshot.WasTemporary && snapshot.Name != "" {

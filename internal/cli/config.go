@@ -94,6 +94,21 @@ func runConfigIdentityFirst(args []string) error {
 	}
 }
 
+// reservedConfigKeys are git config keys git-user itself manages (identity
+// name/email, SSH command, commit signing) on every switch. Letting custom
+// config set them would let a value applied here silently override the real
+// managed identity right after every switch re-applies it — e.g. overriding
+// user.email would defeat the unique-email-per-identity guarantee the rest of
+// this codebase enforces to prevent impersonation.
+var reservedConfigKeys = map[string]bool{
+	"user.name":       true,
+	"user.email":      true,
+	"core.sshcommand": true,
+	"user.signingkey": true,
+	"commit.gpgsign":  true,
+	"gpg.format":      true,
+}
+
 func applyConfigAction(name, action, key, value string) error {
 	store, err := config.Load()
 	if err != nil {
@@ -116,6 +131,10 @@ func applyConfigAction(name, action, key, value string) error {
 		if err := validate.GitConfigValue(value); err != nil {
 			ui.Errorf("%v", err)
 			return err
+		}
+		if reservedConfigKeys[strings.ToLower(strings.TrimSpace(key))] {
+			ui.Errorf("%q is managed by git-user itself and can't be overridden via custom config — use the dedicated command instead (git-user edit / bind-key / sign).", key)
+			return fmt.Errorf("reserved config key")
 		}
 
 		if user.CustomConfig == nil {

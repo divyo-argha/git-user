@@ -81,6 +81,12 @@ func runImportOriginal(args []string) error {
 		email = promptEmail
 	}
 
+	if store.IsEmailTaken(email) {
+		ui.Errorf("Email %q is already used by another identity — nothing was imported.", email)
+		ui.Info("Resolve this by editing the conflicting profile's email first (git-user edit <name> <email>), then re-run this import.")
+		return fmt.Errorf("email exists")
+	}
+
 	// Extract SSH key path from core.sshCommand if present, but keep the full
 	// command so switching to this identity restores the exact original setup.
 	sshKey := extractSSHKeyFromCommand(sshCommand)

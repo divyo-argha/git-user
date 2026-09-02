@@ -149,23 +149,31 @@ func runImport(args []string) error {
 			continue
 		}
 
-		if len(id.PrivateKey) > 0 {
-			keyPath, err := config.DefaultSSHKeyPath(id.Name)
-			if err != nil {
-				ui.Errorf("skipping %q: %v", id.Name, err)
-				continue
-			}
-			if err := os.WriteFile(keyPath, id.PrivateKey, 0600); err != nil {
-				ui.Errorf("writing private key for %q: %v", id.Name, err)
-				continue
-			}
-			if len(id.PublicKey) > 0 {
-				_ = os.WriteFile(keyPath+".pub", id.PublicKey, 0644)
-			}
-			_ = store.BindSSHKey(id.Name, keyPath)
-			ui.Success(fmt.Sprintf("Imported: %s (%s) → %s", id.Name, id.Email, keyPath))
-		} else {
+		// The identity record was already added to the store above — a
+		// problem writing its key must not `continue` past the bookkeeping
+		// below (imported++, firstImportedName, restoredCurrent), or the
+		// summary undercounts an identity that was, in fact, imported.
+		switch {
+		case len(id.PrivateKey) == 0:
 			ui.Success(fmt.Sprintf("Imported: %s (%s) — no SSH key", id.Name, id.Email))
+		default:
+			keyPath, err := config.DefaultSSHKeyPath(id.Name)
+			switch {
+			case err != nil:
+				ui.Warn(fmt.Sprintf("%q: could not determine SSH key path (%v) — imported without a key.", id.Name, err))
+			default:
+				if _, statErr := os.Stat(keyPath); statErr == nil {
+					ui.Warn(fmt.Sprintf("%q: an SSH key already exists at %s — imported without overwriting it. Bind one manually with 'git-user bind-key'.", id.Name, keyPath))
+				} else if err := os.WriteFile(keyPath, id.PrivateKey, 0600); err != nil {
+					ui.Warn(fmt.Sprintf("%q: could not write private key (%v) — imported without a key.", id.Name, err))
+				} else {
+					if len(id.PublicKey) > 0 {
+						_ = os.WriteFile(keyPath+".pub", id.PublicKey, 0644)
+					}
+					_ = store.BindSSHKey(id.Name, keyPath)
+					ui.Success(fmt.Sprintf("Imported: %s (%s) → %s", id.Name, id.Email, keyPath))
+				}
+			}
 		}
 		imported++
 		if firstImportedName == "" {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -73,6 +74,50 @@ func SaveTempState(stateFile string, state *TempStateFile) error {
 	}
 
 	return nil
+}
+
+// DefaultTempStateFile returns the path of the crash-safety state file used
+// to detect orphaned temporary identity keys left behind by an unclean exit.
+func DefaultTempStateFile() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("getting home directory: %w", err)
+	}
+	return filepath.Join(home, ".git-users", "temp-state.json"), nil
+}
+
+// RecordTempKey registers a newly created temporary identity's key in the
+// crash-safety state file, so a later orphan scan (from any process, e.g. the
+// next `git-user` invocation) can find and securely delete it if this
+// process dies before the normal switch/logout cleanup path runs. Without
+// this, OrphanDetector.Scan never has anything to find — creating a temp key
+// is the one place that must record it.
+func RecordTempKey(name, keyPath string) error {
+	stateFile, err := DefaultTempStateFile()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(stateFile), 0700); err != nil {
+		return fmt.Errorf("creating state directory: %w", err)
+	}
+	return AddKeyToState(stateFile, TempKeyMetadata{
+		KeyPath:      keyPath,
+		IdentityName: name,
+		CreatedAt:    time.Now(),
+		ProcessPID:   os.Getpid(),
+	})
+}
+
+// ForgetTempKey removes a temporary identity's key from the crash-safety
+// state file once it has been cleaned up normally (switch-away or logout),
+// so a later orphan scan doesn't carry a stale entry for an already-deleted
+// key indefinitely.
+func ForgetTempKey(keyPath string) error {
+	stateFile, err := DefaultTempStateFile()
+	if err != nil {
+		return err
+	}
+	return RemoveKeyFromState(stateFile, keyPath)
 }
 
 // AddKeyToState adds a key to the state file

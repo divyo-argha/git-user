@@ -178,19 +178,40 @@ func runSync(args []string) error {
 				ui.Warn(fmt.Sprintf("Skipping remote identity %q with invalid email", rid.Name))
 				continue
 			}
-
-			var keyPath string
-			if len(rid.PrivateKey) > 0 {
-				keyPath, _ = config.DefaultSSHKeyPath(rid.Name)
-				_ = os.WriteFile(keyPath, rid.PrivateKey, 0600)
-				if len(rid.PublicKey) > 0 {
-					_ = os.WriteFile(keyPath+".pub", rid.PublicKey, 0644)
-				}
+			if store.IsEmailTaken(rid.Email) {
+				ui.Warn(fmt.Sprintf("Skipping remote identity %q: email %q is already used by a different local identity", rid.Name, rid.Email))
+				continue
 			}
 
-			_ = store.AddUser(rid.Name, rid.Email)
-			if keyPath != "" {
-				_ = store.BindSSHKey(rid.Name, keyPath)
+			// Add the record before touching disk — a failed AddUser must not
+			// leave an unbound private key file lying around with no owner,
+			// and must not be reported below as a successful merge.
+			if err := store.AddUser(rid.Name, rid.Email); err != nil {
+				ui.Warn(fmt.Sprintf("Skipping remote identity %q: %v", rid.Name, err))
+				continue
+			}
+
+			if len(rid.PrivateKey) > 0 {
+				keyPath, err := config.DefaultSSHKeyPath(rid.Name)
+				switch {
+				case err != nil:
+					ui.Warn(fmt.Sprintf("Imported %q without its SSH key: %v", rid.Name, err))
+				case fileExists(keyPath):
+					ui.Warn(fmt.Sprintf("Imported %q without its SSH key: a key already exists at %s", rid.Name, keyPath))
+				default:
+					if err := os.MkdirAll(filepath.Dir(keyPath), 0700); err != nil {
+						ui.Warn(fmt.Sprintf("Imported %q without its SSH key: %v", rid.Name, err))
+						break
+					}
+					if err := os.WriteFile(keyPath, rid.PrivateKey, 0600); err != nil {
+						ui.Warn(fmt.Sprintf("Imported %q without its SSH key: %v", rid.Name, err))
+					} else {
+						if len(rid.PublicKey) > 0 {
+							_ = os.WriteFile(keyPath+".pub", rid.PublicKey, 0644)
+						}
+						_ = store.BindSSHKey(rid.Name, keyPath)
+					}
+				}
 			}
 			mergedCount++
 			ui.Successf("Imported new identity: %s (%s)", rid.Name, rid.Email)
@@ -214,7 +235,18 @@ func runSync(args []string) error {
 					ui.Warn(fmt.Sprintf("Skipping remote key for %q: %v", rid.Name, err))
 					continue
 				}
-				_ = os.WriteFile(keyPath, rid.PrivateKey, 0600)
+				if fileExists(keyPath) {
+					ui.Warn(fmt.Sprintf("Skipping remote key for %q: a key already exists at %s", rid.Name, keyPath))
+					continue
+				}
+				if err := os.MkdirAll(filepath.Dir(keyPath), 0700); err != nil {
+					ui.Warn(fmt.Sprintf("Skipping remote key for %q: %v", rid.Name, err))
+					continue
+				}
+				if err := os.WriteFile(keyPath, rid.PrivateKey, 0600); err != nil {
+					ui.Warn(fmt.Sprintf("Skipping remote key for %q: %v", rid.Name, err))
+					continue
+				}
 				if len(rid.PublicKey) > 0 {
 					_ = os.WriteFile(keyPath+".pub", rid.PublicKey, 0644)
 				}
@@ -284,6 +316,11 @@ func runSync(args []string) error {
 	}
 
 	return nil
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 func runCmdsInDir(dir string, cmds ...[]string) error {

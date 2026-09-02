@@ -117,38 +117,6 @@ func opCheckSSH(store *config.Store, name, passphrase string) (opResult, error) 
 	return opResult{detail: report, showReport: true}, nil
 }
 
-// verifySSHConnectionWithKey tests SSH auth across the major platforms.
-// The key must already be unlocked (in the agent or unprotected) by the
-// caller: ssh is never allowed to prompt for a passphrase from within the TUI,
-// and the special "unset the agent socket" trick is not used because it would
-// force ssh to fall back to the key file (and prompt on the tty for it).
-func verifySSHConnectionWithKey(keyPath string) (bool, string) {
-	platforms := []struct {
-		host    string
-		success []string
-	}{
-		{"git@github.com", []string{"Hi ", "successfully authenticated"}},
-		{"git@gitlab.com", []string{"Welcome to GitLab", "successfully authenticated"}},
-		{"git@bitbucket.org", []string{"logged in as", "successfully authenticated", "authenticated via ssh key"}},
-	}
-	for _, p := range platforms {
-		args := []string{"-T", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5"}
-		if keyPath != "" {
-			args = append(args, "-i", keyPath, "-o", "IdentitiesOnly=yes")
-		}
-		args = append(args, p.host)
-		cmd := exec.Command("ssh", args...)
-		output, _ := cmd.CombinedOutput()
-		out := string(output)
-		for _, marker := range p.success {
-			if strings.Contains(out, marker) {
-				return true, ""
-			}
-		}
-	}
-	return false, "  • The public key may not be added to GitHub/GitLab yet\n  • The key may not be loaded in ssh-agent\n  • Network connectivity issues\n"
-}
-
 // opRefresh re-syncs git-user's stored state onto the live environment,
 // actually fixing drift instead of only reporting it (unlike doctor, which is
 // read-only). Mirrors `git-user refresh` (internal/cli/refresh.go).

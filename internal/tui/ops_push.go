@@ -8,6 +8,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/git"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -36,24 +37,14 @@ func opPushKey(store *config.Store, platform string) (opResult, error) {
 	case "github":
 		if _, err := exec.LookPath("gh"); err == nil {
 			if _, authErr := runCaptured("", "gh", "auth", "status"); authErr == nil {
-				addCmd := exec.Command("gh", "ssh-key", "add", pubKeyPath, "--title", fmt.Sprintf("git-user: %s", user.Name))
-				if out, err := addCmd.CombinedOutput(); err == nil {
-					return opResult{detail: "SSH key successfully added to GitHub via gh CLI!"}, nil
-				} else {
-					_ = out
-				}
+				return pushKeyViaHostCLI("gh", pubKeyPath, user.Name, "GitHub")
 			}
 		}
 		return opResult{}, ErrNeedsCredential
 	case "gitlab":
 		if _, err := exec.LookPath("glab"); err == nil {
 			if _, authErr := runCaptured("", "glab", "auth", "status"); authErr == nil {
-				addCmd := exec.Command("glab", "ssh-key", "add", pubKeyPath, "--title", fmt.Sprintf("git-user: %s", user.Name))
-				if out, err := addCmd.CombinedOutput(); err == nil {
-					return opResult{detail: "SSH key successfully added to GitLab via glab CLI!"}, nil
-				} else {
-					_ = out
-				}
+				return pushKeyViaHostCLI("glab", pubKeyPath, user.Name, "GitLab")
 			}
 		}
 		return opResult{}, ErrNeedsCredential
@@ -61,6 +52,23 @@ func opPushKey(store *config.Store, platform string) (opResult, error) {
 		return opResult{}, ErrNeedsCredential
 	}
 	return opResult{}, fmt.Errorf("unsupported platform")
+}
+
+// pushKeyViaHostCLI runs `<cli> ssh-key add` and reports what actually
+// happened instead of silently falling through to ErrNeedsCredential on any
+// failure — previously a genuine CLI error (rate limit, network issue,
+// permissions) was indistinguishable from "not authenticated" and the user
+// was misdirected into entering a token manually with no explanation.
+func pushKeyViaHostCLI(cli, pubKeyPath, profileName, platformLabel string) (opResult, error) {
+	out, err := exec.Command(cli, "ssh-key", "add", pubKeyPath, "--title", fmt.Sprintf("git-user: %s", profileName)).CombinedOutput()
+	if err == nil {
+		return opResult{detail: fmt.Sprintf("SSH key successfully added to %s via %s CLI!", platformLabel, cli)}, nil
+	}
+	outStr := strings.TrimSpace(string(out))
+	if strings.Contains(strings.ToLower(outStr), "already") {
+		return opResult{detail: fmt.Sprintf("This SSH key is already associated with your %s account.", platformLabel)}, nil
+	}
+	return opResult{}, fmt.Errorf("%s ssh-key add failed: %s", cli, outStr)
 }
 
 // opPushKeyWithCredential publishes a key using an API token (or username +
@@ -180,7 +188,7 @@ func pushKeyBitbucket(profileName, pubKey, username, appPassword string) (opResu
 		"label": fmt.Sprintf("git-user: %s", profileName),
 		"key":   pubKey,
 	})
-	url := fmt.Sprintf("https://api.bitbucket.org/2.0/users/%s/ssh-keys", username)
+	url := fmt.Sprintf("https://api.bitbucket.org/2.0/users/%s/ssh-keys", neturl.PathEscape(username))
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return opResult{}, err
