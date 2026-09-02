@@ -68,8 +68,19 @@ func TestDetail(t *testing.T) {
 		Users:   []config.User{{Name: "eng", Email: "eng@company.com", SSHKey: "/path/to/key"}},
 	}
 	detailActive := NewDetail(storeActive, "eng", th)
-	viewStr := detailActive.View(80, 24)
-	if viewStr == "" {
-		t.Errorf("Active profile View rendered empty string")
+	viewWide := detailActive.View(100, 24)
+	if viewWide == "" {
+		t.Errorf("Active profile View rendered empty string on wide screen")
+	}
+
+	viewNarrow := detailActive.View(60, 24)
+	if viewNarrow == "" {
+		t.Errorf("Active profile View rendered empty string on narrow screen")
+	}
+
+	detailMissing := NewDetail(storeActive, "nonexistent", th)
+	missingView := detailMissing.View(80, 24)
+	if missingView == "" {
+		t.Errorf("Expected error view for nonexistent user, got empty string")
 	}
 }

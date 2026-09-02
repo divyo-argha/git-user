@@ -8,6 +8,7 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/validate"
 )
 
 func runConfig(args []string) error {
@@ -108,6 +109,15 @@ func applyConfigAction(name, action, key, value string) error {
 
 	switch action {
 	case "set":
+		if err := validate.GitConfigKey(key); err != nil {
+			ui.Errorf("%v", err)
+			return err
+		}
+		if err := validate.GitConfigValue(value); err != nil {
+			ui.Errorf("%v", err)
+			return err
+		}
+
 		if user.CustomConfig == nil {
 			user.CustomConfig = make(map[string]string)
 		}
@@ -126,6 +136,11 @@ func applyConfigAction(name, action, key, value string) error {
 		ui.Successf("Set config %q = %q for identity %q", key, value, name)
 
 	case "unset":
+		if err := validate.GitConfigKey(key); err != nil {
+			ui.Errorf("%v", err)
+			return err
+		}
+
 		if user.CustomConfig != nil {
 			delete(user.CustomConfig, key)
 		}

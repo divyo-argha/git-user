@@ -14,30 +14,42 @@ import (
 
 // ── Bind / Rekey / Passphrase ─────────────────────────────────────────────────
 
-// opGenerateKey creates an ed25519 key non-interactively.
-func opGenerateKey(name, email, passphrase string) (string, error) {
-	keyPath, err := config.DefaultSSHKeyPath(name)
+// opGenerateKey creates an ed25519 key non-interactively. keychainWarning is
+// non-empty if a passphrase was set but couldn't be stored in the system
+// keychain — the identity would otherwise default to "persistent" passphrase
+// mode (config.User.GetPassphraseMode's zero-value default) while nothing was
+// actually persisted, silently falling back to prompting every time instead
+// of the auto-unlock the user asked for.
+func opGenerateKey(name, email, passphrase string) (keyPath string, keychainWarning string, err error) {
+	keyPath, err = config.DefaultSSHKeyPath(name)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	if err := os.MkdirAll(filepath.Dir(keyPath), 0700); err != nil {
-		return "", fmt.Errorf("creating .ssh directory: %w", err)
+		return "", "", fmt.Errorf("creating .ssh directory: %w", err)
 	}
-	if _, err := os.Stat(keyPath); err == nil {
-		return keyPath, nil
+	if _, statErr := os.Stat(keyPath); statErr == nil {
+		return keyPath, "", nil
 	}
 	if err := ssh.GenerateKey(keyPath, email, passphrase); err != nil {
-		return "", fmt.Errorf("ssh-keygen failed: %w", err)
+		return "", "", fmt.Errorf("ssh-keygen failed: %w", err)
 	}
 	if passphrase != "" {
-		_ = keyring.SetKeychainPassphrase(name, passphrase)
+		if err := keyring.SetKeychainPassphrase(name, passphrase); err != nil {
+			keychainWarning = fmt.Sprintf("Could not store the passphrase in the system keychain (%v) — you'll be asked for it again instead of it auto-unlocking.", err)
+		}
 	}
-	return keyPath, nil
+	return keyPath, keychainWarning, nil
 }
 
 // opRegisterFinish completes profile creation: adds the user, binds the key if
 // generated, and configures commit signing.
 func opRegisterFinish(store *config.Store, name, email string, isTemp bool, keyPath, passphrase string, signEnabled bool) (opResult, error) {
+	// No active identity at all yet: this registration becomes the active one
+	// automatically below, instead of creating a fully-configured identity
+	// that git never actually uses until a separate switch is remembered.
+	activateOnCreate := store.Current == ""
+
 	if err := store.AddUser(name, email); err != nil {
 		return opResult{}, err
 	}
@@ -58,6 +70,30 @@ func opRegisterFinish(store *config.Store, name, email string, isTemp bool, keyP
 			store.ToggleSigning(name, true)
 		}
 	}
+
+	activated := false
+	var activateWarnings []string
+	if activateOnCreate {
+		if user := store.FindUser(name); user != nil {
+			if err := git.Apply(user.Name, user.Email); err != nil {
+				activateWarnings = append(activateWarnings, fmt.Sprintf("Could not apply git identity: %v", err))
+			} else {
+				store.Current = name
+				activated = true
+				if keyPath != "" {
+					if err := git.ConfigureSSH(keyPath); err != nil {
+						activateWarnings = append(activateWarnings, fmt.Sprintf("Could not apply SSH config: %v", err))
+					}
+				}
+				if signEnabled {
+					if err := git.ConfigureSigning(keyPath, "ssh"); err != nil {
+						activateWarnings = append(activateWarnings, fmt.Sprintf("Could not apply commit signing config: %v", err))
+					}
+				}
+			}
+		}
+	}
+
 	if err := config.Save(store); err != nil {
 		return opResult{}, err
 	}
@@ -65,12 +101,19 @@ func opRegisterFinish(store *config.Store, name, email string, isTemp bool, keyP
 	report := fmt.Sprintf("Identity created: %s (%s)\n", name, email)
 	if keyPath != "" {
 		report += fmt.Sprintf("SSH key: %s\n", keyPath)
-		report += "Activate it from the dashboard or the profile detail view.\n"
 		if pub, err := os.ReadFile(keyPath + ".pub"); err == nil {
 			report += "\nPublic key:\n" + strings.TrimSpace(string(pub)) + "\n"
 		}
 	} else {
 		report += "No SSH key set — bind one later from the profile detail view.\n"
+	}
+	if activated {
+		report += "\nThis is your first identity, so it's now active.\n"
+	} else {
+		report += "\nActivate it from the dashboard or the profile detail view.\n"
+	}
+	for _, w := range activateWarnings {
+		report += "⚠ " + w + "\n"
 	}
 	return opResult{detail: report, showReport: true}, nil
 }
@@ -140,13 +183,15 @@ func opUnbind(store *config.Store, name string) error {
 // (generate / existing / skip) and either completes profile creation
 // (register, register-temp) or binds the key to an existing identity (bind).
 func opAttachKey(store *config.Store, name, email, mode, choice, passphrase, keyPath string, signEnabled bool) (opResult, error) {
+	keychainWarning := ""
 	switch choice {
 	case "generate":
-		kp, err := opGenerateKey(name, email, passphrase)
+		kp, warning, err := opGenerateKey(name, email, passphrase)
 		if err != nil {
 			return opResult{}, err
 		}
 		keyPath = kp
+		keychainWarning = warning
 	case "existing":
 		expanded := expandPath(keyPath)
 		if _, err := os.Stat(expanded); err != nil {
@@ -157,15 +202,34 @@ func opAttachKey(store *config.Store, name, email, mode, choice, passphrase, key
 		keyPath = ""
 	}
 
+	var res opResult
+	var err error
 	if mode == "bind" {
 		if keyPath == "" {
 			return opResult{}, fmt.Errorf("no SSH key configured")
 		}
-		return opBind(store, name, keyPath, signEnabled)
+		res, err = opBind(store, name, keyPath, signEnabled)
+	} else {
+		isTemp := mode == "register-temp"
+		res, err = opRegisterFinish(store, name, email, isTemp, keyPath, passphrase, signEnabled)
+	}
+	if err != nil {
+		return res, err
 	}
 
-	isTemp := mode == "register-temp"
-	return opRegisterFinish(store, name, email, isTemp, keyPath, passphrase, signEnabled)
+	if keychainWarning != "" {
+		// The keychain write failed, so "persistent" mode (config.User's
+		// zero-value default) would silently never have auto-unlocked
+		// anything — record the real, working fallback instead of leaving
+		// the identity claiming a mode that was never actually set up.
+		if u := store.FindUser(name); u != nil {
+			u.PassphraseMode = "everytime"
+			_ = config.Save(store)
+		}
+		res.detail += "⚠ " + keychainWarning + "\n"
+		res.showReport = true
+	}
+	return res, nil
 }
 
 // opRekey rotates an identity's SSH key (non-interactive, forced).
@@ -219,7 +283,27 @@ func opRekey(store *config.Store, name, passphrase string) (opResult, error) {
 		return opResult{}, err
 	}
 
-	report := fmt.Sprintf("SSH key rotated successfully for %s\nOld key backed up with .backup extension\n\n", name)
+	// If this is the active identity and the new key is passphrase-protected,
+	// load it into the agent now. Otherwise the next git operation against
+	// this identity would need to unlock it with no TUI-owned terminal free
+	// to answer an ssh passphrase prompt — mirrors the passphrase gate in
+	// `switch`. Unprotected keys need no agent entry.
+	agentNote := ""
+	if store.Current == name && passphrase != "" {
+		// EnsureSSHAgent prints its own guidance on failure, but that's a raw
+		// stdout write invisible under the TUI's alt-screen — without this
+		// explicit note the report would say nothing at all about the new
+		// key never having been loaded anywhere.
+		if agentErr := ssh.EnsureSSHAgent(); agentErr != nil {
+			agentNote = "⚠ New key was NOT loaded into any ssh-agent (no agent reachable) — the next push/pull may hang or fail asking for a passphrase.\n\n"
+		} else if err := ssh.AddSSHKeyWithPassphrase(keyPath, passphrase); err != nil {
+			agentNote = fmt.Sprintf("⚠ Could not load new key into ssh-agent: %v\n\n", err)
+		} else {
+			agentNote = "New key unlocked and loaded into ssh-agent.\n\n"
+		}
+	}
+
+	report := fmt.Sprintf("SSH key rotated successfully for %s\nOld key backed up with .backup extension\n\n", name) + agentNote
 	if pub, err := os.ReadFile(keyPath + ".pub"); err == nil {
 		report += "REPLACE YOUR OLD KEY WITH THIS NEW PUBLIC KEY\n"
 		report += strings.TrimSpace(string(pub)) + "\n\n"

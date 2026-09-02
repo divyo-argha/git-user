@@ -130,15 +130,24 @@ tar -xzf release.tar.gz "$BIN_NAME"
 if [ -n "$SUDO" ]; then
     $SUDO rm -f "$INSTALL_DIR/$BIN_NAME"
     $SUDO install -m 755 "$BIN_NAME" "$INSTALL_DIR/$BIN_NAME"
+    # Create 'gu' alias symlink if 'gu' is not used by another tool
+    if [ ! -e "$INSTALL_DIR/gu" ] || [ -L "$INSTALL_DIR/gu" ]; then
+        $SUDO ln -sf "$INSTALL_DIR/$BIN_NAME" "$INSTALL_DIR/gu"
+    fi
 else
     rm -f "$INSTALL_DIR/$BIN_NAME"
     install -m 755 "$BIN_NAME" "$INSTALL_DIR/$BIN_NAME"
+    # Create 'gu' alias symlink if 'gu' is not used by another tool
+    if [ ! -e "$INSTALL_DIR/gu" ] || [ -L "$INSTALL_DIR/gu" ]; then
+        ln -sf "$INSTALL_DIR/$BIN_NAME" "$INSTALL_DIR/gu"
+    fi
 fi
 
 echo ""
 printf "  \033[38;2;249;115;22m▄▀▀ █ ▀█▀\033[0m       \033[38;2;226;232;240m█ █ ▀▀▀ █▀▀ █▀▄\033[0m\n"
 printf "  \033[38;2;249;115;22m█ ▄ █  █ \033[0m  \033[38;2;148;163;184m▄▄▄\033[0m  \033[38;2;226;232;240m█ █ ▀▀▄ █▀  █▀▀\033[0m\n"
 printf "  \033[38;2;249;115;22m▀▀▀ ▀  ▀ \033[0m       \033[38;2;226;232;240m▀▀▀ ▀▀▀ ▀▀▀ ▀ ▀\033[0m\n"
+printf "  \033[38;2;120;124;153mVersion %s\033[0m\n" "$LATEST_TAG"
 echo ""
 
 if [ -n "$PREV_VERSION" ] && [ "$PREV_VERSION" != "$LATEST_TAG" ]; then
@@ -154,7 +163,7 @@ else
     printf "│    \033[1;32m%-7s\033[0m \033[32m(verified)\033[0m                 │\n" "$LATEST_TAG"
     printf "╰──────────────────────────────────────────────╯\n"
 fi
-printf "  \033[90mRun 'git-user' to launch the interactive dashboard.\033[0m\n\n"
+printf "  \033[90mRun 'git-user' (or 'gu') to launch the interactive dashboard.\033[0m\n\n"
 
 # Verify the installed binary runs and reports the expected version
 INSTALLED_VER="$("$INSTALL_DIR/$BIN_NAME" --version 2>/dev/null || true)"

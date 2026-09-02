@@ -51,19 +51,31 @@ func runDoctor(args []string) error {
 			ui.Success(fmt.Sprintf("Active identity: %s (%s)", user.Name, user.Email))
 
 			ui.Info("Checking git config sync...")
-			gitName, _ := exec.Command("git", "config", "--global", "user.name").Output()
-			gitEmail, _ := exec.Command("git", "config", "--global", "user.email").Output()
+			// Resolved (not --global-only), so this reflects what git will
+			// actually use right now — including a repo-local override.
+			gitName := git.CurrentName()
+			gitEmail := git.CurrentEmail()
 
-			if strings.TrimSpace(string(gitName)) != user.Name {
-				ui.Warn(fmt.Sprintf("Git name mismatch: expected %q, got %q", user.Name, strings.TrimSpace(string(gitName))))
-				ui.Info("  Fix: Run 'git-user switch " + user.Name + "' to resync")
-				issues++
-			} else if strings.TrimSpace(string(gitEmail)) != user.Email {
-				ui.Warn(fmt.Sprintf("Git email mismatch: expected %q, got %q", user.Email, strings.TrimSpace(string(gitEmail))))
+			if gitName == user.Name && gitEmail == user.Email {
+				ui.Success("Git config in sync")
+			} else if git.IsInRepo() && git.HasLocalOverride() {
+				// A `switch --local` (or an equivalent manual local config)
+				// deliberately makes the resolved identity differ from the
+				// global active one in just this repo — that's the feature
+				// working as intended, not drift. Comparing against
+				// `--global` instead would have missed genuine drift in
+				// repos that happen to have no local override, so this
+				// checks resolved config but only warns when there's no
+				// local override to explain the difference.
+				ui.Info(fmt.Sprintf("Local override active in this repository (resolved identity: %s <%s>) — differs from the global active identity %q by design.", gitName, gitEmail, user.Name))
+			} else if gitName != user.Name {
+				ui.Warn(fmt.Sprintf("Git name mismatch: expected %q, got %q", user.Name, gitName))
 				ui.Info("  Fix: Run 'git-user switch " + user.Name + "' to resync")
 				issues++
 			} else {
-				ui.Success("Git config in sync")
+				ui.Warn(fmt.Sprintf("Git email mismatch: expected %q, got %q", user.Email, gitEmail))
+				ui.Info("  Fix: Run 'git-user switch " + user.Name + "' to resync")
+				issues++
 			}
 
 			if user.SSHKey != "" {

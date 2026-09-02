@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
@@ -36,6 +37,12 @@ func (s *StatusBar) SetVersionStatus(latestVersion string, updateAvailable bool)
 	s.updateAvailable = updateAvailable
 }
 
+// LatestVersion returns the latest known remote version string.
+func (s StatusBar) LatestVersion() string { return s.latestVersion }
+
+// UpdateAvailable reports whether a newer remote version is available.
+func (s StatusBar) UpdateAvailable() bool { return s.updateAvailable }
+
 // SetAgentStatus updates the SSH agent status.
 func (s *StatusBar) SetAgentStatus(connected bool, keyCount int) {
 	s.agentConnected = connected
@@ -45,13 +52,13 @@ func (s *StatusBar) SetAgentStatus(connected bool, keyCount int) {
 
 // View renders the status bar.
 func (s StatusBar) View(width, termHeight int) string {
-	if termHeight > 0 && termHeight < 15 {
+	if termHeight > 0 && termHeight < theme.StatusBarCompactBreakpoint {
 		return s.viewCompact()
 	}
-	return s.viewFull()
+	return s.viewFull(width)
 }
 
-func (s StatusBar) viewFull() string {
+func (s StatusBar) viewFull(width int) string {
 	logoLines := logo.GetTrimmedLogo()
 
 	versionLine := "  " + s.theme.Subtle().Render(fmt.Sprintf("Version %s", version.GetVersion()))
@@ -59,51 +66,47 @@ func (s StatusBar) viewFull() string {
 		versionLine += "  " + s.theme.PillWarning().Render(fmt.Sprintf("Update available: %s", s.latestVersion))
 	}
 
-	labelStyle := s.theme.PaneTitle()
+	infoLine := "  " + strings.Join(s.buildInfoSegments(), s.theme.Dim().Render("  ·  "))
 
-	var infoLines []string
+	var sb strings.Builder
+	sb.WriteString(strings.Join(logoLines, "\n"))
+	sb.WriteString("\n")
+	sb.WriteString(versionLine)
+	sb.WriteString("\n")
+	maxW := width - 2
+	if maxW < 8 {
+		maxW = 8
+	}
+	sb.WriteString(lipgloss.NewStyle().MaxWidth(maxW).Render(infoLine))
+
+	return sb.String()
+}
+
+// buildInfoSegments assembles the active-profile, SSH-agent, and (if in a
+// git repo) repository segments shown on the status bar's single info line.
+func (s StatusBar) buildInfoSegments() []string {
+	var segments []string
 
 	if s.store != nil && s.store.Current != "" {
 		if u := s.store.CurrentUser(); u != nil {
-			infoLines = append(infoLines, fmt.Sprintf("  %s  %s %s",
-				labelStyle.Render("Active profile :"),
-				s.theme.Active().Render("●"),
-				s.theme.Active().Render(u.Name)+" "+s.theme.Subtle().Render("("+u.Email+")"),
-			))
+			segments = append(segments, s.theme.Active().Render("●")+" "+
+				s.theme.Active().Render(u.Name)+" "+s.theme.Subtle().Render("("+u.Email+")"))
 		} else {
-			infoLines = append(infoLines, fmt.Sprintf("  %s  %s",
-				labelStyle.Render("Active profile :"),
-				s.theme.DangerText().Render(s.store.Current+" (missing)"),
-			))
+			segments = append(segments, s.theme.DangerText().Render(s.store.Current+" (missing)"))
 		}
 	} else {
-		infoLines = append(infoLines, fmt.Sprintf("  %s  %s",
-			labelStyle.Render("Active profile :"),
-			s.theme.Dim().Render("None (logged out)"),
-		))
+		segments = append(segments, s.theme.Dim().Render("No active profile"))
 	}
 
 	if s.agentChecked {
 		if s.agentConnected {
-			agentStr := s.theme.SuccessStyle().Render("Connected")
-			countStr := s.theme.Subtle().Render(fmt.Sprintf("(%d keys loaded)", s.agentKeyCount))
-			infoLines = append(infoLines, fmt.Sprintf("  %s  %s %s",
-				labelStyle.Render("SSH Agent      :"),
-				agentStr,
-				countStr,
-			))
+			segments = append(segments, "SSH: "+s.theme.SuccessStyle().Render("Connected")+
+				" "+s.theme.Subtle().Render(fmt.Sprintf("(%d keys)", s.agentKeyCount)))
 		} else {
-			agentStr := s.theme.DangerText().Render("Not reachable")
-			infoLines = append(infoLines, fmt.Sprintf("  %s  %s",
-				labelStyle.Render("SSH Agent      :"),
-				agentStr,
-			))
+			segments = append(segments, "SSH: "+s.theme.DangerText().Render("Not reachable"))
 		}
 	} else {
-		infoLines = append(infoLines, fmt.Sprintf("  %s  %s",
-			labelStyle.Render("SSH Agent      :"),
-			s.theme.Dim().Render("checking..."),
-		))
+		segments = append(segments, s.theme.Dim().Render("SSH: checking..."))
 	}
 
 	repoName := git.CurrentRepoName()
@@ -113,20 +116,10 @@ func (s StatusBar) viewFull() string {
 		if branch != "" {
 			repoStr += " " + s.theme.Subtle().Render("("+branch+")")
 		}
-		infoLines = append(infoLines, fmt.Sprintf("  %s  %s",
-			labelStyle.Render("Repository     :"),
-			repoStr,
-		))
+		segments = append(segments, repoStr)
 	}
 
-	var sb strings.Builder
-	sb.WriteString(strings.Join(logoLines, "\n"))
-	sb.WriteString("\n")
-	sb.WriteString(versionLine)
-	sb.WriteString("\n\n")
-	sb.WriteString(strings.Join(infoLines, "\n"))
-
-	return sb.String()
+	return segments
 }
 
 func (s StatusBar) viewCompact() string {

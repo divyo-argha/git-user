@@ -69,8 +69,10 @@ func (s *FirstRun) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			}
 		}
 		switch msg.String() {
-		case core.KeyCtrlC, core.KeyQuit:
+		case core.KeyCtrlC:
 			return s, tea.Quit
+		case core.KeyQuit:
+			return s, func() tea.Msg { return core.ActionResultMsg{Kind: "quit-confirm"} }
 		case core.KeyUp, core.KeyK:
 			if s.cursor > 0 {
 				s.cursor--

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/ssh"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -67,6 +68,11 @@ func runRekey(args []string) error {
 	hasOldKey := false
 	if _, err := os.Stat(keyPath); err == nil {
 		hasOldKey = true
+		// Unload the old key from the agent before it's rotated out from under
+		// it, so a stale/orphaned identity doesn't linger there indefinitely.
+		if ssh.IsSSHKeyLoaded(keyPath) {
+			_ = ssh.RemoveSSHKey(keyPath)
+		}
 		ui.Warn(fmt.Sprintf("Backing up existing key to %s", backupPath))
 		if err := os.Rename(keyPath, backupPath); err != nil {
 			ui.Errorf("backing up key: %v", err)

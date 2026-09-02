@@ -8,6 +8,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
+	"github.com/divyo-argha/git-user/internal/version"
 	"strings"
 	"time"
 )
@@ -67,6 +68,13 @@ func (a *App) handleTaskResult(msg core.TaskResultMsg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, core.ShowToastCmd(firstLine(msg.Detail), theme.ToastStyleSuccess, 3*time.Second))
 	case "update":
 		if msg.Success && !strings.Contains(strings.ToLower(msg.Detail), "requires administrator") {
+			newVer := extractUpdatedVersion(msg.Detail)
+			if newVer == "" && a.statusBar.LatestVersion() != "" {
+				newVer = a.statusBar.LatestVersion()
+			}
+			if newVer != "" {
+				version.SetVersion(newVer)
+			}
 			a.statusBar.SetVersionStatus("", false)
 			for _, s := range a.screenStack {
 				if d, ok := s.(*screens.Dashboard); ok {
@@ -162,6 +170,12 @@ func titleForKind(kind string) string {
 		return "Security Audit"
 	case "doctor":
 		return "Diagnostics"
+	case "refresh":
+		return "Refresh"
+	case "log":
+		return "Identity Switch Log"
+	case "uninstall":
+		return "Uninstall"
 	case "fix-remote":
 		return "Remote Conversion"
 	case "clone":

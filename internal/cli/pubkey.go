@@ -11,6 +11,15 @@ import (
 )
 
 func runPubkey(args []string) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "publish", "push", "--publish", "--push":
+			return runPubkeyPush(args[1:])
+		case "check", "test", "status", "--check", "--test", "--status":
+			return runCheckSSH(args[1:])
+		}
+	}
+
 	store, err := config.Load()
 	if err != nil {
 		ui.Errorf("loading config: %v", err)

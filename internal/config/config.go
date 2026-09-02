@@ -9,38 +9,20 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
+
+	"github.com/divyo-argha/git-user/internal/validate"
 )
 
-// identityNamePattern restricts identity names to characters that are safe
-// to embed in a filesystem path component. This is the only thing standing
-// between an untrusted name (from `git-user import`, `git-user sync`, or
-// direct user input) and a path-traversal write to an arbitrary file via
-// DefaultSSHKeyPath below.
-var identityNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,64}$`)
-
-// ValidIdentityName reports whether name is safe to use both as a config
-// identity name and as a filesystem path component (see DefaultSSHKeyPath).
+// ValidIdentityName reports whether name is valid and safe to use as an identity name.
 func ValidIdentityName(name string) bool {
-	return identityNamePattern.MatchString(name)
+	return validate.IdentityName(name) == nil
 }
 
-// emailPattern is a basic RFC-5322-ish shape check. Its real purpose here is
-// not full email validation (UI layers already give users an early, more
-// user-friendly rejection) but rejecting control characters — particularly
-// newlines — before an email ever reaches syncIncludeIfs, which embeds it
-// directly into a hand-written .gitconfig snippet.
-var emailPattern = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
-
-// ValidEmail reports whether email is safe to store and to embed in a
-// generated git config file. This is the single source of truth for email
-// validation: AddUser/UpdateUser enforce it here so a remote-supplied email
-// (e.g. from a synced bundle, which never goes through the CLI/TUI's own
-// input forms) can't bypass validation by calling AddUser directly.
+// ValidEmail reports whether email is safe to store and embed in git config.
 func ValidEmail(email string) bool {
-	return emailPattern.MatchString(email)
+	return validate.Email(email) == nil
 }
 
 // PermissionCheck classifies a file's mode bits against the 0600 policy this
@@ -320,14 +302,11 @@ func (s *Store) AddAliasToUser(name, aliasEmail string) error {
 }
 
 func (s *Store) AddUser(name, email string) error {
-	if name == "" || email == "" {
-		return errors.New("name and email must not be empty")
+	if err := validate.IdentityName(name); err != nil {
+		return err
 	}
-	if !ValidIdentityName(name) {
-		return fmt.Errorf("identity name %q is invalid — use only letters, digits, dots, hyphens, and underscores", name)
-	}
-	if !ValidEmail(email) {
-		return fmt.Errorf("email %q is invalid", email)
+	if err := validate.Email(email); err != nil {
+		return err
 	}
 	if s.IsNameTaken(name) {
 		return fmt.Errorf("user %q already exists", name)
@@ -365,8 +344,8 @@ func (s *Store) RenameUser(name, newName string) error {
 	if s.FindUser(name) == nil {
 		return fmt.Errorf("user %q not found", name)
 	}
-	if !ValidIdentityName(newName) {
-		return fmt.Errorf("identity name %q is invalid — use only letters, digits, dots, hyphens, and underscores", newName)
+	if err := validate.IdentityName(newName); err != nil {
+		return err
 	}
 	if name != newName && s.FindUser(newName) != nil {
 		return fmt.Errorf("user %q already exists", newName)
@@ -384,11 +363,8 @@ func (s *Store) UpdateUser(name, newEmail string) error {
 	if u == nil {
 		return fmt.Errorf("user %q not found", name)
 	}
-	if newEmail == "" {
-		return errors.New("email must not be empty")
-	}
-	if !ValidEmail(newEmail) {
-		return fmt.Errorf("email %q is invalid", newEmail)
+	if err := validate.Email(newEmail); err != nil {
+		return err
 	}
 	u.Email = newEmail
 	return nil

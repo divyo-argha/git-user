@@ -13,18 +13,20 @@ build:
 # Install to /usr/local/bin so 'git user' works as a subcommand
 install: build
 	@install -m 755 $(BUILD_DIR)/$(BINARY) /usr/local/bin/$(BINARY)
-	@echo "Installed to /usr/local/bin/$(BINARY)"
-	@echo "You can now run: git user <command>"
+	@ln -sf /usr/local/bin/$(BINARY) /usr/local/bin/gu
+	@echo "Installed to /usr/local/bin/$(BINARY) (and alias /usr/local/bin/gu)"
+	@echo "You can now run: git user <command>, git-user <command>, or gu <command>"
 
 # Install to ~/bin (no sudo required)
 install-local: build
 	@mkdir -p $$HOME/bin
 	@install -m 755 $(BUILD_DIR)/$(BINARY) $$HOME/bin/$(BINARY)
-	@echo "Installed to $$HOME/bin/$(BINARY)"
+	@ln -sf $$HOME/bin/$(BINARY) $$HOME/bin/gu
+	@echo "Installed to $$HOME/bin/$(BINARY) (and alias $$HOME/bin/gu)"
 	@echo "Make sure $$HOME/bin is on your PATH."
 
 uninstall:
-	@rm -f /usr/local/bin/$(BINARY)
+	@rm -f /usr/local/bin/$(BINARY) /usr/local/bin/gu
 	@echo "Uninstalled."
 
 clean:

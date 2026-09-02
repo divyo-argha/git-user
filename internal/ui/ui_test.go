@@ -76,3 +76,11 @@ func TestSelectModelInit(t *testing.T) {
 		t.Error("View() should return non-empty string")
 	}
 }
+
+func TestBannerFunctions(t *testing.T) {
+	// Verify that banner and update success functions execute without error
+	PrintLogo()
+	PrintBanner("v5.0.0")
+	PrintUpdateSuccess("v4.8.1", "v5.0.0", true)
+	PrintUpdateCurrent("v5.0.0")
+}

@@ -3,8 +3,10 @@ package screens
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/tui/components"
 	"github.com/divyo-argha/git-user/internal/tui/core"
@@ -12,18 +14,19 @@ import (
 )
 
 type Detail struct {
-	store               *config.Store
-	name                string
-	actions             components.ActionMenu
-	animFrame           uint64
-	theme               theme.Theme
-	keyLoaded           bool
-	keyLoadedChecked    bool
-	passphraseProtected bool
-	passphraseChecked   bool
-	platformStatuses    map[string]string // "checking", "connected", "not_added", "network_error"
-	platformUsernames   map[string]string
-	spin                components.Spinner
+	store                 *config.Store
+	name                  string
+	actions               components.ActionMenu
+	animFrame             uint64
+	theme                 theme.Theme
+	keyLoaded             bool
+	keyLoadedChecked      bool
+	passphraseProtected   bool
+	passphraseChecked     bool
+	platformStatuses      map[string]string // "checking", "connected", "not_added", "network_error", "locked"
+	platformUsernames     map[string]string
+	spin                  components.Spinner
+	platformChecksStarted bool
 }
 
 func NewDetail(store *config.Store, name string, th theme.Theme) *Detail {
@@ -41,8 +44,7 @@ func NewDetail(store *config.Store, name string, th theme.Theme) *Detail {
 
 // anyPlatformChecking reports whether at least one platform-connection check
 // is still in flight, so the aggregate spinner keeps ticking until all three
-// resolve (or the identity has no key / is inactive, in which case none of
-// them ever start "checking").
+// resolve.
 func (d *Detail) anyPlatformChecking() bool {
 	for _, status := range d.platformStatuses {
 		if status == "checking" {
@@ -67,96 +69,139 @@ func (d *Detail) refreshActions() {
 	var items []components.ActionItem
 
 	if !isActive {
-		items = append(items, components.ActionItem{Label: "Identity Overview", IsSection: true})
-		nameVal := "○ " + user.Name
-		items = append(items, components.ActionItem{Label: fmt.Sprintf("Profile Name : %s", nameVal), Key: "rename"})
-		items = append(items, components.ActionItem{Label: fmt.Sprintf("Email Address: %s", user.Email), Key: "email"})
-		items = append(items, components.ActionItem{Label: fmt.Sprintf("Status       : %s", d.theme.Dim().Render("○ Inactive Profile")), Key: ""})
-
-		// Show directory bindings even for inactive profiles.
-		if len(user.BindPaths) > 0 {
-			items = append(items, components.ActionItem{Label: "Directory Bindings", IsSection: true})
-			for _, p := range user.BindPaths {
-				items = append(items, components.ActionItem{
-					Label: fmt.Sprintf("  • %s", p),
-					Key:   "unbind-path:" + p,
-				})
-			}
-			items = append(items, components.ActionItem{Label: "+ Bind a directory to this profile", Key: "bind-path"})
-		} else {
-			items = append(items, components.ActionItem{Label: "Directory Bindings", IsSection: true})
-			items = append(items, components.ActionItem{Label: d.theme.Dim().Render("  No directories bound"), Key: ""})
-			items = append(items, components.ActionItem{Label: "+ Bind a directory to this profile", Key: "bind-path"})
-		}
-
 		items = append(items, components.ActionItem{Label: "Primary Action", IsSection: true})
 		items = append(items, components.ActionItem{Label: "→ Switch to this identity", Key: "switch"})
 		items = append(items, components.ActionItem{Label: "⚡ Switch (this terminal only) — copies activation command", Key: "switch-session"})
 		items = append(items, components.ActionItem{Label: "▶ Open isolated shell as this identity", Key: "shell-session"})
-
-		items = append(items, components.ActionItem{Label: "Management Options", IsSection: true})
-		items = append(items, components.ActionItem{Label: "› Export this identity", Key: "export"})
-		items = append(items, components.ActionItem{Label: "› Remove identity", Key: "remove", IsDanger: true})
-
-		items = append(items, components.ActionItem{Label: "", IsSection: true})
-		items = append(items, components.ActionItem{Label: "← Back", Key: "back"})
-
-		title := fmt.Sprintf("Identity Overview: %s (Inactive)", d.name)
-		d.actions = components.NewActionMenu(title, items, d.theme)
-		if prevKey != "" {
-			d.actions.FindAndSetCursorByKey(prevKey)
-		} else {
-			d.actions.FindAndSetCursorByKey("switch")
-		}
-		return
 	}
 
-	// ── PROFILE INFO (Active Profile Only) ──────────────────────────────────────
-	items = append(items, components.ActionItem{Label: "Identity Details", IsSection: true})
+	items = append(items, components.ActionItem{Label: "Profile & Git Config", IsSection: true})
+	items = append(items, components.ActionItem{Label: "✎ Rename profile", Key: "rename"})
+	items = append(items, components.ActionItem{Label: "✉ Change email address", Key: "email"})
+	items = append(items, components.ActionItem{Label: "✍ Toggle commit signing", Key: "toggle-sign"})
+	items = append(items, components.ActionItem{Label: "⚙ Custom git config", Key: "config"})
 
-	nameVal := d.theme.Active().Render("● "+user.Name) + " [active]"
-	items = append(items, components.ActionItem{Label: fmt.Sprintf("Profile Name : %s", nameVal), Key: "rename"})
-	items = append(items, components.ActionItem{Label: fmt.Sprintf("Email Address: %s", user.Email), Key: "email"})
-
-	// ── SSH & SECURITY STATUS ─────────────────────────────────────────────────
 	items = append(items, components.ActionItem{Label: "SSH & Security", IsSection: true})
+	if user.SSHKey == "" {
+		items = append(items, components.ActionItem{Label: "🔑 Bind SSH key file", Key: "bind"})
+	} else {
+		items = append(items, components.ActionItem{Label: "🔑 Change SSH key file", Key: "bind"})
+		items = append(items, components.ActionItem{Label: "⚡ Test SSH connection", Key: "check-ssh"})
+		items = append(items, components.ActionItem{Label: "🔒 Manage passphrase", Key: "passphrase"})
+		if isActive {
+			items = append(items, components.ActionItem{Label: "📋 Show public key", Key: "pubkey"})
+			items = append(items, components.ActionItem{Label: "🚀 Publish SSH key to platform", Key: "pubkey-push"})
+		} else {
+			items = append(items, components.ActionItem{
+				Label:    d.theme.Dim().Render("📋 Show public key (switch first)"),
+				Key:      "pubkey-locked",
+				Disabled: true,
+			})
+			items = append(items, components.ActionItem{
+				Label:    d.theme.Dim().Render("🚀 Publish SSH key (switch first)"),
+				Key:      "pubkey-push-locked",
+				Disabled: true,
+			})
+		}
+		items = append(items, components.ActionItem{Label: "↻ Rotate SSH key", Key: "rekey"})
+		items = append(items, components.ActionItem{Label: "✕ Remove SSH key", Key: "unbind"})
+	}
 
+	items = append(items, components.ActionItem{Label: "Directory Bindings", IsSection: true})
+	items = append(items, components.ActionItem{Label: "+ Bind a directory", Key: "bind-path"})
+	if len(user.BindPaths) > 0 {
+		for _, p := range user.BindPaths {
+			items = append(items, components.ActionItem{
+				Label: fmt.Sprintf("  - Unbind %s", filepath.Base(p)),
+				Key:   "unbind-path:" + p,
+			})
+		}
+	}
+
+	items = append(items, components.ActionItem{Label: "Management Options", IsSection: true})
+	items = append(items, components.ActionItem{Label: "› Export this identity", Key: "export"})
+	items = append(items, components.ActionItem{Label: "› Remove identity", Key: "remove", IsDanger: true})
+
+	items = append(items, components.ActionItem{Label: "", IsSection: true})
+	items = append(items, components.ActionItem{Label: "← Back", Key: "back"})
+
+	title := "Actions & Utilities"
+	d.actions = components.NewActionMenu(title, items, d.theme)
+	if prevKey != "" {
+		d.actions.FindAndSetCursorByKey(prevKey)
+	} else if !isActive {
+		d.actions.FindAndSetCursorByKey("switch")
+	} else {
+		d.actions.FindAndSetCursorByKey("rename")
+	}
+}
+
+// renderOverview generates the content for the left-hand status & overview pane.
+func (d *Detail) renderOverview(width, height int, user *config.User) string {
+	var lines []string
+
+	lines = append(lines, d.theme.PaneTitle().Render(fmt.Sprintf("Overview: %s", user.Name)))
+	lines = append(lines, "")
+
+	isActive := user.Name == d.store.Current
+	var statusBadge string
+	if isActive {
+		statusBadge = d.theme.Active().Render("● "+user.Name) + " " + d.theme.SuccessStyle().Render("[ACTIVE]")
+	} else {
+		statusBadge = d.theme.Dim().Render("○ "+user.Name) + " " + d.theme.Dim().Render("[INACTIVE]")
+	}
+
+	lines = append(lines, "  "+d.theme.Bold().Render("Profile : ")+statusBadge)
+	lines = append(lines, "  "+d.theme.Bold().Render("Email   : ")+user.Email)
+	lines = append(lines, "")
+
+	// SSH & Security
+	lines = append(lines, d.theme.SectionHeader().Render("SSH & SECURITY"))
 	sshKeyStr := d.theme.Dim().Render("None")
 	if user.SSHKey != "" {
 		sshKeyStr = filepath.Base(user.SSHKey)
 	}
-	items = append(items, components.ActionItem{Label: fmt.Sprintf("SSH Key File : %s", sshKeyStr), Key: "bind"})
+	lines = append(lines, "  "+d.theme.Dim().Render("• ")+d.theme.Bold().Render("Key File   : ")+sshKeyStr)
 
 	passphraseStr := d.theme.Dim().Render("Unknown")
 	if user.SSHKey != "" {
 		if d.passphraseChecked {
 			if d.passphraseProtected {
-				passphraseStr = d.theme.SuccessStyle().Render("Passphrase Protected ✓")
+				passphraseStr = d.theme.SuccessStyle().Render("Protected ✓")
 			} else {
 				passphraseStr = d.theme.ErrorStyle().Render("No Passphrase ⚠")
 			}
 		} else {
 			passphraseStr = d.theme.Dim().Render("checking...")
 		}
+	} else {
+		passphraseStr = d.theme.Dim().Render("None")
 	}
-	items = append(items, components.ActionItem{Label: fmt.Sprintf("Passphrase   : %s", passphraseStr), Key: "passphrase", Disabled: user.SSHKey == ""})
+	lines = append(lines, "  "+d.theme.Dim().Render("• ")+d.theme.Bold().Render("Passphrase : ")+passphraseStr)
 
-	sessionStr := d.theme.Dim().Render("Test Connection")
+	sessionStr := d.theme.Dim().Render("None")
 	if user.SSHKey != "" {
 		if d.keyLoadedChecked {
 			if d.keyLoaded {
 				sessionStr = d.theme.SuccessStyle().Render("Loaded in agent ✓")
 			} else {
-				sessionStr = d.theme.Dim().Render("Test Connection")
+				sessionStr = d.theme.Dim().Render("Not loaded")
 			}
 		} else {
 			sessionStr = d.theme.Dim().Render("checking...")
 		}
 	}
-	items = append(items, components.ActionItem{Label: fmt.Sprintf("SSH Connection: %s", sessionStr), Key: "check-ssh", Disabled: user.SSHKey == ""})
+	lines = append(lines, "  "+d.theme.Dim().Render("• ")+d.theme.Bold().Render("SSH Agent  : ")+sessionStr)
 
-	// ── PLATFORMS ─────────────────────────────────────────────────────────────
-	items = append(items, components.ActionItem{Label: "Verified Platforms", IsSection: true})
+	signingLabel := d.theme.Dim().Render("Disabled")
+	if !user.SignDisabled && user.SignKey != "" {
+		signingLabel = d.theme.SuccessStyle().Render(fmt.Sprintf("Enabled (%s)", user.SignFormat))
+	}
+	lines = append(lines, "  "+d.theme.Dim().Render("• ")+d.theme.Bold().Render("Signing    : ")+signingLabel)
+	lines = append(lines, "")
+
+	// Platform Reachability
+	lines = append(lines, d.theme.SectionHeader().Render("VERIFIED PLATFORMS"))
 	platformsList := []string{"GitHub", "GitLab", "Bitbucket"}
 	for _, p := range platformsList {
 		status := d.platformStatuses[p]
@@ -166,92 +211,78 @@ func (d *Detail) refreshActions() {
 			statusStr = d.spin.View() + " " + d.theme.Dim().Render("checking...")
 		case "connected":
 			username := d.platformUsernames[p]
-			statusStr = d.theme.SuccessStyle().Render(fmt.Sprintf("Connected ✓ (%s)", username))
+			if username != "" {
+				statusStr = d.theme.SuccessStyle().Render(fmt.Sprintf("Connected ✓ (%s)", username))
+			} else {
+				statusStr = d.theme.SuccessStyle().Render("Connected ✓")
+			}
 		case "not_added":
 			statusStr = d.theme.Dim().Render("Not added")
 		case "network_error":
-			statusStr = d.theme.WarningStyle().Render("Network error ⚠ (stale state)")
+			statusStr = d.theme.WarningStyle().Render("Network error ⚠")
+		case "locked":
+			statusStr = d.theme.Dim().Render("Locked (needs passphrase)")
 		case "":
 			statusStr = d.theme.Dim().Render("Not configured")
 		default:
-			// Unrecognized status string (e.g. a future typo or new status
-			// type not yet handled here) — flag it distinctly rather than
-			// silently rendering as the genuine not-configured state.
-			statusStr = d.theme.ErrorStyle().Render(fmt.Sprintf("Unknown status ⚠ (%q)", status))
+			statusStr = d.theme.ErrorStyle().Render(fmt.Sprintf("Unknown (%s)", status))
 		}
-		items = append(items, components.ActionItem{Label: fmt.Sprintf("%-13s: %s", p, statusStr), Key: ""})
+		lines = append(lines, fmt.Sprintf("  "+d.theme.Dim().Render("• ")+"%-9s: %s", p, statusStr))
 	}
+	lines = append(lines, "")
 
-	// ── COMMIT SIGNING ────────────────────────────────────────────────────────
-	items = append(items, components.ActionItem{Label: "Git Config Options", IsSection: true})
-
-	signingLabel := d.theme.Dim().Render("Disabled")
-	if !user.SignDisabled && user.SignKey != "" {
-		signingLabel = d.theme.SuccessStyle().Render(fmt.Sprintf("Enabled (%s)", user.SignFormat))
-	}
-	items = append(items, components.ActionItem{Label: fmt.Sprintf("Commit Signing: %s", signingLabel), Key: "toggle-sign"})
-
-	// ── UTILITIES ─────────────────────────────────────────────────────────────
-	items = append(items, components.ActionItem{Label: "Utilities", IsSection: true})
-	if isActive {
-		items = append(items, components.ActionItem{Label: "› Show public key", Key: "pubkey"})
+	// Directory Bindings
+	lines = append(lines, d.theme.SectionHeader().Render("DIRECTORY BINDINGS"))
+	if len(user.BindPaths) > 0 {
+		for _, p := range user.BindPaths {
+			lines = append(lines, "  "+d.theme.Dim().Render("• ")+p)
+		}
 	} else {
-		items = append(items, components.ActionItem{
-			Label:    d.theme.Dim().Render("› Show public key (switch to this identity first)"),
-			Key:      "pubkey-locked",
-			Disabled: true,
-		})
+		lines = append(lines, "  "+d.theme.Dim().Render("No directories bound"))
 	}
-	if user.SSHKey != "" {
-		if isActive {
-			items = append(items, components.ActionItem{Label: "› Publish SSH key to platform", Key: "pubkey-push"})
-		} else {
-			items = append(items, components.ActionItem{
-				Label:    d.theme.Dim().Render("› Publish SSH key to platform (switch to this identity first)"),
-				Key:      "pubkey-push-locked",
-				Disabled: true,
-			})
-		}
-	}
-	items = append(items, components.ActionItem{Label: "› Rotate SSH key", Key: "rekey"})
-	if user.SSHKey != "" {
-		items = append(items, components.ActionItem{Label: "› Remove SSH key", Key: "unbind"})
-	}
-	items = append(items, components.ActionItem{Label: "› Custom git config", Key: "config"})
-	items = append(items, components.ActionItem{Label: "› Export this identity", Key: "export"})
 
-	// ── DANGER ZONE ───────────────────────────────────────────────────────────
-	items = append(items, components.ActionItem{Label: "Danger Zone", IsSection: true})
-	items = append(items, components.ActionItem{Label: "› Remove identity", Key: "remove", IsDanger: true})
-
-	// ── FOOTER ────────────────────────────────────────────────────────────────
-	items = append(items, components.ActionItem{Label: "", IsSection: true})
-	items = append(items, components.ActionItem{Label: "← Back", Key: "back"})
-
-	title := fmt.Sprintf("Identity Details: %s", d.name)
-	d.actions = components.NewActionMenu(title, items, d.theme)
-	if prevKey != "" {
-		d.actions.FindAndSetCursorByKey(prevKey)
-	}
+	return strings.Join(lines, "\n")
 }
 
 func (d *Detail) Init() tea.Cmd {
 	user := d.store.FindUser(d.name)
-	if user != nil && user.Name == d.store.Current && user.SSHKey != "" {
+	if user != nil && user.SSHKey != "" {
 		return tea.Batch(
 			d.spin.Init(),
 			core.CheckKeyLoadedCmd(user.SSHKey),
 			core.CheckKeyPassphraseCmd(user.SSHKey),
-			core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "GitHub", "git@github.com", []string{"Hi ", "successfully authenticated"}),
-			core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "GitLab", "git@gitlab.com", []string{"Welcome to GitLab", "successfully authenticated"}),
-			core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "Bitbucket", "git@bitbucket.org", []string{"logged in as", "successfully authenticated"}),
 		)
 	}
-	// If inactive or no SSH key exists, mark as not added
 	d.platformStatuses["GitHub"] = "not_added"
 	d.platformStatuses["GitLab"] = "not_added"
 	d.platformStatuses["Bitbucket"] = "not_added"
 	return nil
+}
+
+func (d *Detail) maybeStartPlatformChecks(user *config.User) tea.Cmd {
+	if d.platformChecksStarted || user == nil || user.SSHKey == "" {
+		return nil
+	}
+	if !d.passphraseChecked {
+		return nil
+	}
+	if d.passphraseProtected && !(d.keyLoadedChecked && d.keyLoaded) {
+		if !d.keyLoadedChecked {
+			return nil
+		}
+		d.platformChecksStarted = true
+		d.platformStatuses["GitHub"] = "locked"
+		d.platformStatuses["GitLab"] = "locked"
+		d.platformStatuses["Bitbucket"] = "locked"
+		return nil
+	}
+
+	d.platformChecksStarted = true
+	return tea.Batch(
+		core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "GitHub", "git@github.com", []string{"Hi ", "successfully authenticated"}),
+		core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "GitLab", "git@gitlab.com", []string{"Welcome to GitLab", "successfully authenticated"}),
+		core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "Bitbucket", "git@bitbucket.org", []string{"logged in as", "successfully authenticated"}),
+	)
 }
 
 func (d *Detail) Title() string { return "Identity: " + d.name }
@@ -273,13 +304,21 @@ func (d *Detail) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		if user != nil && msg.Path == user.SSHKey {
 			d.keyLoadedChecked = true
 			d.keyLoaded = msg.Loaded
+			cmd := d.maybeStartPlatformChecks(user)
 			d.refreshActions()
+			if cmd != nil {
+				return d, cmd
+			}
 		}
 	case core.KeyPassphraseMsg:
 		if user != nil && msg.Path == user.SSHKey {
 			d.passphraseChecked = true
 			d.passphraseProtected = msg.Protected
+			cmd := d.maybeStartPlatformChecks(user)
 			d.refreshActions()
+			if cmd != nil {
+				return d, cmd
+			}
 		}
 	case core.PlatformConnectionMsg:
 		if msg.ProfileName == d.name {
@@ -292,8 +331,6 @@ func (d *Detail) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	case tea.KeyMsg:
 		return d.handleKey(msg)
 	default:
-		// Keep the spinner ticking (its own tea.Tick messages land here) only
-		// while a platform-connection check is still in flight.
 		if d.anyPlatformChecking() {
 			var cmd tea.Cmd
 			d.spin, cmd = d.spin.Update(msg)
@@ -341,7 +378,6 @@ func (d *Detail) handleEnter() (core.Screen, tea.Cmd) {
 	case item.Key == "pubkey-locked" || item.Key == "pubkey-push-locked" || item.Key == "passphrase-locked" || item.Key == "":
 		return d, nil
 	case len(item.Key) > 12 && item.Key[:12] == "unbind-path:":
-		// "unbind-path:<path>" — confirm then unbind.
 		path := item.Key[12:]
 		return d, func() tea.Msg {
 			return core.ActionResultMsg{Kind: "unbind-path-confirm", Name: d.name + "|" + path}
@@ -354,12 +390,34 @@ func (d *Detail) handleEnter() (core.Screen, tea.Cmd) {
 }
 
 func (d *Detail) View(width, height int) string {
-	contentH := height - 4
-	paneWidth := width - 6
-	if paneWidth > 80 {
-		paneWidth = 80
+	user := d.store.FindUser(d.name)
+	if user == nil {
+		return d.theme.ErrorStyle().Render("Identity not found: " + d.name)
 	}
 
-	viewContent := d.actions.View(paneWidth, contentH, true)
-	return d.theme.ActionPane(paneWidth, contentH).Render(viewContent)
+	contentH := height - 4
+	if contentH < 10 {
+		contentH = 10
+	}
+
+	if theme.IsSingleColumn(width) {
+		paneWidth := theme.PaneWidth(width)
+		viewContent := d.actions.View(paneWidth, contentH, true)
+		return d.theme.ActionPane(paneWidth, contentH).Render(viewContent)
+	}
+
+	// 2-Column Responsive Layout
+	rightWidth := d.actions.PreferredWidth(30, 46)
+	leftWidth := width - rightWidth - theme.PaneGap - 2*theme.PaneBorder
+	if leftWidth < 28 {
+		leftWidth = 28
+	}
+
+	leftContent := d.renderOverview(leftWidth, contentH, user)
+	rightContent := d.actions.View(rightWidth, contentH, true)
+
+	leftBox := d.theme.InactivePane(leftWidth, contentH).Render(leftContent)
+	rightBox := d.theme.PulsingActivePane(rightWidth, contentH, d.animFrame).Render(rightContent)
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "   ", rightBox)
 }

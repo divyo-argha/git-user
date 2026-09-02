@@ -2,12 +2,14 @@ package cli
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
 )
 
 func TestRunExport_Errors(t *testing.T) {
@@ -155,6 +157,108 @@ func TestRunExportAndImport_Success(t *testing.T) {
 	err = runImport([]string{bundlePath})
 	if err != nil {
 		t.Fatalf("unexpected error re-importing: %v", err)
+	}
+}
+
+// TestImportForceOverwriteRestoresActiveIdentity guards against a regression
+// where re-importing (with --force) a bundle containing the identity that is
+// currently active would remove-then-recreate it, but leave store.Current
+// cleared and the live git config untouched — silently deactivating the
+// user's own active identity via what looks like a routine backup restore.
+// TestImportActivationWarnsOnGitApplyFailure guards against a regression
+// where import's "activate the freshly imported identity" step called
+// git.Apply and, on failure, silently did nothing at all — no warning, and
+// store.Current was left set to an identity the live git config was never
+// actually updated for (a stale mismatch, the same class of bug as the
+// switch --local issues fixed earlier). Forces git.Apply to fail by pointing
+// GIT_CONFIG_GLOBAL at a directory instead of a file.
+func TestImportActivationWarnsOnGitApplyFailure(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	tmpDir := setupTestEnv(t)
+
+	store, _ := config.Load()
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = config.Save(store)
+
+	readPassphraseFn = func(prompt string) (string, error) {
+		return "testpassword123", nil
+	}
+	if err := runExport([]string{"dev"}); err != nil {
+		t.Fatalf("unexpected export error: %v", err)
+	}
+	bundleName := "git-user-export-" + time.Now().Format("2006-01-02") + ".bundle"
+	bundlePath := filepath.Join(tmpDir, bundleName)
+
+	// Wipe the store so import re-creates "dev" fresh with no active
+	// identity set — this is exactly the "activate the first import"
+	// path, and it's the one that used to silently swallow a git.Apply
+	// failure.
+	os.RemoveAll(filepath.Join(tmpDir, ".git-users"))
+
+	badGlobalConfig := filepath.Join(tmpDir, "not-a-file")
+	if err := os.MkdirAll(badGlobalConfig, 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", badGlobalConfig)
+
+	out := captureStdout(t, func() {
+		if err := runImport([]string{bundlePath}); err != nil {
+			t.Fatalf("unexpected import error: %v", err)
+		}
+	})
+
+	if !strings.Contains(out, "Could not activate identity") {
+		t.Errorf("expected an explicit warning that activation failed, got output:\n%s", out)
+	}
+}
+
+func TestImportForceOverwriteRestoresActiveIdentity(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	tmpDir := setupTestEnv(t)
+
+	sshDir := filepath.Join(tmpDir, ".ssh")
+	_ = os.MkdirAll(sshDir, 0700)
+	keyPath := filepath.Join(sshDir, "id_work")
+	_ = os.WriteFile(keyPath, []byte("private key data"), 0600)
+	_ = os.WriteFile(keyPath+".pub", []byte("public key data"), 0644)
+
+	store, _ := config.Load()
+	_ = store.AddUser("work", "work@example.com")
+	_ = store.BindSSHKey("work", keyPath)
+	_ = store.SetCurrent("work")
+	_ = config.Save(store)
+	if err := git.Apply("work", "work@example.com"); err != nil {
+		t.Fatal(err)
+	}
+
+	readPassphraseFn = func(prompt string) (string, error) {
+		return "testpassword123", nil
+	}
+	if err := runExport([]string{"work"}); err != nil {
+		t.Fatalf("unexpected export error: %v", err)
+	}
+	bundleName := "git-user-export-" + time.Now().Format("2006-01-02") + ".bundle"
+	bundlePath := filepath.Join(tmpDir, bundleName)
+
+	// Re-import the same bundle over the still-present, still-active "work"
+	// identity — this forces the name-conflict overwrite path.
+	if err := runImport([]string{"--force", bundlePath}); err != nil {
+		t.Fatalf("unexpected import error: %v", err)
+	}
+
+	reloaded, err := config.Load()
+	if err != nil {
+		t.Fatalf("failed to reload config: %v", err)
+	}
+	if reloaded.Current != "work" {
+		t.Errorf("expected active identity to remain %q after a force re-import, got %q", "work", reloaded.Current)
+	}
+	if git.CurrentName() != "work" || git.CurrentEmail() != "work@example.com" {
+		t.Errorf("expected live git config to still reflect \"work\" after a force re-import, got %s <%s>", git.CurrentName(), git.CurrentEmail())
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/validate"
 )
 
 func runClone(args []string) error {
@@ -42,6 +43,10 @@ func runClone(args []string) error {
 	}
 
 	repoURL = passArgs[0]
+	if err := validate.RepoURL(repoURL); err != nil {
+		ui.Errorf("%v", err)
+		return err
+	}
 	if len(passArgs) > 1 {
 		destDir = passArgs[1]
 	}

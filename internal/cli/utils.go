@@ -142,36 +142,40 @@ func generateAndDisplayKey(name, email string) (string, error) {
 		if !ui.Confirm("Use existing key?", true) {
 			return "", fmt.Errorf("key already exists")
 		}
-		return keyPath, nil
-	}
-
-	ui.Info(fmt.Sprintf("Generating SSH key at %s...", keyPath))
-	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("ssh-keygen failed: %w", err)
-	}
-	ui.Success("SSH key generated!")
-
-	ui.Info("You will be prompted to set a passphrase for the key.")
-	newPass, err := readPassphrase(PassphrasePrompt)
-	if err != nil || newPass == "" {
-		return keyPath, nil
-	}
-	confirm, err := readPassphrase(ConfirmPassphrasePrompt)
-	if err != nil || newPass != confirm {
-		ui.Error("Passphrases do not match.")
-		return keyPath, nil
-	}
-	if err := ssh.ChangeKeyPassphrase(keyPath, "", newPass); err != nil {
-		ui.Errorf("Could not add passphrase: %v", err)
 	} else {
-		ui.Success("Passphrase applied securely!")
-		promptAndStoreKeychain(name, keyPath, newPass)
+		ui.Info(fmt.Sprintf("Generating SSH key at %s...", keyPath))
+		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
+		if err := cmd.Run(); err != nil {
+			return "", fmt.Errorf("ssh-keygen failed: %w", err)
+		}
+		ui.Success("SSH key generated!")
+
+		ui.Info("You will be prompted to set a passphrase for the key. Press Enter to skip.")
+		newPass, err := readPassphrase(PassphrasePrompt)
+		if err != nil {
+			ui.Warn("Skipping passphrase setup.")
+		} else if newPass != "" {
+			confirm, err := readPassphrase(ConfirmPassphrasePrompt)
+			if err != nil || newPass != confirm {
+				ui.Error("Passphrases do not match. Skipping passphrase setup.")
+			} else if err := ssh.ChangeKeyPassphrase(keyPath, "", newPass); err != nil {
+				ui.Errorf("Could not add passphrase: %v", err)
+			} else {
+				ui.Success("Passphrase applied securely!")
+				promptAndStoreKeychain(name, keyPath, newPass)
+			}
+		}
 	}
 
 	pubKeyBytes, err := os.ReadFile(keyPath + ".pub")
 	if err != nil {
-		return keyPath, nil
+		out, kerr := exec.Command("ssh-keygen", "-y", "-f", keyPath).Output()
+		if kerr == nil && len(out) > 0 {
+			pubKeyBytes = out
+			_ = os.WriteFile(keyPath+".pub", out, 0644)
+		} else {
+			return keyPath, nil
+		}
 	}
 
 	fingerprintOut, _ := exec.Command("ssh-keygen", "-l", "-f", keyPath+".pub").Output()

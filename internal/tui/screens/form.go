@@ -15,23 +15,28 @@ type FormInput struct {
 	Placeholder string
 	IsPassword  bool
 	Value       string
+	Validate    func(string) error
 }
 
 // Form is a generic form screen.
 type Form struct {
-	title   string
-	help    string
-	context string // to identify the form result
-	inputs  []components.TextInput
-	labels  []string
-	cursor  int
-	theme   theme.Theme
+	title      string
+	help       string
+	context    string // to identify the form result
+	inputs     []components.TextInput
+	labels     []string
+	validators []func(string) error
+	cursor     int
+	theme      theme.Theme
+	skippable  bool
+	errMessage string
 }
 
 // NewForm creates a new generic form screen.
 func NewForm(title, help, context string, fields []FormInput, th theme.Theme) *Form {
 	var inputs []components.TextInput
 	var labels []string
+	var validators []func(string) error
 
 	for _, f := range fields {
 		ti := components.NewTextInput(th, f.Placeholder, f.IsPassword)
@@ -40,6 +45,7 @@ func NewForm(title, help, context string, fields []FormInput, th theme.Theme) *F
 		}
 		inputs = append(inputs, ti)
 		labels = append(labels, f.Label)
+		validators = append(validators, f.Validate)
 	}
 
 	if len(inputs) > 0 {
@@ -47,13 +53,22 @@ func NewForm(title, help, context string, fields []FormInput, th theme.Theme) *F
 	}
 
 	return &Form{
-		title:   title,
-		help:    help,
-		context: context,
-		inputs:  inputs,
-		labels:  labels,
-		theme:   th,
+		title:      title,
+		help:       help,
+		context:    context,
+		inputs:     inputs,
+		labels:     labels,
+		validators: validators,
+		theme:      th,
 	}
+}
+
+// Skippable marks the form so Esc submits it with empty values instead of
+// cancelling back to the previous screen — for optional steps (like setting a
+// passphrase) where declining should still complete the flow, not abandon it.
+func (f *Form) Skippable() *Form {
+	f.skippable = true
+	return f
 }
 
 func (f *Form) Init() tea.Cmd {
@@ -64,17 +79,54 @@ func (f *Form) Title() string { return f.title }
 
 func (f *Form) ShortHelp() string { return f.help }
 
+func (f *Form) validateCurrent() error {
+	if f.cursor >= 0 && f.cursor < len(f.validators) && f.validators[f.cursor] != nil {
+		return f.validators[f.cursor](f.inputs[f.cursor].Value())
+	}
+	return nil
+}
+
+func (f *Form) validateAll() (int, error) {
+	for i := range f.inputs {
+		if f.validators[i] != nil {
+			if err := f.validators[i](f.inputs[i].Value()); err != nil {
+				return i, err
+			}
+		}
+	}
+	return -1, nil
+}
+
 func (f *Form) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if core.IsEscKey(msg) {
+			if f.skippable {
+				values := make([]string, len(f.inputs))
+				return f, func() tea.Msg {
+					return core.FormResultMsg{Context: f.context, Values: values}
+				}
+			}
 			return f, func() tea.Msg { return core.ScreenPopMsg{} }
 		}
 		switch msg.String() {
 		case core.KeyCtrlC:
 			return f, tea.Quit
 		case core.KeyEnter:
+			// Check validation before moving or submitting
+			if err := f.validateCurrent(); err != nil {
+				f.errMessage = err.Error()
+				return f, nil
+			}
+			f.errMessage = ""
+
 			if f.cursor == len(f.inputs)-1 {
+				// Final submit check across all inputs
+				if idx, err := f.validateAll(); err != nil {
+					f.cursor = idx
+					f.errMessage = err.Error()
+					return f, f.focusActive()
+				}
 				// Form complete
 				values := make([]string, len(f.inputs))
 				for i, input := range f.inputs {
@@ -91,11 +143,13 @@ func (f *Form) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		case core.KeyUp, "shift+tab":
 			if f.cursor > 0 {
 				f.cursor--
+				f.errMessage = ""
 				return f, f.focusActive()
 			}
 		case core.KeyDown, core.KeyTab:
 			if f.cursor < len(f.inputs)-1 {
 				f.cursor++
+				f.errMessage = ""
 				return f, f.focusActive()
 			}
 		}
@@ -104,6 +158,9 @@ func (f *Form) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	if len(f.inputs) > 0 {
 		var cmd tea.Cmd
 		f.inputs[f.cursor], cmd = f.inputs[f.cursor].Update(msg)
+		if f.errMessage != "" && f.validateCurrent() == nil {
+			f.errMessage = ""
+		}
 		return f, cmd
 	}
 
@@ -133,7 +190,7 @@ func (f *Form) View(width, height int) string {
 		boxWidth = 30
 	}
 
-	padTop := (height - 12) / 2
+	padTop := (height - 14) / 2
 	if padTop < 0 {
 		padTop = 0
 	}
@@ -153,10 +210,29 @@ func (f *Form) View(width, height int) string {
 		}
 		lines = append(lines, "  "+label)
 		lines = append(lines, f.inputs[i].View(boxWidth))
+
+		// Show field validation message if invalid
+		if f.validators[i] != nil {
+			val := f.inputs[i].Value()
+			if val != "" {
+				if err := f.validators[i](val); err != nil {
+					lines = append(lines, "  "+f.theme.ErrorStyle().Render("⚠ "+err.Error()))
+				}
+			}
+		}
 		lines = append(lines, "")
 	}
 
-	lines = append(lines, f.theme.Dim().Render("  Enter to submit, Esc to cancel"))
+	if f.errMessage != "" {
+		lines = append(lines, "  "+f.theme.ErrorStyle().Render("✖ "+f.errMessage))
+		lines = append(lines, "")
+	}
+
+	footer := "  Enter to submit, Esc to cancel"
+	if f.skippable {
+		footer = "  Enter to submit, Esc to skip"
+	}
+	lines = append(lines, f.theme.Dim().Render(footer))
 	lines = append(lines, "")
 
 	content := strings.Join(lines, "\n")

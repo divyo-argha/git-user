@@ -31,6 +31,9 @@ var commands = []commandSpec{
 	{name: "edit", desc: "Update email", takesID: true},
 	{name: "rename", desc: "Rename an identity", takesID: true},
 	{name: "pubkey", desc: "Show the public key of the active identity"},
+	{name: "connections", desc: "Check platform SSH connections (GitHub/GitLab/Bitbucket)", takesID: true},
+	{name: "check-ssh", desc: "Check platform SSH connections (alias)", takesID: true},
+	{name: "check", desc: "Check platform SSH connections (alias)", takesID: true},
 	{name: "bind-key", desc: "Add/link an SSH key to an identity", takesID: true},
 	{name: "bind", desc: "Add/link an SSH key (alias)", takesID: true},
 	{name: "bind-path", desc: "Bind a directory to an identity", takesID: true},
@@ -134,7 +137,7 @@ func bashCompletion() string {
 		cmdList += c.name
 	}
 
-	return fmt.Sprintf(`# bash completion for git-user
+	return fmt.Sprintf(`# bash completion for git-user and gu
 
 _git_user_completions() {
     local cur prev commands
@@ -169,7 +172,7 @@ _git_user_completions() {
     esac
 }
 
-complete -F _git_user_completions git-user
+complete -F _git_user_completions git-user gu
 `, cmdList, idCommandsPattern())
 }
 
@@ -179,7 +182,7 @@ func zshCompletion() string {
 		descLines += fmt.Sprintf("        '%s:%s'\n", c.name, c.desc)
 	}
 
-	return fmt.Sprintf(`#compdef git-user
+	return fmt.Sprintf(`#compdef git-user gu
 
 _git_user() {
     local -a commands identities
@@ -220,9 +223,10 @@ _git_user "$@"
 }
 
 func fishCompletion() string {
-	out := "# fish completion for git-user\n\n# Commands\n"
+	out := "# fish completion for git-user and gu\n\n# Commands\n"
 	for _, c := range commands {
 		out += fmt.Sprintf("complete -c git-user -f -n \"__fish_use_subcommand\" -a \"%s\" -d \"%s\"\n", c.name, c.desc)
+		out += fmt.Sprintf("complete -c gu -f -n \"__fish_use_subcommand\" -a \"%s\" -d \"%s\"\n", c.name, c.desc)
 	}
 
 	out += "\n# Identity name completions\n"
@@ -230,13 +234,16 @@ func fishCompletion() string {
 
 	for _, name := range commandsThatTakeIDs() {
 		out += fmt.Sprintf("complete -c git-user -f -n \"__fish_seen_subcommand_from %s\" -a \"(__git_user_identities)\"\n", name)
+		out += fmt.Sprintf("complete -c gu -f -n \"__fish_seen_subcommand_from %s\" -a \"(__git_user_identities)\"\n", name)
 	}
 
 	out += "\n# Completion shell types\n"
-	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from completion\" -a \"bash zsh fish\"\n\n"
+	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from completion\" -a \"bash zsh fish\"\n"
+	out += "complete -c gu -f -n \"__fish_seen_subcommand_from completion\" -a \"bash zsh fish\"\n\n"
 
 	out += "# Export --all flag\n"
-	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from export\" -l \"all\" -d \"Export all identities\"\n\n"
+	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from export\" -l \"all\" -d \"Export all identities\"\n"
+	out += "complete -c gu -f -n \"__fish_seen_subcommand_from export\" -l \"all\" -d \"Export all identities\"\n\n"
 
 	out += "# Switch flags\n"
 	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -s \"c\" -d \"Create and switch\"\n"
@@ -244,6 +251,11 @@ func fishCompletion() string {
 	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -s \"l\" -l \"local\" -d \"Switch only for this repository\"\n"
 	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -l \"original\" -d \"Import and switch to the original identity\"\n"
 	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -l \"skip-ssh\" -d \"Skip SSH key setup (with -c)\"\n"
+	out += "complete -c gu -f -n \"__fish_seen_subcommand_from switch sw\" -s \"c\" -d \"Create and switch\"\n"
+	out += "complete -c gu -f -n \"__fish_seen_subcommand_from switch sw\" -s \"e\" -l \"email\" -d \"Email address\"\n"
+	out += "complete -c gu -f -n \"__fish_seen_subcommand_from switch sw\" -s \"l\" -l \"local\" -d \"Switch only for this repository\"\n"
+	out += "complete -c gu -f -n \"__fish_seen_subcommand_from switch sw\" -l \"original\" -d \"Import and switch to the original identity\"\n"
+	out += "complete -c gu -f -n \"__fish_seen_subcommand_from switch sw\" -l \"skip-ssh\" -d \"Skip SSH key setup (with -c)\"\n"
 
 	return out
 }

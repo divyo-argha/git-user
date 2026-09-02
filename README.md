@@ -139,7 +139,7 @@ supports macOS and Linux.
 npm install -g git-userhub
 ```
 > Published as `git-userhub` on npm.
-> After install, the command is `git-user`.
+> After install, run `git-user` (or the shorthand alias `gu`).
 > Windows (x64/arm64) is supported through this route.
 > Keep it current with `git-user --update` (npm-managed installs update via npm).
 

@@ -11,6 +11,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/ssh"
 	"github.com/divyo-argha/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/validate"
 )
 
 func runSwitch(args []string) error {
@@ -142,8 +143,14 @@ func runSwitch(args []string) error {
 		return nil
 	}
 
-	// Auto-logout: unload the previous identity's key from ssh-agent
-	if store.Current != "" && store.Current != name {
+	// Auto-logout: unload the previous identity's key from ssh-agent. This only
+	// applies to a global switch — a `--local` switch never changes the global
+	// "current" identity (store.Current, store.Save are untouched below for
+	// localMode), so the previous global identity is still active everywhere
+	// else. Running this for a local switch would incorrectly unload its key
+	// from the agent and, worse, permanently delete a temporary identity's key
+	// files while it's still the active identity outside this repo.
+	if !localMode && store.Current != "" && store.Current != name {
 		if prev := store.CurrentUser(); prev != nil {
 			if prev.SSHKey != "" && ssh.IsSSHKeyLoaded(prev.SSHKey) {
 				_ = ssh.RemoveSSHKey(prev.SSHKey)
@@ -210,8 +217,15 @@ func runSwitch(args []string) error {
 				}
 			}
 
-			// Load it into agent
-			if ssh.EnsureSSHAgent() == nil {
+			// Load it into agent. EnsureSSHAgent already prints its own
+			// "ssh-agent is not running" guidance when it fails, but that's
+			// easy to miss among the rest of this command's output and gives
+			// no indication afterward that the key never actually got loaded
+			// — call it out explicitly so "Switched to X" never reads as
+			// "and the key is ready to use" when it isn't.
+			if agentErr := ssh.EnsureSSHAgent(); agentErr != nil {
+				ui.Warn(fmt.Sprintf("Key for %q was NOT loaded into any ssh-agent — the next push/pull may hang or fail asking for a passphrase.", user.Name))
+			} else {
 				if err := ssh.AddSSHKeyWithPassphrase(user.SSHKey, passphrase); err != nil {
 					ui.Warn(fmt.Sprintf("Could not load key into agent: %v", err))
 				} else {
@@ -302,15 +316,26 @@ func runSwitch(args []string) error {
 		_ = config.AppendSwitchLog(user.Name, currentDir())
 	}
 
-	if user.SSHKey != "" && ssh.IsSSHKeyLoaded(user.SSHKey) {
-		if err := verifySSHConnectionWithKey(user.SSHKey); err != nil {
-			ui.Warn("SSH verification failed. The key may not be added to your platform yet.")
-			ui.Info(fmt.Sprintf("Test manually with: ssh -i %s -o IdentitiesOnly=yes -T git@github.com", user.SSHKey))
+	if user.SSHKey != "" {
+		// Only an agent-loaded key is required when the key is passphrase
+		// protected — verifySSHConnectionWithKey passes -i explicitly, so an
+		// unprotected key never needs the agent at all. Gating on
+		// IsSSHKeyLoaded unconditionally (regardless of protection) skipped
+		// verification for every unprotected-key identity, silently hiding
+		// real connection problems until the next `git push` failed. Mirrors
+		// the same "protected && not loaded" check used by
+		// needsPassphraseForSwitch (internal/tui/ops.go).
+		protected, _ := isSSHKeyPassphraseProtected(user.SSHKey)
+		if !protected || ssh.IsSSHKeyLoaded(user.SSHKey) {
+			if err := verifySSHConnectionWithKey(user.SSHKey); err != nil {
+				ui.Warn("SSH verification failed. The key may not be added to your platform yet.")
+				ui.Info(fmt.Sprintf("Test manually with: ssh -i %s -o IdentitiesOnly=yes -T git@github.com", user.SSHKey))
+			} else {
+				ui.Success("SSH verified: Connection successful!")
+			}
 		} else {
-			ui.Success("SSH verified: Connection successful!")
+			ui.Info("Skipping SSH verification until the key is loaded")
 		}
-	} else if user.SSHKey != "" {
-		ui.Info("Skipping SSH verification until the key is loaded")
 	}
 
 	if git.IsInRepo() {
@@ -343,15 +368,28 @@ func quickRegister(name, email string, isTemp, skipSSH bool, store *config.Store
 
 	var err error
 
+	if err := validate.IdentityName(name); err != nil {
+		ui.Errorf("%v", err)
+		return err
+	}
+
 	if email == "" {
 		email, err = ui.Prompt("Email address:")
 		if err != nil {
 			return err
 		}
-		if email == "" {
-			ui.Error("Email is required.")
-			return fmt.Errorf("missing email")
+	}
+
+	for {
+		if err := validate.Email(email); err != nil {
+			ui.Warn(err.Error())
+			email, err = ui.Prompt("Enter a valid email address:")
+			if err != nil {
+				return err
+			}
+			continue
 		}
+		break
 	}
 
 	if err := store.AddUser(name, email); err != nil {
@@ -403,12 +441,11 @@ func quickRegister(name, email string, isTemp, skipSSH bool, store *config.Store
 	case 1: // Use existing key
 		keyPath, err := ui.Prompt("Path to SSH key:")
 		if err == nil && keyPath != "" {
-			expanded := expandPath(keyPath)
-			if _, err := os.Stat(expanded); err == nil {
-				sshKeyPath = expanded
+			if err := validate.SSHKeyPath(keyPath, true); err == nil {
+				sshKeyPath = validate.ExpandPath(keyPath)
 				ui.Success("Using existing key")
 			} else {
-				ui.Warn("Key not found")
+				ui.Warn(err.Error())
 			}
 		}
 
@@ -446,6 +483,38 @@ func quickRegister(name, email string, isTemp, skipSSH bool, store *config.Store
 	return nil
 }
 
+// restoreOriginalGitConfig applies a pre-git-user gitconfig snapshot back onto
+// the live global git config: identity, SSH command, and signing. Shared by
+// `switch --original` and `uninstall`, which both need to put git back the
+// way it was before git-user ever touched it.
+func restoreOriginalGitConfig(o *config.OriginalConfig) error {
+	if err := git.Apply(o.Name, o.Email); err != nil {
+		return err
+	}
+
+	if o.SSHCommand != "" {
+		if err := git.SetSSHCommand(o.SSHCommand); err != nil {
+			ui.Warn(fmt.Sprintf("could not restore core.sshCommand: %v", err))
+		}
+	} else {
+		git.RemoveSSHConfig()
+	}
+
+	if o.SignKey != "" || o.CommitGPGSign != "" {
+		format := "gpg"
+		if o.SignFormat == "ssh" {
+			format = "ssh"
+		}
+		if err := git.ConfigureSigning(o.SignKey, format); err != nil {
+			ui.Warn(fmt.Sprintf("could not restore signing config: %v", err))
+		}
+	} else {
+		git.RemoveSigningConfig()
+	}
+
+	return nil
+}
+
 func runSwitchOriginal(args []string) error {
 	store, err := config.Load()
 	if err != nil {
@@ -465,27 +534,9 @@ func runSwitchOriginal(args []string) error {
 		ui.Warn("Original gitconfig had no user.name or user.email set")
 	}
 
-	if err := git.Apply(o.Name, o.Email); err != nil {
+	if err := restoreOriginalGitConfig(o); err != nil {
 		ui.Errorf("restoring git config: %v", err)
 		return err
-	}
-
-	if o.SSHCommand != "" {
-		if err := git.SetSSHCommand(o.SSHCommand); err != nil {
-			ui.Warn(fmt.Sprintf("could not restore core.sshCommand: %v", err))
-		}
-	} else {
-		git.RemoveSSHConfig()
-	}
-
-	if o.SignKey != "" || o.CommitGPGSign != "" {
-		if o.SignFormat == "ssh" {
-			git.ConfigureSigning(o.SignKey, "ssh")
-		} else {
-			git.ConfigureSigning(o.SignKey, "gpg")
-		}
-	} else {
-		git.RemoveSigningConfig()
 	}
 
 	if store.Current != "" {

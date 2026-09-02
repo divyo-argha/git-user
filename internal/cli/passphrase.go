@@ -85,7 +85,10 @@ func runPassphrase(args []string) error {
 			return fmt.Errorf("invalid mode")
 		}
 		user.PassphraseMode = modeVal
-		_ = config.Save(store)
+		if err := config.Save(store); err != nil {
+			ui.Errorf("saving config: %v", err)
+			return err
+		}
 		if modeVal == "login" || modeVal == "everytime" {
 			_ = keyring.DeleteKeychainPassphrase(user.Name)
 		}

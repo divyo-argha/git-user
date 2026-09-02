@@ -1,6 +1,8 @@
 package screens
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -101,5 +103,46 @@ func TestPassphraseMenu(t *testing.T) {
 	viewStr := pm.View(80, 24)
 	if viewStr == "" {
 		t.Errorf("View rendered empty string")
+	}
+}
+
+// TestPassphraseMenuModeToggleWarnsOnSaveFailure guards against a regression
+// where cycling the passphrase mode discarded config.Save's error and always
+// reported success — a security-relevant setting (persistent keychain vs.
+// ask-every-time) could silently fail to persist while the toast claimed it
+// changed. Forces the save to fail by pointing GIT_USER_CONFIG at a path
+// whose parent directory can never be created (a regular file, not a dir).
+func TestPassphraseMenuModeToggleWarnsOnSaveFailure(t *testing.T) {
+	dir := t.TempDir()
+	blocker := filepath.Join(dir, "blocker")
+	if err := os.WriteFile(blocker, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_USER_CONFIG", filepath.Join(blocker, "nested", "config.json"))
+
+	th := theme.DefaultTheme()
+	store := &config.Store{
+		Current: "eng",
+		Users:   []config.User{{Name: "eng", Email: "eng@company.com", SSHKey: "/path/to/key"}},
+	}
+	pm := NewPassphraseMenu(store, "eng", th)
+
+	pm.actions.FindAndSetCursorByKey("passphrase-mode")
+	_, cmd := pm.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatalf("Expected a toast command on mode toggle")
+	}
+	msg := cmd()
+	toast, ok := msg.(core.ToastMsg)
+	if !ok {
+		t.Fatalf("Expected core.ToastMsg, got %T", msg)
+	}
+	if toast.Style != theme.ToastStyleError {
+		t.Errorf("Expected an error toast when config.Save fails, got style %v: %q", toast.Style, toast.Text)
+	}
+
+	u := store.FindUser("eng")
+	if u.GetPassphraseMode() != "persistent" {
+		t.Errorf("Expected the mode change to be rolled back after a failed save, got %q", u.GetPassphraseMode())
 	}
 }

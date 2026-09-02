@@ -2,14 +2,16 @@ package tui
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
-	"strings"
-	"time"
+	"github.com/divyo-argha/git-user/internal/validate"
 )
 
 // shellIntegrationSnippet is a static reference card shown on a Report screen
@@ -75,8 +77,8 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			name = ""
 		}
 		return a, pushCmd(screens.NewForm("Import Original Identity", "Import your existing ~/.gitconfig identity (you pick the name)", "import-original", []screens.FormInput{
-			{Label: "Profile Name:", Value: name, Placeholder: "e.g. original"},
-			{Label: "Email Address:", Value: email, Placeholder: "e.g. you@example.com"},
+			{Label: "Profile Name:", Value: name, Placeholder: "e.g. original", Validate: validate.IdentityName},
+			{Label: "Email Address:", Value: email, Placeholder: "e.g. you@example.com", Validate: validate.Email},
 		}, a.theme))
 
 	case "register", "register-temp":
@@ -87,8 +89,8 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			help = "Profile is deleted automatically when you switch away or log out"
 		}
 		return a, pushCmd(screens.NewForm(title, help, msg.Kind, []screens.FormInput{
-			{Label: "Profile Name:", Placeholder: "e.g. work"},
-			{Label: "Email Address:", Placeholder: "e.g. you@company.com"},
+			{Label: "Profile Name:", Placeholder: "e.g. work", Validate: validate.IdentityName},
+			{Label: "Email Address:", Placeholder: "e.g. you@company.com", Validate: validate.Email},
 		}, a.theme))
 
 	case "switch":
@@ -129,7 +131,7 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 
 	case "rename":
 		return a, pushCmd(screens.NewForm("Rename Identity", "Enter new profile name for "+msg.Name, "rename:"+msg.Name, []screens.FormInput{
-			{Label: "New Name:", Value: msg.Name},
+			{Label: "New Name:", Value: msg.Name, Validate: validate.IdentityName},
 		}, a.theme))
 
 	case "email":
@@ -139,7 +141,7 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			currentEmail = u.Email
 		}
 		return a, pushCmd(screens.NewForm("Change Email", "Enter new email address for "+msg.Name, "email:"+msg.Name, []screens.FormInput{
-			{Label: "New Email:", Value: currentEmail},
+			{Label: "New Email:", Value: currentEmail, Validate: validate.Email},
 		}, a.theme))
 
 	case "toggle-sign":
@@ -236,7 +238,7 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 
 	case "bind-path":
 		return a, pushCmd(screens.NewForm("Bind Directory", "Directory path to bind to "+msg.Name, "bind-path:"+msg.Name, []screens.FormInput{
-			{Label: "Path:", Placeholder: "e.g. ~/work"},
+			{Label: "Path:", Placeholder: "e.g. ~/work", Validate: func(p string) error { return validate.BindPath(p, true) }},
 		}, a.theme))
 
 	case "unbind-path":
@@ -313,8 +315,8 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return a, pushCmd(screens.NewForm("Import Original Identity", "Import your existing ~/.gitconfig identity (you pick the name)", "import-original", []screens.FormInput{
-			{Label: "Profile Name:", Value: name, Placeholder: "e.g. original"},
-			{Label: "Email Address:", Value: email, Placeholder: "e.g. you@example.com"},
+			{Label: "Profile Name:", Value: name, Placeholder: "e.g. original", Validate: validate.IdentityName},
+			{Label: "Email Address:", Value: email, Placeholder: "e.g. you@example.com", Validate: validate.Email},
 		}, a.theme))
 
 	case "remove":
@@ -339,6 +341,16 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			return opDoctor(a.store)
 		})
 
+	case "refresh":
+		return a, a.runTaskCmd("refresh", "", func() (opResult, error) {
+			return opRefresh(a.store)
+		})
+
+	case "log":
+		return a, a.runTaskCmd("log", "", func() (opResult, error) {
+			return opLog()
+		})
+
 	case "stats":
 		if !git.IsInRepo() {
 			return a, core.ShowToastCmd("not in a git repository — run Stats inside a repository", theme.ToastStyleError, 4*time.Second)
@@ -347,7 +359,7 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 
 	case "clone":
 		return a, pushCmd(screens.NewForm("Clone Repository", "Clone a repository and configure the local identity", "clone", []screens.FormInput{
-			{Label: "Repository URL:", Placeholder: "git@github.com:user/repo.git"},
+			{Label: "Repository URL:", Placeholder: "git@github.com:user/repo.git", Validate: validate.RepoURL},
 			{Label: "Destination Dir:", Placeholder: "Optional, defaults to repo name"},
 		}, a.theme))
 
@@ -375,9 +387,9 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			}, a.theme))
 		}
 		return a, pushCmd(screens.NewForm("Configure Sync", "Keep identities synchronized across devices using a private git repository", "sync-setup", []screens.FormInput{
-			{Label: "Repository URL:", Placeholder: "git@github.com:user/sync.git"},
-			{Label: "Passphrase:", IsPassword: true},
-			{Label: "Confirm Passphrase:", IsPassword: true},
+			{Label: "Repository URL:", Placeholder: "git@github.com:user/sync.git", Validate: validate.RepoURL},
+			{Label: "Passphrase:", IsPassword: true, Validate: func(p string) error { return validate.Passphrase(p, 8) }},
+			{Label: "Confirm Passphrase:", IsPassword: true, Validate: func(p string) error { return validate.Passphrase(p, 8) }},
 		}, a.theme))
 
 	case "config":
@@ -387,6 +399,13 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		return a, a.runTaskCmd("update", "", func() (opResult, error) {
 			return opUpdate()
 		})
+
+	case "uninstall":
+		return a, pushCmd(screens.NewConfirm(
+			"Uninstall git-user? This restores your original git identity, removes git-user's config and stored passphrases, and deletes its data directory. SSH keys and the binary are kept — this cannot be undone.",
+			"uninstall-confirmed",
+			a.theme,
+		))
 	}
 
 	return a, nil
@@ -442,8 +461,8 @@ func (a *App) pushExportForm(names []string) tea.Cmd {
 		context = "export:" + strings.Join(names, ",")
 	}
 	return pushCmd(screens.NewForm("Export Identities", "Encrypt identities into a bundle file", context, []screens.FormInput{
-		{Label: "Encryption Passphrase:", IsPassword: true},
-		{Label: "Confirm Passphrase:", IsPassword: true},
+		{Label: "Encryption Passphrase:", IsPassword: true, Validate: func(p string) error { return validate.Passphrase(p, 8) }},
+		{Label: "Confirm Passphrase:", IsPassword: true, Validate: func(p string) error { return validate.Passphrase(p, 8) }},
 	}, a.theme))
 }
 
@@ -465,28 +484,51 @@ func (a *App) checkSSHPassphraseFormCmd(name string) tea.Cmd {
 
 func (a *App) handleToggleSign(name string) (tea.Model, tea.Cmd) {
 	user := a.store.FindUser(name)
-	if user != nil {
-		if !user.SignDisabled && user.SignKey != "" {
-			a.store.ToggleSigning(user.Name, true)
-			if a.store.Current == user.Name {
-				git.RemoveSigningConfig()
-			}
-		} else {
-			if user.SSHKey != "" {
-				a.store.SetSigningKey(user.Name, user.SSHKey, "ssh")
-				if a.store.Current == user.Name {
-					_ = git.ConfigureSigning(user.SSHKey, "ssh")
-				}
-			} else {
-				a.store.ToggleSigning(user.Name, !user.SignDisabled)
-				if a.store.Current == user.Name {
-					if !user.SignDisabled {
-						git.RemoveSigningConfig()
-					}
-				}
+	if user == nil {
+		return a, core.RefreshStoreCmd()
+	}
+
+	var warnings []string
+	nowEnabled := user.SignDisabled || user.SignKey == ""
+
+	if !user.SignDisabled && user.SignKey != "" {
+		if err := a.store.ToggleSigning(user.Name, true); err != nil {
+			warnings = append(warnings, err.Error())
+		}
+		if a.store.Current == user.Name {
+			git.RemoveSigningConfig()
+		}
+	} else if user.SSHKey != "" {
+		if err := a.store.SetSigningKey(user.Name, user.SSHKey, "ssh"); err != nil {
+			warnings = append(warnings, err.Error())
+		}
+		if a.store.Current == user.Name {
+			if err := git.ConfigureSigning(user.SSHKey, "ssh"); err != nil {
+				warnings = append(warnings, fmt.Sprintf("applying signing config: %v", err))
 			}
 		}
-		config.Save(a.store)
+	} else {
+		if err := a.store.ToggleSigning(user.Name, !user.SignDisabled); err != nil {
+			warnings = append(warnings, err.Error())
+		}
+		if a.store.Current == user.Name && !user.SignDisabled {
+			git.RemoveSigningConfig()
+		}
 	}
-	return a, core.RefreshStoreCmd()
+
+	if err := config.Save(a.store); err != nil {
+		warnings = append(warnings, fmt.Sprintf("saving config: %v", err))
+	}
+
+	cmds := []tea.Cmd{core.RefreshStoreCmd()}
+	if len(warnings) > 0 {
+		cmds = append(cmds, core.ShowToastCmd("⚠ "+strings.Join(warnings, "; "), theme.ToastStyleError, 5*time.Second))
+	} else {
+		status := "disabled"
+		if nowEnabled {
+			status = "enabled"
+		}
+		cmds = append(cmds, core.ShowToastCmd(fmt.Sprintf("Commit signing %s for %q", status, name), theme.ToastStyleSuccess, 3*time.Second))
+	}
+	return a, tea.Batch(cmds...)
 }

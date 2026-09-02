@@ -232,6 +232,12 @@ func TestConstants(t *testing.T) {
 	if StatusBarHeight != 5 {
 		t.Errorf("StatusBarHeight = %d, want 5", StatusBarHeight)
 	}
+	if CompactStatusBarHeight != 1 {
+		t.Errorf("CompactStatusBarHeight = %d, want 1", CompactStatusBarHeight)
+	}
+	if StatusBarCompactBreakpoint != 15 {
+		t.Errorf("StatusBarCompactBreakpoint = %d, want 15", StatusBarCompactBreakpoint)
+	}
 	if HelpBarHeight != 2 {
 		t.Errorf("HelpBarHeight = %d, want 2", HelpBarHeight)
 	}

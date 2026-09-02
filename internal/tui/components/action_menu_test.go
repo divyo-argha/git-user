@@ -1,6 +1,7 @@
 package components
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/divyo-argha/git-user/internal/tui/theme"
@@ -107,7 +108,7 @@ func TestSystemActions_UpdateStatus(t *testing.T) {
 	if updateItem.Disabled {
 		t.Errorf("Expected update item to be enabled when update is available")
 	}
-	if updateItem.Label != "▲ Update git-user (v5.0.0 available)" {
+	if updateItem.Label != "▲ Update available (v5.0.0)" {
 		t.Errorf("Unexpected label: %s", updateItem.Label)
 	}
 
@@ -115,6 +116,19 @@ func TestSystemActions_UpdateStatus(t *testing.T) {
 	m.SetUpdateStatus("v4.8.0", false)
 	if !updateItem.Disabled {
 		t.Errorf("Expected update item to be disabled when up to date")
+	}
+}
+
+func TestActionMenu_ViewFitsHeight(t *testing.T) {
+	th := theme.DefaultTheme()
+	m := SystemActions(th, true)
+
+	const height = 8
+	out := m.View(40, height, true)
+
+	lineCount := strings.Count(out, "\n") + 1
+	if lineCount > height {
+		t.Errorf("ActionMenu.View rendered %d lines, want <= %d (height)", lineCount, height)
 	}
 }
 

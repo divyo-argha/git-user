@@ -83,10 +83,16 @@ func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
 			if passphrase != "" && mode == "persistent" {
 				_ = keyring.SetKeychainPassphrase(user.Name, passphrase)
 			}
-			if ssh.EnsureSSHAgent() == nil {
-				if err := ssh.AddSSHKeyWithPassphrase(user.SSHKey, p); err != nil {
-					warnings = append(warnings, fmt.Sprintf("Could not load key into agent: %v", err))
-				}
+			// EnsureSSHAgent prints its own guidance on failure, but that goes
+			// to raw stdout — invisible or corrupted under the TUI's
+			// alt-screen rendering, unlike everything else here which surfaces
+			// through `warnings` into the report/toast the user actually
+			// sees. Without this, a switch with no reachable agent would
+			// report success with no indication the key was never loaded.
+			if agentErr := ssh.EnsureSSHAgent(); agentErr != nil {
+				warnings = append(warnings, fmt.Sprintf("Key for %q was NOT loaded into any ssh-agent (no agent reachable) — the next push/pull may hang or fail asking for a passphrase.", user.Name))
+			} else if err := ssh.AddSSHKeyWithPassphrase(user.SSHKey, p); err != nil {
+				warnings = append(warnings, fmt.Sprintf("Could not load key into agent: %v", err))
 			}
 		}
 	}
@@ -218,16 +224,21 @@ func opLogout(store *config.Store) (opResult, error) {
 
 // opRename renames an identity.
 func opRename(store *config.Store, name, newName string) error {
+	oldUser := store.FindUser(name)
+	localOverrideMatched := oldUser != nil && git.IsInRepo() && git.HasLocalOverride() &&
+		git.CurrentLocalName() == oldUser.Name && git.CurrentLocalEmail() == oldUser.Email
+
 	if err := store.RenameUser(name, newName); err != nil {
 		return err
 	}
-	if store.Current == newName {
-		u := store.FindUser(newName)
-		if u != nil {
-			if err := git.Apply(u.Name, u.Email); err != nil {
-				return fmt.Errorf("re-applying git config: %w", err)
-			}
+	u := store.FindUser(newName)
+	if store.Current == newName && u != nil {
+		if err := git.Apply(u.Name, u.Email); err != nil {
+			return fmt.Errorf("re-applying git config: %w", err)
 		}
+	}
+	if localOverrideMatched && u != nil {
+		_ = git.ApplyScope(u.Name, u.Email, true)
 	}
 	return config.Save(store)
 }
@@ -239,14 +250,21 @@ func opChangeEmail(store *config.Store, name, newEmail string) error {
 			return fmt.Errorf("email already in use — each identity must have a unique email")
 		}
 	}
+	oldUser := store.FindUser(name)
+	localOverrideMatched := oldUser != nil && git.IsInRepo() && git.HasLocalOverride() &&
+		git.CurrentLocalName() == oldUser.Name && git.CurrentLocalEmail() == oldUser.Email
+
 	if err := store.UpdateUser(name, newEmail); err != nil {
 		return err
 	}
+	u := store.FindUser(name)
 	if store.Current == name {
-		u := store.FindUser(name)
 		if err := git.Apply(u.Name, u.Email); err != nil {
 			return fmt.Errorf("re-applying git config: %w", err)
 		}
+	}
+	if localOverrideMatched {
+		_ = git.ApplyScope(u.Name, u.Email, true)
 	}
 	return config.Save(store)
 }

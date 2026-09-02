@@ -10,6 +10,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/ssh"
 	"github.com/divyo-argha/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/validate"
 )
 
 func runBind(args []string) error {
@@ -51,11 +52,11 @@ func runBind(args []string) error {
 		return interactiveSSHSetup(name, user.Email, store, noSign)
 	}
 
-	expanded := expandPath(sshKeyPath)
-	if _, err := os.Stat(expanded); os.IsNotExist(err) {
-		ui.Errorf("SSH key file %q does not exist", sshKeyPath)
+	if err := validate.SSHKeyPath(sshKeyPath, true); err != nil {
+		ui.Errorf("%v", err)
 		return err
 	}
+	expanded := validate.ExpandPath(sshKeyPath)
 
 	checkAndPromptPassphrase(name, expanded)
 
@@ -184,12 +185,11 @@ func interactiveSSHSetup(name, email string, store *config.Store, noSign bool) e
 			ui.Error("No path provided")
 			return fmt.Errorf("no path")
 		}
-		expanded := expandPath(keyPath)
-		if _, err := os.Stat(expanded); err != nil {
-			ui.Error("Key not found")
+		if err := validate.SSHKeyPath(keyPath, true); err != nil {
+			ui.Errorf("%v", err)
 			return err
 		}
-		sshKeyPath = expanded
+		sshKeyPath = validate.ExpandPath(keyPath)
 		ui.Success("Using existing key")
 	}
 

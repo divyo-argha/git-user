@@ -72,14 +72,42 @@ Update an identity's email address.`,
 
 Rename an identity. The active git config user.name is updated automatically
 when the active identity is renamed. Useful for resolving an import conflict.`,
-		"pubkey": `Usage: git-user pubkey [publish [platform]]
+		"pubkey": `Usage: git-user pubkey [publish [platform] | test [name]]
 
 Show the public SSH key for the active identity.
-  pubkey publish [platform]  Publish the key to github, gitlab, or bitbucket.
-  (push is a hidden alias for publish)
+  pubkey                     Show public key for active identity
+  pubkey publish [platform]  Publish key to github, gitlab, or bitbucket
+  pubkey test [name]         Test connections on GitHub, GitLab, and Bitbucket
+  (push is an alias for publish; check and status are aliases for test)
 
 Flags:
   -h, --help                   Show this help`,
+		"connections": `Usage: git-user connections [name] [flags]
+
+Check which Git platforms (GitHub, GitLab, Bitbucket) have accepted this
+identity's SSH key, or report if nothing is connected.
+
+Aliases: check-ssh, check, test-ssh, pubkey test, pubkey check
+
+Flags:
+  --plain                      Plain, machine-readable output
+  --json                       JSON output
+  -h, --help                   Show this help
+
+Examples:
+  git-user connections
+  git-user connections work
+  git-user pubkey test
+  git-user check-ssh`,
+		"check-ssh": `Usage: git-user check-ssh [name] [flags]
+
+Alias for git-user connections.`,
+		"check": `Usage: git-user check [name] [flags]
+
+Alias for git-user connections.`,
+		"test-ssh": `Usage: git-user test-ssh [name] [flags]
+
+Alias for git-user connections.`,
 		"bind-key": `Usage: git-user bind-key <name> [flags]
 
 Add or link an SSH key to an identity. ` + "`bind`" + ` is a hidden alias.
@@ -142,7 +170,41 @@ Flags:
   -h, --help                   Show this help`,
 		"doctor": `Usage: git-user doctor
 
-Diagnose common setup and configuration issues.`,
+Diagnose common setup and configuration issues (read-only — reports
+problems and suggests fixes, but changes nothing). ` + "`repair`/`fix`" + ` are hidden aliases.`,
+		"refresh": `Usage: git-user refresh
+
+Fix the config conflicts ` + "`doctor`" + ` finds, instead of just reporting them:
+chmod insecure config/key file permissions, re-sync directory-binding
+(includeIf) git config, and re-apply the active identity's name/email, SSH
+key, and signing config to ~/.gitconfig if it has drifted out of sync (e.g.
+after a manual edit, another tool touching global git config, or a
+crashed/partial switch). ` + "`repair`/`fix`" + ` are hidden aliases.`,
+		"uninstall": `Usage: git-user uninstall [flags]
+
+Remove git-user from this machine as completely as possible: restores your
+original git identity/config (if git-user saved one), strips the global git
+config it manages (signing key, sshCommand, directory-binding includeIf
+rules), deletes ~/.git-users (all identities, audit log, sync state),
+removes keychain-stored passphrases, and removes shell prompt integration it
+installed. ` + "`purge`" + ` is a hidden alias.
+
+Flags:
+  -y, --yes            Skip the main confirmation prompt (required if not a TTY)
+  --delete-keys         Also permanently delete the SSH keys git-user generated
+  --keep-keys           Keep generated SSH keys without prompting
+  --remove-binary       Also delete the git-user binary itself
+  -h, --help            Show this help
+
+Notes:
+  - Only SSH keys git-user itself generated (~/.ssh/git_<name>) are ever
+    offered for deletion; keys you bound from elsewhere are left alone.
+  - Pre-commit hooks installed per-repo via 'git-user hook install' are not
+    tracked centrally and must be removed from each repo separately.
+
+Examples:
+  git-user uninstall
+  git-user uninstall --yes --delete-keys`,
 		"tui": `Usage: git-user tui
 
 Launch the interactive terminal UI.`,

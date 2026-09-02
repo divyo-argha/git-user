@@ -63,8 +63,11 @@ func (c *Confirm) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 				return core.ConfirmResultMsg{Confirmed: c.cursor == 0, Context: c.context}
 			}
 
-		case core.KeyCtrlC, core.KeyQuit:
+		case core.KeyCtrlC:
 			return c, tea.Quit
+
+		case core.KeyQuit:
+			return c, func() tea.Msg { return core.ActionResultMsg{Kind: "quit-confirm"} }
 		}
 	}
 	return c, nil
