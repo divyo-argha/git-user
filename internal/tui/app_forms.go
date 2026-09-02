@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
@@ -72,16 +73,29 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 			return opResult{detail: fmt.Sprintf("Updated %q → email is now %s", rest, msg.Values[0])}, err
 		})
 
+	case "ssh-keyname":
+		fields := strings.Split(rest, "|")
+		name, email, mode := field(fields, 0), field(fields, 1), field(fields, 2)
+		filename := msg.Values[0]
+		if err := validateNewSSHKeyFilename(filename); err != nil {
+			return a, tea.Batch(core.ShowToastCmd(err.Error(), theme.ToastStyleError, 4*time.Second), a.sshKeyNameFormCmd(name, email, mode, filename))
+		}
+		keyPath, err := config.SSHKeyPathForFilename(filename)
+		if err != nil {
+			return a, tea.Batch(core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second), a.sshKeyNameFormCmd(name, email, mode, filename))
+		}
+		return a, a.sshPassphraseFormCmd(name, email, mode, "generate", keyPath)
+
 	case "ssh-passphrase":
 		fields := strings.Split(rest, "|")
-		name, email, mode, choice := field(fields, 0), field(fields, 1), field(fields, 2), field(fields, 3)
+		name, email, mode, choice, keyPath := field(fields, 0), field(fields, 1), field(fields, 2), field(fields, 3), field(fields, 4)
 		newPass := msg.Values[0]
 		if newPass != msg.Values[1] {
-			return a, tea.Batch(core.ShowToastCmd("Passphrases do not match", theme.ToastStyleError, 3*time.Second), a.sshPassphraseFormCmd(name, email, mode, choice))
+			return a, tea.Batch(core.ShowToastCmd("Passphrases do not match", theme.ToastStyleError, 3*time.Second), a.sshPassphraseFormCmd(name, email, mode, choice, keyPath))
 		}
 		return a, pushCmd(screens.NewConfirm(
 			"Would you like to sign your Git commits automatically using this identity's SSH key?",
-			fmt.Sprintf("ssh-sign:%s|%s|%s|%s|%s|", name, email, mode, choice, newPass),
+			fmt.Sprintf("ssh-sign:%s|%s|%s|%s|%s|%s", name, email, mode, choice, newPass, keyPath),
 			a.theme,
 		))
 
@@ -245,12 +259,30 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 			return opResult{detail: fmt.Sprintf("Passphrase security removed for %q", rest)}, err
 		})
 
-	case "rekey-pass":
-		if msg.Values[0] != msg.Values[1] {
-			return a, tea.Batch(core.ShowToastCmd("Passphrases do not match", theme.ToastStyleError, 3*time.Second), a.rekeyPassFormCmd(rest))
+	case "rekey-keyname":
+		name := rest
+		filename := msg.Values[0]
+		currentPath := ""
+		if u := a.store.FindUser(name); u != nil {
+			currentPath = u.SSHKey
 		}
-		return a, a.runTaskCmd("rekey", rest, func() (opResult, error) {
-			return opRekey(a.store, rest, msg.Values[0])
+		if err := validateRekeyFilename(currentPath)(filename); err != nil {
+			return a, tea.Batch(core.ShowToastCmd(err.Error(), theme.ToastStyleError, 4*time.Second), a.rekeyKeyNameFormCmd(name, filename))
+		}
+		keyPath, err := config.SSHKeyPathForFilename(filename)
+		if err != nil {
+			return a, tea.Batch(core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second), a.rekeyKeyNameFormCmd(name, filename))
+		}
+		return a, a.rekeyPassFormCmd(name, keyPath)
+
+	case "rekey-pass":
+		fields := strings.SplitN(rest, "|", 2)
+		name, keyPath := field(fields, 0), field(fields, 1)
+		if msg.Values[0] != msg.Values[1] {
+			return a, tea.Batch(core.ShowToastCmd("Passphrases do not match", theme.ToastStyleError, 3*time.Second), a.rekeyPassFormCmd(name, keyPath))
+		}
+		return a, a.runTaskCmd("rekey", name, func() (opResult, error) {
+			return opRekey(a.store, name, keyPath, msg.Values[0])
 		})
 
 	case "switch-pass":

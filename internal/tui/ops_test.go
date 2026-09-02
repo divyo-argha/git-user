@@ -387,7 +387,7 @@ func TestOpRekeyWarnsWhenAgentUnreachable(t *testing.T) {
 	_ = store.SetCurrent("dev")
 	_ = config.Save(store)
 
-	res, err := opRekey(store, "dev", "secret123")
+	res, err := opRekey(store, "dev", "", "secret123")
 	if err != nil {
 		t.Fatalf("opRekey failed: %v", err)
 	}

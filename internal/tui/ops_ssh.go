@@ -15,32 +15,25 @@ import (
 
 // ── Bind / Rekey / Passphrase ─────────────────────────────────────────────────
 
-// opGenerateKey creates an ed25519 key non-interactively. keychainWarning is
-// non-empty if a passphrase was set but couldn't be stored in the system
-// keychain — the identity would otherwise default to "persistent" passphrase
-// mode (config.User.GetPassphraseMode's zero-value default) while nothing was
-// actually persisted, silently falling back to prompting every time instead
-// of the auto-unlock the user asked for.
-func opGenerateKey(name, email, passphrase string) (keyPath string, keychainWarning string, err error) {
-	keyPath, err = config.DefaultSSHKeyPath(name)
-	if err != nil {
-		return "", "", err
-	}
+// opGenerateKey creates a new ed25519 key pair at keyPath non-interactively.
+// It refuses to run if a file already exists there rather than silently
+// reusing it — the caller (the TUI's key-filename prompt, which live-checks
+// for collisions as the user types, or the register flow's default-name
+// fallback) is responsible for handing in a path that's actually free.
+// Without this guard, a stale git_<name> file left behind by a renamed or
+// deleted identity would get silently attached to any new identity that
+// later reused that name, instead of a fresh key being generated for it.
+func opGenerateKey(keyPath, email, passphrase string) error {
 	if err := os.MkdirAll(filepath.Dir(keyPath), 0700); err != nil {
-		return "", "", fmt.Errorf("creating .ssh directory: %w", err)
+		return fmt.Errorf("creating .ssh directory: %w", err)
 	}
-	if _, statErr := os.Stat(keyPath); statErr == nil {
-		return keyPath, "", nil
+	if _, err := os.Stat(keyPath); err == nil {
+		return fmt.Errorf("a key already exists at %s — choose a different filename", keyPath)
 	}
 	if err := ssh.GenerateKey(keyPath, email, passphrase); err != nil {
-		return "", "", fmt.Errorf("ssh-keygen failed: %w", err)
+		return fmt.Errorf("ssh-keygen failed: %w", err)
 	}
-	if passphrase != "" {
-		if err := keyring.SetKeychainPassphrase(name, passphrase); err != nil {
-			keychainWarning = fmt.Sprintf("Could not store the passphrase in the system keychain (%v) — you'll be asked for it again instead of it auto-unlocking.", err)
-		}
-	}
-	return keyPath, keychainWarning, nil
+	return nil
 }
 
 // opRegisterFinish completes profile creation: adds the user, binds the key if
@@ -183,16 +176,31 @@ func opUnbind(store *config.Store, name string) error {
 // opAttachKey resolves the SSH key choice from the in-TUI setup chain
 // (generate / existing / skip) and either completes profile creation
 // (register, register-temp) or binds the key to an existing identity (bind).
+// For "generate", keyPath is normally already resolved by the TUI's
+// key-filename prompt earlier in the chain; it's only computed here from the
+// default git_<name> naming when empty, which keeps direct/test callers that
+// skip that prompt working.
 func opAttachKey(store *config.Store, name, email, mode, choice, passphrase, keyPath string, signEnabled bool) (opResult, error) {
 	keychainWarning := ""
 	switch choice {
 	case "generate":
-		kp, warning, err := opGenerateKey(name, email, passphrase)
-		if err != nil {
+		kp := keyPath
+		if kp == "" {
+			var err error
+			kp, err = config.DefaultSSHKeyPath(name)
+			if err != nil {
+				return opResult{}, err
+			}
+		}
+		if err := opGenerateKey(kp, email, passphrase); err != nil {
 			return opResult{}, err
 		}
 		keyPath = kp
-		keychainWarning = warning
+		if passphrase != "" {
+			if err := keyring.SetKeychainPassphrase(name, passphrase); err != nil {
+				keychainWarning = fmt.Sprintf("Could not store the passphrase in the system keychain (%v) — you'll be asked for it again instead of it auto-unlocking.", err)
+			}
+		}
 	case "existing":
 		expanded := expandPath(keyPath)
 		if _, err := os.Stat(expanded); err != nil {
@@ -240,40 +248,66 @@ func opAttachKey(store *config.Store, name, email, mode, choice, passphrase, key
 }
 
 // opRekey rotates an identity's SSH key (non-interactive, forced).
-func opRekey(store *config.Store, name, passphrase string) (opResult, error) {
+//
+// If keyPath is empty, the rotation happens in place: it rotates whichever
+// key is actually bound to the identity (falling back to the default
+// git_<name> path only if none is bound yet). A non-empty keyPath instead
+// rotates into a differently-named file — it must not already exist, so this
+// can never silently reuse or overwrite an unrelated key already on disk.
+//
+// Rotating in place always uses user.SSHKey rather than assuming
+// git_<name>: an identity bound to a custom-named key (via "use existing
+// key") used to have rekey silently regenerate an unrelated git_<name> file
+// instead of the key that was actually in use.
+func opRekey(store *config.Store, name, keyPath, passphrase string) (opResult, error) {
 	user := store.FindUser(name)
 	if user == nil {
 		return opResult{}, fmt.Errorf("identity %q not found", name)
 	}
-	keyPath, err := config.DefaultSSHKeyPath(name)
-	if err != nil {
-		return opResult{}, err
+
+	oldKeyPath := user.SSHKey
+	if oldKeyPath == "" {
+		var err error
+		oldKeyPath, err = config.DefaultSSHKeyPath(name)
+		if err != nil {
+			return opResult{}, err
+		}
 	}
-	sshDir := filepath.Dir(keyPath)
+	newKeyPath := keyPath
+	if newKeyPath == "" {
+		newKeyPath = oldKeyPath
+	}
+
+	sshDir := filepath.Dir(newKeyPath)
 	if err := os.MkdirAll(sshDir, 0700); err != nil {
 		return opResult{}, fmt.Errorf("creating .ssh directory: %w", err)
 	}
-
-	backupPath := keyPath + ".backup"
-	hasOldKey := false
-	if _, err := os.Stat(keyPath); err == nil {
-		hasOldKey = true
-		// Unload the old key from the agent so the rotated fingerprint doesn't linger.
-		if ssh.IsSSHKeyLoaded(keyPath) {
-			_ = ssh.RemoveSSHKey(keyPath)
-		}
-		if err := os.Rename(keyPath, backupPath); err != nil {
-			return opResult{}, fmt.Errorf("backing up key: %w", err)
-		}
-		if _, err := os.Stat(keyPath + ".pub"); err == nil {
-			_ = os.Rename(keyPath+".pub", backupPath+".pub")
+	if newKeyPath != oldKeyPath {
+		if _, err := os.Stat(newKeyPath); err == nil {
+			return opResult{}, fmt.Errorf("a key already exists at %s — choose a different filename", newKeyPath)
 		}
 	}
 
-	if err := ssh.GenerateKey(keyPath, user.Email, passphrase); err != nil {
+	backupPath := oldKeyPath + ".backup"
+	hasOldKey := false
+	if _, err := os.Stat(oldKeyPath); err == nil {
+		hasOldKey = true
+		// Unload the old key from the agent so the rotated fingerprint doesn't linger.
+		if ssh.IsSSHKeyLoaded(oldKeyPath) {
+			_ = ssh.RemoveSSHKey(oldKeyPath)
+		}
+		if err := os.Rename(oldKeyPath, backupPath); err != nil {
+			return opResult{}, fmt.Errorf("backing up key: %w", err)
+		}
+		if _, err := os.Stat(oldKeyPath + ".pub"); err == nil {
+			_ = os.Rename(oldKeyPath+".pub", backupPath+".pub")
+		}
+	}
+
+	if err := ssh.GenerateKey(newKeyPath, user.Email, passphrase); err != nil {
 		if hasOldKey {
-			_ = os.Rename(backupPath, keyPath)
-			_ = os.Rename(backupPath+".pub", keyPath+".pub")
+			_ = os.Rename(backupPath, oldKeyPath)
+			_ = os.Rename(backupPath+".pub", oldKeyPath+".pub")
 		}
 		return opResult{}, fmt.Errorf("generating SSH key: %w", err)
 	}
@@ -283,7 +317,7 @@ func opRekey(store *config.Store, name, passphrase string) (opResult, error) {
 		_ = keyring.DeleteKeychainPassphrase(name)
 	}
 
-	if err := store.BindSSHKey(name, keyPath); err != nil {
+	if err := store.BindSSHKey(name, newKeyPath); err != nil {
 		return opResult{}, err
 	}
 	if err := config.Save(store); err != nil {
@@ -303,7 +337,7 @@ func opRekey(store *config.Store, name, passphrase string) (opResult, error) {
 		// key never having been loaded anywhere.
 		if agentErr := ssh.EnsureSSHAgent(); agentErr != nil {
 			agentNote = "⚠ New key was NOT loaded into any ssh-agent (no agent reachable) — the next push/pull may hang or fail asking for a passphrase.\n\n"
-		} else if err := ssh.AddSSHKeyWithPassphrase(keyPath, passphrase); err != nil {
+		} else if err := ssh.AddSSHKeyWithPassphrase(newKeyPath, passphrase); err != nil {
 			agentNote = fmt.Sprintf("⚠ Could not load new key into ssh-agent: %v\n\n", err)
 		} else {
 			agentNote = "New key unlocked and loaded into ssh-agent.\n\n"
@@ -311,7 +345,7 @@ func opRekey(store *config.Store, name, passphrase string) (opResult, error) {
 	}
 
 	report := fmt.Sprintf("SSH key rotated successfully for %s\nOld key backed up with .backup extension\n\n", name) + agentNote
-	if pub, err := os.ReadFile(keyPath + ".pub"); err == nil {
+	if pub, err := os.ReadFile(newKeyPath + ".pub"); err == nil {
 		report += "REPLACE YOUR OLD KEY WITH THIS NEW PUBLIC KEY\n"
 		report += strings.TrimSpace(string(pub)) + "\n\n"
 	}

@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -13,6 +15,10 @@ import (
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 	"github.com/divyo-argha/git-user/internal/validate"
 )
+
+// sshKeyPickManual is the sentinel Option.Key used by the existing-key
+// picker's "enter a path manually" fallback entry.
+const sshKeyPickManual = "__manual__"
 
 // shellIntegrationSnippet is a static reference card shown on a Report screen
 // (which has clipboard-copy built in). It intentionally does not reuse
@@ -173,7 +179,7 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		return a, pushCmd(screens.NewOptions(
 			"SSH Key Setup: "+msg.Name,
 			core.OptionsHelp(),
-			fmt.Sprintf("ssh-setup:%s||bind", msg.Name),
+			fmt.Sprintf("ssh-setup:%s|%s|bind", msg.Name, user.Email),
 			[]screens.Option{
 				{Label: "Generate new key automatically (recommended)", Key: "generate"},
 				{Label: "Use existing key (provide path)", Key: "existing"},
@@ -473,12 +479,142 @@ func (a *App) registerFormCmd(kind, name, email string) tea.Cmd {
 // sshPassphraseFormCmd prompts for a new key's passphrase during key
 // generation (register/bind chains). Reused on submit (mismatched
 // confirmation) to reopen the same step instead of losing the profile
-// name/email/key-choice already collected earlier in the chain.
-func (a *App) sshPassphraseFormCmd(name, email, mode, choice string) tea.Cmd {
-	return pushCmd(screens.NewForm("SSH Key Passphrase", "Optional: protect the new key (leave empty or press Esc to skip)", fmt.Sprintf("ssh-passphrase:%s|%s|%s|%s", name, email, mode, choice), []screens.FormInput{
+// name/email/key-choice/filename already collected earlier in the chain.
+func (a *App) sshPassphraseFormCmd(name, email, mode, choice, keyPath string) tea.Cmd {
+	return pushCmd(screens.NewForm("SSH Key Passphrase", "Optional: protect the new key (leave empty or press Esc to skip)", fmt.Sprintf("ssh-passphrase:%s|%s|%s|%s|%s", name, email, mode, choice, keyPath), []screens.FormInput{
 		{Label: "New Passphrase:", IsPassword: true},
 		{Label: "Confirm Passphrase:", IsPassword: true},
 	}, a.theme).Skippable())
+}
+
+// sshKeyNameFormCmd prompts for the filename of the key about to be
+// generated (stored inside the managed SSH directory). It's pre-filled with
+// a suggestion that doesn't collide with anything already on disk, but the
+// user is free to type over it — the field validates live and again at
+// submit, so a name that turns out to collide is caught immediately instead
+// of the generator silently reusing whatever file happened to already be
+// there (the previous behavior when register/rekey always forced the fixed
+// git_<name> filename).
+func (a *App) sshKeyNameFormCmd(name, email, mode, prefill string) tea.Cmd {
+	suggestion := prefill
+	if suggestion == "" {
+		var err error
+		suggestion, err = config.SuggestSSHKeyFilename(name)
+		if err != nil {
+			suggestion = "git_" + name
+		}
+	}
+	return pushCmd(screens.NewForm("SSH Key Filename", "Choose a filename for the new key (stored in ~/.ssh)", fmt.Sprintf("ssh-keyname:%s|%s|%s", name, email, mode), []screens.FormInput{
+		{Label: "Key Filename:", Value: suggestion, Placeholder: "e.g. git_work", Validate: validateNewSSHKeyFilename},
+	}, a.theme))
+}
+
+// validateNewSSHKeyFilename combines the filename syntax check with a live
+// on-disk collision check, so typing over the pre-filled suggestion with the
+// name of a key that already exists is rejected immediately instead of
+// silently reusing that file once generation actually runs.
+func validateNewSSHKeyFilename(filename string) error {
+	if err := validate.SSHKeyFilename(filename); err != nil {
+		return err
+	}
+	path, err := config.SSHKeyPathForFilename(filename)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(path); err == nil {
+		return fmt.Errorf("a key named %q already exists — pick a different name, or cancel and use \"Use existing key\" instead", filename)
+	}
+	if _, err := os.Stat(path + ".pub"); err == nil {
+		return fmt.Errorf("a public key named %q already exists — pick a different name", filename+".pub")
+	}
+	return nil
+}
+
+// sshKeyPathFormCmd is the manual-entry fallback for typing an exact path to
+// an existing key, for keys that live outside the managed SSH directory (and
+// so wouldn't show up in sshExistingKeyPickerCmd's list).
+func (a *App) sshKeyPathFormCmd(name, email, mode string) tea.Cmd {
+	return pushCmd(screens.NewForm("Existing SSH Key", "Path to your SSH private key", fmt.Sprintf("ssh-keypath:%s|%s|%s", name, email, mode), []screens.FormInput{
+		{Label: "Key Path:", Placeholder: "e.g. ~/.ssh/id_ed25519", Validate: func(p string) error { return validate.SSHKeyPath(p, true) }},
+	}, a.theme))
+}
+
+// sshExistingKeyPickerCmd lists the private key files found in the managed
+// SSH directory as an arrow-key navigable menu, so picking one doesn't
+// require remembering or typing an exact path. A manual-entry fallback is
+// always offered too, for keys stored outside ~/.ssh.
+func (a *App) sshExistingKeyPickerCmd(name, email, mode string) tea.Cmd {
+	keys, err := config.ListSSHKeyFiles()
+	if err != nil {
+		return tea.Batch(core.ShowToastCmd(fmt.Sprintf("Could not list SSH keys: %v", err), theme.ToastStyleError, 3*time.Second), a.sshKeyPathFormCmd(name, email, mode))
+	}
+	if len(keys) == 0 {
+		return a.sshKeyPathFormCmd(name, email, mode)
+	}
+	opts := make([]screens.Option, 0, len(keys)+2)
+	for _, k := range keys {
+		label := k.Name
+		if k.Comment != "" {
+			label = fmt.Sprintf("%s  (%s)", k.Name, k.Comment)
+		}
+		opts = append(opts, screens.Option{Label: label, Key: k.Path})
+	}
+	opts = append(opts, screens.Option{Label: "Enter a path manually…", Key: sshKeyPickManual})
+	opts = append(opts, screens.Option{Label: "Cancel", Key: ""})
+	return pushCmd(screens.NewOptions(
+		"Choose an Existing SSH Key",
+		core.OptionsHelp(),
+		fmt.Sprintf("ssh-keypick:%s|%s|%s", name, email, mode),
+		opts,
+		a.theme,
+	))
+}
+
+// rekeyKeyNameFormCmd prompts for the filename the rotated key should be
+// written to, pre-filled with the identity's current key's basename so
+// leaving it untouched rotates in place exactly like before. Reused on an
+// invalid submission to reopen with what was typed rather than resetting to
+// the suggestion.
+func (a *App) rekeyKeyNameFormCmd(name, prefill string) tea.Cmd {
+	u := a.store.FindUser(name)
+	currentPath := ""
+	if u != nil {
+		currentPath = u.SSHKey
+	}
+	suggestion := prefill
+	if suggestion == "" {
+		if currentPath != "" {
+			suggestion = filepath.Base(currentPath)
+		} else if p, err := config.DefaultSSHKeyPath(name); err == nil {
+			suggestion = filepath.Base(p)
+		}
+	}
+	return pushCmd(screens.NewForm("New Key Filename", "Filename for the rotated key (stored in ~/.ssh) — keep the current name to rotate in place", "rekey-keyname:"+name, []screens.FormInput{
+		{Label: "Key Filename:", Value: suggestion, Placeholder: "e.g. git_work", Validate: validateRekeyFilename(currentPath)},
+	}, a.theme))
+}
+
+// validateRekeyFilename allows the special case where the chosen filename
+// resolves to the identity's own current key (rotating in place — opRekey
+// backs that file up before regenerating it), but rejects any other filename
+// that already exists on disk, exactly like validateNewSSHKeyFilename.
+func validateRekeyFilename(currentKeyPath string) func(string) error {
+	return func(filename string) error {
+		if err := validate.SSHKeyFilename(filename); err != nil {
+			return err
+		}
+		path, err := config.SSHKeyPathForFilename(filename)
+		if err != nil {
+			return err
+		}
+		if path == currentKeyPath {
+			return nil
+		}
+		if _, err := os.Stat(path); err == nil {
+			return fmt.Errorf("a key named %q already exists — pick a different name", filename)
+		}
+		return nil
+	}
 }
 
 // passphraseSetProtectedFormCmd and passphraseSetFormCmd build the
@@ -530,8 +666,8 @@ func (a *App) syncSetupFormCmd(repoURL string) tea.Cmd {
 // rekeyPassFormCmd prompts for the rotated key's passphrase. Reused on a
 // mismatched confirmation so the user doesn't have to re-confirm the rekey
 // itself, just retype the passphrase.
-func (a *App) rekeyPassFormCmd(name string) tea.Cmd {
-	return pushCmd(screens.NewForm("New Key Passphrase", "Optional: protect the new key (leave empty or press Esc to skip)", "rekey-pass:"+name, []screens.FormInput{
+func (a *App) rekeyPassFormCmd(name, keyPath string) tea.Cmd {
+	return pushCmd(screens.NewForm("New Key Passphrase", "Optional: protect the new key (leave empty or press Esc to skip)", fmt.Sprintf("rekey-pass:%s|%s", name, keyPath), []screens.FormInput{
 		{Label: "New Passphrase:", IsPassword: true},
 		{Label: "Confirm Passphrase:", IsPassword: true},
 	}, a.theme).Skippable())

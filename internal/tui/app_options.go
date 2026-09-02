@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -40,17 +41,33 @@ func (a *App) handleOptionResult(msg core.OptionResultMsg) (tea.Model, tea.Cmd) 
 		}
 		switch msg.Choice {
 		case "generate":
-			return a, a.sshPassphraseFormCmd(name, email, mode, msg.Choice)
+			return a, a.sshKeyNameFormCmd(name, email, mode, "")
 		case "existing":
-			return a, pushCmd(screens.NewForm("Existing SSH Key", "Path to your SSH private key", fmt.Sprintf("ssh-keypath:%s|%s|%s", name, email, mode), []screens.FormInput{
-				{Label: "Key Path:", Placeholder: "e.g. ~/.ssh/id_ed25519", Validate: func(p string) error { return validate.SSHKeyPath(p, true) }},
-			}, a.theme))
+			return a, a.sshExistingKeyPickerCmd(name, email, mode)
 		default:
 			// skip
 			return a, a.runTaskCmd("attach-key", name, func() (opResult, error) {
 				return opAttachKey(a.store, name, email, mode, "skip", "", "", false)
 			})
 		}
+
+	case "ssh-keypick":
+		fields := strings.Split(data, "|") // name|email|mode
+		name := field(fields, 0)
+		email := field(fields, 1)
+		mode := field(fields, 2)
+		if msg.Choice == sshKeyPickManual {
+			return a, a.sshKeyPathFormCmd(name, email, mode)
+		}
+		keyPath := msg.Choice
+		if _, err := os.Stat(keyPath); err != nil {
+			return a, core.ShowToastCmd(fmt.Sprintf("key file not found: %s", keyPath), theme.ToastStyleError, 3*time.Second)
+		}
+		return a, pushCmd(screens.NewConfirm(
+			"Would you like to sign your Git commits automatically using this identity's SSH key?",
+			fmt.Sprintf("ssh-sign:%s|%s|%s|existing||%s", name, email, mode, keyPath),
+			a.theme,
+		))
 
 	case "import-resolve-name":
 		fields := strings.SplitN(data, "|", 2)

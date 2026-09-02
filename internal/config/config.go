@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/validate"
@@ -59,6 +60,105 @@ func DefaultSSHKeyPath(name string) (string, error) {
 		return "", fmt.Errorf("resolving home directory: %w", err)
 	}
 	return filepath.Join(home, ".ssh", "git_"+name), nil
+}
+
+// SSHDir returns the directory git-user stores its managed SSH keys in.
+func SSHDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolving home directory: %w", err)
+	}
+	return filepath.Join(home, ".ssh"), nil
+}
+
+// SSHKeyPathForFilename joins a user-chosen key filename onto the managed SSH
+// directory. Unlike DefaultSSHKeyPath, filename is arbitrary user input (from
+// the "generate new key" filename prompt), not an identity name, so it is
+// validated with validate.SSHKeyFilename rather than ValidIdentityName.
+func SSHKeyPathForFilename(filename string) (string, error) {
+	if err := validate.SSHKeyFilename(filename); err != nil {
+		return "", err
+	}
+	dir, err := SSHDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, filename), nil
+}
+
+// SuggestSSHKeyFilename returns "git_<name>", or "git_<name>_2", "_3", ... if
+// that file already exists — a starting point pre-filled into the
+// key-filename prompt, not a reservation. The caller is always free to type
+// over it, and the actual collision check happens again at submit time.
+func SuggestSSHKeyFilename(name string) (string, error) {
+	base := "git_" + name
+	dir, err := SSHDir()
+	if err != nil {
+		return "", err
+	}
+	candidate := base
+	for i := 2; i <= 1000; i++ {
+		if _, err := os.Stat(filepath.Join(dir, candidate)); os.IsNotExist(err) {
+			return candidate, nil
+		}
+		candidate = fmt.Sprintf("%s_%d", base, i)
+	}
+	return base, nil
+}
+
+// SSHKeyFile describes a private key file discovered in the managed SSH
+// directory, for presenting an arrow-key "use an existing key" picker.
+type SSHKeyFile struct {
+	Path    string // absolute path to the private key
+	Name    string // base filename
+	Comment string // comment field from the matching .pub file, if any (often an email)
+}
+
+// ListSSHKeyFiles scans the managed SSH directory for private key files.
+// A file counts as a private key if it has a matching "<name>.pub" sibling —
+// exactly how ssh-keygen always lays out a key pair — which is what tells
+// actual keys apart from config, known_hosts, authorized_keys, and similar
+// files that also live in ~/.ssh but were never a key pair to begin with.
+func ListSSHKeyFiles() ([]SSHKeyFile, error) {
+	dir, err := SSHDir()
+	if err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("reading %s: %w", dir, err)
+	}
+
+	present := make(map[string]bool, len(entries))
+	for _, e := range entries {
+		if !e.IsDir() {
+			present[e.Name()] = true
+		}
+	}
+
+	var out []SSHKeyFile
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || strings.HasSuffix(name, ".pub") {
+			continue
+		}
+		if !present[name+".pub"] {
+			continue
+		}
+		f := SSHKeyFile{Path: filepath.Join(dir, name), Name: name}
+		if b, err := os.ReadFile(filepath.Join(dir, name+".pub")); err == nil {
+			fields := strings.Fields(string(b))
+			if len(fields) >= 3 {
+				f.Comment = strings.TrimSpace(strings.Join(fields[2:], " "))
+			}
+		}
+		out = append(out, f)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out, nil
 }
 
 type User struct {

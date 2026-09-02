@@ -9,6 +9,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/tui/components"
 	"github.com/divyo-argha/git-user/internal/tui/core"
+	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 	"github.com/divyo-argha/git-user/internal/version"
 )
@@ -63,16 +64,35 @@ func (a *App) activeScreen() core.Screen {
 func (a *App) pushScreen(s core.Screen) tea.Cmd {
 	a.screenStack = append(a.screenStack, s)
 	a.helpBar.SetText(s.ShortHelp())
-	return s.Init()
+	cmd := s.Init()
+	if _, ok := s.(*screens.Report); ok {
+		// Report screens display things like a freshly generated public key
+		// that the user needs to copy — the 'c' shortcut needs an external
+		// clipboard tool (pbcopy/xclip/xsel/wl-copy) that may not be
+		// installed. WithMouseCellMotion (enabled program-wide in run.go for
+		// the dashboard's click-to-select) captures every mouse event,
+		// including drags, which silently defeats the terminal's own
+		// click-and-drag text selection — so without this, a missing
+		// clipboard tool left no way to copy at all. Disabling it here lets
+		// the terminal's native selection work as a fallback; popScreen
+		// re-enables it on the way back out.
+		return tea.Batch(cmd, tea.DisableMouse)
+	}
+	return cmd
 }
 
-func (a *App) popScreen() {
+func (a *App) popScreen() tea.Cmd {
 	if len(a.screenStack) > 1 {
+		_, wasReport := a.activeScreen().(*screens.Report)
 		a.screenStack = a.screenStack[:len(a.screenStack)-1]
 		if s := a.activeScreen(); s != nil {
 			a.helpBar.SetText(s.ShortHelp())
 		}
+		if wasReport {
+			return tea.EnableMouseCellMotion
+		}
 	}
+	return nil
 }
 
 func pushCmd(s core.Screen) tea.Cmd {
@@ -184,20 +204,23 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, cmd
 
 	case core.ScreenPopMsg:
-		a.popScreen()
-		return a, core.RefreshStoreCmd()
+		popCmd := a.popScreen()
+		return a, tea.Batch(popCmd, core.RefreshStoreCmd())
 
 	case core.ConfirmResultMsg:
-		a.popScreen()
-		return a.handleConfirmResult(msg)
+		popCmd := a.popScreen()
+		model, cmd := a.handleConfirmResult(msg)
+		return model, tea.Batch(popCmd, cmd)
 
 	case core.FormResultMsg:
-		a.popScreen()
-		return a.handleFormResult(msg)
+		popCmd := a.popScreen()
+		model, cmd := a.handleFormResult(msg)
+		return model, tea.Batch(popCmd, cmd)
 
 	case core.OptionResultMsg:
-		a.popScreen()
-		return a.handleOptionResult(msg)
+		popCmd := a.popScreen()
+		model, cmd := a.handleOptionResult(msg)
+		return model, tea.Batch(popCmd, cmd)
 
 	case core.TaskResultMsg:
 		// Task completed — clear the loading spinner.

@@ -272,6 +272,49 @@ func SSHKeyPath(path string, mustExist bool) error {
 	return nil
 }
 
+// SSHKeyFilename validates a bare filename (no directory components) for a
+// new SSH key the user is about to generate. It always lives inside the
+// managed SSH directory, so the input is a name, not a path — this rejects
+// anything that would try to escape that directory or collide with files
+// ssh-keygen itself manages (.pub siblings, backups, known_hosts, ...).
+func SSHKeyFilename(name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return errors.New("key filename cannot be empty")
+	}
+	if len(name) > 100 {
+		return fmt.Errorf("key filename is too long (maximum 100 characters, got %d)", len(name))
+	}
+	for _, r := range name {
+		if r == 0 || unicode.IsControl(r) {
+			return errors.New("key filename cannot contain control characters")
+		}
+		if unicode.IsSpace(r) {
+			return errors.New("key filename cannot contain spaces or whitespace")
+		}
+	}
+	if strings.ContainsAny(name, `/\`) {
+		return errors.New("key filename cannot contain path separators — it names a file inside ~/.ssh, not a path")
+	}
+	if name == "." || name == ".." {
+		return fmt.Errorf("key filename cannot be %q", name)
+	}
+	if strings.HasPrefix(name, ".") {
+		return errors.New("key filename cannot start with a dot")
+	}
+	if strings.HasSuffix(name, ".pub") {
+		return errors.New(`key filename cannot end with ".pub" — that suffix is reserved for the matching public key`)
+	}
+	if strings.HasSuffix(name, ".backup") {
+		return errors.New(`key filename cannot end with ".backup" — that suffix is reserved for rotated-out keys`)
+	}
+	switch name {
+	case "config", "known_hosts", "known_hosts.old", "authorized_keys", "environment":
+		return fmt.Errorf("%q is a reserved SSH filename, not usable for a key", name)
+	}
+	return nil
+}
+
 // ── Bind Path / Directory Validation ──────────────────────────────────────────
 
 // BindPath validates a directory path for auto-switching bindings.

@@ -70,7 +70,7 @@ func (a *App) handleConfirmResult(msg core.ConfirmResultMsg) (tea.Model, tea.Cmd
 		})
 
 	case "rekey":
-		return a, a.rekeyPassFormCmd(rest)
+		return a, a.rekeyKeyNameFormCmd(rest, "")
 
 	case "unbind-path-confirm":
 		fields := strings.SplitN(rest, "|", 2)
