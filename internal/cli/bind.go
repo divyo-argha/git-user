@@ -119,7 +119,7 @@ func interactiveSSHSetup(name, email string, store *config.Store, noSign bool) e
 
 	switch idx {
 	case 0: // Auto-generate
-		keyPath, err := config.DefaultSSHKeyPath(name)
+		keyPath, err := promptSSHKeyFilename(name)
 		if err != nil {
 			ui.Errorf("%v", err)
 			return err
@@ -131,65 +131,64 @@ func interactiveSSHSetup(name, email string, store *config.Store, noSign bool) e
 			return err
 		}
 
+		// promptSSHKeyFilename already re-prompts until the chosen filename
+		// is free, so a file existing here would mean it appeared between
+		// that check and now — refuse rather than silently reusing whatever
+		// is actually there (this used to happen unconditionally, so a
+		// leftover git_<name> from a renamed or deleted identity would
+		// silently get attached to a brand new one of the same name).
 		if _, err := os.Stat(keyPath); err == nil {
-			ui.Info(fmt.Sprintf("Using existing key: %s", keyPath))
-			sshKeyPath = keyPath
-		} else {
-			ui.Info("Generating SSH key...")
-			ui.Info("You will be prompted to set a passphrase for the key.")
-			cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
-			if err := cmd.Run(); err != nil {
-				ui.Error("Key generation failed")
-				return err
-			}
+			ui.Errorf("a key already exists at %s", keyPath)
+			return fmt.Errorf("key already exists")
+		}
 
-			ui.Success("Key generated!")
-			sshKeyPath = keyPath
+		ui.Info("Generating SSH key...")
+		ui.Info("You will be prompted to set a passphrase for the key.")
+		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
+		if err := cmd.Run(); err != nil {
+			ui.Error("Key generation failed")
+			return err
+		}
 
-			newPass, err := readPassphrase(PassphrasePrompt)
-			if err == nil && newPass != "" {
-				confirm, errConfirm := readPassphrase(ConfirmPassphrasePrompt)
-				if errConfirm == nil && newPass == confirm {
-					if errApply := ssh.ChangeKeyPassphrase(keyPath, "", newPass); errApply != nil {
-						ui.Errorf("Could not add passphrase: %v", errApply)
-					} else {
-						ui.Success("Passphrase applied securely!")
-						promptAndStoreKeychain(name, keyPath, newPass)
-					}
+		ui.Success("Key generated!")
+		sshKeyPath = keyPath
+
+		newPass, err := readPassphrase(PassphrasePrompt)
+		if err == nil && newPass != "" {
+			confirm, errConfirm := readPassphrase(ConfirmPassphrasePrompt)
+			if errConfirm == nil && newPass == confirm {
+				if errApply := ssh.ChangeKeyPassphrase(keyPath, "", newPass); errApply != nil {
+					ui.Errorf("Could not add passphrase: %v", errApply)
 				} else {
-					ui.Error("Passphrases do not match.")
+					ui.Success("Passphrase applied securely!")
+					promptAndStoreKeychain(name, keyPath, newPass)
 				}
+			} else {
+				ui.Error("Passphrases do not match.")
 			}
+		}
 
-			pubKeyBytes, err := os.ReadFile(keyPath + ".pub")
-			if err == nil {
-				fmt.Println()
-				ui.Divider()
-				ui.Banner("📋 PUBLIC KEY")
-				fmt.Println()
-				fmt.Println(string(pubKeyBytes))
-				ui.Divider()
-				fmt.Println()
-				ui.Info("Add this key to GitHub/GitLab/Bitbucket")
-				fmt.Println()
-				_, _ = ui.Prompt("Press Enter when done...")
-			}
+		pubKeyBytes, err := os.ReadFile(keyPath + ".pub")
+		if err == nil {
+			fmt.Println()
+			ui.Divider()
+			ui.Banner("📋 PUBLIC KEY")
+			fmt.Println()
+			fmt.Println(string(pubKeyBytes))
+			ui.Divider()
+			fmt.Println()
+			ui.Info("Add this key to GitHub/GitLab/Bitbucket")
+			fmt.Println()
+			_, _ = ui.Prompt("Press Enter when done...")
 		}
 
 	case 1: // Use existing key
-		keyPath, err := ui.Prompt("Path to SSH key:")
+		keyPath, err := promptExistingSSHKey()
 		if err != nil {
-			return err
-		}
-		if keyPath == "" {
-			ui.Error("No path provided")
-			return fmt.Errorf("no path")
-		}
-		if err := validate.SSHKeyPath(keyPath, true); err != nil {
 			ui.Errorf("%v", err)
 			return err
 		}
-		sshKeyPath = validate.ExpandPath(keyPath)
+		sshKeyPath = keyPath
 		ui.Success("Using existing key")
 	}
 

@@ -455,14 +455,12 @@ func quickRegister(name, email string, isTemp, skipSSH bool, store *config.Store
 		sshKeyPath = path
 
 	case 1: // Use existing key
-		keyPath, err := ui.Prompt("Path to SSH key:")
-		if err == nil && keyPath != "" {
-			if err := validate.SSHKeyPath(keyPath, true); err == nil {
-				sshKeyPath = validate.ExpandPath(keyPath)
-				ui.Success("Using existing key")
-			} else {
-				ui.Warn(err.Error())
-			}
+		keyPath, err := promptExistingSSHKey()
+		if err != nil {
+			ui.Warn(err.Error())
+		} else {
+			sshKeyPath = keyPath
+			ui.Success("Using existing key")
 		}
 
 	case 2: // Skip

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/keyring"
@@ -11,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/validate"
 	"golang.org/x/term"
 )
 
@@ -122,13 +124,102 @@ func expandPath(path string) string {
 	return path
 }
 
-// generateAndDisplayKey creates an ed25519 key at keyPath, prints the public key,
-// waits for the user to add it, then verifies the connection.
-// Returns the key path on success. The passphrase is always collected via an
-// interactive prompt (never accepted as a CLI argument) so it never lands on
-// argv, in /proc/<pid>/cmdline, or in shell history.
+// promptSSHKeyFilename asks for the filename of a new key to generate inside
+// the managed SSH directory (~/.ssh), pre-filled with a suggestion that
+// doesn't collide with anything already there, and re-prompts until the
+// chosen name is both valid and free. Callers never need to fall back to
+// silently reusing whatever file happens to already exist at the default
+// git_<identityName> path — a leftover from a renamed or deleted identity
+// used to get silently attached to any new identity that reused its name.
+func promptSSHKeyFilename(identityName string) (string, error) {
+	suggestion, err := config.SuggestSSHKeyFilename(identityName)
+	if err != nil {
+		return "", err
+	}
+	for {
+		input, err := ui.Prompt(fmt.Sprintf("Key filename [%s]:", suggestion))
+		if err != nil {
+			if errors.Is(err, ui.ErrNotInteractive) {
+				// No terminal to prompt on (scripted use, `switch -c`
+				// quick-create, CI) — fall back to the collision-free
+				// suggestion instead of blocking on input that can't arrive.
+				return config.SSHKeyPathForFilename(suggestion)
+			}
+			return "", err
+		}
+		filename := strings.TrimSpace(input)
+		if filename == "" {
+			filename = suggestion
+		}
+		if err := validate.SSHKeyFilename(filename); err != nil {
+			ui.Errorf("%v", err)
+			continue
+		}
+		keyPath, err := config.SSHKeyPathForFilename(filename)
+		if err != nil {
+			ui.Errorf("%v", err)
+			continue
+		}
+		if _, err := os.Stat(keyPath); err == nil {
+			ui.Warn(fmt.Sprintf("A key already exists at %s — choose a different name", keyPath))
+			continue
+		}
+		return keyPath, nil
+	}
+}
+
+// promptExistingSSHKey offers an arrow-key list of the private key files
+// found in the managed SSH directory, falling back to manual path entry when
+// none are found (or the user asks to type one) — so binding an existing key
+// doesn't require remembering or typing an exact path for a key that's
+// already sitting in ~/.ssh.
+func promptExistingSSHKey() (string, error) {
+	keys, listErr := config.ListSSHKeyFiles()
+	if listErr != nil {
+		ui.Warn(fmt.Sprintf("Could not list keys in ~/.ssh: %v", listErr))
+	}
+	if len(keys) > 0 {
+		labels := make([]string, 0, len(keys)+1)
+		for _, k := range keys {
+			label := k.Name
+			if k.Comment != "" {
+				label = fmt.Sprintf("%s  (%s)", k.Name, k.Comment)
+			}
+			labels = append(labels, label)
+		}
+		labels = append(labels, "Enter a path manually…")
+		idx, err := ui.Select("Choose an existing SSH key:", labels)
+		if err != nil {
+			return "", err
+		}
+		if idx >= 0 && idx < len(keys) {
+			return keys[idx].Path, nil
+		}
+		// "Enter a path manually…" was chosen — fall through below.
+	}
+
+	keyPath, err := ui.Prompt("Enter path to your SSH private key:")
+	if err != nil {
+		return "", err
+	}
+	keyPath = strings.TrimSpace(keyPath)
+	if keyPath == "" {
+		return "", fmt.Errorf("no path provided")
+	}
+	if err := validate.SSHKeyPath(keyPath, true); err != nil {
+		return "", err
+	}
+	return validate.ExpandPath(keyPath), nil
+}
+
+// generateAndDisplayKey creates an ed25519 key at a filename the user picks
+// (see promptSSHKeyFilename), prints the public key, waits for the user to
+// add it, then verifies the connection. Returns the key path on success. The
+// passphrase is always collected via an interactive prompt (never accepted
+// as a CLI argument) so it never lands on argv, in /proc/<pid>/cmdline, or in
+// shell history.
 func generateAndDisplayKey(name, email string) (string, error) {
-	keyPath, err := config.DefaultSSHKeyPath(name)
+	keyPath, err := promptSSHKeyFilename(name)
 	if err != nil {
 		return "", err
 	}
@@ -137,33 +228,33 @@ func generateAndDisplayKey(name, email string) (string, error) {
 		return "", fmt.Errorf("creating .ssh directory: %w", err)
 	}
 
+	// promptSSHKeyFilename already re-prompts until the chosen filename is
+	// free, so finding it occupied here would mean it appeared in the
+	// meantime — refuse rather than silently reusing it.
 	if _, err := os.Stat(keyPath); err == nil {
-		ui.Warn(fmt.Sprintf("Key already exists at %s", keyPath))
-		if !ui.Confirm("Use existing key?", true) {
-			return "", fmt.Errorf("key already exists")
-		}
-	} else {
-		ui.Info(fmt.Sprintf("Generating SSH key at %s...", keyPath))
-		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
-		if err := cmd.Run(); err != nil {
-			return "", fmt.Errorf("ssh-keygen failed: %w", err)
-		}
-		ui.Success("SSH key generated!")
+		return "", fmt.Errorf("a key already exists at %s", keyPath)
+	}
 
-		ui.Info("You will be prompted to set a passphrase for the key. Press Enter to skip.")
-		newPass, err := readPassphrase(PassphrasePrompt)
-		if err != nil {
-			ui.Warn("Skipping passphrase setup.")
-		} else if newPass != "" {
-			confirm, err := readPassphrase(ConfirmPassphrasePrompt)
-			if err != nil || newPass != confirm {
-				ui.Error("Passphrases do not match. Skipping passphrase setup.")
-			} else if err := ssh.ChangeKeyPassphrase(keyPath, "", newPass); err != nil {
-				ui.Errorf("Could not add passphrase: %v", err)
-			} else {
-				ui.Success("Passphrase applied securely!")
-				promptAndStoreKeychain(name, keyPath, newPass)
-			}
+	ui.Info(fmt.Sprintf("Generating SSH key at %s...", keyPath))
+	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("ssh-keygen failed: %w", err)
+	}
+	ui.Success("SSH key generated!")
+
+	ui.Info("You will be prompted to set a passphrase for the key. Press Enter to skip.")
+	newPass, err := readPassphrase(PassphrasePrompt)
+	if err != nil {
+		ui.Warn("Skipping passphrase setup.")
+	} else if newPass != "" {
+		confirm, err := readPassphrase(ConfirmPassphrasePrompt)
+		if err != nil || newPass != confirm {
+			ui.Error("Passphrases do not match. Skipping passphrase setup.")
+		} else if err := ssh.ChangeKeyPassphrase(keyPath, "", newPass); err != nil {
+			ui.Errorf("Could not add passphrase: %v", err)
+		} else {
+			ui.Success("Passphrase applied securely!")
+			promptAndStoreKeychain(name, keyPath, newPass)
 		}
 	}
 

@@ -145,19 +145,12 @@ func runRegister(args []string) error {
 		sshKeyPath = path
 
 	case 1: // Use existing key
-		keyPath, err := ui.Prompt("Enter path to your SSH private key:")
+		keyPath, err := promptExistingSSHKey()
 		if err != nil {
-			return err
-		}
-		if keyPath == "" {
-			ui.Error("No path provided")
-			return fmt.Errorf("no path")
-		}
-		if err := validate.SSHKeyPath(keyPath, true); err != nil {
 			ui.Error(err.Error())
 			return err
 		}
-		sshKeyPath = validate.ExpandPath(keyPath)
+		sshKeyPath = keyPath
 		ui.Success("Using existing key")
 
 	case 2: // Skip

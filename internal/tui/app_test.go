@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -746,5 +747,89 @@ func TestExtractUpdatedVersion(t *testing.T) {
 				t.Errorf("extractUpdatedVersion(%q) = %q, want %q", tc.input, got, tc.expect)
 			}
 		})
+	}
+}
+
+// collectMsgTypeNames runs cmd (recursing into any tea.BatchMsg) and returns
+// the concrete type name of every message produced.
+func collectMsgTypeNames(t *testing.T, cmd tea.Cmd) []string {
+	t.Helper()
+	var names []string
+	var walk func(tea.Cmd)
+	walk = func(c tea.Cmd) {
+		if c == nil {
+			return
+		}
+		m := c()
+		if m == nil {
+			return
+		}
+		if b, ok := m.(tea.BatchMsg); ok {
+			for _, inner := range b {
+				walk(inner)
+			}
+			return
+		}
+		names = append(names, fmt.Sprintf("%T", m))
+	}
+	walk(cmd)
+	return names
+}
+
+func containsSuffix(names []string, suffix string) bool {
+	for _, n := range names {
+		if strings.HasSuffix(n, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+// TestReportScreenTogglesMouseCapture guards against a regression where a
+// missing clipboard tool (pbcopy/xclip/xsel/wl-copy) left no way at all to
+// copy a Report screen's contents (e.g. a freshly generated public key):
+// WithMouseCellMotion is enabled for the whole program (for the dashboard's
+// click-to-select), which captures every mouse event and silently defeats
+// the terminal's own click-and-drag text selection. Pushing a Report screen
+// must disable mouse capture so that native selection works as a fallback,
+// and popping back out of it must re-enable it for the dashboard.
+func TestReportScreenTogglesMouseCapture(t *testing.T) {
+	store := &config.Store{Users: []config.User{{Name: "work", Email: "work@example.com"}}}
+	th := theme.DefaultTheme()
+	app := NewApp(store, screens.NewDashboard(store, th))
+
+	pushCmd := app.pushScreen(screens.NewReport("Public Key", "ssh-ed25519 AAAA...", th))
+	names := collectMsgTypeNames(t, pushCmd)
+	if !containsSuffix(names, "disableMouseMsg") {
+		t.Errorf("expected pushing a Report screen to disable mouse capture, got messages: %v", names)
+	}
+
+	popCmd := app.popScreen()
+	names = collectMsgTypeNames(t, popCmd)
+	if !containsSuffix(names, "enableMouseCellMotionMsg") {
+		t.Errorf("expected popping a Report screen to re-enable mouse capture, got messages: %v", names)
+	}
+}
+
+// TestNonReportScreensDoNotToggleMouseCapture verifies ordinary screens
+// (which never need clipboard-less text selection) don't touch mouse state,
+// so dashboard click-to-select keeps working as before.
+func TestNonReportScreensDoNotToggleMouseCapture(t *testing.T) {
+	store := &config.Store{Users: []config.User{{Name: "work", Email: "work@example.com"}}}
+	th := theme.DefaultTheme()
+	app := NewApp(store, screens.NewDashboard(store, th))
+
+	pushCmd := app.pushScreen(screens.NewConfirm("Sure?", "ctx", th))
+	names := collectMsgTypeNames(t, pushCmd)
+	if containsSuffix(names, "disableMouseMsg") || containsSuffix(names, "enableMouseCellMotionMsg") {
+		t.Errorf("expected a non-Report screen push not to touch mouse capture, got messages: %v", names)
+	}
+
+	popCmd := app.popScreen()
+	if popCmd != nil {
+		names = collectMsgTypeNames(t, popCmd)
+		if containsSuffix(names, "disableMouseMsg") || containsSuffix(names, "enableMouseCellMotionMsg") {
+			t.Errorf("expected popping a non-Report screen not to touch mouse capture, got messages: %v", names)
+		}
 	}
 }

@@ -153,6 +153,40 @@ func TestSSHKeyPath(t *testing.T) {
 	}
 }
 
+func TestSSHKeyFilename(t *testing.T) {
+	valid := []string{"git_work", "id_ed25519", "work-key", "my.key_2"}
+	for _, name := range valid {
+		if err := SSHKeyFilename(name); err != nil {
+			t.Errorf("SSHKeyFilename(%q) expected valid, got error: %v", name, err)
+		}
+	}
+
+	invalid := []struct {
+		name   string
+		reason string
+	}{
+		{"", "empty"},
+		{"has/slash", "path separator"},
+		{"has\\backslash", "path separator"},
+		{"../escape", "traversal"},
+		{".", "dot"},
+		{"..", "dotdot"},
+		{".hidden", "leading dot"},
+		{"id_rsa.pub", "reserved .pub suffix"},
+		{"id_rsa.backup", "reserved .backup suffix"},
+		{"known_hosts", "reserved SSH filename"},
+		{"config", "reserved SSH filename"},
+		{"authorized_keys", "reserved SSH filename"},
+		{"has space", "whitespace"},
+		{"has\x00null", "control character"},
+	}
+	for _, tc := range invalid {
+		if err := SSHKeyFilename(tc.name); err == nil {
+			t.Errorf("SSHKeyFilename(%q) expected error (%s), got nil", tc.name, tc.reason)
+		}
+	}
+}
+
 func TestBindPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "regular_file.txt")

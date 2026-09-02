@@ -285,22 +285,18 @@ func SSHKeyFilename(name string) error {
 	if len(name) > 100 {
 		return fmt.Errorf("key filename is too long (maximum 100 characters, got %d)", len(name))
 	}
-	for _, r := range name {
-		if r == 0 || unicode.IsControl(r) {
-			return errors.New("key filename cannot contain control characters")
-		}
-		if unicode.IsSpace(r) {
-			return errors.New("key filename cannot contain spaces or whitespace")
-		}
-	}
-	if strings.ContainsAny(name, `/\`) {
-		return errors.New("key filename cannot contain path separators — it names a file inside ~/.ssh, not a path")
-	}
-	if name == "." || name == ".." {
-		return fmt.Errorf("key filename cannot be %q", name)
-	}
 	if strings.HasPrefix(name, ".") {
 		return errors.New("key filename cannot start with a dot")
+	}
+	// An allowlist rather than a denylist: this also keeps out characters
+	// like "|" that have no filesystem meaning but are used as a field
+	// separator when the TUI threads a resolved key path through its
+	// multi-step setup forms — a filename containing one would otherwise
+	// silently corrupt that parsing.
+	for _, r := range name {
+		if !isAsciiAlphanumeric(r) && r != '-' && r != '_' && r != '.' {
+			return fmt.Errorf("key filename contains invalid character %q (only ASCII letters, digits, dots, hyphens, and underscores are allowed)", string(r))
+		}
 	}
 	if strings.HasSuffix(name, ".pub") {
 		return errors.New(`key filename cannot end with ".pub" — that suffix is reserved for the matching public key`)
