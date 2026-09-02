@@ -27,8 +27,9 @@ type IdentityList struct {
 	filtered  []int
 	cursor    int
 	theme     theme.Theme
-	introTick int  // how many items have fully appeared (staggered reveal)
-	introDone bool // true once all items are revealed
+	introTick int    // how many items have fully appeared (staggered reveal)
+	introDone bool   // true once all items are revealed
+	query     string // active filter query, preserved across Refresh
 }
 
 // NewIdentityList creates an identity list from a config store.
@@ -58,10 +59,17 @@ func buildIdentityItems(store *config.Store) []IdentityItem {
 	return items
 }
 
-// Refresh rebuilds the list from a new store.
+// Refresh rebuilds the list from a new store, preserving any active filter.
+// The periodic background store refresh calls this every few seconds; without
+// reapplying the filter here, a filter the user is actively typing would be
+// silently cleared out from under them while the query text stayed on screen.
 func (l *IdentityList) Refresh(store *config.Store) {
 	l.items = buildIdentityItems(store)
-	l.applyFilter()
+	if l.query != "" {
+		l.filterByQuery(l.query)
+	} else {
+		l.applyFilter()
+	}
 	if l.cursor >= len(l.filtered) {
 		l.cursor = max(0, len(l.filtered)-1)
 	}
@@ -109,6 +117,13 @@ func (l *IdentityList) Cursor() int { return l.cursor }
 // FilterByQuery filters the list to items whose name or email contains q
 // (case-insensitive). An empty query shows all items.
 func (l *IdentityList) FilterByQuery(q string) {
+	l.query = q
+	l.filterByQuery(q)
+}
+
+// filterByQuery applies q to l.items without touching l.query, so Refresh can
+// reapply the stored query without it looking like a new filter was typed.
+func (l *IdentityList) filterByQuery(q string) {
 	l.filtered = l.filtered[:0]
 	q = strings.ToLower(q)
 	for i, item := range l.items {
@@ -130,6 +145,7 @@ func (l *IdentityList) FilterByQuery(q string) {
 
 // ClearFilter resets the filter and shows all items.
 func (l *IdentityList) ClearFilter() {
+	l.query = ""
 	l.applyFilter()
 	l.cursor = 0
 }

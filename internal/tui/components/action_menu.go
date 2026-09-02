@@ -92,13 +92,23 @@ func (m *ActionMenu) Cursor() int         { return m.cursor }
 func (m *ActionMenu) ResetCursor()        { m.cursor = m.nextSelectable(-1) }
 func (m *ActionMenu) Items() []ActionItem { return m.items }
 
+// FindAndSetCursorByKey restores the cursor onto the item with the given key,
+// preserving selection across a rebuild (e.g. after an async status check
+// changes labels). If that item is no longer selectable — disabled by the
+// rebuild, or gone entirely — the cursor falls back to the first selectable
+// item instead of resting on (or staying on) an item that silently swallows
+// Enter, which would otherwise look like an unresponsive button.
 func (m *ActionMenu) FindAndSetCursorByKey(key string) {
 	for i, item := range m.items {
 		if !item.IsSection && item.Key == key {
-			m.cursor = i
-			return
+			if !item.Disabled {
+				m.cursor = i
+				return
+			}
+			break
 		}
 	}
+	m.cursor = m.nextSelectable(-1)
 }
 
 func (m *ActionMenu) Selected() *ActionItem {
