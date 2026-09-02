@@ -29,22 +29,23 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 
 	switch action {
 	case "register", "register-temp":
-		if err := validate.IdentityName(msg.Values[0]); err != nil {
-			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
+		name, email := msg.Values[0], msg.Values[1]
+		if err := validate.IdentityName(name); err != nil {
+			return a, tea.Batch(core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second), a.registerFormCmd(action, name, email))
 		}
-		if err := validate.Email(msg.Values[1]); err != nil {
-			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
+		if err := validate.Email(email); err != nil {
+			return a, tea.Batch(core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second), a.registerFormCmd(action, name, email))
 		}
-		if a.store.IsNameTaken(msg.Values[0]) {
-			return a, core.ShowToastCmd(fmt.Sprintf("identity %q already exists", msg.Values[0]), theme.ToastStyleError, 3*time.Second)
+		if a.store.IsNameTaken(name) {
+			return a, tea.Batch(core.ShowToastCmd(fmt.Sprintf("identity %q already exists", name), theme.ToastStyleError, 3*time.Second), a.registerFormCmd(action, name, email))
 		}
-		if a.store.IsEmailTaken(msg.Values[1]) {
-			return a, core.ShowToastCmd("Email already in use — each identity must have a unique email", theme.ToastStyleError, 3*time.Second)
+		if a.store.IsEmailTaken(email) {
+			return a, tea.Batch(core.ShowToastCmd("Email already in use — each identity must have a unique email", theme.ToastStyleError, 3*time.Second), a.registerFormCmd(action, name, email))
 		}
 		return a, pushCmd(screens.NewOptions(
 			"SSH Key Setup",
 			core.OptionsHelp(),
-			fmt.Sprintf("ssh-setup:%s|%s|%s", msg.Values[0], msg.Values[1], action),
+			fmt.Sprintf("ssh-setup:%s|%s|%s", name, email, action),
 			[]screens.Option{
 				{Label: "Generate new key automatically (recommended)", Key: "generate"},
 				{Label: "Use existing key (provide path)", Key: "existing"},
@@ -76,7 +77,7 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 		name, email, mode, choice := field(fields, 0), field(fields, 1), field(fields, 2), field(fields, 3)
 		newPass := msg.Values[0]
 		if newPass != msg.Values[1] {
-			return a, core.ShowToastCmd("Passphrases do not match", theme.ToastStyleError, 3*time.Second)
+			return a, tea.Batch(core.ShowToastCmd("Passphrases do not match", theme.ToastStyleError, 3*time.Second), a.sshPassphraseFormCmd(name, email, mode, choice))
 		}
 		return a, pushCmd(screens.NewConfirm(
 			"Would you like to sign your Git commits automatically using this identity's SSH key?",
@@ -107,15 +108,13 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 		})
 
 	case "export", "export-all":
-		if err := validate.PassphraseMatch(msg.Values[0], msg.Values[1], 8); err != nil {
-			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
-		}
 		var names []string
-		all := false
-		if action == "export-all" {
-			all = true
-		} else if rest != "" {
+		all := action == "export-all"
+		if !all && rest != "" {
 			names = strings.Split(rest, ",")
+		}
+		if err := validate.PassphraseMatch(msg.Values[0], msg.Values[1], 8); err != nil {
+			return a, tea.Batch(core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second), a.pushExportForm(names))
 		}
 		return a, a.runTaskCmd("export", "", func() (opResult, error) {
 			return opExport(a.store, names, all, msg.Values[0])
@@ -123,19 +122,17 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 
 	case "import:path":
 		if msg.Values[0] == "" {
-			return a, core.ShowToastCmd("Bundle path cannot be empty", theme.ToastStyleError, 3*time.Second)
+			return a, tea.Batch(core.ShowToastCmd("Bundle path cannot be empty", theme.ToastStyleError, 3*time.Second), a.importPathFormCmd(""))
 		}
 		bundlePath := expandPath(msg.Values[0])
 		if _, err := os.Stat(bundlePath); err != nil {
-			return a, core.ShowToastCmd(fmt.Sprintf("Bundle file not found: %s", msg.Values[0]), theme.ToastStyleError, 3*time.Second)
+			return a, tea.Batch(core.ShowToastCmd(fmt.Sprintf("Bundle file not found: %s", msg.Values[0]), theme.ToastStyleError, 3*time.Second), a.importPathFormCmd(msg.Values[0]))
 		}
-		return a, pushCmd(screens.NewForm("Import Bundle", "Enter the passphrase for the bundle", "import-pass:"+bundlePath, []screens.FormInput{
-			{Label: "Passphrase:", IsPassword: true},
-		}, a.theme))
+		return a, a.importPassFormCmd(bundlePath)
 
 	case "import-pass":
 		if msg.Values[0] == "" {
-			return a, core.ShowToastCmd("Passphrase must not be empty", theme.ToastStyleError, 3*time.Second)
+			return a, tea.Batch(core.ShowToastCmd("Passphrase must not be empty", theme.ToastStyleError, 3*time.Second), a.importPassFormCmd(rest))
 		}
 		return a, a.runTaskCmd("import", "", func() (opResult, error) {
 			return opImport(a.store, rest, msg.Values[0], false)
@@ -198,7 +195,7 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 	case "push-cred:github", "push-cred:gitlab":
 		platform := strings.TrimPrefix(action, "push-cred:")
 		if strings.TrimSpace(msg.Values[0]) == "" {
-			return a, core.ShowToastCmd("Token required to interact with the API", theme.ToastStyleError, 3*time.Second)
+			return a, tea.Batch(core.ShowToastCmd("Token required to interact with the API", theme.ToastStyleError, 3*time.Second), a.credentialFormCmd(platform))
 		}
 		return a, a.runTaskCmd("pubkey-push", platform, func() (opResult, error) {
 			return opPushKeyWithCredential(a.store, platform, "", msg.Values[0])
@@ -206,7 +203,7 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 
 	case "push-cred:bitbucket":
 		if strings.TrimSpace(msg.Values[0]) == "" || strings.TrimSpace(msg.Values[1]) == "" {
-			return a, core.ShowToastCmd("Username and App Password are required", theme.ToastStyleError, 3*time.Second)
+			return a, tea.Batch(core.ShowToastCmd("Username and App Password are required", theme.ToastStyleError, 3*time.Second), a.credentialFormCmd("bitbucket"))
 		}
 		return a, a.runTaskCmd("pubkey-push", "bitbucket", func() (opResult, error) {
 			return opPushKeyWithCredential(a.store, "bitbucket", msg.Values[0], msg.Values[1])
@@ -214,10 +211,10 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 
 	case "passphrase-set-protected":
 		if msg.Values[1] != msg.Values[2] {
-			return a, core.ShowToastCmd("New passphrases do not match", theme.ToastStyleError, 3*time.Second)
+			return a, tea.Batch(core.ShowToastCmd("New passphrases do not match", theme.ToastStyleError, 3*time.Second), a.passphraseSetProtectedFormCmd(rest))
 		}
 		if msg.Values[1] == "" {
-			return a, core.ShowToastCmd("Passphrase must not be empty", theme.ToastStyleError, 3*time.Second)
+			return a, tea.Batch(core.ShowToastCmd("Passphrase must not be empty", theme.ToastStyleError, 3*time.Second), a.passphraseSetProtectedFormCmd(rest))
 		}
 		return a, a.runTaskCmd("passphrase-set", rest, func() (opResult, error) {
 			err := opPassphraseSet(a.store, rest, msg.Values[0], msg.Values[1])
@@ -226,10 +223,10 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 
 	case "passphrase-set":
 		if msg.Values[0] != msg.Values[1] {
-			return a, core.ShowToastCmd("Passphrases do not match", theme.ToastStyleError, 3*time.Second)
+			return a, tea.Batch(core.ShowToastCmd("Passphrases do not match", theme.ToastStyleError, 3*time.Second), a.passphraseSetFormCmd(rest))
 		}
 		if msg.Values[0] == "" {
-			return a, core.ShowToastCmd("Passphrase must not be empty", theme.ToastStyleError, 3*time.Second)
+			return a, tea.Batch(core.ShowToastCmd("Passphrase must not be empty", theme.ToastStyleError, 3*time.Second), a.passphraseSetFormCmd(rest))
 		}
 		return a, a.runTaskCmd("passphrase-set", rest, func() (opResult, error) {
 			err := opPassphraseSet(a.store, rest, "", msg.Values[0])
@@ -250,7 +247,7 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 
 	case "rekey-pass":
 		if msg.Values[0] != msg.Values[1] {
-			return a, core.ShowToastCmd("Passphrases do not match", theme.ToastStyleError, 3*time.Second)
+			return a, tea.Batch(core.ShowToastCmd("Passphrases do not match", theme.ToastStyleError, 3*time.Second), a.rekeyPassFormCmd(rest))
 		}
 		return a, a.runTaskCmd("rekey", rest, func() (opResult, error) {
 			return opRekey(a.store, rest, msg.Values[0])
@@ -276,10 +273,10 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 
 	case "sync-setup":
 		if err := validate.RepoURL(msg.Values[0]); err != nil {
-			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
+			return a, tea.Batch(core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second), a.syncSetupFormCmd(msg.Values[0]))
 		}
 		if err := validate.PassphraseMatch(msg.Values[1], msg.Values[2], 8); err != nil {
-			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
+			return a, tea.Batch(core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second), a.syncSetupFormCmd(msg.Values[0]))
 		}
 		return a, a.runTaskCmd("sync", "", func() (opResult, error) {
 			return opSync(a.store, msg.Values[0], msg.Values[1])

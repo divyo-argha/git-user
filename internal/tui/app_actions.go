@@ -55,14 +55,22 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 
 	case "firstrun-skip":
 		// Mark the prompt as shown so it never appears again, then return to
-		// the dashboard.
+		// the dashboard. FirstRun is a one-shot onboarding gate, not a hub
+		// screen — it must be popped here or it lingers on the stack forever
+		// (ActionResultMsg, unlike Confirm/Form/Option results, never
+		// auto-pops its sender since hub screens like Dashboard/Detail rely
+		// on staying put).
+		a.popScreen()
 		a.store.ImportPrompted = true
 		_ = config.Save(a.store)
 		return a, core.RefreshStoreCmd()
 
 	case "firstrun-import":
 		// Reuse the standard import-original flow (name + email form prefilled
-		// with the detected original identity).
+		// with the detected original identity). Pop FirstRun first so the form
+		// replaces it instead of stacking on top of it — see the popScreen note
+		// in "firstrun-skip" above.
+		a.popScreen()
 		name := ""
 		email := ""
 		if a.store.Original != nil {
@@ -82,16 +90,7 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		}, a.theme))
 
 	case "register", "register-temp":
-		title := "Register New Identity"
-		help := "Enter profile name and email address"
-		if msg.Kind == "register-temp" {
-			title = "Create Temporary Profile"
-			help = "Profile is deleted automatically when you switch away or log out"
-		}
-		return a, pushCmd(screens.NewForm(title, help, msg.Kind, []screens.FormInput{
-			{Label: "Profile Name:", Placeholder: "e.g. work", Validate: validate.IdentityName},
-			{Label: "Email Address:", Placeholder: "e.g. you@company.com", Validate: validate.Email},
-		}, a.theme))
+		return a, a.registerFormCmd(msg.Kind, "", "")
 
 	case "switch":
 		if needsPassphraseForSwitch(a.store, msg.Name) {
@@ -212,16 +211,9 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		}
 		protected, _ := isSSHKeyPassphraseProtected(u.SSHKey)
 		if protected {
-			return a, pushCmd(screens.NewForm("Change Passphrase", "Enter current and new passphrase for "+msg.Name, "passphrase-set-protected:"+msg.Name, []screens.FormInput{
-				{Label: "Current Passphrase:", IsPassword: true},
-				{Label: "New Passphrase:", IsPassword: true},
-				{Label: "Confirm New Passphrase:", IsPassword: true},
-			}, a.theme))
+			return a, a.passphraseSetProtectedFormCmd(msg.Name)
 		}
-		return a, pushCmd(screens.NewForm("Set Passphrase", "Enter a new passphrase for "+msg.Name, "passphrase-set:"+msg.Name, []screens.FormInput{
-			{Label: "New Passphrase:", IsPassword: true},
-			{Label: "Confirm New Passphrase:", IsPassword: true},
-		}, a.theme))
+		return a, a.passphraseSetFormCmd(msg.Name)
 
 	case "passphrase-remove":
 		if a.store.Current != msg.Name {
@@ -299,9 +291,7 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		return a, a.pushExportForm(nil)
 
 	case "import":
-		return a, pushCmd(screens.NewForm("Import Bundle", "Path to the encrypted bundle file (.bundle)", "import:path", []screens.FormInput{
-			{Label: "Bundle Path:", Placeholder: "e.g. ~/git-user-export-2026-01-01.bundle"},
-		}, a.theme))
+		return a, a.importPathFormCmd("")
 
 	case "import-original":
 		name := git.CurrentName()
@@ -386,11 +376,7 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 				{Label: "Passphrase:", IsPassword: true},
 			}, a.theme))
 		}
-		return a, pushCmd(screens.NewForm("Configure Sync", "Keep identities synchronized across devices using a private git repository", "sync-setup", []screens.FormInput{
-			{Label: "Repository URL:", Placeholder: "git@github.com:user/sync.git", Validate: validate.RepoURL},
-			{Label: "Passphrase:", IsPassword: true, Validate: func(p string) error { return validate.Passphrase(p, 8) }},
-			{Label: "Confirm Passphrase:", IsPassword: true, Validate: func(p string) error { return validate.Passphrase(p, 8) }},
-		}, a.theme))
+		return a, a.syncSetupFormCmd("")
 
 	case "config":
 		return a.handleConfigAction(msg.Name)
@@ -464,6 +450,91 @@ func (a *App) pushExportForm(names []string) tea.Cmd {
 		{Label: "Encryption Passphrase:", IsPassword: true, Validate: func(p string) error { return validate.Passphrase(p, 8) }},
 		{Label: "Confirm Passphrase:", IsPassword: true, Validate: func(p string) error { return validate.Passphrase(p, 8) }},
 	}, a.theme))
+}
+
+// registerFormCmd builds the name/email registration form, shared by the
+// initial "register"/"register-temp" action and by handleFormResult when a
+// submitted name or email is rejected (taken, invalid) — reopening it
+// prefilled with what was already typed instead of discarding it back to the
+// dashboard, which used to force restarting the whole registration.
+func (a *App) registerFormCmd(kind, name, email string) tea.Cmd {
+	title := "Register New Identity"
+	help := "Enter profile name and email address"
+	if kind == "register-temp" {
+		title = "Create Temporary Profile"
+		help = "Profile is deleted automatically when you switch away or log out"
+	}
+	return pushCmd(screens.NewForm(title, help, kind, []screens.FormInput{
+		{Label: "Profile Name:", Value: name, Placeholder: "e.g. work", Validate: validate.IdentityName},
+		{Label: "Email Address:", Value: email, Placeholder: "e.g. you@company.com", Validate: validate.Email},
+	}, a.theme))
+}
+
+// sshPassphraseFormCmd prompts for a new key's passphrase during key
+// generation (register/bind chains). Reused on submit (mismatched
+// confirmation) to reopen the same step instead of losing the profile
+// name/email/key-choice already collected earlier in the chain.
+func (a *App) sshPassphraseFormCmd(name, email, mode, choice string) tea.Cmd {
+	return pushCmd(screens.NewForm("SSH Key Passphrase", "Optional: protect the new key (leave empty or press Esc to skip)", fmt.Sprintf("ssh-passphrase:%s|%s|%s|%s", name, email, mode, choice), []screens.FormInput{
+		{Label: "New Passphrase:", IsPassword: true},
+		{Label: "Confirm Passphrase:", IsPassword: true},
+	}, a.theme).Skippable())
+}
+
+// passphraseSetProtectedFormCmd and passphraseSetFormCmd build the
+// change-passphrase forms, shared with handleFormResult so a mismatched or
+// empty submission reopens the same form instead of dropping back to the
+// dashboard with the attempt lost.
+func (a *App) passphraseSetProtectedFormCmd(name string) tea.Cmd {
+	return pushCmd(screens.NewForm("Change Passphrase", "Enter current and new passphrase for "+name, "passphrase-set-protected:"+name, []screens.FormInput{
+		{Label: "Current Passphrase:", IsPassword: true},
+		{Label: "New Passphrase:", IsPassword: true},
+		{Label: "Confirm New Passphrase:", IsPassword: true},
+	}, a.theme))
+}
+
+func (a *App) passphraseSetFormCmd(name string) tea.Cmd {
+	return pushCmd(screens.NewForm("Set Passphrase", "Enter a new passphrase for "+name, "passphrase-set:"+name, []screens.FormInput{
+		{Label: "New Passphrase:", IsPassword: true},
+		{Label: "Confirm New Passphrase:", IsPassword: true},
+	}, a.theme))
+}
+
+// importPathFormCmd and importPassFormCmd build the two-step bundle-import
+// forms. Reused by handleFormResult on failure (empty/missing path, empty
+// passphrase) to reopen the same step — importPathFormCmd's prefill lets the
+// user just fix a typo'd path instead of retyping it from scratch.
+func (a *App) importPathFormCmd(prefill string) tea.Cmd {
+	return pushCmd(screens.NewForm("Import Bundle", "Path to the encrypted bundle file (.bundle)", "import:path", []screens.FormInput{
+		{Label: "Bundle Path:", Value: prefill, Placeholder: "e.g. ~/git-user-export-2026-01-01.bundle"},
+	}, a.theme))
+}
+
+func (a *App) importPassFormCmd(bundlePath string) tea.Cmd {
+	return pushCmd(screens.NewForm("Import Bundle", "Enter the passphrase for the bundle", "import-pass:"+bundlePath, []screens.FormInput{
+		{Label: "Passphrase:", IsPassword: true},
+	}, a.theme))
+}
+
+// syncSetupFormCmd builds the sync-configuration form. Reused on a
+// validation failure so a mismatched confirm-passphrase doesn't also cost the
+// user the repository URL they already typed.
+func (a *App) syncSetupFormCmd(repoURL string) tea.Cmd {
+	return pushCmd(screens.NewForm("Configure Sync", "Keep identities synchronized across devices using a private git repository", "sync-setup", []screens.FormInput{
+		{Label: "Repository URL:", Value: repoURL, Placeholder: "git@github.com:user/sync.git", Validate: validate.RepoURL},
+		{Label: "Passphrase:", IsPassword: true, Validate: func(p string) error { return validate.Passphrase(p, 8) }},
+		{Label: "Confirm Passphrase:", IsPassword: true, Validate: func(p string) error { return validate.Passphrase(p, 8) }},
+	}, a.theme))
+}
+
+// rekeyPassFormCmd prompts for the rotated key's passphrase. Reused on a
+// mismatched confirmation so the user doesn't have to re-confirm the rekey
+// itself, just retype the passphrase.
+func (a *App) rekeyPassFormCmd(name string) tea.Cmd {
+	return pushCmd(screens.NewForm("New Key Passphrase", "Optional: protect the new key (leave empty or press Esc to skip)", "rekey-pass:"+name, []screens.FormInput{
+		{Label: "New Passphrase:", IsPassword: true},
+		{Label: "Confirm Passphrase:", IsPassword: true},
+	}, a.theme).Skippable())
 }
 
 // switchPassphraseFormCmd prompts for the SSH key passphrase during a switch.

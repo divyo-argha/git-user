@@ -4,7 +4,6 @@ import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/tui/core"
-	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 	"strings"
 	"time"
@@ -71,10 +70,7 @@ func (a *App) handleConfirmResult(msg core.ConfirmResultMsg) (tea.Model, tea.Cmd
 		})
 
 	case "rekey":
-		return a, pushCmd(screens.NewForm("New Key Passphrase", "Optional: protect the new key (leave empty or press Esc to skip)", "rekey-pass:"+rest, []screens.FormInput{
-			{Label: "New Passphrase:", IsPassword: true},
-			{Label: "Confirm Passphrase:", IsPassword: true},
-		}, a.theme).Skippable())
+		return a, a.rekeyPassFormCmd(rest)
 
 	case "unbind-path-confirm":
 		fields := strings.SplitN(rest, "|", 2)

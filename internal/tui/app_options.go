@@ -40,10 +40,7 @@ func (a *App) handleOptionResult(msg core.OptionResultMsg) (tea.Model, tea.Cmd) 
 		}
 		switch msg.Choice {
 		case "generate":
-			return a, pushCmd(screens.NewForm("SSH Key Passphrase", "Optional: protect the new key (leave empty or press Esc to skip)", fmt.Sprintf("ssh-passphrase:%s|%s|%s|%s", name, email, mode, msg.Choice), []screens.FormInput{
-				{Label: "New Passphrase:", IsPassword: true},
-				{Label: "Confirm Passphrase:", IsPassword: true},
-			}, a.theme).Skippable())
+			return a, a.sshPassphraseFormCmd(name, email, mode, msg.Choice)
 		case "existing":
 			return a, pushCmd(screens.NewForm("Existing SSH Key", "Path to your SSH private key", fmt.Sprintf("ssh-keypath:%s|%s|%s", name, email, mode), []screens.FormInput{
 				{Label: "Key Path:", Placeholder: "e.g. ~/.ssh/id_ed25519", Validate: func(p string) error { return validate.SSHKeyPath(p, true) }},
