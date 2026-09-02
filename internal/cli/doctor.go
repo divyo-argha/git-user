@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
@@ -173,6 +174,66 @@ func runDoctor(args []string) error {
 			if strings.HasSuffix(e.Name(), ".backup") {
 				ui.Warn(fmt.Sprintf("Stale backup key found: ~/.ssh/%s", e.Name()))
 				ui.Info("  Safe to delete once you've confirmed the new key works")
+			}
+		}
+	}
+
+	ui.Info("Checking shell PATH and binary resolution...")
+	pathEnv := os.Getenv("PATH")
+	if pathEnv != "" {
+		var foundPaths []string
+		binName := "git-user"
+		if runtime.GOOS == "windows" {
+			binName = "git-user.exe"
+		}
+		for _, dir := range filepath.SplitList(pathEnv) {
+			p := filepath.Join(dir, binName)
+			if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+				duplicate := false
+				for _, prev := range foundPaths {
+					if prev == p {
+						duplicate = true
+						break
+					}
+				}
+				if !duplicate {
+					foundPaths = append(foundPaths, p)
+				}
+			}
+		}
+		if len(foundPaths) > 1 {
+			ui.Warn(fmt.Sprintf("Multiple %s binaries detected in PATH:", binName))
+			for idx, fp := range foundPaths {
+				prefix := "  •"
+				if idx == 0 {
+					prefix = "  ▶ (active)"
+				}
+				verOut, _ := exec.Command(fp, "--version").Output()
+				verStr := strings.TrimSpace(string(verOut))
+				if verStr == "" {
+					verStr = "unknown version"
+				}
+				ui.Info(fmt.Sprintf("%s %s (%s)", prefix, fp, verStr))
+			}
+			ui.Info("  If commands behave unexpectedly, remove stale versions or adjust your PATH order.")
+		} else {
+			ui.Success("Binary resolution OK (no shadowing detected)")
+		}
+	}
+
+	ui.Info("Checking shell integration...")
+	rcFiles := []string{
+		filepath.Join(home, ".zshrc"),
+		filepath.Join(home, ".bashrc"),
+		filepath.Join(home, ".config", "fish", "config.fish"),
+	}
+	for _, rc := range rcFiles {
+		if content, err := os.ReadFile(rc); err == nil {
+			str := string(content)
+			if strings.Contains(str, "eval \"$(git-user init)\"") {
+				ui.Warn(fmt.Sprintf("Legacy unshielded shell integration in %s", filepath.Base(rc)))
+				ui.Info("  Fix: Run 'git-user init install' to upgrade to safe invocation")
+				issues++
 			}
 		}
 	}

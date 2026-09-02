@@ -39,7 +39,7 @@ COMMANDS
     env --unset                Output unset statements to restore global profile (eval "$(git-user env --unset)")
     shell <name>               Launch an isolated subshell for an identity
     exec <name> -- <cmd...>    Execute a single command using an identity
-    init [shell]               Generate shell integration hook (eval "$(git-user init)")
+    init [shell]               Generate shell integration hook (eval "$(git-user init 2>/dev/null)")
 
   SSH & Keys
     pubkey                     Show public key for active identity

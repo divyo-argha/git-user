@@ -311,13 +311,13 @@ Supported shells: bash, zsh, fish, powershell
 
 Installation:
   # Bash / Zsh (add to ~/.bashrc or ~/.zshrc):
-  eval "$(git-user init)"
+  command -v git-user >/dev/null 2>&1 && eval "$(git-user init 2>/dev/null)"
 
   # Fish (add to ~/.config/fish/config.fish):
-  git-user init fish | source
+  command -q git-user; and git-user init fish 2>/dev/null | source
 
   # PowerShell (add to $PROFILE):
-  Invoke-Expression (& git-user init powershell)`,
+  if (Get-Command git-user -ErrorAction SilentlyContinue) { Invoke-Expression (& git-user init powershell 2>$null) }`,
 	}
 	if u, ok := usage[sub]; ok {
 		return u

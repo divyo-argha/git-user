@@ -96,7 +96,7 @@ func runUninstall(args []string) error {
 	ui.Info("  • Remove git-user's global git config (signing key, sshCommand, directory-binding includeIf rules)")
 	ui.Info(fmt.Sprintf("  • Delete %s (all identities, audit log, sync state)", dataDir))
 	ui.Info("  • Remove any passphrases it stored in the system keychain")
-	ui.Info("  • Remove shell prompt integration it installed (zsh/bash/starship/fish), if any")
+	ui.Info("  • Remove shell prompt and session integration it installed (zsh/bash/starship/fish/powershell), if any")
 	fmt.Println()
 
 	if !autoYes {
@@ -167,8 +167,9 @@ func runUninstall(args []string) error {
 		}
 	}
 
-	// 4. Remove shell prompt integration.
+	// 4. Remove shell prompt and session integration.
 	removePromptIntegration()
+	removeShellIntegration()
 
 	// 5. Remove git-user's own data directory.
 	//
@@ -323,3 +324,64 @@ func removePromptIntegration() {
 		}
 	}
 }
+
+// removeShellIntegration cleans up git-user init hooks from shell startup files.
+func removeShellIntegration() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+
+	removeSnippets := func(path, label string, snippets []string) {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return
+		}
+		str := string(content)
+		modified := false
+		for _, snip := range snippets {
+			if strings.Contains(str, snip) {
+				str = strings.Replace(str, snip, "", 1)
+				modified = true
+			}
+		}
+		if modified {
+			if err := os.WriteFile(path, []byte(str), 0644); err != nil {
+				ui.Warn(fmt.Sprintf("Could not clean up %s: %v", path, err))
+				return
+			}
+			ui.Success(fmt.Sprintf("Removed %s shell integration from %s", label, path))
+		}
+	}
+
+	posixSnippets := []string{
+		"\n# git-user shell integration\ncommand -v git-user >/dev/null 2>&1 && eval \"$(git-user init 2>/dev/null)\"\n",
+		"\n# git-user shell integration\neval \"$(git-user init)\"\n",
+		"command -v git-user >/dev/null 2>&1 && eval \"$(git-user init 2>/dev/null)\"\n",
+		"eval \"$(git-user init)\"\n",
+		"command -v git-user >/dev/null 2>&1 && eval \"$(git-user init 2>/dev/null)\"",
+		"eval \"$(git-user init)\"",
+	}
+
+	removeSnippets(filepath.Join(home, ".zshrc"), "zsh", posixSnippets)
+	removeSnippets(filepath.Join(home, ".bashrc"), "bash", posixSnippets)
+
+	fishSnippets := []string{
+		"\n# git-user shell integration\ncommand -q git-user; and git-user init fish 2>/dev/null | source\n",
+		"\n# git-user shell integration\ngit-user init fish | source\n",
+		"command -q git-user; and git-user init fish 2>/dev/null | source\n",
+		"git-user init fish | source\n",
+	}
+	removeSnippets(filepath.Join(home, ".config", "fish", "config.fish"), "fish", fishSnippets)
+
+	pwshSnippets := []string{
+		"\n# git-user shell integration\nif (Get-Command git-user -ErrorAction SilentlyContinue) { Invoke-Expression (& git-user init powershell 2>$null) }\n",
+		"\n# git-user shell integration\nInvoke-Expression (& git-user init powershell)\n",
+	}
+	if runtime.GOOS == "windows" {
+		removeSnippets(filepath.Join(home, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"), "powershell", pwshSnippets)
+	} else {
+		removeSnippets(filepath.Join(home, ".config", "powershell", "Microsoft.PowerShell_profile.ps1"), "powershell", pwshSnippets)
+	}
+}
+

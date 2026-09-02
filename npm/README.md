@@ -102,7 +102,7 @@ git-user current                       # Print currently active identity
 git-user list                          # List all registered identities
 
 # Terminal Session Isolation (Multi-Terminal Workflows)
-eval "$(git-user init)"                # Enable seamless per-session switching
+command -v git-user >/dev/null 2>&1 && eval "$(git-user init 2>/dev/null)" # Enable seamless per-session switching
 git-user switch --session <name>       # Lock current terminal tab to an identity
 eval "$(git-user env <name>)"          # Export identity env vars directly
 git-user shell <name>                  # Launch an isolated subshell for an identity

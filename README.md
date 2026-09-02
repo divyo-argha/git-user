@@ -444,13 +444,13 @@ Add the shell integration hook to your shell profile once:
 
 ```bash
 # Bash / Zsh — add to ~/.bashrc or ~/.zshrc:
-eval "$(git-user init)"
+command -v git-user >/dev/null 2>&1 && eval "$(git-user init 2>/dev/null)"
 
 # Fish — add to ~/.config/fish/config.fish:
-git-user init fish | source
+command -q git-user; and git-user init fish 2>/dev/null | source
 
 # PowerShell — add to $PROFILE:
-Invoke-Expression (& git-user init powershell)
+if (Get-Command git-user -ErrorAction SilentlyContinue) { Invoke-Expression (& git-user init powershell 2>$null) }
 ```
 
 Now you can switch identities per-session with `--session` (or `-s`):
@@ -577,7 +577,7 @@ What happens:
 | `env <name> [--unset]` | Output shell export/unset statements for terminal session isolation |
 | `shell <name>` | Launch an isolated subshell locked to a Git identity |
 | `exec <name> -- <cmd...>` | Execute a single command using a Git identity's environment |
-| `init [shell]` | Generate shell integration wrapper function (for `eval "$(git-user init)"`) |
+| `init [shell]` | Generate shell integration wrapper function (for `eval "$(git-user init 2>/dev/null)"`) |
 | `list` | Show all identities |
 | `current` | Show active identity |
 | `prompt` | Output active identity for terminal integration |

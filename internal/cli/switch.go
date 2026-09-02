@@ -42,7 +42,7 @@ func runSwitch(args []string) error {
 		}
 		fmt.Println()
 		ui.Info("Or enable seamless per-session switching by adding to your shell config (~/.zshrc, ~/.bashrc):")
-		fmt.Println("  eval \"$(git-user init)\"")
+		fmt.Println("  command -v git-user >/dev/null 2>&1 && eval \"$(git-user init 2>/dev/null)\"")
 		return nil
 	}
 
