@@ -9,6 +9,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/gitenv"
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/validate"
 )
 
 // runToken manages a per-identity HTTPS personal-access-token (or app
@@ -30,6 +31,8 @@ func runToken(args []string) error {
 	set := false
 	remove := false
 	var username string
+	var expires string
+	expiresGiven := false
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -42,6 +45,12 @@ func runToken(args []string) error {
 				username = args[i+1]
 				i++
 			}
+		case "--expires", "-e":
+			if i+1 < len(args) {
+				expires = args[i+1]
+				expiresGiven = true
+				i++
+			}
 		default:
 			if !strings.HasPrefix(args[i], "-") && name == "" {
 				name = args[i]
@@ -49,8 +58,15 @@ func runToken(args []string) error {
 		}
 	}
 
+	if expiresGiven {
+		if err := validate.Date(expires); err != nil {
+			ui.Errorf("%v", err)
+			return err
+		}
+	}
+
 	if name == "" {
-		ui.Error("usage: git-user token <name> [--set] [--remove] [--username <user>]")
+		ui.Error("usage: git-user token <name> [--set] [--remove] [--username <user>] [--expires <YYYY-MM-DD>]")
 		return fmt.Errorf("missing identity name")
 	}
 
@@ -70,6 +86,10 @@ func runToken(args []string) error {
 		if err := keyring.DeleteHTTPSToken(user.Name); err != nil {
 			ui.Errorf("removing token: %v", err)
 			return err
+		}
+		if user.HTTPSTokenExpiresAt != "" {
+			_ = store.SetHTTPSTokenExpiry(user.Name, "")
+			_ = config.Save(store)
 		}
 		if store.Current == user.Name {
 			git.RemoveAskpassConfig()
@@ -98,7 +118,25 @@ func runToken(args []string) error {
 				ui.Warn(fmt.Sprintf("Could not save config: %v", err))
 			}
 		}
+		// A freshly stored token invalidates any expiry date recorded for
+		// whatever token was there before — clear it unless --expires gave a
+		// new one, so doctor never warns about an expiry that belonged to a
+		// token that no longer exists.
+		newExpiry := ""
+		if expiresGiven {
+			newExpiry = expires
+		}
+		if newExpiry != user.HTTPSTokenExpiresAt {
+			if err := store.SetHTTPSTokenExpiry(user.Name, newExpiry); err != nil {
+				ui.Warn(fmt.Sprintf("Could not save token expiry: %v", err))
+			} else if err := config.Save(store); err != nil {
+				ui.Warn(fmt.Sprintf("Could not save config: %v", err))
+			}
+		}
 		ui.Success(fmt.Sprintf("Token stored securely for %q.", user.Name))
+		if newExpiry != "" {
+			ui.Info(fmt.Sprintf("Expiry recorded: %s — 'git-user doctor' will warn as it approaches.", newExpiry))
+		}
 		if store.Current == user.Name {
 			if cmd, err := gitenv.AskpassCommand(user.Name); err == nil {
 				if err := git.ConfigureAskpass(cmd); err != nil {
@@ -113,22 +151,42 @@ func runToken(args []string) error {
 		return nil
 	}
 
-	if username != "" {
-		if err := store.SetHTTPSUsername(user.Name, username); err != nil {
-			ui.Errorf("saving username: %v", err)
-			return err
+	if username != "" || expiresGiven {
+		if username != "" {
+			if err := store.SetHTTPSUsername(user.Name, username); err != nil {
+				ui.Errorf("saving username: %v", err)
+				return err
+			}
+		}
+		if expiresGiven {
+			if !keyring.HasHTTPSToken(user.Name) {
+				ui.Warn(fmt.Sprintf("%q has no token stored yet — recording the expiry anyway.", user.Name))
+			}
+			if err := store.SetHTTPSTokenExpiry(user.Name, expires); err != nil {
+				ui.Errorf("saving token expiry: %v", err)
+				return err
+			}
 		}
 		if err := config.Save(store); err != nil {
 			ui.Errorf("saving config: %v", err)
 			return err
 		}
-		ui.Success(fmt.Sprintf("HTTPS username for %q set to %q.", user.Name, username))
+		if username != "" {
+			ui.Success(fmt.Sprintf("HTTPS username for %q set to %q.", user.Name, username))
+		}
+		if expiresGiven {
+			ui.Success(fmt.Sprintf("Token expiry for %q set to %s.", user.Name, expires))
+		}
 		return nil
 	}
 
 	// Status.
 	if keyring.HasHTTPSToken(user.Name) {
-		ui.Success(fmt.Sprintf("%q has an HTTPS token stored (username: %s).", user.Name, user.GetHTTPSUsername()))
+		detail := fmt.Sprintf("%q has an HTTPS token stored (username: %s)", user.Name, user.GetHTTPSUsername())
+		if user.HTTPSTokenExpiresAt != "" {
+			detail += fmt.Sprintf(", expires %s", user.HTTPSTokenExpiresAt)
+		}
+		ui.Success(detail + ".")
 	} else {
 		ui.Info(fmt.Sprintf("%q has no HTTPS token stored.", user.Name))
 		ui.Info(fmt.Sprintf("  Set one with: git-user token %s --set", user.Name))

@@ -7,9 +7,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/keyring"
+	"github.com/divyo-argha/git-user/internal/validate"
 )
 
 // captureStdout runs fn with os.Stdout redirected to a pipe and returns
@@ -203,6 +206,109 @@ func TestRunDoctor_FixCorrectsInsecurePermissions(t *testing.T) {
 	}
 	if perm := info.Mode().Perm(); perm != 0600 {
 		t.Errorf("expected config file fixed to 0600, got %o", perm)
+	}
+}
+
+// TestTokenExpiryWarning checks the pure date-math helper directly, across
+// the boundary cases that matter: already expired, right at the warning
+// threshold, safely in the future, and an unparseable date (doctor has no
+// fix for a corrupted date, so it must stay silent rather than error out).
+func TestTokenExpiryWarning(t *testing.T) {
+	past := time.Now().AddDate(0, 0, -5).Format(validate.DateLayout)
+	if w := tokenExpiryWarning(past); w == "" || !strings.Contains(w, "expired") {
+		t.Errorf("expected an 'expired' warning for a past date, got %q", w)
+	}
+
+	soon := time.Now().AddDate(0, 0, tokenExpiryWarnDays-1).Format(validate.DateLayout)
+	if w := tokenExpiryWarning(soon); w == "" {
+		t.Error("expected a warning for a date inside the warning window")
+	}
+
+	farOut := time.Now().AddDate(0, 0, tokenExpiryWarnDays+30).Format(validate.DateLayout)
+	if w := tokenExpiryWarning(farOut); w != "" {
+		t.Errorf("expected no warning for a date well outside the window, got %q", w)
+	}
+
+	if w := tokenExpiryWarning("not-a-date"); w != "" {
+		t.Errorf("expected no warning (and no crash) for an unparseable date, got %q", w)
+	}
+}
+
+// TestRunDoctor_WarnsOnExpiringToken checks doctor surfaces an
+// about-to-expire token for the active identity as an issue, not just a
+// success line noting the token exists.
+func TestRunDoctor_WarnsOnExpiringToken(t *testing.T) {
+	setupTestEnv(t)
+
+	store, _ := config.Load()
+	_ = store.AddUser("work", "work@example.com")
+	_ = store.SetCurrent("work")
+	_ = store.SetHTTPSTokenExpiry("work", time.Now().AddDate(0, 0, 3).Format(validate.DateLayout))
+	_ = config.Save(store)
+	_ = git.Apply("work", "work@example.com")
+	if err := keyring.SetHTTPSToken("work", "ghp_abc"); err != nil {
+		t.Fatalf("SetHTTPSToken: %v", err)
+	}
+
+	out := captureStdout(t, func() {
+		if err := runDoctor([]string{}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+	if !strings.Contains(out, "expires in") {
+		t.Errorf("expected doctor to warn about the approaching token expiry, got output:\n%s", out)
+	}
+}
+
+// TestRunDoctor_SuggestsTokenWhenSSHFailsWithHTTPSRemote checks that doctor
+// offers a token as an alternative to fix-remote when it has just watched
+// SSH fail for the active identity — not just repeat "convert to SSH" as if
+// SSH were guaranteed to be the fix.
+func TestRunDoctor_SuggestsTokenWhenSSHFailsWithHTTPSRemote(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	tmpDir := setupTestEnv(t)
+
+	sshDir := filepath.Join(tmpDir, ".ssh")
+	_ = os.MkdirAll(sshDir, 0700)
+	keyPath := filepath.Join(sshDir, "id_ed25519")
+	_ = os.WriteFile(keyPath, []byte("not a real key"), 0600)
+
+	store, _ := config.Load()
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.BindSSHKey("dev", keyPath)
+	_ = store.SetCurrent("dev")
+	_ = config.Save(store)
+	_ = git.Apply("dev", "dev@example.com")
+
+	repoDir := filepath.Join(tmpDir, "repo")
+	if err := os.MkdirAll(repoDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.Command("git", "-C", repoDir, "init").Run(); err != nil {
+		t.Fatalf("git init: %v", err)
+	}
+	if err := exec.Command("git", "-C", repoDir, "remote", "add", "origin", "https://github.com/example/repo.git").Run(); err != nil {
+		t.Fatalf("git remote add: %v", err)
+	}
+	cwd, _ := os.Getwd()
+	if err := os.Chdir(repoDir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(cwd) })
+
+	out := captureStdout(t, func() {
+		if err := runDoctor([]string{}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(out, "SSH connection failed") {
+		t.Fatalf("expected the invalid key to fail the SSH check, got output:\n%s", out)
+	}
+	if !strings.Contains(out, "since SSH just failed above") {
+		t.Errorf("expected doctor to suggest a token as an alternative, got output:\n%s", out)
 	}
 }
 

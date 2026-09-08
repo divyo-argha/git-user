@@ -7,12 +7,14 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/shellinit"
 	"github.com/divyo-argha/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/validate"
 )
 
 func runDoctor(args []string) error {
@@ -32,6 +34,13 @@ func runDoctor(args []string) error {
 
 	issues := 0
 	fixed := 0
+	// Tracked across the two checks below (SSH connectivity for the active
+	// identity, HTTPS remotes in the current repo) so the HTTPS-remotes
+	// suggestion can offer a token as an alternative to fix-remote when SSH
+	// demonstrably isn't working for this identity right now — instead of
+	// just repeating "convert to SSH" as if that were always the fix.
+	activeSSHFailed := false
+	activeUserHasToken := false
 
 	ui.Info("Checking config file permissions...")
 	configPath := config.ConfigPath()
@@ -149,12 +158,16 @@ func runDoctor(args []string) error {
 
 					ui.Info("Testing SSH connection to GitHub...")
 					if err := verifySSHConnectionWithKey(user.SSHKey); err != nil {
+						activeSSHFailed = true
 						ui.Warn("SSH connection failed")
 						ui.Info("  This could mean:")
 						ui.Info("    - The public key is not added to your GitHub account")
 						ui.Info("    - The key is not loaded in ssh-agent")
-						ui.Info("    - Network connectivity issues")
+						ui.Info("    - Network connectivity issues (some networks block SSH's port 22 entirely)")
 						ui.Info(fmt.Sprintf("  Fix: Add your public key to GitHub or run 'ssh -i %s -o IdentitiesOnly=yes -T git@github.com' for details", user.SSHKey))
+						if !keyring.HasHTTPSToken(user.Name) {
+							ui.Info(fmt.Sprintf("  If SSH is blocked on this network rather than misconfigured, use an HTTPS token instead: git-user token %s --set", user.Name))
+						}
 						issues++
 					} else {
 						ui.Success("SSH connection verified!")
@@ -166,8 +179,18 @@ func runDoctor(args []string) error {
 				issues++
 			}
 
-			if keyring.HasHTTPSToken(user.Name) {
+			activeUserHasToken = keyring.HasHTTPSToken(user.Name)
+			if activeUserHasToken {
 				ui.Success("HTTPS token stored (used automatically on HTTPS remotes)")
+				if user.HTTPSTokenExpiresAt != "" {
+					if warnMsg := tokenExpiryWarning(user.HTTPSTokenExpiresAt); warnMsg != "" {
+						ui.Warn(warnMsg)
+						ui.Info(fmt.Sprintf("  Fix: Generate a new token on your platform, then run 'git-user token %s --set'", user.Name))
+						issues++
+					} else {
+						ui.Success(fmt.Sprintf("Token expires %s", user.HTTPSTokenExpiresAt))
+					}
+				}
 			}
 		}
 	}
@@ -202,6 +225,15 @@ func runDoctor(args []string) error {
 						ui.Warn(fmt.Sprintf("Profile %q SSH key has no passphrase", u.Name))
 						issues++
 					}
+				}
+			}
+			// The active identity's own token/expiry was already checked
+			// above (with more context — it's the one doctor just tested SSH
+			// connectivity for); this only covers the rest.
+			if u.Name != store.Current && u.HTTPSTokenExpiresAt != "" {
+				if warnMsg := tokenExpiryWarning(u.HTTPSTokenExpiresAt); warnMsg != "" {
+					ui.Warn(fmt.Sprintf("Profile %q: %s", u.Name, warnMsg))
+					issues++
 				}
 			}
 		}
@@ -339,6 +371,13 @@ func runDoctor(args []string) error {
 					}
 				} else {
 					ui.Info("  Fix: Run 'git-user fix-remote' to convert to SSH")
+					// fix-remote isn't really "the fix" when SSH has just
+					// demonstrably failed for this identity — offer the
+					// alternative this doctor run already has evidence for,
+					// instead of only ever pointing at SSH.
+					if activeSSHFailed && !activeUserHasToken {
+						ui.Info("  Or, since SSH just failed above: git-user token <name> --set")
+					}
 					issues++
 				}
 			} else {
@@ -364,4 +403,30 @@ func runDoctor(args []string) error {
 	}
 
 	return nil
+}
+
+// tokenExpiryWarnDays is how far ahead of an HTTPS token's recorded expiry
+// doctor starts warning — long enough to generate and swap in a replacement
+// before it actually lapses mid-push.
+const tokenExpiryWarnDays = 14
+
+// tokenExpiryWarning returns a warning message if expiresAt (a
+// validate.DateLayout date) is already past, or within tokenExpiryWarnDays,
+// and "" if it's further out (or unparseable — doctor has no fix for a
+// corrupted date, and refusing to run over it would be worse than skipping
+// it silently).
+func tokenExpiryWarning(expiresAt string) string {
+	expiry, err := time.Parse(validate.DateLayout, expiresAt)
+	if err != nil {
+		return ""
+	}
+	days := int(time.Until(expiry).Hours() / 24)
+	switch {
+	case days < 0:
+		return fmt.Sprintf("HTTPS token expired %d day(s) ago (%s)", -days, expiresAt)
+	case days <= tokenExpiryWarnDays:
+		return fmt.Sprintf("HTTPS token expires in %d day(s) (%s)", days, expiresAt)
+	default:
+		return ""
+	}
 }

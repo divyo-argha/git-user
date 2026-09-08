@@ -145,11 +145,14 @@ stored in the OS keyring, the same way SSH key passphrases are.
 
 Flags:
   -s, --set                    Prompt for and store a token
-  -r, --remove                 Remove the stored token
+  -r, --remove                 Remove the stored token (also clears its expiry)
   -u, --username <user>        Username to pair with the token (most hosts accept any value)
+  -e, --expires <YYYY-MM-DD>   Record the token's expiry so 'doctor' can warn before it lapses
   -h, --help                   Show this help
 
-With no flags, shows whether a token is stored.`,
+--expires can be combined with --set, or given on its own to update/correct
+the expiry of an already-stored token. With no flags, shows whether a token
+is stored (and its expiry, if recorded).`,
 		"rekey": `Usage: git-user rekey <name> [flags]
 
 Rotate the SSH key for an identity.

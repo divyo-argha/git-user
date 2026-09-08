@@ -342,8 +342,12 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 		if len(msg.Values) > 1 {
 			username = strings.TrimSpace(msg.Values[1])
 		}
+		expiresAt := ""
+		if len(msg.Values) > 2 {
+			expiresAt = strings.TrimSpace(msg.Values[2])
+		}
 		return a, a.runTaskCmd("token", rest, func() (opResult, error) {
-			return opSetHTTPSToken(a.store, rest, token, username)
+			return opSetHTTPSToken(a.store, rest, token, username, expiresAt)
 		})
 
 	case "config-set":

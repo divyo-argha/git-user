@@ -14,6 +14,17 @@ import (
 	"github.com/divyo-argha/git-user/internal/validate"
 )
 
+// optionalDate validates s as validate.Date only when non-empty — form field
+// validators run against every field's raw value regardless of whether the
+// field is meant to be optional, so an unconditional validate.Date call
+// would reject leaving this one blank.
+func optionalDate(s string) error {
+	if s == "" {
+		return nil
+	}
+	return validate.Date(s)
+}
+
 // ── Options Results ───────────────────────────────────────────────────────────
 
 func (a *App) handleOptionResult(msg core.OptionResultMsg) (tea.Model, tea.Cmd) {
@@ -177,6 +188,7 @@ func (a *App) handleOptionResult(msg core.OptionResultMsg) (tea.Model, tea.Cmd) 
 				[]screens.FormInput{
 					{Label: "Token:", IsPassword: true},
 					{Label: "Username (optional):"},
+					{Label: "Expires (optional, YYYY-MM-DD):", Validate: optionalDate},
 				},
 				a.theme,
 			))

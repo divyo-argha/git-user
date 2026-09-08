@@ -52,7 +52,7 @@ func TestOpSetAndRemoveHTTPSToken(t *testing.T) {
 	_ = config.Save(store)
 	_ = git.Apply("work", "work@example.com")
 
-	res, err := opSetHTTPSToken(store, "work", "ghp_abc123", "octocat")
+	res, err := opSetHTTPSToken(store, "work", "ghp_abc123", "octocat", "")
 	if err != nil {
 		t.Fatalf("opSetHTTPSToken: %v", err)
 	}
@@ -89,15 +89,11 @@ func TestOpSetHTTPSToken_UnknownIdentity(t *testing.T) {
 	mockKeyringStore(t)
 
 	store, _ := config.Load()
-	if _, err := opSetHTTPSToken(store, "ghost", "tok", ""); err == nil {
+	if _, err := opSetHTTPSToken(store, "ghost", "tok", "", ""); err == nil {
 		t.Error("expected an error for an unknown identity")
 	}
 }
 
-// TestOpSetHTTPSToken_InactiveIdentityDoesNotTouchAskpass guards against
-// wiring core.askpass for an identity that isn't the active one — that would
-// make every credential prompt on this machine try the wrong identity's
-// token until the next switch.
 // TestOpRenameMigratesKeyringSecretsAndAskpass mirrors
 // TestRunRenameMigratesKeyringSecretsAndAskpass in internal/cli — the TUI's
 // opRename must not orphan a renamed identity's keyring-stored SSH
@@ -141,6 +137,10 @@ func TestOpRenameMigratesKeyringSecretsAndAskpass(t *testing.T) {
 	}
 }
 
+// TestOpSetHTTPSToken_InactiveIdentityDoesNotTouchAskpass guards against
+// wiring core.askpass for an identity that isn't the active one — that would
+// make every credential prompt on this machine try the wrong identity's
+// token until the next switch.
 func TestOpSetHTTPSToken_InactiveIdentityDoesNotTouchAskpass(t *testing.T) {
 	withTempConfig(t)
 	mockKeyringStore(t)
@@ -152,10 +152,37 @@ func TestOpSetHTTPSToken_InactiveIdentityDoesNotTouchAskpass(t *testing.T) {
 	_ = config.Save(store)
 	_ = git.Apply("personal", "personal@example.com")
 
-	if _, err := opSetHTTPSToken(store, "work", "ghp_xyz", ""); err != nil {
+	if _, err := opSetHTTPSToken(store, "work", "ghp_xyz", "", ""); err != nil {
 		t.Fatalf("opSetHTTPSToken: %v", err)
 	}
 	if askpass := git.CurrentAskpass(); askpass != "" {
 		t.Errorf("expected no core.askpass change for a non-active identity, got %q", askpass)
+	}
+}
+
+// TestOpSetHTTPSToken_ExpirySetAndClearedOnRemove checks the expiry field
+// round-trips through opSetHTTPSToken and is cleared by opRemoveHTTPSToken —
+// otherwise doctor would keep warning about an expiry date for a token that
+// no longer exists.
+func TestOpSetHTTPSToken_ExpirySetAndClearedOnRemove(t *testing.T) {
+	withTempConfig(t)
+	mockKeyringStore(t)
+
+	store, _ := config.Load()
+	_ = store.AddUser("work", "work@example.com")
+	_ = config.Save(store)
+
+	if _, err := opSetHTTPSToken(store, "work", "ghp_abc", "", "2099-01-01"); err != nil {
+		t.Fatalf("opSetHTTPSToken: %v", err)
+	}
+	if u := store.FindUser("work"); u.HTTPSTokenExpiresAt != "2099-01-01" {
+		t.Errorf("expected expiry recorded, got %q", u.HTTPSTokenExpiresAt)
+	}
+
+	if _, err := opRemoveHTTPSToken(store, "work"); err != nil {
+		t.Fatalf("opRemoveHTTPSToken: %v", err)
+	}
+	if u := store.FindUser("work"); u.HTTPSTokenExpiresAt != "" {
+		t.Errorf("expected expiry cleared after token removal, got %q", u.HTTPSTokenExpiresAt)
 	}
 }

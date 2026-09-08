@@ -51,7 +51,7 @@ COMMANDS
     unbind-path <name> <path>  Unbind a directory path from an identity
     passphrase                 Add/change passphrase for active, unlocked identity
     rekey <name>               Rotate SSH key
-    token <name> [--set|--remove] Manage an HTTPS personal-access-token (for when SSH isn't available)
+    token <name> [--set|--remove|--expires <date>] Manage an HTTPS personal-access-token (for when SSH isn't available)
 
   Repos & Portability
     fix-remote                 Convert HTTPS remotes to SSH

@@ -71,6 +71,52 @@ func TestRunToken_SetShowRemove(t *testing.T) {
 	}
 }
 
+func TestRunToken_ExpiryFlag(t *testing.T) {
+	setupTestEnv(t)
+
+	store, _ := config.Load()
+	_ = store.AddUser("work", "work@example.com")
+	_ = config.Save(store)
+
+	readPassphraseFn = func(prompt string) (string, error) {
+		return "ghp_supersecret", nil
+	}
+
+	if err := runToken([]string{"work", "--set", "--expires", "2099-01-01"}); err != nil {
+		t.Fatalf("set with expiry: unexpected error: %v", err)
+	}
+	store, _ = config.Load()
+	if u := store.FindUser("work"); u.HTTPSTokenExpiresAt != "2099-01-01" {
+		t.Errorf("expected expiry recorded, got %q", u.HTTPSTokenExpiresAt)
+	}
+
+	// Rejects a malformed date.
+	if err := runToken([]string{"work", "--expires", "01/01/2099"}); err == nil {
+		t.Error("expected an error for a non-YYYY-MM-DD date")
+	}
+
+	// Standalone --expires (no --set) updates the field without touching the token.
+	if err := runToken([]string{"work", "--expires", "2100-06-15"}); err != nil {
+		t.Fatalf("standalone expiry update: unexpected error: %v", err)
+	}
+	store, _ = config.Load()
+	if u := store.FindUser("work"); u.HTTPSTokenExpiresAt != "2100-06-15" {
+		t.Errorf("expected expiry updated, got %q", u.HTTPSTokenExpiresAt)
+	}
+	if token, err := keyring.GetHTTPSToken("work"); err != nil || token != "ghp_supersecret" {
+		t.Errorf("expected token untouched by standalone expiry update, got (%q, %v)", token, err)
+	}
+
+	// Removing the token clears the recorded expiry too.
+	if err := runToken([]string{"work", "--remove"}); err != nil {
+		t.Fatalf("remove: unexpected error: %v", err)
+	}
+	store, _ = config.Load()
+	if u := store.FindUser("work"); u.HTTPSTokenExpiresAt != "" {
+		t.Errorf("expected expiry cleared after token removal, got %q", u.HTTPSTokenExpiresAt)
+	}
+}
+
 func TestRunToken_RejectsEmptyToken(t *testing.T) {
 	setupTestEnv(t)
 

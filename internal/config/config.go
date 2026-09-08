@@ -162,20 +162,21 @@ func ListSSHKeyFiles() ([]SSHKeyFile, error) {
 }
 
 type User struct {
-	Name           string            `json:"name"`
-	Email          string            `json:"email"`
-	Aliases        []string          `json:"aliases,omitempty"`
-	SSHKey         string            `json:"ssh_key,omitempty"`
-	SSHCommand     string            `json:"ssh_command,omitempty"` // original core.sshCommand to preserve exactly
-	SignKey        string            `json:"sign_key,omitempty"`
-	SignFormat     string            `json:"sign_format,omitempty"` // "ssh" or "gpg"
-	SignDisabled   bool              `json:"sign_disabled,omitempty"`
-	PassphraseMode string            `json:"passphrase_mode,omitempty"` // "persistent", "login", "everytime"
-	Source         string            `json:"source,omitempty"`          // "original" or empty (manual)
-	BindPaths      []string          `json:"bind_paths,omitempty"`
-	CustomConfig   map[string]string `json:"custom_config,omitempty"`
-	HTTPSUsername  string            `json:"https_username,omitempty"` // username paired with a keyring-stored token; see internal/cli/token.go
-	IsTemporary    bool              `json:"-"`
+	Name                string            `json:"name"`
+	Email               string            `json:"email"`
+	Aliases             []string          `json:"aliases,omitempty"`
+	SSHKey              string            `json:"ssh_key,omitempty"`
+	SSHCommand          string            `json:"ssh_command,omitempty"` // original core.sshCommand to preserve exactly
+	SignKey             string            `json:"sign_key,omitempty"`
+	SignFormat          string            `json:"sign_format,omitempty"` // "ssh" or "gpg"
+	SignDisabled        bool              `json:"sign_disabled,omitempty"`
+	PassphraseMode      string            `json:"passphrase_mode,omitempty"` // "persistent", "login", "everytime"
+	Source              string            `json:"source,omitempty"`          // "original" or empty (manual)
+	BindPaths           []string          `json:"bind_paths,omitempty"`
+	CustomConfig        map[string]string `json:"custom_config,omitempty"`
+	HTTPSUsername       string            `json:"https_username,omitempty"`      // username paired with a keyring-stored token; see internal/cli/token.go
+	HTTPSTokenExpiresAt string            `json:"https_token_expires,omitempty"` // optional YYYY-MM-DD; the token itself is never stored here, only its expiry (not secret) so doctor can warn
+	IsTemporary         bool              `json:"-"`
 }
 
 func (u *User) GetPassphraseMode() string {
@@ -538,6 +539,20 @@ func (s *Store) SetHTTPSUsername(name, username string) error {
 		return fmt.Errorf("user %q not found", name)
 	}
 	u.HTTPSUsername = username
+	return nil
+}
+
+// SetHTTPSTokenExpiry records (or, given "", clears) the expiry date of an
+// identity's keyring-stored HTTPS token, so doctor can warn before it lapses.
+// date must already be validate.Date-checked YYYY-MM-DD by the caller — the
+// config layer doesn't import validate to avoid pulling UI-facing concerns
+// into what's otherwise plain data.
+func (s *Store) SetHTTPSTokenExpiry(name, date string) error {
+	u := s.FindUser(name)
+	if u == nil {
+		return fmt.Errorf("user %q not found", name)
+	}
+	u.HTTPSTokenExpiresAt = date
 	return nil
 }
 

@@ -592,7 +592,7 @@ What happens:
 | `pubkey` | Show the public key of the active identity |
 | `pubkey publish [platform]` | Publish public SSH key directly to GitHub, GitLab, or Bitbucket |
 | `passphrase` | Add, change, or remove (`--remove`) passphrase for the active, unlocked identity |
-| `token <name> [--set\|--remove]` | Manage an HTTPS personal-access-token for an identity (for when SSH isn't available) |
+| `token <name> [--set\|--remove\|--expires <date>]` | Manage an HTTPS personal-access-token for an identity, with optional expiry tracking |
 | `sign <name> [--on\|--off]` | Enable/disable automatic Git commit signing for an identity |
 | `rekey <name>` | Rotate SSH key (with rollback safety) |
 | `fix-remote` | Convert HTTPS remotes to SSH |
@@ -847,6 +847,19 @@ git push   # authenticates with work's token, no prompt
 git-user token work            # show whether a token is stored
 git-user token work --remove   # remove it
 ```
+
+PATs expire, and the failure mode is a confusing auth error mid-push. Record
+the expiry so `git-user doctor` warns before it lapses instead:
+
+```bash
+git-user token work --set --expires 2026-12-31
+# or update it later without touching the token itself:
+git-user token work --expires 2026-12-31
+```
+
+`doctor` also uses the SSH check it just ran: if SSH fails for the active
+identity and the current repo has HTTPS remotes, it suggests a token as the
+actual fix instead of only ever repeating "convert to SSH."
 
 ---
 

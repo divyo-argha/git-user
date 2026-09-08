@@ -7,8 +7,14 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 	"unicode"
 )
+
+// DateLayout is the sole date format git-user accepts for a date typed by a
+// user (e.g. an HTTPS token's expiry) — unambiguous across locales, unlike
+// MM/DD/YYYY vs DD/MM/YYYY.
+const DateLayout = "2006-01-02"
 
 // Reserved identity names that collide with CLI commands or system keywords.
 var reservedNames = map[string]bool{
@@ -464,6 +470,14 @@ func PassphraseMatch(p1, p2 string, minLen int) error {
 		return errors.New("passphrases do not match")
 	}
 	return Passphrase(p1, minLen)
+}
+
+// Date validates s as a YYYY-MM-DD calendar date (see DateLayout).
+func Date(s string) error {
+	if _, err := time.Parse(DateLayout, s); err != nil {
+		return fmt.Errorf("date must be in YYYY-MM-DD format (got %q)", s)
+	}
+	return nil
 }
 
 // ── Helper ────────────────────────────────────────────────────────────────────
