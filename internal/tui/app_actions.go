@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/shellinit"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
@@ -20,28 +21,109 @@ import (
 // picker's "enter a path manually" fallback entry.
 const sshKeyPickManual = "__manual__"
 
-// shellIntegrationSnippet is a static reference card shown on a Report screen
-// (which has clipboard-copy built in). It intentionally does not reuse
-// internal/cli/init.go's shell-wrapper templates — internal/tui cannot
-// import internal/cli (import cycle), and this is documentation text, not
-// logic worth sharing. The TUI never writes to any rc file itself; the CLI's
-// `git-user init install` remains the way to actually install these hooks.
-const shellIntegrationSnippet = `Add one line to your shell config to enable
-seamless per-terminal identity switching (used by "Switch (this terminal
-only)" and any 'git-user switch --session <name>' / 'git-user env <name>'
-call):
+// shellIntegrationSnippet is background reading shown on a Report screen
+// (which has clipboard-copy built in) behind the "How this works" entry of
+// the multi-account picker — the picker itself (multiAccountMenuCmd) is the
+// primary, actionable flow; this is just the explanation for anyone who
+// wants it.
+const shellIntegrationSnippet = `WORKING WITH TWO (OR MORE) ACCOUNTS AT ONCE
 
-Bash / Zsh — add to ~/.bashrc or ~/.zshrc:
-  command -v git-user >/dev/null 2>&1 && eval "$(git-user init 2>/dev/null)"
+Pick "Open <name> in a new terminal window" from this menu (or from an
+identity's own screen) to spawn a separate, detached terminal window running
+an isolated shell for that identity — its own commit author/committer
+name+email and its own SSH key, set only as environment variables for that
+one shell process. It never edits ~/.gitconfig, so a second window opened
+the same way for a different identity works completely independently, at
+the same time. Type 'exit' in a window to leave it.
 
-Fish — add to ~/.config/fish/config.fish:
-  command -q git-user; and git-user init fish 2>/dev/null | source
+Prefer the command line? The same thing, done by hand, in any terminal:
+  git-user shell <name>
 
-PowerShell — add to $PROFILE:
-  if (Get-Command git-user -ErrorAction SilentlyContinue) { Invoke-Expression (& git-user init powershell 2>$null) }
+────────────────────────────────────────────────────────────────────────
 
-Or let git-user install it for you from a terminal:
-  git-user init install`
+OPTIONAL: "Install shell shortcut" (also in this menu) adds one line to your
+shell config so 'git-user switch --session <name>' / 'git-user env <name>'
+can activate an identity in your CURRENT shell — no new window — with a
+single command, instead of needing 'eval "$(git-user env <name>)"' by hand.
+It only ever appends that one line to your rc file; installing it again is a
+no-op if it's already there.`
+
+// manualShellWindowInstructions is shown when openNewTerminalWindow could not
+// find a way to spawn a new terminal window automatically (headless session,
+// unrecognized terminal emulator, unsupported OS, etc.) — it falls back to
+// the exact manual command, which needs no shell integration or setup at all.
+func manualShellWindowInstructions(name string, cause error) string {
+	return fmt.Sprintf(`Couldn't open a new terminal window automatically:
+  %v
+
+Open another terminal window yourself and run:
+
+  git-user shell %s
+
+That starts an isolated shell scoped to %q — its own commit author/committer
+identity and its own SSH key, set only as environment variables for that one
+shell process. It never touches ~/.gitconfig, so this works alongside a
+different identity's isolated shell (or the globally-active one) running in
+another window at the same time. Type 'exit' to leave it.`, cause, name, name)
+}
+
+// multiAccountMenuCmd builds the interactive "work with multiple accounts"
+// picker: one entry per registered identity to open it in a brand-new
+// terminal window right now (the actual answer to "how do I use two
+// accounts at once"), plus the optional current-shell install and a
+// read-only explanation for anyone who wants the details.
+func (a *App) multiAccountMenuCmd() tea.Cmd {
+	var opts []screens.Option
+	for _, u := range a.store.Users {
+		opts = append(opts, screens.Option{
+			Label: fmt.Sprintf("🪟 Open %q in a new terminal window", u.Name),
+			Key:   "open:" + u.Name,
+		})
+	}
+	if len(a.store.Users) == 0 {
+		opts = append(opts, screens.Option{Label: "(no identities registered yet)", Key: ""})
+	}
+	sh := shellinit.Detect("")
+	opts = append(opts,
+		screens.Option{Label: fmt.Sprintf("⌘ Install optional shell shortcut (%s)", shellLabel(sh)), Key: "install"},
+		screens.Option{Label: "ℹ How this works", Key: "info"},
+		screens.Option{Label: "Cancel", Key: ""},
+	)
+	return pushCmd(screens.NewOptions(
+		"Work With Multiple Accounts",
+		core.OptionsHelp(),
+		"multi-account",
+		opts,
+		a.theme,
+	))
+}
+
+// shellLabel names the shell shellinit.Detect resolved to, for display in
+// the picker entry.
+func shellLabel(sh shellinit.Shell) string {
+	switch sh {
+	case shellinit.Fish:
+		return "fish"
+	case shellinit.PowerShell:
+		return "PowerShell"
+	default:
+		return "bash/zsh"
+	}
+}
+
+// installConfirmQuestion names the exact file(s) an "install shell shortcut"
+// confirmation is about to append one line to, so confirming isn't a leap of
+// faith about what gets touched.
+func installConfirmQuestion(sh shellinit.Shell) string {
+	switch sh {
+	case shellinit.Fish:
+		return "Add the git-user shell shortcut to ~/.config/fish/config.fish?"
+	case shellinit.PowerShell:
+		return "Add the git-user shell shortcut to your PowerShell $PROFILE?"
+	default:
+		return "Add the git-user shell shortcut to ~/.zshrc / ~/.bashrc?"
+	}
+}
 
 // ── Action Handling ───────────────────────────────────────────────────────────
 
@@ -118,8 +200,14 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		}
 		return a, openIdentityShellCmd(msg.Name, user)
 
+	case "shell-window":
+		if err := openNewTerminalWindow(msg.Name); err != nil {
+			return a, pushCmd(screens.NewReport("Open Side-by-Side Terminal", manualShellWindowInstructions(msg.Name, err), a.theme))
+		}
+		return a, core.ShowToastCmd(fmt.Sprintf("Opened a new terminal window for %q — safe to use alongside this one", msg.Name), theme.ToastStyleSuccess, 3*time.Second)
+
 	case "shell-integration":
-		return a, pushCmd(screens.NewReport("Shell Integration", shellIntegrationSnippet, a.theme))
+		return a, a.multiAccountMenuCmd()
 
 	case "fix-sync":
 		// Re-apply the active identity when the git config drifted (e.g. a

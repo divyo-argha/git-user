@@ -196,6 +196,8 @@ func titleForKind(kind string) string {
 		return "Signed Out"
 	case "update":
 		return "Self-Update"
+	case "install-shell":
+		return "Shell Integration"
 	}
 	return "Result"
 }

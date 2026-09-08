@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/divyo-argha/git-user/internal/shellinit"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 	"strings"
@@ -92,6 +93,12 @@ func (a *App) handleConfirmResult(msg core.ConfirmResultMsg) (tea.Model, tea.Cmd
 	case "uninstall-confirmed":
 		return a, a.runTaskCmd("uninstall", "", func() (opResult, error) {
 			return opUninstall(a.store)
+		})
+
+	case "install-shell":
+		sh := shellinit.Shell(rest)
+		return a, a.runTaskCmd("install-shell", "", func() (opResult, error) {
+			return opInstallShellIntegration(sh, "")
 		})
 	}
 

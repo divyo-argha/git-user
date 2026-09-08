@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/divyo-argha/git-user/internal/shellinit"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
@@ -143,6 +144,27 @@ func (a *App) handleOptionResult(msg core.OptionResultMsg) (tea.Model, tea.Cmd) 
 		return a, a.runTaskCmd("hook", msg.Choice, func() (opResult, error) {
 			return opHook(msg.Choice)
 		})
+
+	case "multi-account":
+		switch {
+		case strings.HasPrefix(msg.Choice, "open:"):
+			name := strings.TrimPrefix(msg.Choice, "open:")
+			if err := openNewTerminalWindow(name); err != nil {
+				return a, pushCmd(screens.NewReport("Open Side-by-Side Terminal", manualShellWindowInstructions(name, err), a.theme))
+			}
+			return a, core.ShowToastCmd(fmt.Sprintf("Opened a new terminal window for %q — safe to use alongside this one", name), theme.ToastStyleSuccess, 3*time.Second)
+
+		case msg.Choice == "install":
+			sh := shellinit.Detect("")
+			return a, pushCmd(screens.NewConfirm(
+				installConfirmQuestion(sh),
+				"install-shell:"+string(sh),
+				a.theme,
+			))
+
+		case msg.Choice == "info":
+			return a, pushCmd(screens.NewReport("Multiple Accounts & Shell Integration", shellIntegrationSnippet, a.theme))
+		}
 
 	case "config-action":
 		name := data

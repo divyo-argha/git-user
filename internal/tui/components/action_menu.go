@@ -59,7 +59,7 @@ func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 		ActionItem{Label: "◈ Commit identity stats", Key: "stats"},
 		ActionItem{Label: "⚓ Git hooks", Key: "hook"},
 		ActionItem{Label: "↻ Sync identities", Key: "sync"},
-		ActionItem{Label: "⌘ Shell integration (per-terminal sessions)", Key: "shell-integration"},
+		ActionItem{Label: "⌘ Multiple accounts & shell integration", Key: "shell-integration"},
 		ActionItem{Label: "▲ Up to date", Key: "update", Disabled: true},
 		ActionItem{IsSection: true, Label: "Danger Zone"},
 		ActionItem{Label: "✖ Uninstall", Key: "uninstall", IsDanger: true},
