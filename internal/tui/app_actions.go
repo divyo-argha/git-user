@@ -198,6 +198,9 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		if user == nil {
 			return a, core.ShowToastCmd("identity not found", theme.ToastStyleError, 3*time.Second)
 		}
+		if needsPassphraseForSwitch(a.store, msg.Name) {
+			return a, a.shellPassphraseFormCmd(msg.Name)
+		}
 		return a, openIdentityShellCmd(msg.Name, user)
 
 	case "shell-window":
@@ -765,6 +768,15 @@ func (a *App) rekeyPassFormCmd(name, keyPath string) tea.Cmd {
 // The passphrase is asked entirely inside the TUI.
 func (a *App) switchPassphraseFormCmd(name string) tea.Cmd {
 	return pushCmd(screens.NewForm("Enter Passphrase", "", "switch-pass:"+name, []screens.FormInput{
+		{Label: "Enter Passphrase:", IsPassword: true},
+	}, a.theme))
+}
+
+// shellPassphraseFormCmd prompts for the SSH key passphrase before opening an
+// in-TUI isolated shell (the "shell-session" action) so the key is unlocked
+// and loaded into ssh-agent before the subshell takes over the terminal.
+func (a *App) shellPassphraseFormCmd(name string) tea.Cmd {
+	return pushCmd(screens.NewForm("Enter Passphrase", "", "shell-pass:"+name, []screens.FormInput{
 		{Label: "Enter Passphrase:", IsPassword: true},
 	}, a.theme))
 }

@@ -3,6 +3,7 @@ package tui
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -82,6 +83,54 @@ func needsPassphraseForSwitch(store *config.Store, name string) bool {
 		}
 	}
 	return true
+}
+
+// unlockIdentitySSHKeyForShell verifies and loads a protected, not-yet-loaded
+// SSH key into ssh-agent before an in-TUI isolated shell (openIdentityShellCmd)
+// starts using it — without this, `git-user shell` inside a TUI-suspended
+// terminal would look ready immediately but the first push/pull would stall
+// on ssh's own passphrase prompt. Mirrors the passphrase gate in opSwitch
+// (ops_identity.go), minus the parts of a full switch (config apply, signing,
+// previous-identity logout) that don't apply here. An empty warning with a
+// nil error means the key is unlocked and loaded (or didn't need to be);
+// ErrNeedsPassphrase means the caller must collect one interactively.
+func unlockIdentitySSHKeyForShell(user *config.User, passphrase string) (warning string, err error) {
+	if user.SSHKey == "" {
+		return "", nil
+	}
+	protected, perr := isSSHKeyPassphraseProtected(user.SSHKey)
+	if perr != nil || !protected || ssh.IsSSHKeyLoaded(user.SSHKey) {
+		return "", nil
+	}
+
+	mode := user.GetPassphraseMode()
+	p := passphrase
+	if p == "" && mode == "persistent" {
+		if secret, kerr := keyring.GetKeychainPassphrase(user.Name); kerr == nil && secret != "" {
+			if ssh.VerifyPassphrase(user.SSHKey, secret) {
+				p = secret
+			} else {
+				_ = keyring.DeleteKeychainPassphrase(user.Name)
+			}
+		}
+	}
+	if p == "" {
+		return "", ErrNeedsPassphrase
+	}
+	if !ssh.VerifyPassphrase(user.SSHKey, p) {
+		return "", fmt.Errorf("incorrect passphrase")
+	}
+	if passphrase != "" && mode == "persistent" {
+		_ = keyring.SetKeychainPassphrase(user.Name, passphrase)
+	}
+
+	if agentErr := ssh.EnsureSSHAgent(); agentErr != nil {
+		return fmt.Sprintf("Key for %q was NOT loaded into any ssh-agent (no agent reachable) — the next push/pull may hang or fail asking for a passphrase.", user.Name), nil
+	}
+	if err := ssh.AddSSHKeyWithPassphrase(user.SSHKey, p); err != nil {
+		return fmt.Sprintf("Could not load key into agent: %v", err), nil
+	}
+	return "", nil
 }
 
 func stripAnsi(s string) string {

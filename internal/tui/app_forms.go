@@ -290,6 +290,20 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 			return opSwitch(a.store, rest, msg.Values[0])
 		})
 
+	case "shell-pass":
+		user := a.store.FindUser(rest)
+		if user == nil {
+			return a, core.ShowToastCmd("identity not found", theme.ToastStyleError, 3*time.Second)
+		}
+		warning, err := unlockIdentitySSHKeyForShell(user, msg.Values[0])
+		if err != nil {
+			return a, tea.Batch(core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second), a.shellPassphraseFormCmd(rest))
+		}
+		if warning != "" {
+			return a, tea.Batch(core.ShowToastCmd(warning, theme.ToastStyleError, 4*time.Second), openIdentityShellCmd(rest, user))
+		}
+		return a, openIdentityShellCmd(rest, user)
+
 	case "check-ssh-pass":
 		return a, a.runTaskCmd("check-ssh", rest, func() (opResult, error) {
 			return opCheckSSH(a.store, rest, msg.Values[0])

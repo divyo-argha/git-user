@@ -7,6 +7,8 @@ import (
 	"runtime"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/keyring"
+	"github.com/divyo-argha/git-user/internal/ssh"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -27,6 +29,10 @@ func runShell(args []string) error {
 	if user == nil {
 		ui.Errorf("identity %q not found", targetName)
 		return fmt.Errorf("identity not found: %s", targetName)
+	}
+
+	if err := ensureSSHKeyUnlocked(user); err != nil {
+		return err
 	}
 
 	shellPath := os.Getenv("SHELL")
@@ -72,5 +78,65 @@ func runShell(args []string) error {
 	}
 
 	ui.Success(fmt.Sprintf("Exited isolated session for %q. Returned to default profile.", user.Name))
+	return nil
+}
+
+// ensureSSHKeyUnlocked prompts for and loads a protected SSH key into
+// ssh-agent before an isolated shell/terminal starts using it, mirroring the
+// passphrase gate in `git-user switch` (switch.go) — otherwise the isolated
+// shell looks ready immediately but the first push/pull inside it would stall
+// on ssh's own passphrase prompt (or fail outright in a non-interactive
+// terminal-emulator launch, which has no tty for ssh to prompt on).
+func ensureSSHKeyUnlocked(user *config.User) error {
+	if user.SSHKey == "" {
+		return nil
+	}
+
+	protected, err := isSSHKeyPassphraseProtected(user.SSHKey)
+	if err != nil || !protected || ssh.IsSSHKeyLoaded(user.SSHKey) {
+		return nil
+	}
+
+	mode := user.GetPassphraseMode()
+	ui.Info(fmt.Sprintf("Identity %q is protected (mode: %s).", user.Name, mode))
+
+	var passphrase string
+	var hasStored bool
+	if mode == "persistent" {
+		if secret, err := keyring.GetKeychainPassphrase(user.Name); err == nil && secret != "" {
+			if ssh.VerifyPassphrase(user.SSHKey, secret) {
+				passphrase = secret
+				hasStored = true
+				ui.Info("Retrieved passphrase securely from system keychain.")
+			} else {
+				ui.Warn("Stored keychain passphrase was incorrect. Stale entry removed.")
+				_ = keyring.DeleteKeychainPassphrase(user.Name)
+			}
+		}
+	}
+
+	if !hasStored {
+		passphrase, err = readPassphrase(PassphrasePrompt)
+		if err != nil {
+			return err
+		}
+		if !ssh.VerifyPassphrase(user.SSHKey, passphrase) {
+			ui.Error("Incorrect passphrase. Access denied.")
+			return fmt.Errorf("incorrect passphrase")
+		}
+		if mode == "persistent" {
+			promptAndStoreKeychain(user.Name, user.SSHKey, passphrase)
+		}
+	}
+
+	if agentErr := ssh.EnsureSSHAgent(); agentErr != nil {
+		ui.Warn(fmt.Sprintf("Key for %q was NOT loaded into any ssh-agent — the next push/pull may hang or fail asking for a passphrase.", user.Name))
+		return nil
+	}
+	if err := ssh.AddSSHKeyWithPassphrase(user.SSHKey, passphrase); err != nil {
+		ui.Warn(fmt.Sprintf("Could not load key into agent: %v", err))
+		return nil
+	}
+	ui.Success("Key unlocked and loaded into ssh-agent.")
 	return nil
 }
