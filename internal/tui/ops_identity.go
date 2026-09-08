@@ -115,6 +115,9 @@ func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
 	} else {
 		git.RemoveSigningConfig()
 	}
+	if w := applyHTTPSCredentialConfig(user, false); w != "" {
+		warnings = append(warnings, w)
+	}
 	if prev := store.CurrentUser(); prev != nil {
 		for k := range prev.CustomConfig {
 			_ = unsetActiveCustomConfig(k, false)
@@ -288,6 +291,7 @@ func opRemove(store *config.Store, name string) (string, error) {
 		return "", err
 	}
 	_ = keyring.DeleteKeychainPassphrase(name)
+	_ = keyring.DeleteHTTPSToken(name)
 	if wasActive {
 		git.ClearIdentity()
 	}

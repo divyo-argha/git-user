@@ -47,6 +47,7 @@ func runRemove(args []string) error {
 	}
 
 	_ = keyring.DeleteKeychainPassphrase(name)
+	_ = keyring.DeleteHTTPSToken(name)
 
 	if err := config.Save(store); err != nil {
 		ui.Errorf("saving config: %v", err)

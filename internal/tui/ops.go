@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/gitenv"
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/ssh"
 )
@@ -131,6 +133,26 @@ func unlockIdentitySSHKeyForShell(user *config.User, passphrase string) (warning
 		return fmt.Sprintf("Could not load key into agent: %v", err), nil
 	}
 	return "", nil
+}
+
+// applyHTTPSCredentialConfig wires core.askpass to this identity's stored
+// HTTPS token (if any), or removes it if not — the TUI-side twin of the same
+// helper in internal/cli/switch.go, called at the same point opSwitch
+// applies (or clears) signing config for the new identity. Returns a warning
+// string (empty on success) for the caller to fold into its own warnings.
+func applyHTTPSCredentialConfig(user *config.User, local bool) string {
+	if !keyring.HasHTTPSToken(user.Name) {
+		git.RemoveAskpassConfigScope(local)
+		return ""
+	}
+	cmd, err := gitenv.AskpassCommand(user.Name)
+	if err != nil {
+		return fmt.Sprintf("Could not resolve git-user's own path to wire up the HTTPS token: %v", err)
+	}
+	if err := git.ConfigureAskpassScope(cmd, local); err != nil {
+		return fmt.Sprintf("Could not apply core.askpass: %v", err)
+	}
+	return ""
 }
 
 func stripAnsi(s string) string {

@@ -134,6 +134,22 @@ Flags:
   --verify                     Verify the passphrase (deprecated short form: -v)
   -m, --mode <mode>            persistent | login | everytime
   -h, --help                   Show this help`,
+		"token": `Usage: git-user token <name> [flags]
+
+Manage an HTTPS personal-access-token (or app password) for an identity.
+git-user prefers SSH and will nudge HTTPS remotes toward it (see fix-remote),
+but some networks/CI runners genuinely can't use SSH — a stored token wires
+up core.askpass so those remotes authenticate as the right identity
+automatically, without ever writing the token into git config. The token is
+stored in the OS keyring, the same way SSH key passphrases are.
+
+Flags:
+  -s, --set                    Prompt for and store a token
+  -r, --remove                 Remove the stored token
+  -u, --username <user>        Username to pair with the token (most hosts accept any value)
+  -h, --help                   Show this help
+
+With no flags, shows whether a token is stored.`,
 		"rekey": `Usage: git-user rekey <name> [flags]
 
 Rotate the SSH key for an identity.
@@ -168,10 +184,21 @@ Import identities from a bundle.
 Flags:
   -f, --force                  Overwrite existing identities
   -h, --help                   Show this help`,
-		"doctor": `Usage: git-user doctor
+		"doctor": `Usage: git-user doctor [--fix]
 
-Diagnose common setup and configuration issues (read-only — reports
-problems and suggests fixes, but changes nothing). ` + "`repair`/`fix`" + ` are hidden aliases.`,
+Diagnose common setup and configuration issues. By default this is
+read-only — it reports problems and suggests fixes but changes nothing.
+
+Flags:
+  --fix                        Automatically correct what can be fixed:
+                                insecure file permissions, git config drift
+                                (via the same logic as ` + "`git-user refresh`" + `),
+                                legacy shell integration, and HTTPS remotes
+                                on the current repo (via ` + "`git-user fix-remote`" + `).
+                                Issues that need a decision — no SSH key, no
+                                passphrase, git/ssh-keygen missing — are
+                                still only reported, not fixed.
+  -h, --help                    Show this help`,
 		"refresh": `Usage: git-user refresh
 
 Fix the config conflicts ` + "`doctor`" + ` finds, instead of just reporting them:
@@ -213,7 +240,11 @@ Launch the interactive terminal UI.`,
 Generate shell completion (bash, zsh, or fish).`,
 		"hook": `Usage: git-user hook <install|uninstall|check>
 
-Manage the git pre-commit identity-checking hook.`,
+Manage git-user's identity-checking hooks: install writes both a pre-commit
+and a pre-push hook to the current repo (each just runs 'git-user hook
+check'). pre-commit catches the common case; pre-push additionally catches
+commits made via --amend, rebase, cherry-pick, or applied from elsewhere,
+which skip pre-commit but still have to go through a push to reach a remote.`,
 		"audit": `Usage: git-user audit [--fix]
 
 Run a security audit on your identity setup. ` + "`security`" + ` is a hidden alias.

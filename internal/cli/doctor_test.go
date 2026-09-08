@@ -147,6 +147,65 @@ func TestRunDoctor_GenuineMismatchStillFlagged(t *testing.T) {
 	}
 }
 
+// TestRunDoctor_FixResyncsGitConfig checks that `doctor --fix` actually
+// corrects the drift `doctor` (without --fix) only reports — the same case
+// as TestRunDoctor_GenuineMismatchStillFlagged, but this time asserting the
+// git config is really re-applied afterward, not just that a warning was
+// printed.
+func TestRunDoctor_FixResyncsGitConfig(t *testing.T) {
+	setupTestEnv(t)
+
+	store, _ := config.Load()
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.SetCurrent("dev")
+	_ = config.Save(store)
+	_ = git.Apply("ops", "ops@example.com") // drifted, no local override
+
+	out := captureStdout(t, func() {
+		if err := runDoctor([]string{"--fix"}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(out, "Fixed") {
+		t.Errorf("expected doctor --fix to report a fix, got output:\n%s", out)
+	}
+	if name := git.CurrentName(); name != "dev" {
+		t.Errorf("expected git config re-synced to identity %q, got name %q", "dev", name)
+	}
+	if email := git.CurrentEmail(); email != "dev@example.com" {
+		t.Errorf("expected git config re-synced to dev@example.com, got %q", email)
+	}
+}
+
+// TestRunDoctor_FixCorrectsInsecurePermissions checks the other
+// auto-correctable class doctor --fix handles: chmod'ing an insecure config
+// file back to 0600.
+func TestRunDoctor_FixCorrectsInsecurePermissions(t *testing.T) {
+	setupTestEnv(t)
+
+	store, _ := config.Load()
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = config.Save(store)
+
+	configPath := config.ConfigPath()
+	if err := os.Chmod(configPath, 0644); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+
+	if err := runDoctor([]string{"--fix"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	info, err := os.Stat(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if perm := info.Mode().Perm(); perm != 0600 {
+		t.Errorf("expected config file fixed to 0600, got %o", perm)
+	}
+}
+
 func TestRunDoctor_StaleBackupsAndRemotes(t *testing.T) {
 	tmpDir := setupTestEnv(t)
 

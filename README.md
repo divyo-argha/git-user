@@ -70,7 +70,8 @@
 **Security**
 - [🛡️ Security](#-security)
 - [🖋️ Commit Signing](#-commit-signing-git-user-sign)
-- [🪝 Pre-commit Hooks](#-pre-commit-hooks)
+- [🔑 HTTPS Tokens](#-https-tokens-git-user-token)
+- [🪝 Pre-commit & Pre-push Hooks](#-pre-commit--pre-push-hooks)
 
 **Daily Workflow**
 - [🐚 Shell Completions](#-shell-completions)
@@ -591,11 +592,12 @@ What happens:
 | `pubkey` | Show the public key of the active identity |
 | `pubkey publish [platform]` | Publish public SSH key directly to GitHub, GitLab, or Bitbucket |
 | `passphrase` | Add, change, or remove (`--remove`) passphrase for the active, unlocked identity |
+| `token <name> [--set\|--remove]` | Manage an HTTPS personal-access-token for an identity (for when SSH isn't available) |
 | `sign <name> [--on\|--off]` | Enable/disable automatic Git commit signing for an identity |
 | `rekey <name>` | Rotate SSH key (with rollback safety) |
 | `fix-remote` | Convert HTTPS remotes to SSH |
 | `logout` | Sign out, clearing the active identity and restoring a void state |
-| `audit` | Audit all identities for security issues |
+| `audit [--fix]` | Audit all identities for security issues (`--fix` corrects insecure permissions) |
 | `export --all` | Export all identities + SSH keys (AES-256 encrypted) |
 | `export <name> [name...]` | Export specific identities |
 | `import <file>` | Import from an encrypted bundle |
@@ -603,10 +605,10 @@ What happens:
 | `stats` | Audit and show commit author identity stats |
 | `config <list\|set\|unset>`| Manage custom git configurations for an identity |
 | `sync` | Synchronize identities across devices using a private repository |
-| `doctor` | Run a full health check |
+| `doctor [--fix]` | Run a full health check (`--fix` auto-corrects what it can) |
 | `tui` | Interactive menu |
 | `completion <shell>` | Shell completions (bash/zsh/fish) |
-| `hook <install\|uninstall>` | Pre-commit hook to verify identity |
+| `hook <install\|uninstall>` | Pre-commit & pre-push hooks to verify identity |
 | `--update` | Update to the latest version (shows version transition + binary verification) |
 | `--version` / `-v` | Show version |
 
@@ -705,6 +707,18 @@ git-user doctor
 Everything looks good.
 ```
 
+`doctor` is read-only by default. Add `--fix` to have it automatically correct
+what it can — insecure file permissions, git config that's drifted from the
+active identity, legacy shell integration, and HTTPS remotes on the current
+repo — instead of just telling you the command to run:
+
+```bash
+git-user doctor --fix
+```
+
+Issues that need a decision (no SSH key bound, no passphrase set, git/
+ssh-keygen missing) are still only reported, never silently fixed.
+
 **Common issues:**
 
 | Symptom | Fix |
@@ -757,7 +771,7 @@ For manual configuration steps, see:
 
 ---
 
-## 🪝 Pre-commit Hooks
+## 🪝 Pre-commit & Pre-push Hooks
 
 ```bash
 git-user hook install   # in any repo where identity matters
@@ -771,6 +785,12 @@ git commit -m "Add feature"
 #   Git config: you@gmail.com
 #   Run: git-user switch work
 ```
+
+`install` writes **both** a pre-commit and a pre-push hook. The pre-commit
+hook catches the common case; the pre-push hook is there for the commits that
+skip it entirely — `commit --amend`, a rebase, a cherry-pick, a patch applied
+from somewhere else — since every one of those still has to go through a
+`git push` from this repo to reach a remote.
 
 ---
 
@@ -798,6 +818,35 @@ To register your SSH key as a signing key:
 5. Paste the key and save!
 
 Your platform will now display a green **"Verified"** badge next to all commits signed by this key.
+
+---
+
+## 🔑 HTTPS Tokens (`git-user token`)
+
+git-user is SSH-first, and steers HTTPS remotes toward SSH (`git-user
+fix-remote`, and `doctor` flags them). But some networks genuinely can't use
+SSH — a corporate proxy blocking port 22, some CI runners — so for those,
+an identity can carry a personal-access-token instead:
+
+```bash
+git-user token work --set --username your-github-username
+# Enter Personal Access Token: ****************
+```
+
+The token is stored in your OS keyring, the same way SSH key passphrases
+are — never written into `~/.gitconfig` or git-user's own config file. Once
+set, switching to that identity wires up `core.askpass` automatically, so an
+HTTPS remote authenticates as the right identity without a prompt:
+
+```bash
+git-user switch work
+git push   # authenticates with work's token, no prompt
+```
+
+```bash
+git-user token work            # show whether a token is stored
+git-user token work --remove   # remove it
+```
 
 ---
 

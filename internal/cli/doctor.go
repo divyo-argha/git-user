@@ -10,14 +10,28 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/keyring"
+	"github.com/divyo-argha/git-user/internal/shellinit"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
 func runDoctor(args []string) error {
+	fix := false
+	for _, a := range args {
+		if a == "--fix" || a == "-f" {
+			fix = true
+		}
+	}
+
 	ui.Banner("GIT-USER DIAGNOSTICS & SECURITY")
 	fmt.Println()
+	if fix {
+		ui.Info("Running with --fix: auto-correctable issues below are fixed in place, not just reported.")
+		fmt.Println()
+	}
 
 	issues := 0
+	fixed := 0
 
 	ui.Info("Checking config file permissions...")
 	configPath := config.ConfigPath()
@@ -25,9 +39,19 @@ func runDoctor(args []string) error {
 	if err == nil {
 		if pc := config.CheckFilePermissions(info.Mode()); pc.Applicable {
 			if !pc.Secure {
-				ui.Warn(fmt.Sprintf("Config file has insecure permissions: %o", info.Mode().Perm()))
-				ui.Info(fmt.Sprintf("  Fix: chmod 600 %s", configPath))
-				issues++
+				if fix {
+					if chmodErr := os.Chmod(configPath, 0600); chmodErr != nil {
+						ui.Warn(fmt.Sprintf("Could not fix permissions on %s: %v", configPath, chmodErr))
+						issues++
+					} else {
+						ui.Success(fmt.Sprintf("Fixed: %s permissions → 0600", configPath))
+						fixed++
+					}
+				} else {
+					ui.Warn(fmt.Sprintf("Config file has insecure permissions: %o", info.Mode().Perm()))
+					ui.Info(fmt.Sprintf("  Fix: chmod 600 %s", configPath))
+					issues++
+				}
 			} else {
 				ui.Success("Config file permissions OK (0600)")
 			}
@@ -69,6 +93,17 @@ func runDoctor(args []string) error {
 				// checks resolved config but only warns when there's no
 				// local override to explain the difference.
 				ui.Info(fmt.Sprintf("Local override active in this repository (resolved identity: %s <%s>) — differs from the global active identity %q by design.", gitName, gitEmail, user.Name))
+			} else if fix {
+				if err := git.Apply(user.Name, user.Email); err != nil {
+					ui.Warn(fmt.Sprintf("Could not resync git config: %v", err))
+					issues++
+				} else if err := applyUserSSHConfig(user, false); err != nil {
+					ui.Warn(fmt.Sprintf("Could not resync SSH config: %v", err))
+					issues++
+				} else {
+					ui.Success(fmt.Sprintf("Fixed: git config re-synced to %q (%s)", user.Name, user.Email))
+					fixed++
+				}
 			} else if gitName != user.Name {
 				ui.Warn(fmt.Sprintf("Git name mismatch: expected %q, got %q", user.Name, gitName))
 				ui.Info("  Fix: Run 'git-user switch " + user.Name + "' to resync")
@@ -92,9 +127,19 @@ func runDoctor(args []string) error {
 				} else {
 					if pc := config.CheckFilePermissions(info.Mode()); pc.Applicable {
 						if !pc.Secure {
-							ui.Warn(fmt.Sprintf("SSH key has incorrect permissions: %o (should be 0600)", info.Mode().Perm()))
-							ui.Info(fmt.Sprintf("  Fix: Run 'chmod 600 %s'", user.SSHKey))
-							issues++
+							if fix {
+								if chmodErr := os.Chmod(user.SSHKey, 0600); chmodErr != nil {
+									ui.Warn(fmt.Sprintf("Could not fix permissions on %s: %v", user.SSHKey, chmodErr))
+									issues++
+								} else {
+									ui.Success(fmt.Sprintf("Fixed: %s permissions → 0600", user.SSHKey))
+									fixed++
+								}
+							} else {
+								ui.Warn(fmt.Sprintf("SSH key has incorrect permissions: %o (should be 0600)", info.Mode().Perm()))
+								ui.Info(fmt.Sprintf("  Fix: Run 'chmod 600 %s'", user.SSHKey))
+								issues++
+							}
 						} else {
 							ui.Success(fmt.Sprintf("SSH key exists with correct permissions: %s", user.SSHKey))
 						}
@@ -120,6 +165,10 @@ func runDoctor(args []string) error {
 				ui.Info("  Fix: Run 'git-user bind-key " + user.Name + " --ssh-key <path>' or 'git-user rekey " + user.Name + "'")
 				issues++
 			}
+
+			if keyring.HasHTTPSToken(user.Name) {
+				ui.Success("HTTPS token stored (used automatically on HTTPS remotes)")
+			}
 		}
 	}
 
@@ -130,9 +179,19 @@ func runDoctor(args []string) error {
 				info, err := os.Stat(u.SSHKey)
 				if err == nil {
 					if pc := config.CheckFilePermissions(info.Mode()); pc.Applicable && !pc.Secure {
-						ui.Warn(fmt.Sprintf("Profile %q SSH key has insecure permissions: %o", u.Name, info.Mode().Perm()))
-						ui.Info(fmt.Sprintf("  Fix: chmod 600 %s", u.SSHKey))
-						issues++
+						if fix {
+							if chmodErr := os.Chmod(u.SSHKey, 0600); chmodErr != nil {
+								ui.Warn(fmt.Sprintf("Could not fix permissions on %s: %v", u.SSHKey, chmodErr))
+								issues++
+							} else {
+								ui.Success(fmt.Sprintf("Fixed: %s permissions → 0600", u.SSHKey))
+								fixed++
+							}
+						} else {
+							ui.Warn(fmt.Sprintf("Profile %q SSH key has insecure permissions: %o", u.Name, info.Mode().Perm()))
+							ui.Info(fmt.Sprintf("  Fix: chmod 600 %s", u.SSHKey))
+							issues++
+						}
 					}
 				}
 				protected, err := isSSHKeyPassphraseProtected(u.SSHKey)
@@ -227,13 +286,30 @@ func runDoctor(args []string) error {
 		filepath.Join(home, ".bashrc"),
 		filepath.Join(home, ".config", "fish", "config.fish"),
 	}
+	legacyShellFound := false
 	for _, rc := range rcFiles {
 		if content, err := os.ReadFile(rc); err == nil {
 			str := string(content)
 			if strings.Contains(str, "eval \"$(git-user init)\"") {
-				ui.Warn(fmt.Sprintf("Legacy unshielded shell integration in %s", filepath.Base(rc)))
-				ui.Info("  Fix: Run 'git-user init install' to upgrade to safe invocation")
-				issues++
+				legacyShellFound = true
+				if !fix {
+					ui.Warn(fmt.Sprintf("Legacy unshielded shell integration in %s", filepath.Base(rc)))
+					ui.Info("  Fix: Run 'git-user init install' to upgrade to safe invocation")
+					issues++
+				}
+			}
+		}
+	}
+	if legacyShellFound && fix {
+		if results, err := shellinit.Install(shellinit.Detect(""), ""); err != nil {
+			ui.Warn(fmt.Sprintf("Could not upgrade shell integration: %v", err))
+			issues++
+		} else {
+			for _, r := range results {
+				if r.Status == shellinit.StatusUpgraded {
+					ui.Success(fmt.Sprintf("Fixed: upgraded shell integration in %s", r.File))
+					fixed++
+				}
 			}
 		}
 	}
@@ -254,8 +330,17 @@ func runDoctor(args []string) error {
 				}
 			}
 			if hasHTTPS {
-				ui.Info("  Fix: Run 'git-user fix-remote' to convert to SSH")
-				issues++
+				if fix {
+					if err := runFixRemote(nil); err != nil {
+						ui.Warn(fmt.Sprintf("Could not convert remotes: %v", err))
+						issues++
+					} else {
+						fixed++
+					}
+				} else {
+					ui.Info("  Fix: Run 'git-user fix-remote' to convert to SSH")
+					issues++
+				}
 			} else {
 				ui.Success("All remotes use SSH")
 			}
@@ -264,10 +349,18 @@ func runDoctor(args []string) error {
 
 	fmt.Println()
 	ui.Divider()
-	if issues == 0 {
+	if issues == 0 && fixed == 0 {
 		ui.Success("All checks passed! Your git-user setup is 100% healthy and secure.")
+	} else if fix {
+		if fixed > 0 {
+			ui.Success(fmt.Sprintf("Fixed %d issue(s).", fixed))
+		}
+		if issues > 0 {
+			ui.Warn(fmt.Sprintf("%d issue(s) need manual attention (see warnings above).", issues))
+		}
 	} else {
 		ui.Warn(fmt.Sprintf("Found %d issue(s). See suggestions above.", issues))
+		ui.Info("Run 'git-user doctor --fix' to automatically correct what can be fixed.")
 	}
 
 	return nil

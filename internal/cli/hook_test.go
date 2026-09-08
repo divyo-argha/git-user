@@ -56,14 +56,24 @@ func TestHookInstallUninstall(t *testing.T) {
 		t.Error("Hook file is empty")
 	}
 
+	// Verify the pre-push hook was also installed, so amend/rebase/cherry-pick
+	// commits that skip pre-commit are still caught before they leave the repo.
+	prePushPath := filepath.Join(tmpDir, ".git", "hooks", "pre-push")
+	if _, err := os.Stat(prePushPath); os.IsNotExist(err) {
+		t.Error("pre-push hook was not created")
+	}
+
 	// Test uninstall
 	if err := uninstallHook(); err != nil {
 		t.Errorf("uninstallHook() failed: %v", err)
 	}
 
-	// Verify hook was removed
+	// Verify both hooks were removed
 	if _, err := os.Stat(hookPath); !os.IsNotExist(err) {
-		t.Error("Hook file was not removed")
+		t.Error("pre-commit hook was not removed")
+	}
+	if _, err := os.Stat(prePushPath); !os.IsNotExist(err) {
+		t.Error("pre-push hook was not removed")
 	}
 }
 

@@ -91,3 +91,78 @@ func TestSetGetKeychainPassphrase(t *testing.T) {
 		t.Errorf("Expected nil error for deleting missing, got %v", err)
 	}
 }
+
+func TestSetGetHTTPSToken(t *testing.T) {
+	// Keyed by service+":"+user so a passphrase and a token for the same
+	// identity name never collide, proving httpsTokenService really is a
+	// distinct keyring entry from keychainService.
+	mockStore := make(map[string]string)
+	key := func(service, user string) string { return service + ":" + user }
+
+	KeyringGet = func(service, user string) (string, error) {
+		val, ok := mockStore[key(service, user)]
+		if !ok {
+			return "", keyring.ErrNotFound
+		}
+		return val, nil
+	}
+	KeyringSet = func(service, user, password string) error {
+		mockStore[key(service, user)] = password
+		return nil
+	}
+	KeyringDelete = func(service, user string) error {
+		k := key(service, user)
+		if _, ok := mockStore[k]; !ok {
+			return keyring.ErrNotFound
+		}
+		delete(mockStore, k)
+		return nil
+	}
+	defer func() {
+		KeyringGet = keyring.Get
+		KeyringSet = keyring.Set
+		KeyringDelete = keyring.Delete
+	}()
+
+	if HasHTTPSToken("work") {
+		t.Error("expected no token stored yet")
+	}
+
+	if err := SetKeychainPassphrase("work", "ssh-passphrase"); err != nil {
+		t.Fatalf("SetKeychainPassphrase: %v", err)
+	}
+	if err := SetHTTPSToken("work", "ghp_abc123"); err != nil {
+		t.Fatalf("SetHTTPSToken: %v", err)
+	}
+
+	// The two must not collide under the same identity name.
+	pass, err := GetKeychainPassphrase("work")
+	if err != nil || pass != "ssh-passphrase" {
+		t.Errorf("passphrase corrupted by token storage: got (%q, %v)", pass, err)
+	}
+	token, err := GetHTTPSToken("work")
+	if err != nil {
+		t.Fatalf("GetHTTPSToken: %v", err)
+	}
+	if token != "ghp_abc123" {
+		t.Errorf("expected ghp_abc123, got %q", token)
+	}
+	if !HasHTTPSToken("work") {
+		t.Error("expected HasHTTPSToken to report true")
+	}
+
+	if err := DeleteHTTPSToken("work"); err != nil {
+		t.Fatalf("DeleteHTTPSToken: %v", err)
+	}
+	if HasHTTPSToken("work") {
+		t.Error("expected no token after delete")
+	}
+	if err := DeleteHTTPSToken("missing"); err != nil {
+		t.Errorf("expected nil error deleting missing token, got %v", err)
+	}
+
+	// Passphrase must survive the token's deletion.
+	if pass, err := GetKeychainPassphrase("work"); err != nil || pass != "ssh-passphrase" {
+		t.Errorf("passphrase lost after deleting token: got (%q, %v)", pass, err)
+	}
+}

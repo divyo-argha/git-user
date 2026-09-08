@@ -51,6 +51,7 @@ COMMANDS
     unbind-path <name> <path>  Unbind a directory path from an identity
     passphrase                 Add/change passphrase for active, unlocked identity
     rekey <name>               Rotate SSH key
+    token <name> [--set|--remove] Manage an HTTPS personal-access-token (for when SSH isn't available)
 
   Repos & Portability
     fix-remote                 Convert HTTPS remotes to SSH
@@ -61,13 +62,13 @@ COMMANDS
     sync                       Synchronize identities across devices using a private repository
 
   System
-    doctor                     Check setup (read-only diagnostics)
+    doctor [--fix]             Check setup (add --fix to auto-correct what it can)
     refresh                    Fix config conflicts doctor finds (re-syncs git config to match git-user's state)
     audit                      Run security audit
     stats                      Audit and show commit author identity stats
     sign <name>                Manage commit signing for an identity
     config <list|set|unset>    Manage custom git configurations for an identity
-    hook <install|uninstall>   Manage git pre-commit hooks
+    hook <install|uninstall>   Manage git pre-commit & pre-push identity hooks
     log [-n <count>|--all]     Show the identity-switch audit log
     logout                     Sign out and clear active identity
     uninstall [--yes]          Remove git-user entirely: identities, keys, config, restore original git identity
@@ -111,6 +112,14 @@ func Execute() error {
 	sub := ""
 	if len(args) > 0 {
 		sub = args[0]
+	}
+
+	// Hidden wiring, not a user-facing command: dispatched before help/version
+	// handling and normalization so it can never collide with a real command
+	// or alias, and never shows up in --help or completion. See
+	// internal/cli/askpass_helper.go.
+	if sub == "__askpass" {
+		return runAskpassHelper(args[1:])
 	}
 
 	normSub := normalizeSubcommand(sub)
@@ -192,6 +201,8 @@ func Execute() error {
 		return runUnbindPath(rest)
 	case "passphrase":
 		return runPassphrase(rest)
+	case "token":
+		return runToken(rest)
 	case "rekey":
 		return runRekey(rest)
 	case "sign":
@@ -298,6 +309,8 @@ func normalizeSubcommand(sub string) string {
 		return "unbind-path"
 	case "passphrase", "--passphrase":
 		return "passphrase"
+	case "token", "--token":
+		return "token"
 	case "rekey", "--rekey":
 		return "rekey"
 	case "sign", "--sign":

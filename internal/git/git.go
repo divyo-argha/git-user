@@ -189,6 +189,36 @@ func ConfigureSigningScope(key, format string, local bool) error {
 	return nil
 }
 
+// ConfigureAskpass points core.askpass at cmd (the git-user binary plus
+// arguments identifying which identity to answer for — see
+// internal/cli/askpass_helper.go) so an HTTPS remote gets that identity's
+// stored token without a credential.helper and without ever writing the
+// token itself into git config.
+func ConfigureAskpass(cmd string) error {
+	return ConfigureAskpassScope(cmd, false)
+}
+
+func ConfigureAskpassScope(cmd string, local bool) error {
+	return setConfig("core.askpass", cmd, local)
+}
+
+func RemoveAskpassConfig() {
+	RemoveAskpassConfigScope(false)
+}
+
+func RemoveAskpassConfigScope(local bool) {
+	flag := "--global"
+	if local {
+		flag = "--local"
+	}
+	exec.Command("git", "config", flag, "--unset-all", "core.askpass").Run()
+}
+
+func CurrentAskpass() string {
+	out, _ := getConfigResolved("core.askpass")
+	return out
+}
+
 func RemoveSigningConfig() {
 	RemoveSigningConfigScope(false)
 }

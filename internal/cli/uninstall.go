@@ -133,6 +133,11 @@ func runUninstall(args []string) error {
 		git.RemoveSigningConfig()
 		ui.Info("No pre-git-user snapshot was recorded — left user.name/user.email untouched, removed git-user's sshCommand/signing config.")
 	}
+	// core.askpass predates OriginalConfig's snapshot fields, so it's never
+	// part of what restoreOriginalGitConfig restores — always clear it
+	// explicitly, or a since-uninstalled git-user binary is left configured
+	// as the credential helper for every git command.
+	git.RemoveAskpassConfig()
 
 	// 2. Remove directory-binding includeIf entries git-user owns.
 	removeManagedIncludeIfs()
@@ -141,6 +146,7 @@ func runUninstall(args []string) error {
 	// 3. Remove keychain passphrases and (optionally) generated SSH keys.
 	for _, u := range store.Users {
 		_ = keyring.DeleteKeychainPassphrase(u.Name)
+		_ = keyring.DeleteHTTPSToken(u.Name)
 	}
 	ui.Success("Removed stored keychain passphrases.")
 

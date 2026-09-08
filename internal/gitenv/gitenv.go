@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/keyring"
 )
 
 // Vars returns the map of Git environment variables for a given user identity.
@@ -50,6 +51,16 @@ func Vars(u *config.User) map[string]string {
 		gitParams = append(gitParams, fmt.Sprintf("%s=%s", k, v))
 	}
 
+	// HTTPS credential (for hosts/proxies where SSH isn't available): route
+	// credential prompts back through this same git-user binary rather than
+	// ever placing the token in git config — see AskpassCommand and
+	// internal/cli/askpass_helper.go.
+	if keyring.HasHTTPSToken(u.Name) {
+		if cmd, err := AskpassCommand(u.Name); err == nil {
+			gitParams = append(gitParams, fmt.Sprintf("core.askpass=%s", cmd))
+		}
+	}
+
 	if len(gitParams) > 0 {
 		var quoted []string
 		for _, p := range gitParams {
@@ -59,6 +70,28 @@ func Vars(u *config.User) map[string]string {
 	}
 
 	return vars
+}
+
+// AskpassCommand builds the core.askpass value that answers HTTPS credential
+// prompts for identityName by shelling back into this same git-user binary
+// (see internal/cli/askpass_helper.go). The token itself is never written
+// into git config — the helper looks it up from the OS keyring at prompt
+// time, by identity name.
+func AskpassCommand(identityName string) (string, error) {
+	exePath, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s __askpass %s", shellQuote(exePath), shellQuote(identityName)), nil
+}
+
+// shellQuote wraps s in single quotes for safe interpolation into a POSIX
+// shell command string — core.askpass, like core.sshCommand, is executed via
+// the shell, so this (not sqQuote below, which is for a different consumer:
+// git's own GIT_CONFIG_PARAMETERS parser) is what protects against a
+// pathological exe path or identity name breaking out of the command.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 // sqQuote wraps s in single quotes using the same escaping git's own

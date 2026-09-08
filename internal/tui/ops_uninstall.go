@@ -36,12 +36,14 @@ func opUninstall(store *config.Store) (opResult, error) {
 		git.RemoveSigningConfig()
 		report.WriteString("No pre-git-user snapshot was recorded — left user.name/user.email untouched, removed git-user's sshCommand/signing config.\n")
 	}
+	git.RemoveAskpassConfig()
 
 	uninstallRemoveManagedIncludeIfs()
 	report.WriteString("Removed directory-binding (includeIf) git config.\n")
 
 	for _, u := range store.Users {
 		_ = keyring.DeleteKeychainPassphrase(u.Name)
+		_ = keyring.DeleteHTTPSToken(u.Name)
 	}
 	report.WriteString("Removed stored keychain passphrases.\n")
 

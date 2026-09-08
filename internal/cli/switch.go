@@ -7,12 +7,32 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/gitenv"
 	"github.com/divyo-argha/git-user/internal/identity"
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/ssh"
 	"github.com/divyo-argha/git-user/internal/ui"
 	"github.com/divyo-argha/git-user/internal/validate"
 )
+
+// applyHTTPSCredentialConfig wires core.askpass to this identity's stored
+// HTTPS token (if any), or removes it if not — mirroring the signing-config
+// block right above each call site, which similarly sets-or-removes based on
+// whether the new identity has a signing key configured.
+func applyHTTPSCredentialConfig(user *config.User, local bool) {
+	if !keyring.HasHTTPSToken(user.Name) {
+		git.RemoveAskpassConfigScope(local)
+		return
+	}
+	cmd, err := gitenv.AskpassCommand(user.Name)
+	if err != nil {
+		ui.Warn(fmt.Sprintf("Could not resolve git-user's own path to wire up the HTTPS token: %v", err))
+		return
+	}
+	if err := git.ConfigureAskpassScope(cmd, local); err != nil {
+		ui.Warn(fmt.Sprintf("Could not apply core.askpass: %v", err))
+	}
+}
 
 func runSwitch(args []string) error {
 	localMode := false
@@ -260,6 +280,7 @@ func runSwitch(args []string) error {
 		} else {
 			git.RemoveSigningConfigScope(true)
 		}
+		applyHTTPSCredentialConfig(user, true)
 
 		if prev := store.CurrentUser(); prev != nil {
 			for k := range prev.CustomConfig {
@@ -297,6 +318,7 @@ func runSwitch(args []string) error {
 		} else {
 			git.RemoveSigningConfig()
 		}
+		applyHTTPSCredentialConfig(user, false)
 
 		if prev := store.CurrentUser(); prev != nil {
 			for k := range prev.CustomConfig {

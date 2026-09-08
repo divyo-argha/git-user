@@ -174,6 +174,7 @@ type User struct {
 	Source         string            `json:"source,omitempty"`          // "original" or empty (manual)
 	BindPaths      []string          `json:"bind_paths,omitempty"`
 	CustomConfig   map[string]string `json:"custom_config,omitempty"`
+	HTTPSUsername  string            `json:"https_username,omitempty"` // username paired with a keyring-stored token; see internal/cli/token.go
 	IsTemporary    bool              `json:"-"`
 }
 
@@ -182,6 +183,17 @@ func (u *User) GetPassphraseMode() string {
 		return "persistent"
 	}
 	return u.PassphraseMode
+}
+
+// GetHTTPSUsername returns the username to pair with this identity's stored
+// HTTPS token. Most hosts (GitHub, GitLab, Bitbucket) accept any non-empty
+// username alongside a PAT, so this only needs to be set explicitly for
+// hosts that check it.
+func (u *User) GetHTTPSUsername() string {
+	if u.HTTPSUsername != "" {
+		return u.HTTPSUsername
+	}
+	return "git-user"
 }
 
 // OriginalConfig holds the gitconfig state that existed before git-user was first used.
@@ -514,6 +526,18 @@ func (s *Store) ToggleSigning(name string, disabled bool) error {
 		return fmt.Errorf("user %q not found", name)
 	}
 	u.SignDisabled = disabled
+	return nil
+}
+
+// SetHTTPSUsername sets the username paired with this identity's keyring-
+// stored HTTPS token (see internal/cli/token.go). The token itself never
+// passes through the Store/config.json.
+func (s *Store) SetHTTPSUsername(name, username string) error {
+	u := s.FindUser(name)
+	if u == nil {
+		return fmt.Errorf("user %q not found", name)
+	}
+	u.HTTPSUsername = username
 	return nil
 }
 

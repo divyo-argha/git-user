@@ -39,6 +39,7 @@ var commands = []commandSpec{
 	{name: "bind-path", desc: "Bind a directory to an identity", takesID: true},
 	{name: "unbind-path", desc: "Remove a directory binding", takesID: true},
 	{name: "passphrase", desc: "Manage the passphrase for the active identity"},
+	{name: "token", desc: "Manage an HTTPS personal-access-token for an identity", takesID: true},
 	{name: "rekey", desc: "Rotate SSH key", takesID: true},
 	{name: "sign", desc: "Manage commit signing for an identity", takesID: true},
 	{name: "fix-remote", desc: "Convert HTTPS remotes to SSH"},
@@ -59,7 +60,7 @@ var commands = []commandSpec{
 	{name: "shell", desc: "Spawn an isolated subshell for an identity", takesID: true},
 	{name: "exec", desc: "Execute a command using an identity's environment", takesID: true},
 	{name: "init", desc: "Generate shell integration hook"},
-	{name: "hook", desc: "Manage git pre-commit hooks"},
+	{name: "hook", desc: "Manage git pre-commit & pre-push identity hooks"},
 	{name: "completion", desc: "Generate shell completion (bash/zsh/fish)"},
 	{name: "tui", desc: "Interactive menu"},
 }
