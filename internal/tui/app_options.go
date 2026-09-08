@@ -166,6 +166,28 @@ func (a *App) handleOptionResult(msg core.OptionResultMsg) (tea.Model, tea.Cmd) 
 			return a, pushCmd(screens.NewReport("Multiple Accounts & Shell Integration", shellIntegrationSnippet, a.theme))
 		}
 
+	case "token-action":
+		name := data
+		switch msg.Choice {
+		case "set":
+			return a, pushCmd(screens.NewForm(
+				"Set HTTPS Token",
+				"Personal-access-token for "+name+" — used on HTTPS remotes when SSH isn't available",
+				"token-set:"+name,
+				[]screens.FormInput{
+					{Label: "Token:", IsPassword: true},
+					{Label: "Username (optional):"},
+				},
+				a.theme,
+			))
+		case "remove":
+			return a, pushCmd(screens.NewConfirm(
+				fmt.Sprintf("Remove the stored HTTPS token for %q?", name),
+				"token-remove:"+name,
+				a.theme,
+			))
+		}
+
 	case "config-action":
 		name := data
 		switch msg.Choice {

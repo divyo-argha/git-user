@@ -114,6 +114,10 @@ func (d *Detail) refreshActions() {
 		items = append(items, components.ActionItem{Label: "↻ Rotate SSH key", Key: "rekey"})
 		items = append(items, components.ActionItem{Label: "✕ Remove SSH key", Key: "unbind"})
 	}
+	// HTTPS token is an SSH-independent credential path (for networks/CI
+	// where SSH isn't available), so it's offered regardless of whether an
+	// SSH key is bound.
+	items = append(items, components.ActionItem{Label: "🔗 Manage HTTPS token", Key: "token"})
 
 	items = append(items, components.ActionItem{Label: "Directory Bindings", IsSection: true})
 	items = append(items, components.ActionItem{Label: "+ Bind a directory", Key: "bind-path"})

@@ -5,9 +5,32 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/ui"
 	"github.com/divyo-argha/git-user/internal/validate"
 )
+
+// migrateKeyringOnRename moves an identity's keyring-stored secrets (SSH key
+// passphrase, HTTPS token) from oldName to newName. Both are keyed by
+// identity name (internal/keyring), which RenameUser never touches — without
+// this, a rename silently orphans them: the identity works, but the next
+// unlock re-prompts for a passphrase/token that's still sitting in the
+// keyring under a name nothing points to anymore.
+func migrateKeyringOnRename(oldName, newName string) {
+	if oldName == newName {
+		return
+	}
+	if pass, err := keyring.GetKeychainPassphrase(oldName); err == nil {
+		if setErr := keyring.SetKeychainPassphrase(newName, pass); setErr == nil {
+			_ = keyring.DeleteKeychainPassphrase(oldName)
+		}
+	}
+	if token, err := keyring.GetHTTPSToken(oldName); err == nil {
+		if setErr := keyring.SetHTTPSToken(newName, token); setErr == nil {
+			_ = keyring.DeleteHTTPSToken(oldName)
+		}
+	}
+}
 
 // runRename renames an identity, keeping the active git config in sync when the
 // active identity is renamed.
@@ -52,6 +75,7 @@ func runRename(args []string) error {
 		ui.Errorf("%v", err)
 		return err
 	}
+	migrateKeyringOnRename(oldName, newName)
 
 	u := store.FindUser(newName)
 
@@ -61,6 +85,11 @@ func runRename(args []string) error {
 		if err := git.Apply(u.Name, u.Email); err != nil {
 			ui.Errorf("re-applying git config: %v", err)
 		}
+		// core.askpass (if this identity has a stored HTTPS token) embeds the
+		// identity name as an argument — re-wire it to the new name, or it
+		// keeps invoking the __askpass helper with a name config.json no
+		// longer has, and every HTTPS credential prompt starts failing.
+		applyHTTPSCredentialConfig(u, false)
 	}
 
 	if localOverrideMatched {

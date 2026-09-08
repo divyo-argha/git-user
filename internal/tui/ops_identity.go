@@ -238,11 +238,13 @@ func opRename(store *config.Store, name, newName string) error {
 	if err := store.RenameUser(name, newName); err != nil {
 		return err
 	}
+	migrateKeyringOnRename(name, newName)
 	u := store.FindUser(newName)
 	if store.Current == newName && u != nil {
 		if err := git.Apply(u.Name, u.Email); err != nil {
 			return fmt.Errorf("re-applying git config: %w", err)
 		}
+		applyHTTPSCredentialConfig(u, false)
 	}
 	if localOverrideMatched && u != nil {
 		_ = git.ApplyScope(u.Name, u.Email, true)
@@ -294,6 +296,7 @@ func opRemove(store *config.Store, name string) (string, error) {
 	_ = keyring.DeleteHTTPSToken(name)
 	if wasActive {
 		git.ClearIdentity()
+		git.RemoveAskpassConfig()
 	}
 	if err := config.Save(store); err != nil {
 		return "", err

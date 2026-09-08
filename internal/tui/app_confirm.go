@@ -73,6 +73,11 @@ func (a *App) handleConfirmResult(msg core.ConfirmResultMsg) (tea.Model, tea.Cmd
 	case "rekey":
 		return a, a.rekeyKeyNameFormCmd(rest, "")
 
+	case "token-remove":
+		return a, a.runTaskCmd("token-remove", rest, func() (opResult, error) {
+			return opRemoveHTTPSToken(a.store, rest)
+		})
+
 	case "unbind-path-confirm":
 		fields := strings.SplitN(rest, "|", 2)
 		name := fields[0]

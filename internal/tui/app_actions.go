@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/shellinit"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/screens"
@@ -478,6 +479,9 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 	case "config":
 		return a.handleConfigAction(msg.Name)
 
+	case "token":
+		return a.handleTokenAction(msg.Name)
+
 	case "update":
 		return a, a.runTaskCmd("update", "", func() (opResult, error) {
 			return opUpdate()
@@ -534,6 +538,28 @@ func (a *App) handleConfigAction(name string) (tea.Model, tea.Cmd) {
 			{Label: "Unset a config key", Key: "unset"},
 			{Label: "Cancel", Key: ""},
 		},
+		a.theme,
+	))
+}
+
+// handleTokenAction opens the HTTPS-token management menu for an identity —
+// the TUI counterpart of `git-user token <name>`. "Remove" is only offered
+// when a token is actually stored, mirroring how the SSH-key section of the
+// detail screen only shows key-dependent actions once a key exists.
+func (a *App) handleTokenAction(name string) (tea.Model, tea.Cmd) {
+	if a.store.FindUser(name) == nil {
+		return a, core.ShowToastCmd("identity not found", theme.ToastStyleError, 3*time.Second)
+	}
+	opts := []screens.Option{{Label: "Set/update token", Key: "set"}}
+	if keyring.HasHTTPSToken(name) {
+		opts = append(opts, screens.Option{Label: "Remove token", Key: "remove"})
+	}
+	opts = append(opts, screens.Option{Label: "Cancel", Key: ""})
+	return a, pushCmd(screens.NewOptions(
+		fmt.Sprintf("HTTPS Token: %s", name),
+		core.OptionsHelp(),
+		"token-action:"+name,
+		opts,
 		a.theme,
 	))
 }

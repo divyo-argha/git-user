@@ -333,6 +333,19 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 			return opSync(a.store, "", msg.Values[0])
 		})
 
+	case "token-set":
+		token := strings.TrimSpace(msg.Values[0])
+		if token == "" {
+			return a, core.ShowToastCmd("token cannot be empty", theme.ToastStyleError, 3*time.Second)
+		}
+		username := ""
+		if len(msg.Values) > 1 {
+			username = strings.TrimSpace(msg.Values[1])
+		}
+		return a, a.runTaskCmd("token", rest, func() (opResult, error) {
+			return opSetHTTPSToken(a.store, rest, token, username)
+		})
+
 	case "config-set":
 		if err := validate.GitConfigKey(msg.Values[0]); err != nil {
 			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)

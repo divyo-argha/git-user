@@ -135,6 +135,29 @@ func unlockIdentitySSHKeyForShell(user *config.User, passphrase string) (warning
 	return "", nil
 }
 
+// migrateKeyringOnRename moves an identity's keyring-stored secrets (SSH key
+// passphrase, HTTPS token) from oldName to newName — the TUI-side twin of the
+// same helper in internal/cli/rename.go. Both are keyed by identity name,
+// which RenameUser never touches, so without this a rename silently orphans
+// them: the identity keeps working, but the next unlock re-prompts for a
+// passphrase/token that's still sitting in the keyring under a name nothing
+// points to anymore.
+func migrateKeyringOnRename(oldName, newName string) {
+	if oldName == newName {
+		return
+	}
+	if pass, err := keyring.GetKeychainPassphrase(oldName); err == nil {
+		if setErr := keyring.SetKeychainPassphrase(newName, pass); setErr == nil {
+			_ = keyring.DeleteKeychainPassphrase(oldName)
+		}
+	}
+	if token, err := keyring.GetHTTPSToken(oldName); err == nil {
+		if setErr := keyring.SetHTTPSToken(newName, token); setErr == nil {
+			_ = keyring.DeleteHTTPSToken(oldName)
+		}
+	}
+}
+
 // applyHTTPSCredentialConfig wires core.askpass to this identity's stored
 // HTTPS token (if any), or removes it if not — the TUI-side twin of the same
 // helper in internal/cli/switch.go, called at the same point opSwitch
