@@ -277,6 +277,7 @@ func opRekey(store *config.Store, name, keyPath, passphrase string) (opResult, e
 	if newKeyPath == "" {
 		newKeyPath = oldKeyPath
 	}
+	signKeyWasOldKey := user.SignFormat == "ssh" && user.SignKey == oldKeyPath
 
 	sshDir := filepath.Dir(newKeyPath)
 	if err := os.MkdirAll(sshDir, 0700); err != nil {
@@ -320,6 +321,10 @@ func opRekey(store *config.Store, name, keyPath, passphrase string) (opResult, e
 	if err := store.BindSSHKey(name, newKeyPath); err != nil {
 		return opResult{}, err
 	}
+	signKeyUpdated := false
+	if signKeyWasOldKey {
+		signKeyUpdated = store.SetSigningKey(name, newKeyPath, "ssh") == nil
+	}
 	if err := config.Save(store); err != nil {
 		return opResult{}, err
 	}
@@ -344,7 +349,12 @@ func opRekey(store *config.Store, name, keyPath, passphrase string) (opResult, e
 		}
 	}
 
-	report := fmt.Sprintf("SSH key rotated successfully for %s\nOld key backed up with .backup extension\n\n", name) + agentNote
+	signKeyNote := ""
+	if signKeyUpdated {
+		signKeyNote = "Commit signing key updated to the rotated key.\n\n"
+	}
+
+	report := fmt.Sprintf("SSH key rotated successfully for %s\nOld key backed up with .backup extension\n\n", name) + agentNote + signKeyNote
 	if pub, err := os.ReadFile(newKeyPath + ".pub"); err == nil {
 		report += "REPLACE YOUR OLD KEY WITH THIS NEW PUBLIC KEY\n"
 		report += strings.TrimSpace(string(pub)) + "\n\n"
