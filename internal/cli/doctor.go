@@ -179,6 +179,14 @@ func runDoctor(args []string) error {
 				issues++
 			}
 
+			if warnMsg := signingDisabledWarning(user); warnMsg != "" {
+				ui.Warn(warnMsg)
+				ui.Info(fmt.Sprintf("  Fix: Run 'git-user sign %s --on'", user.Name))
+				issues++
+			} else {
+				ui.Success("Commit signing is configured")
+			}
+
 			activeUserHasToken = keyring.HasHTTPSToken(user.Name)
 			if activeUserHasToken {
 				ui.Success("HTTPS token stored (used automatically on HTTPS remotes)")
@@ -227,11 +235,18 @@ func runDoctor(args []string) error {
 					}
 				}
 			}
-			// The active identity's own token/expiry was already checked
-			// above (with more context — it's the one doctor just tested SSH
-			// connectivity for); this only covers the rest.
-			if u.Name != store.Current && u.HTTPSTokenExpiresAt != "" {
-				if warnMsg := tokenExpiryWarning(u.HTTPSTokenExpiresAt); warnMsg != "" {
+			// The active identity's own token/expiry and signing status were
+			// already checked above (with more context — it's the one doctor
+			// just tested SSH connectivity for); this only covers the rest.
+			if u.Name != store.Current {
+				if u.HTTPSTokenExpiresAt != "" {
+					if warnMsg := tokenExpiryWarning(u.HTTPSTokenExpiresAt); warnMsg != "" {
+						ui.Warn(fmt.Sprintf("Profile %q: %s", u.Name, warnMsg))
+						issues++
+					}
+				}
+				uCopy := u
+				if warnMsg := signingDisabledWarning(&uCopy); warnMsg != "" {
 					ui.Warn(fmt.Sprintf("Profile %q: %s", u.Name, warnMsg))
 					issues++
 				}
@@ -384,6 +399,31 @@ func runDoctor(args []string) error {
 				ui.Success("All remotes use SSH")
 			}
 		}
+
+		ui.Info("Checking repository signing policy...")
+		if repoRoot, rootErr := git.RepoRoot(); rootErr == nil {
+			policy, err := config.LoadRepoPolicy(repoRoot)
+			if err == nil && policy.RequireSigning {
+				hookInstalled := false
+				if content, err := os.ReadFile(filepath.Join(repoRoot, ".git", "hooks", "pre-commit")); err == nil {
+					hookInstalled = strings.HasPrefix(string(content), "#!/bin/sh\n# git-user")
+				}
+				if !hookInstalled {
+					ui.Warn("Repository requires signed commits (.git-user-policy) but the enforcing hook isn't installed")
+					ui.Info("  Fix: Run 'git-user hook install'")
+					issues++
+				}
+				if store != nil {
+					if activeUser := store.FindUser(store.Current); activeUser != nil {
+						if warnMsg := signingDisabledWarning(activeUser); warnMsg != "" {
+							ui.Warn("Repository requires signed commits (.git-user-policy), but: " + warnMsg)
+							ui.Info(fmt.Sprintf("  Fix: Run 'git-user sign %s --on'", activeUser.Name))
+							issues++
+						}
+					}
+				}
+			}
+		}
 	}
 
 	fmt.Println()
@@ -429,4 +469,14 @@ func tokenExpiryWarning(expiresAt string) string {
 	default:
 		return ""
 	}
+}
+
+func signingDisabledWarning(u *config.User) string {
+	if u.SignDisabled {
+		return "Commit signing is disabled for this identity"
+	}
+	if u.SignKey == "" {
+		return "No commit signing key configured for this identity"
+	}
+	return ""
 }

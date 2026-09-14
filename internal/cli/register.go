@@ -15,7 +15,7 @@ func isValidEmail(email string) bool {
 
 func runRegister(args []string) error {
 	var name, email string
-	var isTemp bool
+	var isTemp, noSign bool
 	var err error
 
 	for i := 0; i < len(args); i++ {
@@ -32,6 +32,8 @@ func runRegister(args []string) error {
 			}
 		case "--temp", "-t":
 			isTemp = true
+		case "--no-sign":
+			noSign = true
 		case "--passphrase", "-p":
 			ui.Warn("--passphrase is no longer accepted as a CLI argument (it could leak via `ps` or shell history) — you'll be prompted for it interactively instead.")
 			if i+1 < len(args) {
@@ -167,7 +169,10 @@ func runRegister(args []string) error {
 			ui.Errorf("binding SSH key: %v", err)
 		}
 		fmt.Println()
-		if ui.Confirm("Would you like to sign your Git commits automatically using this identity's SSH key?", true) {
+		if noSign {
+			store.ToggleSigning(name, true)
+			ui.Info("Skipping commit signing setup (--no-sign)")
+		} else if ui.Confirm("Would you like to sign your Git commits automatically using this identity's SSH key?", true) {
 			if err := store.SetSigningKey(name, sshKeyPath, "ssh"); err != nil {
 				ui.Warn(fmt.Sprintf("Failed to enable SSH commit signing: %v", err))
 			} else {

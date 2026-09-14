@@ -246,18 +246,12 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 			// this classification.
 			isCurrentCommitSigned = sigStatus == "G" || sigStatus == "U" || sigStatus == "X" || sigStatus == "Y"
 
-			switch sigStatus {
-			case "G", "U", "X", "Y":
-				grp.signedCommits++
-			case "R":
-				grp.revokedSignatureCommits++
-			case "B":
-				grp.badSignatureCommits++
-			case "E":
-				grp.unverifiableCommits++
-			default: // "N", or any empty/unrecognized value
-				grp.unsignedCommits++
-			}
+			signed, unsigned, revoked, bad, unverifiable := classifySignature(sigStatus)
+			grp.signedCommits += signed
+			grp.unsignedCommits += unsigned
+			grp.revokedSignatureCommits += revoked
+			grp.badSignatureCommits += bad
+			grp.unverifiableCommits += unverifiable
 
 			if name != "" {
 				grp.nameCounts[name]++
@@ -366,6 +360,172 @@ func AuditRepositoryMode(store *config.Store, targetPath string, mode SortMode) 
 				return results[i].NetCodeLines > results[j].NetCodeLines
 			}
 		}
+		return results[i].Commits > results[j].Commits
+	})
+
+	return results, nil
+}
+
+func classifySignature(sigStatus string) (signed, unsigned, revoked, bad, unverifiable int) {
+	switch sigStatus {
+	case "G", "U", "X", "Y":
+		return 1, 0, 0, 0, 0
+	case "R":
+		return 0, 0, 1, 0, 0
+	case "B":
+		return 0, 0, 0, 1, 0
+	case "E":
+		return 0, 0, 0, 0, 1
+	default: // "N", or any empty/unrecognized value
+		return 0, 1, 0, 0, 0
+	}
+}
+
+func VerifyRange(store *config.Store, revRange string) ([]AuthorStat, error) {
+	if !git.IsInRepo() {
+		return nil, fmt.Errorf("not in a git repository")
+	}
+
+	allowedSignersPath, cleanupSigners, err := prepareAllowedSignersFile(store)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare SSH allowed_signers file: %w", err)
+	}
+	defer cleanupSigners()
+
+	args := []string{"-c", "gpg.ssh.allowedSignersFile=" + allowedSignersPath, "log", "--use-mailmap", "--format=COMMIT|%an|%ae|%G?"}
+	if revRange != "" {
+		args = append(args, revRange)
+	} else {
+		args = append(args, "--all")
+	}
+
+	cmd := exec.Command("git", args...)
+	var stderr, stdout bytes.Buffer
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+	if err := cmd.Run(); err != nil {
+		if msg := strings.TrimSpace(stderr.String()); msg != "" {
+			return nil, fmt.Errorf("failed to retrieve git log: %s", msg)
+		}
+		return nil, fmt.Errorf("failed to retrieve git log: %w", err)
+	}
+
+	type emailGroup struct {
+		email                   string
+		nameCounts              map[string]int
+		commits                 int
+		signedCommits           int
+		unsignedCommits         int
+		revokedSignatureCommits int
+		badSignatureCommits     int
+		unverifiableCommits     int
+		matchedUser             *config.User
+	}
+
+	groups := make(map[string]*emailGroup)
+
+	scanner := bufio.NewScanner(&stdout)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "COMMIT|") {
+			continue
+		}
+		header := strings.TrimPrefix(line, "COMMIT|")
+		parts := strings.SplitN(header, "|", 3)
+		name, email, sigStatus := "", "", ""
+		if len(parts) > 0 {
+			name = strings.TrimSpace(parts[0])
+		}
+		if len(parts) > 1 {
+			email = strings.TrimSpace(parts[1])
+		}
+		if len(parts) > 2 {
+			sigStatus = strings.TrimSpace(parts[2])
+		}
+
+		normEmail := strings.ToLower(email)
+		if normEmail == "" {
+			normEmail = "unknown"
+		}
+
+		var matched *config.User
+		if store != nil {
+			matched = store.FindUserByEmail(normEmail)
+		}
+
+		groupID := normEmail
+		if matched != nil {
+			groupID = "user:" + strings.ToLower(matched.Name)
+		}
+
+		grp, exists := groups[groupID]
+		if !exists {
+			primaryEmail := email
+			if matched != nil && matched.Email != "" {
+				primaryEmail = matched.Email
+			}
+			grp = &emailGroup{
+				email:       primaryEmail,
+				nameCounts:  make(map[string]int),
+				matchedUser: matched,
+			}
+			groups[groupID] = grp
+		}
+
+		grp.commits++
+		signed, unsigned, revoked, bad, unverifiable := classifySignature(sigStatus)
+		grp.signedCommits += signed
+		grp.unsignedCommits += unsigned
+		grp.revokedSignatureCommits += revoked
+		grp.badSignatureCommits += bad
+		grp.unverifiableCommits += unverifiable
+
+		if name != "" {
+			grp.nameCounts[name]++
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read git log output: %w", err)
+	}
+
+	var results []AuthorStat
+	for _, grp := range groups {
+		var names []string
+		var topName string
+		maxCount := -1
+		for n, cnt := range grp.nameCounts {
+			names = append(names, n)
+			if cnt > maxCount {
+				maxCount = cnt
+				topName = n
+			}
+		}
+		sort.Strings(names)
+
+		displayName := topName
+		if grp.matchedUser != nil {
+			displayName = grp.matchedUser.Name
+		}
+		if displayName == "" {
+			displayName = grp.email
+		}
+
+		results = append(results, AuthorStat{
+			DisplayName:             displayName,
+			Email:                   grp.email,
+			Commits:                 grp.commits,
+			SignedCommits:           grp.signedCommits,
+			UnsignedCommits:         grp.unsignedCommits,
+			RevokedSignatureCommits: grp.revokedSignatureCommits,
+			BadSignatureCommits:     grp.badSignatureCommits,
+			UnverifiableCommits:     grp.unverifiableCommits,
+			VerifiedUser:            grp.matchedUser,
+			NameVariations:          names,
+		})
+	}
+
+	sort.Slice(results, func(i, j int) bool {
 		return results[i].Commits > results[j].Commits
 	})
 

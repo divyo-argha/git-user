@@ -370,6 +370,14 @@ func CurrentBranch() string {
 	return strings.TrimSpace(string(out))
 }
 
+func RepoRoot() (string, error) {
+	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 // CurrentRepoName returns the directory name of the current git repository root.
 func CurrentRepoName() string {
 	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()

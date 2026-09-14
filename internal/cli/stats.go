@@ -63,27 +63,9 @@ func runStats(args []string) error {
 	hasUnregisteredAuthors := false
 
 	for _, s := range authorStats {
-		notSigned := s.UnsignedCommits + s.RevokedSignatureCommits + s.BadSignatureCommits + s.UnverifiableCommits
-
-		var sigStr string
-		switch {
-		case s.SignedCommits > 0 && notSigned == 0:
-			sigStr = fmt.Sprintf("\033[1;32mSigned (%d/%d cryptographically signed)\033[0m", s.SignedCommits, s.Commits)
-		case s.SignedCommits > 0:
-			sigStr = fmt.Sprintf("\033[1;33mPartially Signed (\033[1;32m%d Signed\033[1;33m, \033[1;31m%d Not Signed\033[1;33m)\033[0m", s.SignedCommits, notSigned)
+		sigStr, notSigned := formatSignatureStatus(s)
+		if notSigned > 0 {
 			hasUnsignedCommits = true
-		default:
-			sigStr = fmt.Sprintf("\033[1;31mNot Signed (0/%d cryptographically signed)\033[0m", s.Commits)
-			hasUnsignedCommits = true
-		}
-		if s.RevokedSignatureCommits > 0 {
-			sigStr += fmt.Sprintf(" \033[1;31m[%d signed by a revoked key]\033[0m", s.RevokedSignatureCommits)
-		}
-		if s.BadSignatureCommits > 0 {
-			sigStr += fmt.Sprintf(" \033[1;31m[%d invalid signature]\033[0m", s.BadSignatureCommits)
-		}
-		if s.UnverifiableCommits > 0 {
-			sigStr += fmt.Sprintf(" \033[1;33m[%d unverifiable locally]\033[0m", s.UnverifiableCommits)
 		}
 
 		identityStr := "\033[1;31mUnregistered identity\033[0m"
@@ -116,4 +98,27 @@ func runStats(args []string) error {
 	}
 
 	return nil
+}
+
+func formatSignatureStatus(s stats.AuthorStat) (sigStr string, notSigned int) {
+	notSigned = s.UnsignedCommits + s.RevokedSignatureCommits + s.BadSignatureCommits + s.UnverifiableCommits
+
+	switch {
+	case s.SignedCommits > 0 && notSigned == 0:
+		sigStr = fmt.Sprintf("\033[1;32mSigned (%d/%d cryptographically signed)\033[0m", s.SignedCommits, s.Commits)
+	case s.SignedCommits > 0:
+		sigStr = fmt.Sprintf("\033[1;33mPartially Signed (\033[1;32m%d Signed\033[1;33m, \033[1;31m%d Not Signed\033[1;33m)\033[0m", s.SignedCommits, notSigned)
+	default:
+		sigStr = fmt.Sprintf("\033[1;31mNot Signed (0/%d cryptographically signed)\033[0m", s.Commits)
+	}
+	if s.RevokedSignatureCommits > 0 {
+		sigStr += fmt.Sprintf(" \033[1;31m[%d signed by a revoked key]\033[0m", s.RevokedSignatureCommits)
+	}
+	if s.BadSignatureCommits > 0 {
+		sigStr += fmt.Sprintf(" \033[1;31m[%d invalid signature]\033[0m", s.BadSignatureCommits)
+	}
+	if s.UnverifiableCommits > 0 {
+		sigStr += fmt.Sprintf(" \033[1;33m[%d unverifiable locally]\033[0m", s.UnverifiableCommits)
+	}
+	return sigStr, notSigned
 }

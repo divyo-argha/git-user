@@ -196,6 +196,30 @@ func checkIdentity() error {
 		return fmt.Errorf("identity mismatch")
 	}
 
+	if err := enforceRepoPolicy(user); err != nil {
+		return err
+	}
+
 	// Success - silent in hook mode
+	return nil
+}
+
+func enforceRepoPolicy(user *config.User) error {
+	repoRoot, err := git.RepoRoot()
+	if err != nil {
+		return nil
+	}
+
+	policy, err := config.LoadRepoPolicy(repoRoot)
+	if err != nil {
+		return nil
+	}
+
+	if policy.RequireSigning && (user.SignDisabled || user.SignKey == "") {
+		fmt.Fprintf(os.Stderr, "✖ Repository policy requires signed commits, but signing is disabled for identity %q\n", user.Name)
+		fmt.Fprintf(os.Stderr, "  Run: git-user sign %s --on\n", user.Name)
+		return fmt.Errorf("signing required by repo policy")
+	}
+
 	return nil
 }

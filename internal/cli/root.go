@@ -235,6 +235,8 @@ func Execute() error {
 		return runClone(rest)
 	case "stats":
 		return runStats(rest)
+	case "verify":
+		return runVerify(rest)
 	case "config":
 		return runConfig(rest)
 	case "sync":
@@ -329,6 +331,8 @@ func normalizeSubcommand(sub string) string {
 		return "audit"
 	case "stats", "--stats":
 		return "stats"
+	case "verify", "--verify":
+		return "verify"
 	case "log", "--log", "history", "--history":
 		return "log"
 

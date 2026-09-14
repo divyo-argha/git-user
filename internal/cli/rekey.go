@@ -67,6 +67,7 @@ func runRekey(args []string) error {
 			return err
 		}
 	}
+	signKeyWasOldKey := user.SignFormat == "ssh" && user.SignKey == oldKeyPath
 
 	newKeyPath := oldKeyPath
 	suggestion := filepath.Base(oldKeyPath)
@@ -169,6 +170,14 @@ func runRekey(args []string) error {
 	if err := store.BindSSHKey(name, newKeyPath); err != nil {
 		ui.Errorf("binding new SSH key: %v", err)
 		return err
+	}
+
+	if signKeyWasOldKey {
+		if err := store.SetSigningKey(name, newKeyPath, "ssh"); err != nil {
+			ui.Warn(fmt.Sprintf("Failed to update signing key after rotation: %v", err))
+		} else {
+			ui.Success("Commit signing key updated to the rotated key")
+		}
 	}
 
 	if err := config.Save(store); err != nil {

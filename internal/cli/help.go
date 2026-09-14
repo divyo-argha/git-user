@@ -247,7 +247,12 @@ Manage git-user's identity-checking hooks: install writes both a pre-commit
 and a pre-push hook to the current repo (each just runs 'git-user hook
 check'). pre-commit catches the common case; pre-push additionally catches
 commits made via --amend, rebase, cherry-pick, or applied from elsewhere,
-which skip pre-commit but still have to go through a push to reach a remote.`,
+which skip pre-commit but still have to go through a push to reach a remote.
+
+If a .git-user-policy file exists at the repository root, the installed
+hooks also enforce it. Currently supported:
+  require_signing=true    Block commits/pushes if the active identity has
+                           commit signing disabled or unconfigured.`,
 		"audit": `Usage: git-user audit [--fix]
 
 Run a security audit on your identity setup. ` + "`security`" + ` is a hidden alias.
@@ -288,6 +293,19 @@ Flags:
 		"stats": `Usage: git-user stats
 
 Audit and show commit author identity stats for the current repository.`,
+		"verify": `Usage: git-user verify [--range <rev-range>]
+
+Verify that commits in a range carry a valid, currently-trusted cryptographic
+signature. Exits non-zero if any commit is unsigned, or carries an invalid,
+revoked, or unverifiable signature — suitable for a pre-push or CI gate.
+
+Flags:
+  -r, --range <rev-range>      Commit range to check (default: HEAD~50..HEAD)
+  -h, --help                   Show this help
+
+Examples:
+  git-user verify
+  git-user verify --range origin/main..HEAD`,
 		"config": `Usage: git-user config <list|set|unset>
 
 Manage custom git configuration for an identity.
