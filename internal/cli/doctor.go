@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -25,6 +26,24 @@ func runDoctor(args []string) error {
 		}
 	}
 
+	jsonOutput := ui.IsJSONOutput(args)
+	var warnings []string
+	record := func(msg string) {
+		if jsonOutput {
+			warnings = append(warnings, msg)
+			return
+		}
+		ui.Warn(msg)
+	}
+
+	realStdout := os.Stdout
+	if jsonOutput {
+		if devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0); err == nil {
+			os.Stdout = devNull
+			defer devNull.Close()
+		}
+	}
+
 	ui.Banner("GIT-USER DIAGNOSTICS & SECURITY")
 	fmt.Println()
 	if fix {
@@ -34,6 +53,8 @@ func runDoctor(args []string) error {
 
 	issues := 0
 	fixed := 0
+	scoreTotal := 0
+	scorePassed := 0
 	// Tracked across the two checks below (SSH connectivity for the active
 	// identity, HTTPS remotes in the current repo) so the HTTPS-remotes
 	// suggestion can offer a token as an alternative to fix-remote when SSH
@@ -47,22 +68,25 @@ func runDoctor(args []string) error {
 	info, err := os.Stat(configPath)
 	if err == nil {
 		if pc := config.CheckFilePermissions(info.Mode()); pc.Applicable {
+			scoreTotal++
 			if !pc.Secure {
 				if fix {
 					if chmodErr := os.Chmod(configPath, 0600); chmodErr != nil {
-						ui.Warn(fmt.Sprintf("Could not fix permissions on %s: %v", configPath, chmodErr))
+						record(fmt.Sprintf("Could not fix permissions on %s: %v", configPath, chmodErr))
 						issues++
 					} else {
 						ui.Success(fmt.Sprintf("Fixed: %s permissions → 0600", configPath))
 						fixed++
+						scorePassed++
 					}
 				} else {
-					ui.Warn(fmt.Sprintf("Config file has insecure permissions: %o", info.Mode().Perm()))
+					record(fmt.Sprintf("Config file has insecure permissions: %o", info.Mode().Perm()))
 					ui.Info(fmt.Sprintf("  Fix: chmod 600 %s", configPath))
 					issues++
 				}
 			} else {
 				ui.Success("Config file permissions OK (0600)")
+				scorePassed++
 			}
 		}
 	}
@@ -70,16 +94,16 @@ func runDoctor(args []string) error {
 	ui.Info("Checking active identity...")
 	store, err := config.Load()
 	if err != nil {
-		ui.Error("Failed to load config")
+		record("Failed to load config")
 		issues++
 	} else if store.Current == "" {
-		ui.Warn("No active identity set")
+		record("No active identity set")
 		ui.Info("  Fix: Run 'git-user switch <name>' to activate an identity")
 		issues++
 	} else {
 		user := store.FindUser(store.Current)
 		if user == nil {
-			ui.Error(fmt.Sprintf("Active identity %q not found in config", store.Current))
+			record(fmt.Sprintf("Active identity %q not found in config", store.Current))
 			issues++
 		} else {
 			ui.Success(fmt.Sprintf("Active identity: %s (%s)", user.Name, user.Email))
@@ -104,21 +128,21 @@ func runDoctor(args []string) error {
 				ui.Info(fmt.Sprintf("Local override active in this repository (resolved identity: %s <%s>) — differs from the global active identity %q by design.", gitName, gitEmail, user.Name))
 			} else if fix {
 				if err := git.Apply(user.Name, user.Email); err != nil {
-					ui.Warn(fmt.Sprintf("Could not resync git config: %v", err))
+					record(fmt.Sprintf("Could not resync git config: %v", err))
 					issues++
 				} else if err := applyUserSSHConfig(user, false); err != nil {
-					ui.Warn(fmt.Sprintf("Could not resync SSH config: %v", err))
+					record(fmt.Sprintf("Could not resync SSH config: %v", err))
 					issues++
 				} else {
 					ui.Success(fmt.Sprintf("Fixed: git config re-synced to %q (%s)", user.Name, user.Email))
 					fixed++
 				}
 			} else if gitName != user.Name {
-				ui.Warn(fmt.Sprintf("Git name mismatch: expected %q, got %q", user.Name, gitName))
+				record(fmt.Sprintf("Git name mismatch: expected %q, got %q", user.Name, gitName))
 				ui.Info("  Fix: Run 'git-user switch " + user.Name + "' to resync")
 				issues++
 			} else {
-				ui.Warn(fmt.Sprintf("Git email mismatch: expected %q, got %q", user.Email, gitEmail))
+				record(fmt.Sprintf("Git email mismatch: expected %q, got %q", user.Email, gitEmail))
 				ui.Info("  Fix: Run 'git-user switch " + user.Name + "' to resync")
 				issues++
 			}
@@ -127,30 +151,33 @@ func runDoctor(args []string) error {
 				ui.Info("Checking SSH key...")
 				info, err := os.Stat(user.SSHKey)
 				if os.IsNotExist(err) {
-					ui.Error(fmt.Sprintf("SSH key file not found: %s", user.SSHKey))
+					record(fmt.Sprintf("SSH key file not found: %s", user.SSHKey))
 					ui.Info("  Fix: Generate a new key with 'git-user rekey " + user.Name + "'")
 					issues++
 				} else if err != nil {
-					ui.Error(fmt.Sprintf("Error checking SSH key: %v", err))
+					record(fmt.Sprintf("Error checking SSH key: %v", err))
 					issues++
 				} else {
 					if pc := config.CheckFilePermissions(info.Mode()); pc.Applicable {
+						scoreTotal++
 						if !pc.Secure {
 							if fix {
 								if chmodErr := os.Chmod(user.SSHKey, 0600); chmodErr != nil {
-									ui.Warn(fmt.Sprintf("Could not fix permissions on %s: %v", user.SSHKey, chmodErr))
+									record(fmt.Sprintf("Could not fix permissions on %s: %v", user.SSHKey, chmodErr))
 									issues++
 								} else {
 									ui.Success(fmt.Sprintf("Fixed: %s permissions → 0600", user.SSHKey))
 									fixed++
+									scorePassed++
 								}
 							} else {
-								ui.Warn(fmt.Sprintf("SSH key has incorrect permissions: %o (should be 0600)", info.Mode().Perm()))
+								record(fmt.Sprintf("SSH key has incorrect permissions: %o (should be 0600)", info.Mode().Perm()))
 								ui.Info(fmt.Sprintf("  Fix: Run 'chmod 600 %s'", user.SSHKey))
 								issues++
 							}
 						} else {
 							ui.Success(fmt.Sprintf("SSH key exists with correct permissions: %s", user.SSHKey))
+							scorePassed++
 						}
 					} else {
 						ui.Success(fmt.Sprintf("SSH key exists: %s", user.SSHKey))
@@ -159,7 +186,7 @@ func runDoctor(args []string) error {
 					ui.Info("Testing SSH connection to GitHub...")
 					if err := verifySSHConnectionWithKey(user.SSHKey); err != nil {
 						activeSSHFailed = true
-						ui.Warn("SSH connection failed")
+						record("SSH connection failed")
 						ui.Info("  This could mean:")
 						ui.Info("    - The public key is not added to your GitHub account")
 						ui.Info("    - The key is not loaded in ssh-agent")
@@ -174,29 +201,33 @@ func runDoctor(args []string) error {
 					}
 				}
 			} else {
-				ui.Warn("No SSH key configured for this identity")
+				record("No SSH key configured for this identity")
 				ui.Info("  Fix: Run 'git-user bind-key " + user.Name + " --ssh-key <path>' or 'git-user rekey " + user.Name + "'")
 				issues++
 			}
 
+			scoreTotal++
 			if warnMsg := signingDisabledWarning(user); warnMsg != "" {
-				ui.Warn(warnMsg)
+				record(warnMsg)
 				ui.Info(fmt.Sprintf("  Fix: Run 'git-user sign %s --on'", user.Name))
 				issues++
 			} else {
 				ui.Success("Commit signing is configured")
+				scorePassed++
 			}
 
 			activeUserHasToken = keyring.HasHTTPSToken(user.Name)
 			if activeUserHasToken {
 				ui.Success("HTTPS token stored (used automatically on HTTPS remotes)")
 				if user.HTTPSTokenExpiresAt != "" {
+					scoreTotal++
 					if warnMsg := tokenExpiryWarning(user.HTTPSTokenExpiresAt); warnMsg != "" {
-						ui.Warn(warnMsg)
+						record(warnMsg)
 						ui.Info(fmt.Sprintf("  Fix: Generate a new token on your platform, then run 'git-user token %s --set'", user.Name))
 						issues++
 					} else {
 						ui.Success(fmt.Sprintf("Token expires %s", user.HTTPSTokenExpiresAt))
+						scorePassed++
 					}
 				}
 			}
@@ -212,14 +243,14 @@ func runDoctor(args []string) error {
 					if pc := config.CheckFilePermissions(info.Mode()); pc.Applicable && !pc.Secure {
 						if fix {
 							if chmodErr := os.Chmod(u.SSHKey, 0600); chmodErr != nil {
-								ui.Warn(fmt.Sprintf("Could not fix permissions on %s: %v", u.SSHKey, chmodErr))
+								record(fmt.Sprintf("Could not fix permissions on %s: %v", u.SSHKey, chmodErr))
 								issues++
 							} else {
 								ui.Success(fmt.Sprintf("Fixed: %s permissions → 0600", u.SSHKey))
 								fixed++
 							}
 						} else {
-							ui.Warn(fmt.Sprintf("Profile %q SSH key has insecure permissions: %o", u.Name, info.Mode().Perm()))
+							record(fmt.Sprintf("Profile %q SSH key has insecure permissions: %o", u.Name, info.Mode().Perm()))
 							ui.Info(fmt.Sprintf("  Fix: chmod 600 %s", u.SSHKey))
 							issues++
 						}
@@ -230,7 +261,7 @@ func runDoctor(args []string) error {
 					if protected {
 						ui.Success(fmt.Sprintf("Profile %q SSH key is passphrase protected", u.Name))
 					} else {
-						ui.Warn(fmt.Sprintf("Profile %q SSH key has no passphrase", u.Name))
+						record(fmt.Sprintf("Profile %q SSH key has no passphrase", u.Name))
 						issues++
 					}
 				}
@@ -241,13 +272,13 @@ func runDoctor(args []string) error {
 			if u.Name != store.Current {
 				if u.HTTPSTokenExpiresAt != "" {
 					if warnMsg := tokenExpiryWarning(u.HTTPSTokenExpiresAt); warnMsg != "" {
-						ui.Warn(fmt.Sprintf("Profile %q: %s", u.Name, warnMsg))
+						record(fmt.Sprintf("Profile %q: %s", u.Name, warnMsg))
 						issues++
 					}
 				}
 				uCopy := u
 				if warnMsg := signingDisabledWarning(&uCopy); warnMsg != "" {
-					ui.Warn(fmt.Sprintf("Profile %q: %s", u.Name, warnMsg))
+					record(fmt.Sprintf("Profile %q: %s", u.Name, warnMsg))
 					issues++
 				}
 			}
@@ -256,7 +287,7 @@ func runDoctor(args []string) error {
 
 	ui.Info("Checking git installation...")
 	if !git.IsInstalled() {
-		ui.Error("Git is not installed or not on PATH")
+		record("Git is not installed or not on PATH")
 		issues++
 	} else {
 		gitVersion, _ := exec.Command("git", "--version").Output()
@@ -265,7 +296,7 @@ func runDoctor(args []string) error {
 
 	ui.Info("Checking ssh-keygen availability...")
 	if _, err := exec.LookPath("ssh-keygen"); err != nil {
-		ui.Warn("ssh-keygen not found on PATH")
+		record("ssh-keygen not found on PATH")
 		ui.Info("  This is needed for 'git-user register' and 'git-user rekey'")
 		issues++
 	} else {
@@ -340,7 +371,7 @@ func runDoctor(args []string) error {
 			if strings.Contains(str, "eval \"$(git-user init)\"") {
 				legacyShellFound = true
 				if !fix {
-					ui.Warn(fmt.Sprintf("Legacy unshielded shell integration in %s", filepath.Base(rc)))
+					record(fmt.Sprintf("Legacy unshielded shell integration in %s", filepath.Base(rc)))
 					ui.Info("  Fix: Run 'git-user init install' to upgrade to safe invocation")
 					issues++
 				}
@@ -349,7 +380,7 @@ func runDoctor(args []string) error {
 	}
 	if legacyShellFound && fix {
 		if results, err := shellinit.Install(shellinit.Detect(""), ""); err != nil {
-			ui.Warn(fmt.Sprintf("Could not upgrade shell integration: %v", err))
+			record(fmt.Sprintf("Could not upgrade shell integration: %v", err))
 			issues++
 		} else {
 			for _, r := range results {
@@ -379,7 +410,7 @@ func runDoctor(args []string) error {
 			if hasHTTPS {
 				if fix {
 					if err := runFixRemote(nil); err != nil {
-						ui.Warn(fmt.Sprintf("Could not convert remotes: %v", err))
+						record(fmt.Sprintf("Could not convert remotes: %v", err))
 						issues++
 					} else {
 						fixed++
@@ -393,6 +424,7 @@ func runDoctor(args []string) error {
 					if activeSSHFailed && !activeUserHasToken {
 						ui.Info("  Or, since SSH just failed above: git-user token <name> --set")
 					}
+					record("Repository uses HTTPS remotes (not converted to SSH)")
 					issues++
 				}
 			} else {
@@ -403,31 +435,85 @@ func runDoctor(args []string) error {
 		ui.Info("Checking repository signing policy...")
 		if repoRoot, rootErr := git.RepoRoot(); rootErr == nil {
 			policy, err := config.LoadRepoPolicy(repoRoot)
-			if err == nil && policy.RequireSigning {
+			if err == nil && (policy.RequireSigning || len(policy.AllowedEmailDomains) > 0) {
+				scoreTotal++
+				compliant := true
+
 				hookInstalled := false
 				if content, err := os.ReadFile(filepath.Join(repoRoot, ".git", "hooks", "pre-commit")); err == nil {
 					hookInstalled = strings.HasPrefix(string(content), "#!/bin/sh\n# git-user")
 				}
 				if !hookInstalled {
-					ui.Warn("Repository requires signed commits (.git-user-policy) but the enforcing hook isn't installed")
+					record("Repository requires policy enforcement (.git-user-policy) but the enforcing hook isn't installed")
 					ui.Info("  Fix: Run 'git-user hook install'")
 					issues++
+					compliant = false
 				}
 				if store != nil {
 					if activeUser := store.FindUser(store.Current); activeUser != nil {
-						if warnMsg := signingDisabledWarning(activeUser); warnMsg != "" {
-							ui.Warn("Repository requires signed commits (.git-user-policy), but: " + warnMsg)
-							ui.Info(fmt.Sprintf("  Fix: Run 'git-user sign %s --on'", activeUser.Name))
-							issues++
+						if policy.RequireSigning {
+							if warnMsg := signingDisabledWarning(activeUser); warnMsg != "" {
+								record("Repository requires signed commits (.git-user-policy), but: " + warnMsg)
+								ui.Info(fmt.Sprintf("  Fix: Run 'git-user sign %s --on'", activeUser.Name))
+								issues++
+								compliant = false
+							}
+						}
+						if len(policy.AllowedEmailDomains) > 0 {
+							_, domain, _ := strings.Cut(strings.ToLower(activeUser.Email), "@")
+							allowed := false
+							for _, d := range policy.AllowedEmailDomains {
+								if domain == d {
+									allowed = true
+									break
+								}
+							}
+							if !allowed {
+								record(fmt.Sprintf("Repository restricts commits to domains %s, but active identity uses %s", strings.Join(policy.AllowedEmailDomains, ", "), activeUser.Email))
+								issues++
+								compliant = false
+							}
 						}
 					}
+				}
+
+				if compliant {
+					ui.Success("Repository policy requirements are satisfied")
+					scorePassed++
 				}
 			}
 		}
 	}
 
+	os.Stdout = realStdout
+
+	if jsonOutput {
+		securityScore := ""
+		if scoreTotal > 0 {
+			securityScore = fmt.Sprintf("%d/%d", scorePassed, scoreTotal)
+		}
+		_ = json.NewEncoder(os.Stdout).Encode(struct {
+			Issues        int      `json:"issues"`
+			Fixed         int      `json:"fixed"`
+			SecurityScore string   `json:"security_score,omitempty"`
+			Warnings      []string `json:"warnings"`
+		}{
+			Issues:        issues,
+			Fixed:         fixed,
+			SecurityScore: securityScore,
+			Warnings:      warnings,
+		})
+		if issues > 0 {
+			return fmt.Errorf("%d issue(s) found", issues)
+		}
+		return nil
+	}
+
 	fmt.Println()
 	ui.Divider()
+	if scoreTotal > 0 {
+		ui.Info(fmt.Sprintf("Security Score: %d/%d", scorePassed, scoreTotal))
+	}
 	if issues == 0 && fixed == 0 {
 		ui.Success("All checks passed! Your git-user setup is 100% healthy and secure.")
 	} else if fix {

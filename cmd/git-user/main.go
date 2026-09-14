@@ -51,6 +51,11 @@ func hintDoctorOnError(err error) {
 	if len(os.Args) > 1 && os.Args[1] == "doctor" {
 		return
 	}
+	for _, a := range os.Args[1:] {
+		if a == "--json" {
+			return
+		}
+	}
 	msg := err.Error()
 	for _, skippable := range []string{"unknown command", "usage:", "missing", "must be", "not in repository", "unsupported shell"} {
 		if strings.Contains(msg, skippable) {

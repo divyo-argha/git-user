@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -56,14 +58,41 @@ func runVerify(args []string) error {
 		displayRange = "full history"
 	}
 
-	ui.Banner("COMMIT SIGNATURE VERIFICATION")
-	ui.Info(fmt.Sprintf("Verifying commit signatures for range: %s", displayRange))
-	fmt.Println()
+	jsonOutput := ui.IsJSONOutput(args)
+	if !jsonOutput {
+		ui.Banner("COMMIT SIGNATURE VERIFICATION")
+		ui.Info(fmt.Sprintf("Verifying commit signatures for range: %s", displayRange))
+		fmt.Println()
+	}
 
 	authorStats, err := stats.VerifyRange(store, revRange)
 	if err != nil {
-		ui.Errorf("Failed to verify commit range: %v", err)
+		if !jsonOutput {
+			ui.Errorf("Failed to verify commit range: %v", err)
+		}
 		return err
+	}
+
+	totalNotSigned := 0
+	for _, s := range authorStats {
+		_, notSigned := formatSignatureStatus(s)
+		totalNotSigned += notSigned
+	}
+
+	if jsonOutput {
+		_ = json.NewEncoder(os.Stdout).Encode(struct {
+			Range         string             `json:"range"`
+			Authors       []stats.AuthorStat `json:"authors"`
+			TotalUnsigned int                `json:"total_unsigned"`
+		}{
+			Range:         displayRange,
+			Authors:       authorStats,
+			TotalUnsigned: totalNotSigned,
+		})
+		if totalNotSigned > 0 {
+			return fmt.Errorf("unsigned or invalid commits found in range")
+		}
+		return nil
 	}
 
 	if len(authorStats) == 0 {
@@ -71,10 +100,8 @@ func runVerify(args []string) error {
 		return nil
 	}
 
-	totalNotSigned := 0
 	for _, s := range authorStats {
-		sigStr, notSigned := formatSignatureStatus(s)
-		totalNotSigned += notSigned
+		sigStr, _ := formatSignatureStatus(s)
 		fmt.Printf("  %-25s  %-30s  Commits: %-5d  Signature: %s\n", s.DisplayName, fmt.Sprintf("<%s>", s.Email), s.Commits, sigStr)
 	}
 

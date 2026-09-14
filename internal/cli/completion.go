@@ -55,6 +55,7 @@ var commands = []commandSpec{
 	{name: "clone", desc: "Clone a repository and auto-configure the local identity"},
 	{name: "stats", desc: "Audit commit author identity stats"},
 	{name: "verify", desc: "Verify commit signatures in a rev-range"},
+	{name: "policy", desc: "Manage repository signing/identity policy"},
 	{name: "config", desc: "Manage custom git config for an identity", takesID: true},
 	{name: "sync", desc: "Synchronize identities across devices"},
 	{name: "env", desc: "Output shell exports for terminal session isolation", takesID: true},

@@ -237,6 +237,8 @@ func Execute() error {
 		return runStats(rest)
 	case "verify":
 		return runVerify(rest)
+	case "policy":
+		return runPolicy(rest)
 	case "config":
 		return runConfig(rest)
 	case "sync":
@@ -333,6 +335,8 @@ func normalizeSubcommand(sub string) string {
 		return "stats"
 	case "verify", "--verify":
 		return "verify"
+	case "policy", "--policy":
+		return "policy"
 	case "log", "--log", "history", "--history":
 		return "log"
 

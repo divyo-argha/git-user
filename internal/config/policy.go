@@ -10,7 +10,8 @@ import (
 const RepoPolicyFileName = ".git-user-policy"
 
 type RepoPolicy struct {
-	RequireSigning bool
+	RequireSigning      bool
+	AllowedEmailDomains []string
 }
 
 func LoadRepoPolicy(repoRoot string) (RepoPolicy, error) {
@@ -42,6 +43,15 @@ func LoadRepoPolicy(repoRoot string) (RepoPolicy, error) {
 		switch key {
 		case "require_signing":
 			policy.RequireSigning = truthy
+		case "allowed_email_domains":
+			var domains []string
+			for _, d := range strings.Split(value, ",") {
+				d = strings.TrimSpace(d)
+				if d != "" {
+					domains = append(domains, d)
+				}
+			}
+			policy.AllowedEmailDomains = domains
 		}
 	}
 	if err := scanner.Err(); err != nil {

@@ -80,7 +80,7 @@ func TestHookInstallUninstall(t *testing.T) {
 func TestCheckIdentity(t *testing.T) {
 	// This test depends on having a configured identity
 	// We just verify it doesn't panic
-	err := checkIdentity()
+	err := checkIdentity(nil)
 	// Don't assert success/failure since it depends on user's setup
 	t.Logf("checkIdentity() result: %v", err)
 }

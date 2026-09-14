@@ -243,16 +243,20 @@ Launch the interactive terminal UI.`,
 Generate shell completion (bash, zsh, or fish).`,
 		"hook": `Usage: git-user hook <install|uninstall|check>
 
-Manage git-user's identity-checking hooks: install writes both a pre-commit
-and a pre-push hook to the current repo (each just runs 'git-user hook
-check'). pre-commit catches the common case; pre-push additionally catches
-commits made via --amend, rebase, cherry-pick, or applied from elsewhere,
-which skip pre-commit but still have to go through a push to reach a remote.
+Manage git-user's identity-checking hooks: install writes a pre-commit,
+pre-push, and post-merge hook to the current repo. pre-commit catches the
+common case; pre-push additionally catches commits made via --amend, rebase,
+cherry-pick, or applied from elsewhere, which skip pre-commit but still have
+to go through a push to reach a remote; post-merge warns (without blocking)
+if a 'git pull'/merge just brought in unsigned or untrusted commits.
 
-If a .git-user-policy file exists at the repository root, the installed
-hooks also enforce it. Currently supported:
-  require_signing=true    Block commits/pushes if the active identity has
-                           commit signing disabled or unconfigured.`,
+If a .git-user-policy file exists at the repository root, the pre-commit and
+pre-push hooks also enforce it (see 'git-user policy'). Currently supported:
+  require_signing=true          Block commits/pushes if the active identity
+                                 has commit signing disabled or unconfigured.
+  allowed_email_domains=a.com,b.com
+                                 Block commits/pushes unless the active
+                                 identity's email is on one of these domains.`,
 		"audit": `Usage: git-user audit [--fix]
 
 Run a security audit on your identity setup. ` + "`security`" + ` is a hidden alias.
@@ -306,6 +310,17 @@ Flags:
 Examples:
   git-user verify
   git-user verify --range origin/main..HEAD`,
+		"policy": `Usage: git-user policy <init|show>
+
+Manage the repository-level .git-user-policy file (see 'git-user hook --help'
+for the keys it supports and how the pre-commit/pre-push hooks enforce it).
+
+Commands:
+  policy init [--domains a.com,b.com]   Create or overwrite .git-user-policy
+                                        (interactive; --domains skips that
+                                        prompt for scripted use)
+  policy show                          Print the current .git-user-policy,
+                                        if any`,
 		"config": `Usage: git-user config <list|set|unset>
 
 Manage custom git configuration for an identity.
