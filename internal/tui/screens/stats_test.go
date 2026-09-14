@@ -18,11 +18,17 @@ func TestStatsScreenToggle(t *testing.T) {
 		t.Fatalf("expected initial sortMode to be SortByCommits, got %v", sc.sortMode)
 	}
 
-	// Press Right Arrow -> switch to SortByLines
+	// Press Right Arrow -> switch to SortByLines. This kicks off an async
+	// reload, so simulate it completing before toggling again.
 	updated, _ := sc.Update(tea.KeyMsg{Type: tea.KeyRight})
 	newSc := updated.(*StatsScreen)
 	if newSc.sortMode != stats.SortByLines {
 		t.Fatalf("expected sortMode after KeyRight to be SortByLines, got %v", newSc.sortMode)
+	}
+	loaded, _ := newSc.Update(statsLoadedMsg{})
+	newSc = loaded.(*StatsScreen)
+	if newSc.loading {
+		t.Fatalf("expected loading to be false after statsLoadedMsg")
 	}
 
 	// Press Left Arrow -> switch back to SortByCommits

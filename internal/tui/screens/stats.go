@@ -7,9 +7,17 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/stats"
+	"github.com/divyo-argha/git-user/internal/tui/components"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 )
+
+// statsLoadedMsg carries the result of an async commit identity audit,
+// which can take a while to compute on repositories with a large history.
+type statsLoadedMsg struct {
+	items []stats.AuthorStat
+	err   error
+}
 
 // StatsScreen displays commit identity stats with interactive pointer selection
 // and detailed breakdown cards for the focused author.
@@ -22,6 +30,8 @@ type StatsScreen struct {
 	maxLines      int
 	theme         theme.Theme
 	err           error
+	loading       bool
+	spinner       components.Spinner
 }
 
 func NewStatsScreen(store *config.Store, th theme.Theme) *StatsScreen {
@@ -29,29 +39,28 @@ func NewStatsScreen(store *config.Store, th theme.Theme) *StatsScreen {
 		store:    store,
 		sortMode: stats.SortByCommits,
 		theme:    th,
+		spinner:  components.NewSpinner(th),
 	}
-	s.reload()
 	return s
 }
 
-func (s *StatsScreen) reload() {
-	authorStats, err := stats.AuditRepositoryMode(s.store, "", s.sortMode)
-	if err != nil {
-		s.err = err
-		s.items = nil
-		return
-	}
-	s.err = nil
-	s.items = authorStats
-	if s.selectedIndex >= len(s.items) {
-		s.selectedIndex = len(s.items) - 1
-	}
-	if s.selectedIndex < 0 && len(s.items) > 0 {
-		s.selectedIndex = 0
+// loadCmd audits the repository in the background so the UI stays
+// responsive; the resulting statsLoadedMsg is delivered to Update.
+func (s *StatsScreen) loadCmd() tea.Cmd {
+	store := s.store
+	sortMode := s.sortMode
+	return func() tea.Msg {
+		authorStats, err := stats.AuditRepositoryMode(store, "", sortMode)
+		return statsLoadedMsg{items: authorStats, err: err}
 	}
 }
 
-func (s *StatsScreen) Init() tea.Cmd { return nil }
+func (s *StatsScreen) startLoad() tea.Cmd {
+	s.loading = true
+	return tea.Batch(s.spinner.Init(), s.loadCmd())
+}
+
+func (s *StatsScreen) Init() tea.Cmd { return s.startLoad() }
 
 func (s *StatsScreen) Title() string { return "Commit Identity Audit" }
 
@@ -73,7 +82,35 @@ func (s *StatsScreen) maxScrollOffset() int {
 
 func (s *StatsScreen) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
+	case statsLoadedMsg:
+		s.loading = false
+		if msg.err != nil {
+			s.err = msg.err
+			s.items = nil
+			return s, nil
+		}
+		s.err = nil
+		s.items = msg.items
+		if s.selectedIndex >= len(s.items) {
+			s.selectedIndex = len(s.items) - 1
+		}
+		if s.selectedIndex < 0 && len(s.items) > 0 {
+			s.selectedIndex = 0
+		}
+		return s, nil
+
 	case tea.KeyMsg:
+		if s.loading {
+			// Ignore navigation while an audit is in flight; still allow
+			// quitting/backing out so the screen doesn't feel stuck.
+			if core.IsEscKey(msg) || msg.String() == "b" || msg.String() == "B" {
+				return s, func() tea.Msg { return core.ScreenPopMsg{} }
+			}
+			if msg.String() == core.KeyCtrlC {
+				return s, tea.Quit
+			}
+			return s, nil
+		}
 		if core.IsEscKey(msg) || msg.String() == "b" || msg.String() == "B" {
 			return s, func() tea.Msg { return core.ScreenPopMsg{} }
 		}
@@ -89,7 +126,7 @@ func (s *StatsScreen) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			} else {
 				s.sortMode = stats.SortByCommits
 			}
-			s.reload()
+			return s, s.startLoad()
 
 		case core.KeyUp, core.KeyK:
 			if s.selectedIndex > 0 {
@@ -136,6 +173,13 @@ func (s *StatsScreen) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 				s.offset = s.selectedIndex
 			}
 		}
+
+	default:
+		if s.loading {
+			var cmd tea.Cmd
+			s.spinner, cmd = s.spinner.Update(msg)
+			return s, cmd
+		}
 	}
 	return s, nil
 }
@@ -163,7 +207,9 @@ func (s *StatsScreen) View(width, height int) string {
 	sb.WriteString(s.theme.SeparatorLine(width - 6))
 	sb.WriteString("\n\n")
 
-	if s.err != nil {
+	if s.loading {
+		sb.WriteString("  " + s.spinner.View() + " " + s.theme.Dim().Render("Auditing commit history — this can take a while on large repositories...") + "\n")
+	} else if s.err != nil {
 		sb.WriteString("  " + s.theme.ErrorStyle().Render("Error: "+s.err.Error()) + "\n")
 	} else if len(s.items) == 0 {
 		sb.WriteString("  " + s.theme.Dim().Render("No commits found in this repository.") + "\n")
