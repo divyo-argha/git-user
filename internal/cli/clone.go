@@ -184,6 +184,10 @@ func configureRepoLocal(repoPath string, u *config.User) error {
 		commands = append(commands, []string{"config", "--local", "commit.gpgsign", "true"})
 	}
 
+	if _, err := os.Stat(filepath.Join(repoPath, config.AllowedSignersFileName)); err == nil {
+		commands = append(commands, []string{"config", "--local", "gpg.ssh.allowedSignersFile", config.AllowedSignersFileName})
+	}
+
 	for _, c := range commands {
 		cmd := exec.Command("git", c...)
 		cmd.Dir = repoPath

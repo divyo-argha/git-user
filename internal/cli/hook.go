@@ -111,6 +111,12 @@ func installHook() error {
 		ui.Info("To remove: git-user hook uninstall")
 	}
 
+	if repoRoot, err := git.RepoRoot(); err == nil {
+		if _, statErr := os.Stat(filepath.Join(repoRoot, config.AllowedSignersFileName)); statErr == nil {
+			suggestAllowedSignersConfig(repoRoot)
+		}
+	}
+
 	return nil
 }
 

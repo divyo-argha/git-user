@@ -310,17 +310,31 @@ Flags:
 Examples:
   git-user verify
   git-user verify --range origin/main..HEAD`,
-		"policy": `Usage: git-user policy <init|show>
+		"policy": `Usage: git-user policy <init|show|signers>
 
-Manage the repository-level .git-user-policy file (see 'git-user hook --help'
-for the keys it supports and how the pre-commit/pre-push hooks enforce it).
+Manage repository-level policy: the .git-user-policy file (see 'git-user
+hook --help' for the keys it supports and how the pre-commit/pre-push hooks
+enforce it) and the committed .allowed-signers file for decentralized commit
+signature verification, independent of GitHub's key store.
 
 Commands:
   policy init [--domains a.com,b.com]   Create or overwrite .git-user-policy
                                         (interactive; --domains skips that
                                         prompt for scripted use)
   policy show                          Print the current .git-user-policy,
-                                        if any`,
+                                        if any
+  policy signers add [identity]        Add an identity's (default: active)
+                                        email/aliases + SSH public key to
+                                        .allowed-signers. Use --email <e>
+                                        --pubkey-file <path> for a
+                                        contributor who isn't a local
+                                        git-user identity.
+  policy signers list                  Print .allowed-signers entries
+  policy signers remove <principal>    Remove an entry by email/alias
+
+'git-user hook install' and 'git-user clone' automatically point the local
+git config at .allowed-signers when it exists, so 'git log --show-signature'
+and git-user's own stats/verify commands work without manual setup.`,
 		"config": `Usage: git-user config <list|set|unset>
 
 Manage custom git configuration for an identity.

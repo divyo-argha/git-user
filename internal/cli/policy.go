@@ -14,7 +14,7 @@ import (
 
 func runPolicy(args []string) error {
 	if len(args) < 1 {
-		ui.Error("usage: git-user policy <init|show>")
+		ui.Error("usage: git-user policy <init|show|signers>")
 		return fmt.Errorf("missing subcommand")
 	}
 
@@ -23,6 +23,8 @@ func runPolicy(args []string) error {
 		return runPolicyInit(args[1:])
 	case "show":
 		return runPolicyShow()
+	case "signers":
+		return runSigners(args[1:])
 	default:
 		ui.Errorf("unknown policy subcommand: %s", args[0])
 		return fmt.Errorf("unknown subcommand")

@@ -119,6 +119,14 @@ func prepareAllowedSignersFile(store *config.Store) (path string, cleanup func()
 		}
 	}
 
+	if repoRoot, rootErr := git.RepoRoot(); rootErr == nil {
+		if entries, loadErr := config.LoadAllowedSigners(repoRoot); loadErr == nil {
+			for _, e := range entries {
+				fmt.Fprintf(f, "%s %s\n", strings.Join(e.Principals, ","), e.KeyBlob)
+			}
+		}
+	}
+
 	if closeErr := f.Close(); closeErr != nil {
 		cleanup()
 		return "", func() {}, closeErr

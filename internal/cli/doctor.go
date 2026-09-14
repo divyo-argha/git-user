@@ -483,6 +483,22 @@ func runDoctor(args []string) error {
 				}
 			}
 		}
+
+		ui.Info("Checking committed allowed-signers file...")
+		if repoRoot, rootErr := git.RepoRoot(); rootErr == nil {
+			if _, statErr := os.Stat(filepath.Join(repoRoot, config.AllowedSignersFileName)); statErr == nil {
+				scoreTotal++
+				out, _ := exec.Command("git", "config", "--local", "gpg.ssh.allowedSignersFile").Output()
+				if strings.TrimSpace(string(out)) == config.AllowedSignersFileName {
+					ui.Success(fmt.Sprintf("%s is committed and wired into local git config", config.AllowedSignersFileName))
+					scorePassed++
+				} else {
+					record(fmt.Sprintf("%s exists but local git config isn't using it for signature verification", config.AllowedSignersFileName))
+					ui.Info("  Fix: Run 'git-user hook install' to re-wire it")
+					issues++
+				}
+			}
+		}
 	}
 
 	os.Stdout = realStdout

@@ -61,6 +61,8 @@ func runStats(args []string) error {
 
 	hasUnsignedCommits := false
 	hasUnregisteredAuthors := false
+	unregisteredCommits := 0
+	unregisteredAuthors := 0
 
 	for _, s := range authorStats {
 		sigStr, notSigned := formatSignatureStatus(s)
@@ -73,6 +75,8 @@ func runStats(args []string) error {
 			identityStr = fmt.Sprintf("\033[1;32mRegistered (%s)\033[0m", s.VerifiedUser.Name)
 		} else {
 			hasUnregisteredAuthors = true
+			unregisteredCommits += s.Commits
+			unregisteredAuthors++
 		}
 
 		if sortMode == stats.SortByLines {
@@ -94,7 +98,7 @@ func runStats(args []string) error {
 	}
 
 	if hasUnregisteredAuthors {
-		ui.Warn("Some commit authors do not match any identity registered in git-user. This is independent of signing status.")
+		ui.Warn(fmt.Sprintf("%d commit(s) from %d unregistered author(s) do not match any identity registered in git-user. This is independent of signing status.", unregisteredCommits, unregisteredAuthors))
 	}
 
 	return nil
