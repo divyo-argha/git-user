@@ -52,7 +52,7 @@ func TestSystemActions(t *testing.T) {
 	th := theme.DefaultTheme()
 
 	// Without fix-remote
-	m := SystemActions(th, false)
+	m := SystemActions(th, false, false)
 
 	foundFixRemote := false
 	foundImportOriginal := false
@@ -72,7 +72,7 @@ func TestSystemActions(t *testing.T) {
 	}
 
 	// With fix-remote
-	m2 := SystemActions(th, true)
+	m2 := SystemActions(th, true, false)
 	foundFixRemote2 := false
 	for _, item := range m2.items {
 		if item.Key == "fix-remote" {
@@ -86,7 +86,7 @@ func TestSystemActions(t *testing.T) {
 
 func TestSystemActions_UpdateStatus(t *testing.T) {
 	th := theme.DefaultTheme()
-	m := SystemActions(th, false)
+	m := SystemActions(th, false, false)
 
 	// By default update item should be disabled and show "up to date"
 	var updateItem *ActionItem
@@ -121,7 +121,7 @@ func TestSystemActions_UpdateStatus(t *testing.T) {
 
 func TestActionMenu_ViewFitsHeight(t *testing.T) {
 	th := theme.DefaultTheme()
-	m := SystemActions(th, true)
+	m := SystemActions(th, true, false)
 
 	const height = 8
 	out := m.View(40, height, true)

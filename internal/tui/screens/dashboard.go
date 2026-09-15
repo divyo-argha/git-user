@@ -36,7 +36,7 @@ func NewDashboard(store *config.Store, th theme.Theme) *Dashboard {
 	return &Dashboard{
 		store:      store,
 		identities: components.NewIdentityList(store, th),
-		actions:    components.SystemActions(th, git.HasHTTPSRemotes()),
+		actions:    components.SystemActions(th, git.HasHTTPSRemotes(), git.IsInRepo()),
 		activePane: PaneIdentities,
 		theme:      th,
 	}

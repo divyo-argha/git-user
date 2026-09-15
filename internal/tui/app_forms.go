@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
@@ -367,6 +368,45 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 		}
 		return a, a.runTaskCmd("config", rest, func() (opResult, error) {
 			return opConfigUnset(a.store, rest, msg.Values[0])
+		})
+
+	case "verify-range":
+		if vs, ok := a.activeScreen().(*screens.VerifyScreen); ok {
+			return a, vs.SetRange(strings.TrimSpace(msg.Values[0]))
+		}
+		return a, nil
+
+	case "policy-domains":
+		requireSigning := rest == "true"
+		var domains []string
+		for _, d := range strings.Split(msg.Values[0], ",") {
+			d = strings.TrimSpace(strings.ToLower(d))
+			if d != "" {
+				domains = append(domains, d)
+			}
+		}
+		return a, a.runTaskCmd("policy-write", "", func() (opResult, error) {
+			repoRoot, err := git.RepoRoot()
+			if err != nil {
+				return opResult{}, err
+			}
+			return opPolicyWrite(repoRoot, requireSigning, domains)
+		})
+
+	case "policy-signer-email":
+		email, pubkeyFile := msg.Values[0], msg.Values[1]
+		if err := validate.Email(email); err != nil {
+			return a, tea.Batch(core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second), pushCmd(screens.NewForm("Add Signer", "Add a contributor who isn't a local git-user identity", "policy-signer-email", []screens.FormInput{
+				{Label: "Email:", Value: email},
+				{Label: "Public key file path:", Placeholder: "e.g. ~/.ssh/id_ed25519.pub", Value: pubkeyFile},
+			}, a.theme)))
+		}
+		return a, a.runTaskCmd("policy-signer-add", "", func() (opResult, error) {
+			repoRoot, err := git.RepoRoot()
+			if err != nil {
+				return opResult{}, err
+			}
+			return opSignerAddEmail(repoRoot, email, expandPath(pubkeyFile))
 		})
 	}
 

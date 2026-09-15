@@ -3,9 +3,13 @@ package components
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/diagnostics"
+	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
+	"github.com/divyo-argha/git-user/internal/validate"
 )
 
 // IdentityItem represents a single item in the identity list.
@@ -19,6 +23,20 @@ type IdentityItem struct {
 	BindCount   int
 	IsAction    bool
 	ActionKey   string
+
+	// HasToken/TokenExpiring/TokenExpired are derived from HTTPSTokenExpiresAt
+	// metadata alone (same as doctor's per-profile check) — not a real
+	// keyring lookup, since checking every row's OS keychain entry on every
+	// refresh tick would be needless I/O for a purely cosmetic badge.
+	HasToken      bool
+	TokenExpiring bool
+	TokenExpired  bool
+
+	// PolicyChecked/PolicyOK are only ever set on the active identity's item,
+	// and only when the current repo has a .git-user-policy with a
+	// requirement — see computeActivePolicyStatus.
+	PolicyChecked bool
+	PolicyOK      bool
 }
 
 // IdentityList is a scrollable list of identities.
@@ -45,18 +63,87 @@ func NewIdentityList(store *config.Store, th theme.Theme) IdentityList {
 func buildIdentityItems(store *config.Store) []IdentityItem {
 	var items []IdentityItem
 	for _, u := range store.Users {
+		hasToken, expiring, expired := TokenBadgeState(u.HTTPSTokenExpiresAt)
 		items = append(items, IdentityItem{
-			Name:        u.Name,
-			Email:       u.Email,
-			IsActive:    u.Name == store.Current,
-			IsTemporary: u.IsTemporary,
-			HasSSHKey:   u.SSHKey != "",
-			HasSigning:  !u.SignDisabled && u.SignKey != "",
-			BindCount:   len(u.BindPaths),
+			Name:          u.Name,
+			Email:         u.Email,
+			IsActive:      u.Name == store.Current,
+			IsTemporary:   u.IsTemporary,
+			HasSSHKey:     u.SSHKey != "",
+			HasSigning:    !u.SignDisabled && u.SignKey != "",
+			BindCount:     len(u.BindPaths),
+			HasToken:      hasToken,
+			TokenExpiring: expiring,
+			TokenExpired:  expired,
 		})
 	}
 	items = append(items, IdentityItem{IsAction: true, ActionKey: "register"})
+	computeActivePolicyStatus(items, store)
 	return items
+}
+
+// TokenBadgeState derives a token status badge purely from the
+// HTTPSTokenExpiresAt metadata already in config — the same proxy doctor's
+// per-profile audit uses, not a real keyring lookup.
+func TokenBadgeState(expiresAt string) (hasToken, expiring, expired bool) {
+	if expiresAt == "" {
+		return false, false, false
+	}
+	hasToken = true
+	t, err := time.Parse(validate.DateLayout, expiresAt)
+	if err != nil {
+		return true, false, false
+	}
+	days := int(time.Until(t).Hours() / 24)
+	if days < 0 {
+		expired = true
+	} else if days <= diagnostics.TokenExpiryWarnDays {
+		expiring = true
+	}
+	return
+}
+
+// computeActivePolicyStatus checks the active identity against the current
+// repo's .git-user-policy (if any) exactly once per rebuild — not per row —
+// since it needs a repo-root lookup and a file read, unlike the free
+// metadata-only checks above.
+func computeActivePolicyStatus(items []IdentityItem, store *config.Store) {
+	repoRoot, err := git.RepoRoot()
+	if err != nil {
+		return
+	}
+	policy, err := config.LoadRepoPolicy(repoRoot)
+	if err != nil || (!policy.RequireSigning && len(policy.AllowedEmailDomains) == 0) {
+		return
+	}
+	for i := range items {
+		if !items[i].IsActive {
+			continue
+		}
+		user := store.FindUser(items[i].Name)
+		if user == nil {
+			continue
+		}
+		ok := true
+		if policy.RequireSigning && (user.SignDisabled || user.SignKey == "") {
+			ok = false
+		}
+		if len(policy.AllowedEmailDomains) > 0 {
+			_, domain, _ := strings.Cut(strings.ToLower(user.Email), "@")
+			allowed := false
+			for _, d := range policy.AllowedEmailDomains {
+				if domain == d {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				ok = false
+			}
+		}
+		items[i].PolicyChecked = true
+		items[i].PolicyOK = ok
+	}
 }
 
 // Refresh rebuilds the list from a new store, preserving any active filter.
@@ -296,6 +383,23 @@ func (l IdentityList) renderIdentityLine(item IdentityItem, isCursor, isActive b
 	}
 	if item.HasSigning {
 		badges = append(badges, l.theme.PillBadge().Render("SIGN"))
+	}
+	if item.HasToken {
+		switch {
+		case item.TokenExpired:
+			badges = append(badges, l.theme.PillDanger().Render("TOKEN"))
+		case item.TokenExpiring:
+			badges = append(badges, l.theme.PillWarning().Render("TOKEN"))
+		default:
+			badges = append(badges, l.theme.PillBadge().Render("TOKEN"))
+		}
+	}
+	if item.IsActive && item.PolicyChecked {
+		if item.PolicyOK {
+			badges = append(badges, l.theme.PillBadge().Render("POLICY"))
+		} else {
+			badges = append(badges, l.theme.PillDanger().Render("POLICY"))
+		}
 	}
 	if item.BindCount > 0 {
 		badges = append(badges, l.theme.Dim().Render(fmt.Sprintf("• %d paths", item.BindCount)))

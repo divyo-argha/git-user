@@ -36,7 +36,7 @@ func NewActionMenu(title string, items []ActionItem, th theme.Theme) ActionMenu 
 // showFixRemote controls whether the "Fix remotes (HTTPS → SSH)" entry is
 // included; pass true only when the current repo has HTTPS remotes that need
 // converting.
-func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
+func SystemActions(th theme.Theme, showFixRemote, inRepo bool) ActionMenu {
 	items := []ActionItem{
 		{IsSection: true, Label: "Quick Actions"},
 		{Label: "→ Sign out", Key: "logout"},
@@ -49,6 +49,14 @@ func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 	items = append(items,
 		ActionItem{IsSection: true, Label: "Health & Security"},
 		ActionItem{Label: "✦ Doctor", Key: "doctor"},
+	)
+	if inRepo {
+		items = append(items,
+			ActionItem{Label: "▤ Repository policy", Key: "policy"},
+			ActionItem{Label: "✓ Verify commit signatures", Key: "verify"},
+		)
+	}
+	items = append(items,
 		ActionItem{Label: "⟳ Refresh", Key: "refresh"},
 		ActionItem{Label: "≡ Identity switch log", Key: "log"},
 		ActionItem{Label: "↓ Import existing git identity", Key: "import-original"},

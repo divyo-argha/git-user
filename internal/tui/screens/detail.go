@@ -8,6 +8,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/keyring"
+	"github.com/divyo-argha/git-user/internal/signing"
 	"github.com/divyo-argha/git-user/internal/tui/components"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
@@ -27,6 +30,7 @@ type Detail struct {
 	platformUsernames     map[string]string
 	spin                  components.Spinner
 	platformChecksStarted bool
+	hasToken              bool
 }
 
 func NewDetail(store *config.Store, name string, th theme.Theme) *Detail {
@@ -60,6 +64,7 @@ func (d *Detail) refreshActions() {
 		return
 	}
 	isActive := user.Name == d.store.Current
+	d.hasToken = keyring.HasHTTPSToken(user.Name)
 
 	var prevKey string
 	if selected := d.actions.Selected(); selected != nil {
@@ -80,7 +85,7 @@ func (d *Detail) refreshActions() {
 	// at once — e.g. this one and the globally-active one — in separate
 	// terminals simultaneously.
 	items = append(items, components.ActionItem{Label: "Work Side-by-Side (2+ accounts at once)", IsSection: true})
-	items = append(items, components.ActionItem{Label: "🪟 Open in a new terminal window as this identity", Key: "shell-window"})
+	items = append(items, components.ActionItem{Label: theme.IconWindow + " Open in a new terminal window as this identity", Key: "shell-window"})
 	items = append(items, components.ActionItem{Label: "▶ Open isolated shell here (takes over this window)", Key: "shell-session"})
 
 	items = append(items, components.ActionItem{Label: "Profile & Git Config", IsSection: true})
@@ -91,22 +96,22 @@ func (d *Detail) refreshActions() {
 
 	items = append(items, components.ActionItem{Label: "SSH & Security", IsSection: true})
 	if user.SSHKey == "" {
-		items = append(items, components.ActionItem{Label: "🔑 Bind SSH key file", Key: "bind"})
+		items = append(items, components.ActionItem{Label: theme.IconKey + " Bind SSH key file", Key: "bind"})
 	} else {
-		items = append(items, components.ActionItem{Label: "🔑 Change SSH key file", Key: "bind"})
+		items = append(items, components.ActionItem{Label: theme.IconKey + " Change SSH key file", Key: "bind"})
 		items = append(items, components.ActionItem{Label: "⚡ Test SSH connection", Key: "check-ssh"})
-		items = append(items, components.ActionItem{Label: "🔒 Manage passphrase", Key: "passphrase"})
+		items = append(items, components.ActionItem{Label: "Manage passphrase", Key: "passphrase"})
 		if isActive {
-			items = append(items, components.ActionItem{Label: "📋 Show public key", Key: "pubkey"})
-			items = append(items, components.ActionItem{Label: "🚀 Publish SSH key to platform", Key: "pubkey-push"})
+			items = append(items, components.ActionItem{Label: theme.IconClipboard + " Show public key", Key: "pubkey"})
+			items = append(items, components.ActionItem{Label: theme.IconPublish + " Publish SSH key to platform", Key: "pubkey-push"})
 		} else {
 			items = append(items, components.ActionItem{
-				Label:    d.theme.Dim().Render("📋 Show public key (switch first)"),
+				Label:    d.theme.Dim().Render(theme.IconClipboard + " Show public key (switch first)"),
 				Key:      "pubkey-locked",
 				Disabled: true,
 			})
 			items = append(items, components.ActionItem{
-				Label:    d.theme.Dim().Render("🚀 Publish SSH key (switch first)"),
+				Label:    d.theme.Dim().Render(theme.IconPublish + " Publish SSH key (switch first)"),
 				Key:      "pubkey-push-locked",
 				Disabled: true,
 			})
@@ -117,7 +122,7 @@ func (d *Detail) refreshActions() {
 	// HTTPS token is an SSH-independent credential path (for networks/CI
 	// where SSH isn't available), so it's offered regardless of whether an
 	// SSH key is bound.
-	items = append(items, components.ActionItem{Label: "🔗 Manage HTTPS token", Key: "token"})
+	items = append(items, components.ActionItem{Label: "Manage HTTPS token", Key: "token"})
 
 	items = append(items, components.ActionItem{Label: "Directory Bindings", IsSection: true})
 	items = append(items, components.ActionItem{Label: "+ Bind a directory", Key: "bind-path"})
@@ -204,13 +209,78 @@ func (d *Detail) renderOverview(width, height int, user *config.User) string {
 		}
 	}
 	lines = append(lines, "  "+d.theme.Dim().Render("• ")+d.theme.Bold().Render("SSH Agent  : ")+sessionStr)
-
-	signingLabel := d.theme.Dim().Render("Disabled")
-	if !user.SignDisabled && user.SignKey != "" {
-		signingLabel = d.theme.SuccessStyle().Render(fmt.Sprintf("Enabled (%s)", user.SignFormat))
-	}
-	lines = append(lines, "  "+d.theme.Dim().Render("• ")+d.theme.Bold().Render("Signing    : ")+signingLabel)
 	lines = append(lines, "")
+
+	// Signing — its own section (not just an SSH & Security bullet) so it
+	// reads consistently with internal/signing.CurrentStatus, the same
+	// function the `sign` command and the Health screen use, and so the key
+	// used for signing (which can differ from the general SSH auth key) is
+	// visible without a separate screen.
+	lines = append(lines, d.theme.SectionHeader().Render("SIGNING"))
+	sigStatus := signing.CurrentStatus(user)
+	if sigStatus.Enabled {
+		keyStr := filepath.Base(sigStatus.Key)
+		lines = append(lines, "  "+d.theme.Dim().Render("• ")+d.theme.Bold().Render("Status : ")+d.theme.SuccessStyle().Render(fmt.Sprintf("Enabled (%s)", sigStatus.Format)))
+		lines = append(lines, "  "+d.theme.Dim().Render("• ")+d.theme.Bold().Render("Key    : ")+keyStr)
+	} else {
+		lines = append(lines, "  "+d.theme.Dim().Render("• ")+d.theme.Bold().Render("Status : ")+d.theme.Dim().Render("Disabled"))
+	}
+	lines = append(lines, "")
+
+	// HTTPS & Token — an SSH-independent credential path, shown here so its
+	// presence/expiry is visible without opening the token action.
+	lines = append(lines, d.theme.SectionHeader().Render("HTTPS & TOKEN"))
+	if d.hasToken {
+		tokenStr := d.theme.SuccessStyle().Render("Stored")
+		lines = append(lines, "  "+d.theme.Dim().Render("• ")+d.theme.Bold().Render("Token   : ")+tokenStr)
+		if user.HTTPSTokenExpiresAt != "" {
+			expiryStr := user.HTTPSTokenExpiresAt
+			if _, expiring, expired := components.TokenBadgeState(user.HTTPSTokenExpiresAt); expired {
+				expiryStr = d.theme.ErrorStyle().Render(expiryStr + " (expired)")
+			} else if expiring {
+				expiryStr = d.theme.WarningStyle().Render(expiryStr + " (expiring soon)")
+			}
+			lines = append(lines, "  "+d.theme.Dim().Render("• ")+d.theme.Bold().Render("Expires : ")+expiryStr)
+		}
+	} else {
+		lines = append(lines, "  "+d.theme.Dim().Render("• ")+d.theme.Bold().Render("Token   : ")+d.theme.Dim().Render("Not stored"))
+	}
+	lines = append(lines, "")
+
+	// Repository Policy — only when there's something to say: in a repo,
+	// with a policy file, and only for the active identity (an inactive
+	// identity's compliance isn't actionable from here, so it's omitted
+	// rather than shown as N/A, to avoid cluttering every profile's page).
+	if isActive {
+		if repoRoot, err := git.RepoRoot(); err == nil {
+			if policy, err := config.LoadRepoPolicy(repoRoot); err == nil && (policy.RequireSigning || len(policy.AllowedEmailDomains) > 0) {
+				lines = append(lines, d.theme.SectionHeader().Render("REPOSITORY POLICY"))
+				compliant := true
+				if policy.RequireSigning && (user.SignDisabled || user.SignKey == "") {
+					lines = append(lines, "  "+d.theme.Dim().Render("• ")+d.theme.ErrorStyle().Render("Signing required by this repo, but disabled for this identity"))
+					compliant = false
+				}
+				if len(policy.AllowedEmailDomains) > 0 {
+					_, domain, _ := strings.Cut(strings.ToLower(user.Email), "@")
+					allowed := false
+					for _, dm := range policy.AllowedEmailDomains {
+						if domain == dm {
+							allowed = true
+							break
+						}
+					}
+					if !allowed {
+						lines = append(lines, "  "+d.theme.Dim().Render("• ")+d.theme.ErrorStyle().Render(fmt.Sprintf("Email domain not in this repo's allowed list: %s", strings.Join(policy.AllowedEmailDomains, ", "))))
+						compliant = false
+					}
+				}
+				if compliant {
+					lines = append(lines, "  "+d.theme.Dim().Render("• ")+d.theme.SuccessStyle().Render("Compliant with this repository's policy"))
+				}
+				lines = append(lines, "")
+			}
+		}
+	}
 
 	// Platform Reachability
 	lines = append(lines, d.theme.SectionHeader().Render("VERIFIED PLATFORMS"))

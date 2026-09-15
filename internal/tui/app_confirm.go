@@ -3,8 +3,10 @@ package tui
 import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/shellinit"
 	"github.com/divyo-argha/git-user/internal/tui/core"
+	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 	"strings"
 	"time"
@@ -18,6 +20,16 @@ func (a *App) handleConfirmResult(msg core.ConfirmResultMsg) (tea.Model, tea.Cmd
 	rest := ""
 	if len(parts) > 1 {
 		rest = parts[1]
+	}
+
+	// policy-require-signing is an in-flow yes/no choice, not a cancel gate —
+	// declining "require signing" must still continue into the domains
+	// prompt, matching cli/policy.go's runPolicyInit (require-signing "no"
+	// still asks about allowed domains).
+	if action == "policy-require-signing" {
+		return a, pushCmd(screens.NewForm("Repository Policy", "Allowed email domains (comma-separated, blank to skip):", fmt.Sprintf("policy-domains:%t", msg.Confirmed), []screens.FormInput{
+			{Label: "Domains:"},
+		}, a.theme).Skippable())
 	}
 
 	// ssh-sign is an in-flow yes/no choice ("enable commit signing?"), not a
@@ -104,6 +116,16 @@ func (a *App) handleConfirmResult(msg core.ConfirmResultMsg) (tea.Model, tea.Cmd
 		sh := shellinit.Shell(rest)
 		return a, a.runTaskCmd("install-shell", "", func() (opResult, error) {
 			return opInstallShellIntegration(sh, "")
+		})
+
+	case "policy-signer-remove":
+		principal := rest
+		return a, a.runTaskCmd("policy-signer-remove", principal, func() (opResult, error) {
+			repoRoot, err := git.RepoRoot()
+			if err != nil {
+				return opResult{}, err
+			}
+			return opSignerRemove(repoRoot, principal)
 		})
 	}
 

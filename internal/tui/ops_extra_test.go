@@ -75,18 +75,37 @@ func TestOpConfigListSetUnset(t *testing.T) {
 	}
 }
 
-func TestHookHelpers(t *testing.T) {
-	if isGitUserHook([]byte("#!/bin/sh\n# git-user identity verification hook")) != true {
-		t.Error("expected git-user hook content to be recognized")
+func TestOpHookInstallUninstall(t *testing.T) {
+	withTempRepo(t)
+
+	res, err := opHook("install")
+	if err != nil {
+		t.Fatalf("opHook(install) failed: %v", err)
 	}
-	if isGitUserHook([]byte("#!/bin/sh\n# some other hook")) {
-		t.Error("expected non git-user hook to be rejected")
+	for _, hook := range []string{"pre-commit", "pre-push", "post-merge"} {
+		if !strings.Contains(res.detail, hook) {
+			t.Errorf("expected install report to mention %q, got: %s", hook, res.detail)
+		}
 	}
-	if got := stringsTrimNewline("abc\n"); got != "abc" {
-		t.Errorf("stringsTrimNewline = %q", got)
+
+	// Installing again should recognize the existing git-user hooks rather
+	// than erroring or duplicating them.
+	res, err = opHook("install")
+	if err != nil {
+		t.Fatalf("second opHook(install) failed: %v", err)
 	}
-	if got := stringsTrimNewline("abc"); got != "abc" {
-		t.Errorf("stringsTrimNewline without newline = %q", got)
+	if !strings.Contains(res.detail, "already installed") {
+		t.Errorf("expected second install to report already-installed hooks, got: %s", res.detail)
+	}
+
+	res, err = opHook("uninstall")
+	if err != nil {
+		t.Fatalf("opHook(uninstall) failed: %v", err)
+	}
+	for _, hook := range []string{"pre-commit", "pre-push", "post-merge"} {
+		if !strings.Contains(res.detail, hook+" hook removed") {
+			t.Errorf("expected uninstall report to mention removing %q, got: %s", hook, res.detail)
+		}
 	}
 }
 

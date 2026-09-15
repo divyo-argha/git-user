@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/shellinit"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/screens"
@@ -217,6 +218,19 @@ func (a *App) handleOptionResult(msg core.OptionResultMsg) (tea.Model, tea.Cmd) 
 				{Label: "Key:", Placeholder: "e.g. init.defaultBranch", Validate: validate.GitConfigKey},
 			}, a.theme))
 		}
+
+	case "policy-signer-identity":
+		name := msg.Choice
+		if name == "__active__" {
+			name = ""
+		}
+		return a, a.runTaskCmd("policy-signer-add", name, func() (opResult, error) {
+			repoRoot, err := git.RepoRoot()
+			if err != nil {
+				return opResult{}, err
+			}
+			return opSignerAddIdentity(a.store, repoRoot, name)
+		})
 	}
 
 	return a, nil
