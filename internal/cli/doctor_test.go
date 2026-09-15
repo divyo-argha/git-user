@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/diagnostics"
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/validate"
@@ -215,21 +216,21 @@ func TestRunDoctor_FixCorrectsInsecurePermissions(t *testing.T) {
 // fix for a corrupted date, so it must stay silent rather than error out).
 func TestTokenExpiryWarning(t *testing.T) {
 	past := time.Now().AddDate(0, 0, -5).Format(validate.DateLayout)
-	if w := tokenExpiryWarning(past); w == "" || !strings.Contains(w, "expired") {
+	if w := diagnostics.TokenExpiryMessage(past); w == "" || !strings.Contains(w, "expired") {
 		t.Errorf("expected an 'expired' warning for a past date, got %q", w)
 	}
 
-	soon := time.Now().AddDate(0, 0, tokenExpiryWarnDays-1).Format(validate.DateLayout)
-	if w := tokenExpiryWarning(soon); w == "" {
+	soon := time.Now().AddDate(0, 0, diagnostics.TokenExpiryWarnDays-1).Format(validate.DateLayout)
+	if w := diagnostics.TokenExpiryMessage(soon); w == "" {
 		t.Error("expected a warning for a date inside the warning window")
 	}
 
-	farOut := time.Now().AddDate(0, 0, tokenExpiryWarnDays+30).Format(validate.DateLayout)
-	if w := tokenExpiryWarning(farOut); w != "" {
+	farOut := time.Now().AddDate(0, 0, diagnostics.TokenExpiryWarnDays+30).Format(validate.DateLayout)
+	if w := diagnostics.TokenExpiryMessage(farOut); w != "" {
 		t.Errorf("expected no warning for a date well outside the window, got %q", w)
 	}
 
-	if w := tokenExpiryWarning("not-a-date"); w != "" {
+	if w := diagnostics.TokenExpiryMessage("not-a-date"); w != "" {
 		t.Errorf("expected no warning (and no crash) for an unparseable date, got %q", w)
 	}
 }

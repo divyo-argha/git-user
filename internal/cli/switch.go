@@ -666,13 +666,7 @@ func findOriginalIdentity(store *config.Store) string {
 // setup is lost. Otherwise the bound SSH key is used, or the command is removed
 // when the identity has no key at all.
 func applyUserSSHConfig(user *config.User, local bool) error {
-	if user.SSHCommand != "" {
-		return git.SetSSHCommandScope(user.SSHCommand, local)
-	}
-	if user.SSHKey != "" {
-		return git.ConfigureSSHScope(user.SSHKey, local)
-	}
-	return git.RemoveSSHConfigScope(local)
+	return git.ApplyIdentitySSHConfig(user.SSHCommand, user.SSHKey, local)
 }
 
 // currentDir returns the working directory for the switch-log entry, or ""

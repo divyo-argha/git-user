@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
-	"github.com/divyo-argha/git-user/internal/ssh"
+	"github.com/divyo-argha/git-user/internal/rekeyops"
 	"github.com/divyo-argha/git-user/internal/ui"
 	"github.com/divyo-argha/git-user/internal/validate"
 )
@@ -58,16 +58,11 @@ func runRekey(args []string) error {
 	// unconditionally git_<name> — an identity bound to a custom-named key
 	// (via "use existing key") used to have rekey silently regenerate an
 	// unrelated git_<name> file instead of the key actually in use.
-	oldKeyPath := user.SSHKey
-	if oldKeyPath == "" {
-		var err error
-		oldKeyPath, err = config.DefaultSSHKeyPath(name)
-		if err != nil {
-			ui.Errorf("%v", err)
-			return err
-		}
+	oldKeyPath, err := rekeyops.ResolveOldKeyPath(store, name)
+	if err != nil {
+		ui.Errorf("%v", err)
+		return err
 	}
-	signKeyWasOldKey := user.SignFormat == "ssh" && user.SignKey == oldKeyPath
 
 	newKeyPath := oldKeyPath
 	suggestion := filepath.Base(oldKeyPath)
@@ -89,54 +84,25 @@ func runRekey(args []string) error {
 		return promptErr
 	}
 
-	sshDir := filepath.Dir(newKeyPath)
-	if err := os.MkdirAll(sshDir, 0700); err != nil {
-		ui.Errorf("creating .ssh directory: %v", err)
-		return err
-	}
-	if newKeyPath != oldKeyPath {
-		if _, err := os.Stat(newKeyPath); err == nil {
-			ui.Errorf("a key already exists at %s", newKeyPath)
-			return fmt.Errorf("key already exists")
-		}
+	generateKey := func(keyPath string) error {
+		ui.Info(fmt.Sprintf("Generating new SSH key at %s...", keyPath))
+		ui.Info("You will be prompted to set a passphrase for the key.")
+		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", user.Email, "-f", keyPath)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
 	}
 
-	backupPath := oldKeyPath + ".backup"
-	hasOldKey := false
-	if _, err := os.Stat(oldKeyPath); err == nil {
-		hasOldKey = true
-		// Unload the old key from the agent before it's rotated out from under
-		// it, so a stale/orphaned identity doesn't linger there indefinitely.
-		if ssh.IsSSHKeyLoaded(oldKeyPath) {
-			_ = ssh.RemoveSSHKey(oldKeyPath)
-		}
-		ui.Warn(fmt.Sprintf("Backing up existing key to %s", backupPath))
-		if err := os.Rename(oldKeyPath, backupPath); err != nil {
-			ui.Errorf("backing up key: %v", err)
-			return err
-		}
-		pubKeyPath := oldKeyPath + ".pub"
-		if _, err := os.Stat(pubKeyPath); err == nil {
-			os.Rename(pubKeyPath, backupPath+".pub")
-		}
-	}
-
-	ui.Info(fmt.Sprintf("Generating new SSH key at %s...", newKeyPath))
-	ui.Info("You will be prompted to set a passphrase for the key.")
-	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", user.Email, "-f", newKeyPath)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		if hasOldKey {
-			os.Rename(backupPath, oldKeyPath)
-			os.Rename(backupPath+".pub", oldKeyPath+".pub")
+	result, err := rekeyops.Rotate(store, name, newKeyPath, generateKey)
+	if err != nil {
+		if result.HadOldKey {
 			ui.Warn("Restored old key — nothing changed")
 		}
-		ui.Errorf("generating SSH key: %v", err)
+		ui.Errorf("%v", err)
 		return err
 	}
+	newKeyPath = result.NewKeyPath
 
 	ui.Success(fmt.Sprintf("New SSH key created at %s", newKeyPath))
 	checkAndPromptPassphrase(name, newKeyPath)
@@ -167,17 +133,8 @@ func runRekey(args []string) error {
 		ui.Success("SSH connection verified with new key!")
 	}
 
-	if err := store.BindSSHKey(name, newKeyPath); err != nil {
-		ui.Errorf("binding new SSH key: %v", err)
-		return err
-	}
-
-	if signKeyWasOldKey {
-		if err := store.SetSigningKey(name, newKeyPath, "ssh"); err != nil {
-			ui.Warn(fmt.Sprintf("Failed to update signing key after rotation: %v", err))
-		} else {
-			ui.Success("Commit signing key updated to the rotated key")
-		}
+	if result.SignKeyCarried {
+		ui.Success("Commit signing key updated to the rotated key")
 	}
 
 	if err := config.Save(store); err != nil {

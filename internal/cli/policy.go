@@ -9,6 +9,7 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/policyops"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -80,14 +81,7 @@ func runPolicyInit(args []string) error {
 		}
 	}
 
-	var b strings.Builder
-	fmt.Fprintf(&b, "# git-user repository policy\n# See: git-user hook --help\n\n")
-	fmt.Fprintf(&b, "require_signing=%t\n", requireSigning)
-	if len(domains) > 0 {
-		fmt.Fprintf(&b, "allowed_email_domains=%s\n", strings.Join(domains, ","))
-	}
-
-	if err := os.WriteFile(policyPath, []byte(b.String()), 0644); err != nil {
+	if err := policyops.WritePolicy(repoRoot, requireSigning, domains); err != nil {
 		ui.Errorf("writing %s: %v", config.RepoPolicyFileName, err)
 		return err
 	}

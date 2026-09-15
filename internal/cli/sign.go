@@ -6,6 +6,7 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/signing"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -54,7 +55,7 @@ func runSign(args []string) error {
 	}
 
 	if off {
-		store.ToggleSigning(name, true)
+		signing.Disable(store, name)
 		if err := config.Save(store); err != nil {
 			ui.Errorf("saving config: %v", err)
 			return err
@@ -68,43 +69,29 @@ func runSign(args []string) error {
 	}
 
 	if on || key != "" {
-		if key == "" {
-			// Try to auto-detect SSH key
-			if user.SSHKey != "" {
-				key = user.SSHKey
-				if format == "" {
-					format = "ssh"
-				}
-				ui.Info(fmt.Sprintf("Using bound SSH key for signing: %s", key))
-			} else {
+		resolvedKey, resolvedFormat, autoDetected, err := signing.Enable(store, name, key, format)
+		if err != nil {
+			if err == signing.ErrNoKeyBound {
 				ui.Error("No SSH key bound to this profile. Please provide a key using --key.")
-				return fmt.Errorf("no key provided")
-			}
-		}
-
-		if format == "" {
-			if strings.HasPrefix(key, "ssh-") || strings.Contains(key, "id_") || strings.HasSuffix(key, ".pub") {
-				format = "ssh"
 			} else {
-				format = "gpg"
+				ui.Errorf("%v", err)
 			}
+			return err
+		}
+		if autoDetected {
+			ui.Info(fmt.Sprintf("Using bound SSH key for signing: %s", resolvedKey))
 		}
 
-		if format == "ssh" {
-			key = expandPath(key)
-		}
-
-		store.SetSigningKey(name, key, format)
 		if err := config.Save(store); err != nil {
 			ui.Errorf("saving config: %v", err)
 			return err
 		}
 
 		ui.Success(fmt.Sprintf("Commit signing enabled for user %q", name))
-		ui.Success(fmt.Sprintf("Key: %s (%s)", key, format))
+		ui.Success(fmt.Sprintf("Key: %s (%s)", resolvedKey, resolvedFormat))
 
 		if store.Current == name {
-			if err := git.ConfigureSigning(key, format); err != nil {
+			if err := git.ConfigureSigning(resolvedKey, resolvedFormat); err != nil {
 				ui.Warn(fmt.Sprintf("Failed to update git signing config: %v", err))
 			} else {
 				ui.Success("Active git config updated with signing keys.")
@@ -113,13 +100,13 @@ func runSign(args []string) error {
 		return nil
 	}
 
-	// Just show status
-	if user.SignDisabled || user.SignKey == "" {
+	status := signing.CurrentStatus(user)
+	if !status.Enabled {
 		ui.Info(fmt.Sprintf("Commit signing for %q is currently DISABLED.", name))
 	} else {
 		ui.Success(fmt.Sprintf("Commit signing for %q is ENABLED.", name))
-		ui.Info(fmt.Sprintf("Key: %s", user.SignKey))
-		ui.Info(fmt.Sprintf("Format: %s", user.SignFormat))
+		ui.Info(fmt.Sprintf("Key: %s", status.Key))
+		ui.Info(fmt.Sprintf("Format: %s", status.Format))
 	}
 
 	return nil

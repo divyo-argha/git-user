@@ -163,6 +163,16 @@ func RemoveSSHConfigScope(local bool) error {
 	return nil
 }
 
+func ApplyIdentitySSHConfig(sshCommand, sshKey string, local bool) error {
+	if sshCommand != "" {
+		return SetSSHCommandScope(sshCommand, local)
+	}
+	if sshKey != "" {
+		return ConfigureSSHScope(sshKey, local)
+	}
+	return RemoveSSHConfigScope(local)
+}
+
 func ConfigureSigning(key, format string) error {
 	return ConfigureSigningScope(key, format, false)
 }
@@ -299,6 +309,53 @@ func GetRemoteURL(remote string) (string, error) {
 func SetRemoteURL(remote, url string) error {
 	cmd := exec.Command("git", "remote", "set-url", "--", remote, url)
 	return cmd.Run()
+}
+
+type RemoteConversionResult struct {
+	Remote        string
+	OldURL        string
+	NewURL        string
+	Converted     bool
+	ConvertFailed bool
+	UpdateFailed  bool
+}
+
+func ConvertRemotesToSSH() ([]RemoteConversionResult, error) {
+	if !IsInstalled() {
+		return nil, fmt.Errorf("git is not installed")
+	}
+	if !IsInRepo() {
+		return nil, fmt.Errorf("not in a git repository")
+	}
+	remotes, err := ListRemotes()
+	if err != nil || len(remotes) == 0 {
+		return nil, fmt.Errorf("no remotes found")
+	}
+
+	var results []RemoteConversionResult
+	for _, remote := range remotes {
+		url, err := GetRemoteURL(remote)
+		if err != nil {
+			continue
+		}
+		if !strings.HasPrefix(url, "https://") {
+			continue
+		}
+
+		sshURL, ok := ConvertHTTPSToSSH(url)
+		if !ok {
+			results = append(results, RemoteConversionResult{Remote: remote, OldURL: url, ConvertFailed: true})
+			continue
+		}
+
+		if err := SetRemoteURL(remote, sshURL); err != nil {
+			results = append(results, RemoteConversionResult{Remote: remote, OldURL: url, NewURL: sshURL, UpdateFailed: true})
+			continue
+		}
+
+		results = append(results, RemoteConversionResult{Remote: remote, OldURL: url, NewURL: sshURL, Converted: true})
+	}
+	return results, nil
 }
 
 func ListRemotes() ([]string, error) {

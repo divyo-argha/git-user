@@ -2,12 +2,11 @@ package cli
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/policyops"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -61,52 +60,25 @@ func runSignersAdd(args []string) error {
 	var keyBlob string
 
 	if emailFlag != "" {
-		if pubkeyFlag == "" {
-			ui.Error("--pubkey-file is required when using --email")
-			return fmt.Errorf("missing --pubkey-file")
-		}
-		pubKey, err := os.ReadFile(pubkeyFlag)
+		principals, keyBlob, err = policyops.ResolveSignerFromEmail(emailFlag, pubkeyFlag)
 		if err != nil {
-			ui.Errorf("reading %s: %v", pubkeyFlag, err)
+			ui.Errorf("%v", err)
 			return err
 		}
-		principals = []string{emailFlag}
-		keyBlob = strings.TrimSpace(string(pubKey))
 	} else {
 		store, err := config.Load()
 		if err != nil {
 			ui.Errorf("loading config: %v", err)
 			return err
 		}
-		name := identityName
-		if name == "" {
-			name = store.Current
-		}
-		user := store.FindUser(name)
-		if user == nil {
-			ui.Errorf("identity %q not found", name)
-			return fmt.Errorf("identity not found")
-		}
-		if user.SSHKey == "" {
-			ui.Errorf("identity %q has no SSH key bound — use --email/--pubkey-file for a non-local contributor", user.Name)
-			return fmt.Errorf("no SSH key")
-		}
-		pubKey, err := os.ReadFile(user.SSHKey + ".pub")
+		principals, keyBlob, err = policyops.ResolveSignerFromIdentity(store, identityName)
 		if err != nil {
-			ui.Errorf("reading %s.pub: %v", user.SSHKey, err)
+			ui.Errorf("%v", err)
 			return err
 		}
-		principals = append([]string{user.Email}, user.Aliases...)
-		keyBlob = strings.TrimSpace(string(pubKey))
 	}
 
-	entries, err := config.LoadAllowedSigners(repoRoot)
-	if err != nil {
-		ui.Errorf("reading %s: %v", config.AllowedSignersFileName, err)
-		return err
-	}
-	entries = config.UpsertSignerEntry(entries, principals, keyBlob)
-	if err := config.SaveAllowedSigners(repoRoot, entries); err != nil {
+	if err := policyops.UpsertSigner(repoRoot, principals, keyBlob); err != nil {
 		ui.Errorf("writing %s: %v", config.AllowedSignersFileName, err)
 		return err
 	}
@@ -149,35 +121,15 @@ func runSignersRemove(args []string) error {
 		return fmt.Errorf("not in repo")
 	}
 
-	entries, err := config.LoadAllowedSigners(repoRoot)
+	removed, err := policyops.RemoveSigner(repoRoot, args[0])
 	if err != nil {
-		ui.Errorf("reading %s: %v", config.AllowedSignersFileName, err)
+		ui.Errorf("%v", err)
 		return err
 	}
-	before := len(entries)
-	entries = config.RemoveSignerEntries(entries, args[0])
-	if len(entries) == before {
+	if !removed {
 		ui.Info(fmt.Sprintf("No entry found for %q", args[0]))
 		return nil
 	}
-	if err := config.SaveAllowedSigners(repoRoot, entries); err != nil {
-		ui.Errorf("writing %s: %v", config.AllowedSignersFileName, err)
-		return err
-	}
 	ui.Success(fmt.Sprintf("Removed %q from %s", args[0], config.AllowedSignersFileName))
 	return nil
-}
-
-func suggestAllowedSignersConfig(repoRoot string) {
-	current, _ := exec.Command("git", "config", "--local", "gpg.ssh.allowedSignersFile").Output()
-	if strings.TrimSpace(string(current)) == config.AllowedSignersFileName {
-		return
-	}
-	cmd := exec.Command("git", "config", "--local", "gpg.ssh.allowedSignersFile", config.AllowedSignersFileName)
-	cmd.Dir = repoRoot
-	if err := cmd.Run(); err != nil {
-		ui.Warn(fmt.Sprintf("Could not set gpg.ssh.allowedSignersFile: %v", err))
-		return
-	}
-	ui.Info(fmt.Sprintf("Set local git config to use %s for signature verification", config.AllowedSignersFileName))
 }
