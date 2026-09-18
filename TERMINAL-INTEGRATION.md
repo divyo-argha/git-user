@@ -68,6 +68,14 @@ cat << 'EOF' >> ~/.zshrc
 # --- git-user prompt integration ---
 setopt PROMPT_SUBST 2>/dev/null
 
+# Clean up any stale or duplicated prompt tokens from previous sessions
+setopt EXTENDED_GLOB 2>/dev/null
+if [[ "$RPROMPT" == *'%F{blue}'* ]]; then
+  RPROMPT="${RPROMPT//(#b)%F\{blue\}[^%]##%f([[:space:]]#)/}"
+fi
+unset _GIT_USER_ORIG_RPROMPT 2>/dev/null
+_GIT_USER_PREV_PROMPT=""
+
 function _git_user_prompt() {
   local user
   user=$(git-user prompt 2>/dev/null)
@@ -87,13 +95,19 @@ autoload -Uz add-zsh-hook 2>/dev/null
 
 _git_user_setup_prompt() {
   local p="$(_git_user_prompt)"
+  if [[ -n "$_GIT_USER_PREV_PROMPT" ]]; then
+    RPROMPT="${RPROMPT#$_GIT_USER_PREV_PROMPT }"
+    RPROMPT="${RPROMPT#$_GIT_USER_PREV_PROMPT}"
+    RPROMPT="${RPROMPT% $_GIT_USER_PREV_PROMPT}"
+    RPROMPT="${RPROMPT%$_GIT_USER_PREV_PROMPT}"
+  fi
+  _GIT_USER_PREV_PROMPT="$p"
   if [[ -n "$p" ]]; then
-    if [[ -z "$_GIT_USER_ORIG_RPROMPT" && -n "$RPROMPT" && "$RPROMPT" != *"$p"* ]]; then
-      _GIT_USER_ORIG_RPROMPT="$RPROMPT"
+    if [[ -n "$RPROMPT" ]]; then
+      RPROMPT="${p} ${RPROMPT}"
+    else
+      RPROMPT="${p}"
     fi
-    RPROMPT="${p}${_GIT_USER_ORIG_RPROMPT:+ $_GIT_USER_ORIG_RPROMPT}"
-  elif [[ -n "$_GIT_USER_ORIG_RPROMPT" ]]; then
-    RPROMPT="$_GIT_USER_ORIG_RPROMPT"
   fi
 }
 
@@ -138,11 +152,14 @@ __git_user_prompt() {
 }
 
 __git_user_update_ps1() {
-  if [ -z "$__GIT_USER_ORIG_PS1" ]; then
-    __GIT_USER_ORIG_PS1="$PS1"
-  fi
   local p=$(__git_user_prompt)
-  PS1="${p}${__GIT_USER_ORIG_PS1}"
+  if [ -n "$__GIT_USER_PREV_P" ]; then
+    PS1="${PS1#$__GIT_USER_PREV_P}"
+  fi
+  __GIT_USER_PREV_P="$p"
+  if [ -n "$p" ]; then
+    PS1="${p}${PS1}"
+  fi
 }
 
 if [[ ! "$PROMPT_COMMAND" =~ __git_user_update_ps1 ]]; then
@@ -170,8 +187,16 @@ mkdir -p ~/.config/fish/conf.d
 cat << 'EOF' > ~/.config/fish/conf.d/git_user_prompt.fish
 # --- git-user prompt integration ---
 if status is-interactive
+    if functions -q __git_user_orig_right_prompt
+        if functions __git_user_orig_right_prompt | string match -q "*git-user prompt*"
+            functions -e __git_user_orig_right_prompt
+        end
+    end
+
     if functions -q fish_right_prompt; and not functions -q __git_user_orig_right_prompt
-        functions -c fish_right_prompt __git_user_orig_right_prompt
+        if not functions fish_right_prompt | string match -q "*git-user prompt*"
+            functions -c fish_right_prompt __git_user_orig_right_prompt
+        end
     end
 
     function fish_right_prompt -d "Display active git-user profile in right prompt"
@@ -187,9 +212,11 @@ if status is-interactive
             set_color blue
             echo -n "$icon$git_user"
             set_color normal
+            if functions -q __git_user_orig_right_prompt
+                echo -n " "
+            end
         end
         if functions -q __git_user_orig_right_prompt
-            echo -n " "
             __git_user_orig_right_prompt
         end
     end

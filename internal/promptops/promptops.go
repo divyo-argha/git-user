@@ -29,6 +29,60 @@ const (
 # --- git-user prompt integration ---
 setopt PROMPT_SUBST 2>/dev/null
 
+# Clean up any stale or duplicated prompt tokens from previous sessions
+setopt EXTENDED_GLOB 2>/dev/null
+if [[ "$RPROMPT" == *'%F{blue}'* ]]; then
+  RPROMPT="${RPROMPT//(#b)%F\{blue\}[^%]##%f([[:space:]]#)/}"
+fi
+unset _GIT_USER_ORIG_RPROMPT 2>/dev/null
+_GIT_USER_PREV_PROMPT=""
+
+function _git_user_prompt() {
+  local user
+  user=$(git-user prompt 2>/dev/null)
+  if [[ -n "$user" ]]; then
+    local icon=" "
+    if [[ "$TERM" == "linux" || "$TERM" == "dumb" ]]; then
+      icon="git:"
+    fi
+    if [[ -n "$GIT_USER_PROMPT_ICON" ]]; then
+      icon="$GIT_USER_PROMPT_ICON"
+    fi
+    echo "%F{blue}${icon}${user}%f"
+  fi
+}
+
+autoload -Uz add-zsh-hook 2>/dev/null
+
+_git_user_setup_prompt() {
+  local p="$(_git_user_prompt)"
+  if [[ -n "$_GIT_USER_PREV_PROMPT" ]]; then
+    RPROMPT="${RPROMPT#$_GIT_USER_PREV_PROMPT }"
+    RPROMPT="${RPROMPT#$_GIT_USER_PREV_PROMPT}"
+    RPROMPT="${RPROMPT% $_GIT_USER_PREV_PROMPT}"
+    RPROMPT="${RPROMPT%$_GIT_USER_PREV_PROMPT}"
+  fi
+  _GIT_USER_PREV_PROMPT="$p"
+  if [[ -n "$p" ]]; then
+    if [[ -n "$RPROMPT" ]]; then
+      RPROMPT="${p} ${RPROMPT}"
+    else
+      RPROMPT="${p}"
+    fi
+  fi
+}
+
+if functions add-zsh-hook >/dev/null 2>&1; then
+  add-zsh-hook precmd _git_user_setup_prompt
+else
+  RPROMPT='$(_git_user_prompt)'
+fi
+`
+
+	ZshPromptBlockV1 = `
+# --- git-user prompt integration ---
+setopt PROMPT_SUBST 2>/dev/null
+
 function _git_user_prompt() {
   local user
   user=$(git-user prompt 2>/dev/null)
@@ -94,6 +148,38 @@ __git_user_prompt() {
 }
 
 __git_user_update_ps1() {
+  local p=$(__git_user_prompt)
+  if [ -n "$__GIT_USER_PREV_P" ]; then
+    PS1="${PS1#$__GIT_USER_PREV_P}"
+  fi
+  __GIT_USER_PREV_P="$p"
+  if [ -n "$p" ]; then
+    PS1="${p}${PS1}"
+  fi
+}
+
+if [[ ! "$PROMPT_COMMAND" =~ __git_user_update_ps1 ]]; then
+  PROMPT_COMMAND="__git_user_update_ps1${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+fi
+`
+
+	BashPromptBlockV1 = `
+# --- git-user prompt integration ---
+__git_user_prompt() {
+  local user=$(git-user prompt 2>/dev/null)
+  if [ -n "$user" ]; then
+    local icon=" "
+    if [ "$TERM" = "linux" ] || [ "$TERM" = "dumb" ]; then
+      icon="git:"
+    fi
+    if [ -n "$GIT_USER_PROMPT_ICON" ]; then
+      icon="$GIT_USER_PROMPT_ICON"
+    fi
+    printf "\001\033[1;34m\002%s%s\001\033[0m\002 " "$icon" "$user"
+  fi
+}
+
+__git_user_update_ps1() {
   if [ -z "$__GIT_USER_ORIG_PS1" ]; then
     __GIT_USER_ORIG_PS1="$PS1"
   fi
@@ -121,8 +207,16 @@ fi
 
 	FishPromptBlock = `# --- git-user prompt integration ---
 if status is-interactive
+    if functions -q __git_user_orig_right_prompt
+        if functions __git_user_orig_right_prompt | string match -q "*git-user prompt*"
+            functions -e __git_user_orig_right_prompt
+        end
+    end
+
     if functions -q fish_right_prompt; and not functions -q __git_user_orig_right_prompt
-        functions -c fish_right_prompt __git_user_orig_right_prompt
+        if not functions fish_right_prompt | string match -q "*git-user prompt*"
+            functions -c fish_right_prompt __git_user_orig_right_prompt
+        end
     end
 
     function fish_right_prompt -d "Display active git-user profile in right prompt"
@@ -138,9 +232,11 @@ if status is-interactive
             set_color blue
             echo -n "$icon$git_user"
             set_color normal
+            if functions -q __git_user_orig_right_prompt
+                echo -n " "
+            end
         end
         if functions -q __git_user_orig_right_prompt
-            echo -n " "
             __git_user_orig_right_prompt
         end
     end
@@ -457,8 +553,32 @@ func installZsh() (string, error) {
 	path := PrimaryConfigPath(TargetZsh)
 	if content, err := os.ReadFile(path); err == nil {
 		str := string(content)
+		if strings.Contains(str, "_GIT_USER_PREV_PROMPT") {
+			return fmt.Sprintf("Zsh prompt integration is already up to date in %s", path), nil
+		}
+		for _, old := range []string{ZshPromptBlockV1, ZshPromptBlockLegacy} {
+			if strings.Contains(str, old) {
+				str = strings.Replace(str, old, ZshPromptBlock, 1)
+				_, _ = BackupFile(path)
+				if err := os.WriteFile(path, []byte(str), 0644); err != nil {
+					return "", fmt.Errorf("updating configuration: %w", err)
+				}
+				return fmt.Sprintf("Upgraded Zsh prompt integration in %s", path), nil
+			}
+		}
 		if strings.Contains(str, "_git_user_setup_prompt") || strings.Contains(str, "_git_user_prompt") {
-			return fmt.Sprintf("Zsh prompt integration is already installed in %s", path), nil
+			if idx := strings.Index(str, "# --- git-user prompt integration ---"); idx != -1 {
+				endMarker := "RPROMPT='$(_git_user_prompt)'\nfi\n"
+				if endIdx := strings.Index(str[idx:], endMarker); endIdx != -1 {
+					oldBlock := str[idx : idx+endIdx+len(endMarker)]
+					str = strings.Replace(str, oldBlock, strings.TrimPrefix(ZshPromptBlock, "\n"), 1)
+					_, _ = BackupFile(path)
+					if err := os.WriteFile(path, []byte(str), 0644); err != nil {
+						return "", fmt.Errorf("updating configuration: %w", err)
+					}
+					return fmt.Sprintf("Upgraded Zsh prompt integration in %s", path), nil
+				}
+			}
 		}
 	}
 	_, _ = BackupFile(path)
@@ -477,13 +597,18 @@ func installBash() (string, error) {
 	path := PrimaryConfigPath(TargetBash)
 	if content, err := os.ReadFile(path); err == nil {
 		str := string(content)
-		if strings.Contains(str, "__git_user_update_ps1") {
-			return fmt.Sprintf("Bash prompt integration is already installed in %s", path), nil
+		if strings.Contains(str, "__GIT_USER_PREV_P") {
+			return fmt.Sprintf("Bash prompt integration is already up to date in %s", path), nil
 		}
-		if strings.Contains(str, "__git_user_prompt") {
-			str = strings.Replace(str, BashPromptBlockLegacy, BashPromptBlock, 1)
-			_ = os.WriteFile(path, []byte(str), 0644)
-			return fmt.Sprintf("Upgraded legacy Bash prompt integration in %s", path), nil
+		for _, old := range []string{BashPromptBlockV1, BashPromptBlockLegacy} {
+			if strings.Contains(str, old) {
+				str = strings.Replace(str, old, BashPromptBlock, 1)
+				_, _ = BackupFile(path)
+				if err := os.WriteFile(path, []byte(str), 0644); err != nil {
+					return "", fmt.Errorf("updating configuration: %w", err)
+				}
+				return fmt.Sprintf("Upgraded Bash prompt integration in %s", path), nil
+			}
 		}
 	}
 	_, _ = BackupFile(path)
@@ -571,23 +696,30 @@ func Uninstall(t Target) ([]string, error) {
 	home, _ := os.UserHomeDir()
 	var lines []string
 
-	removeFileBlock := func(filePath, block, legacyBlock, label string) {
+	removeFileBlock := func(filePath, label string, blocks ...string) {
 		content, err := os.ReadFile(filePath)
 		if err != nil {
 			return
 		}
 		str := string(content)
-		if strings.Contains(str, block) {
-			str = strings.Replace(str, block, "", 1)
-			_ = os.WriteFile(filePath, []byte(str), 0644)
-			lines = append(lines, fmt.Sprintf("Removed %s prompt block from %s", label, filePath))
-			return
+		for _, b := range blocks {
+			if b != "" && strings.Contains(str, b) {
+				str = strings.Replace(str, b, "", 1)
+				_ = os.WriteFile(filePath, []byte(str), 0644)
+				lines = append(lines, fmt.Sprintf("Removed %s prompt block from %s", label, filePath))
+				return
+			}
 		}
-		if legacyBlock != "" && strings.Contains(str, legacyBlock) {
-			str = strings.Replace(str, legacyBlock, "", 1)
-			_ = os.WriteFile(filePath, []byte(str), 0644)
-			lines = append(lines, fmt.Sprintf("Removed legacy %s prompt block from %s", label, filePath))
-			return
+		if idx := strings.Index(str, "# --- git-user prompt integration ---"); idx != -1 {
+			for _, endMarker := range []string{"RPROMPT='$(_git_user_prompt)'\nfi\n", "fi\n", "\n"} {
+				if endIdx := strings.Index(str[idx:], endMarker); endIdx != -1 {
+					fullEnd := idx + endIdx + len(endMarker)
+					str = str[:idx] + str[fullEnd:]
+					_ = os.WriteFile(filePath, []byte(str), 0644)
+					lines = append(lines, fmt.Sprintf("Removed %s prompt block from %s", label, filePath))
+					return
+				}
+			}
 		}
 		if strings.Contains(str, "git-user prompt") {
 			lines = append(lines, fmt.Sprintf("Notice: %s has a customized git-user prompt block. Please edit manually.", filePath))
@@ -604,17 +736,17 @@ func Uninstall(t Target) ([]string, error) {
 		funcPath := filepath.Join(home, ".config", "fish", "functions", "fish_right_prompt.fish")
 		if content, err := os.ReadFile(funcPath); err == nil {
 			trimmed := strings.TrimSpace(string(content))
-			if trimmed == strings.TrimSpace(FishPromptBlock) || trimmed == strings.TrimSpace(FishPromptFileLegacy) {
+			if strings.Contains(trimmed, "git-user prompt") || trimmed == strings.TrimSpace(FishPromptBlock) || trimmed == strings.TrimSpace(FishPromptFileLegacy) {
 				_ = os.Remove(funcPath)
 				lines = append(lines, fmt.Sprintf("Removed Fish right prompt function: %s", funcPath))
 			}
 		}
 	case TargetZsh:
-		removeFileBlock(filepath.Join(home, ".zshrc"), ZshPromptBlock, ZshPromptBlockLegacy, "Zsh")
+		removeFileBlock(filepath.Join(home, ".zshrc"), "Zsh", ZshPromptBlock, ZshPromptBlockV1, ZshPromptBlockLegacy)
 	case TargetBash:
-		removeFileBlock(filepath.Join(home, ".bashrc"), BashPromptBlock, BashPromptBlockLegacy, "Bash")
+		removeFileBlock(filepath.Join(home, ".bashrc"), "Bash", BashPromptBlock, BashPromptBlockV1, BashPromptBlockLegacy)
 	case TargetStarship:
-		removeFileBlock(filepath.Join(home, ".config", "starship.toml"), StarshipPromptBlock, "", "Starship")
+		removeFileBlock(filepath.Join(home, ".config", "starship.toml"), "Starship", StarshipPromptBlock)
 	case TargetPowerShell:
 		paths := []string{
 			filepath.Join(home, ".config", "powershell", "Microsoft.PowerShell_profile.ps1"),
@@ -622,7 +754,7 @@ func Uninstall(t Target) ([]string, error) {
 			filepath.Join(home, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"),
 		}
 		for _, p := range paths {
-			removeFileBlock(p, PowerShellPromptBlock, "", "PowerShell")
+			removeFileBlock(p, "PowerShell", PowerShellPromptBlock)
 		}
 	case TargetNushell:
 		paths := []string{
@@ -635,7 +767,7 @@ func Uninstall(t Target) ([]string, error) {
 			}
 		}
 		for _, p := range paths {
-			removeFileBlock(p, NushellPromptBlock, "", "Nushell")
+			removeFileBlock(p, "Nushell", NushellPromptBlock)
 		}
 	}
 
