@@ -11,6 +11,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/signing"
+	"github.com/divyo-argha/git-user/internal/ssh"
 	"github.com/divyo-argha/git-user/internal/tui/components"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
@@ -34,11 +35,15 @@ type Detail struct {
 }
 
 func NewDetail(store *config.Store, name string, th theme.Theme) *Detail {
+	platformStatuses := make(map[string]string, len(ssh.DefaultPlatforms))
+	for _, p := range ssh.DefaultPlatforms {
+		platformStatuses[p.Name] = "checking"
+	}
 	d := &Detail{
 		store:             store,
 		name:              name,
 		theme:             th,
-		platformStatuses:  map[string]string{"GitHub": "checking", "GitLab": "checking", "Bitbucket": "checking"},
+		platformStatuses:  platformStatuses,
 		platformUsernames: make(map[string]string),
 		spin:              components.NewSpinner(th),
 	}
@@ -284,15 +289,14 @@ func (d *Detail) renderOverview(width, height int, user *config.User) string {
 
 	// Platform Reachability
 	lines = append(lines, d.theme.SectionHeader().Render("VERIFIED PLATFORMS"))
-	platformsList := []string{"GitHub", "GitLab", "Bitbucket"}
-	for _, p := range platformsList {
-		status := d.platformStatuses[p]
+	for _, p := range ssh.DefaultPlatforms {
+		status := d.platformStatuses[p.Name]
 		var statusStr string
 		switch status {
 		case "checking":
 			statusStr = d.spin.View() + " " + d.theme.Dim().Render("checking...")
 		case "connected":
-			username := d.platformUsernames[p]
+			username := d.platformUsernames[p.Name]
 			if username != "" {
 				statusStr = d.theme.SuccessStyle().Render(fmt.Sprintf("Connected ✓ (%s)", username))
 			} else {
@@ -309,7 +313,7 @@ func (d *Detail) renderOverview(width, height int, user *config.User) string {
 		default:
 			statusStr = d.theme.ErrorStyle().Render(fmt.Sprintf("Unknown (%s)", status))
 		}
-		lines = append(lines, fmt.Sprintf("  "+d.theme.Dim().Render("• ")+"%-9s: %s", p, statusStr))
+		lines = append(lines, fmt.Sprintf("  "+d.theme.Dim().Render("• ")+"%-9s: %s", p.Name, statusStr))
 	}
 	lines = append(lines, "")
 
@@ -335,9 +339,9 @@ func (d *Detail) Init() tea.Cmd {
 			core.CheckKeyPassphraseCmd(user.SSHKey),
 		)
 	}
-	d.platformStatuses["GitHub"] = "not_added"
-	d.platformStatuses["GitLab"] = "not_added"
-	d.platformStatuses["Bitbucket"] = "not_added"
+	for _, p := range ssh.DefaultPlatforms {
+		d.platformStatuses[p.Name] = "not_added"
+	}
 	return nil
 }
 
@@ -353,18 +357,18 @@ func (d *Detail) maybeStartPlatformChecks(user *config.User) tea.Cmd {
 			return nil
 		}
 		d.platformChecksStarted = true
-		d.platformStatuses["GitHub"] = "locked"
-		d.platformStatuses["GitLab"] = "locked"
-		d.platformStatuses["Bitbucket"] = "locked"
+		for _, p := range ssh.DefaultPlatforms {
+			d.platformStatuses[p.Name] = "locked"
+		}
 		return nil
 	}
 
 	d.platformChecksStarted = true
-	return tea.Batch(
-		core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "GitHub", "git@github.com", []string{"Hi ", "successfully authenticated"}),
-		core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "GitLab", "git@gitlab.com", []string{"Welcome to GitLab", "successfully authenticated"}),
-		core.CheckPlatformConnectionCmd(d.name, user.SSHKey, "Bitbucket", "git@bitbucket.org", []string{"logged in as", "successfully authenticated"}),
-	)
+	var cmds []tea.Cmd
+	for _, p := range ssh.DefaultPlatforms {
+		cmds = append(cmds, core.CheckPlatformConnectionCmd(d.name, user.SSHKey, p.Name, p.Host, p.Patterns))
+	}
+	return tea.Batch(cmds...)
 }
 
 func (d *Detail) Title() string { return "Identity: " + d.name }

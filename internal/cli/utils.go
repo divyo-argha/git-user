@@ -28,15 +28,6 @@ func verifySSHConnection() error {
 }
 
 func verifySSHConnectionWithKey(keyPath string) error {
-	platforms := []struct {
-		host    string
-		success []string
-	}{
-		{"git@github.com", []string{"Hi ", "successfully authenticated"}},
-		{"git@gitlab.com", []string{"Welcome to GitLab", "successfully authenticated"}},
-		{"git@bitbucket.org", []string{"logged in as", "successfully authenticated", "authenticated via ssh key"}},
-	}
-
 	// A passphrase-protected key that is not loaded in the agent would make
 	// ssh prompt on the terminal itself ("Enter passphrase for key '<path>'")
 	// and leak the key path into the UI. Unlock it up front instead, so ssh
@@ -47,20 +38,9 @@ func verifySSHConnectionWithKey(keyPath string) error {
 		}
 	}
 
-	for _, p := range platforms {
-		args := []string{"-T", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=5"}
-		if keyPath != "" {
-			args = append(args, "-i", keyPath, "-o", "IdentitiesOnly=yes")
-		}
-		args = append(args, p.host)
-
-		cmd := exec.Command("ssh", args...)
-		output, _ := cmd.CombinedOutput()
-		out := string(output)
-		for _, marker := range p.success {
-			if strings.Contains(out, marker) {
-				return nil
-			}
+	for _, p := range ssh.DefaultPlatforms {
+		if ssh.CheckPlatformConnection(keyPath, p.Name, p.Host, p.Patterns).Status == "connected" {
+			return nil
 		}
 	}
 
