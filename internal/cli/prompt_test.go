@@ -123,3 +123,100 @@ func TestPromptInstall_Starship(t *testing.T) {
 		t.Error("expected starship.toml to contain [custom.gituser] module")
 	}
 }
+
+func TestPromptInstall_Fish(t *testing.T) {
+	tmpDir := setupTestEnv(t)
+
+	ui.SelectFn = func(label string, options []string) (int, error) {
+		for idx, opt := range options {
+			if strings.Contains(opt, "Fish") {
+				return idx, nil
+			}
+		}
+		return 0, nil
+	}
+
+	err := runPrompt([]string{"install"})
+	if err != nil {
+		t.Fatalf("runPrompt install failed: %v", err)
+	}
+
+	confPath := filepath.Join(tmpDir, ".config", "fish", "conf.d", "git_user_prompt.fish")
+	funcPath := filepath.Join(tmpDir, ".config", "fish", "functions", "fish_right_prompt.fish")
+
+	if _, err := os.Stat(confPath); err != nil {
+		t.Errorf("expected fish conf.d file to exist: %v", err)
+	}
+	if _, err := os.Stat(funcPath); err != nil {
+		t.Errorf("expected fish functions file to exist: %v", err)
+	}
+
+	content, err := os.ReadFile(confPath)
+	if err != nil {
+		t.Fatalf("failed to read %s: %v", confPath, err)
+	}
+	if !strings.Contains(string(content), "fish_right_prompt") {
+		t.Errorf("expected fish_right_prompt in %s", confPath)
+	}
+}
+
+func TestPromptInstall_Bash(t *testing.T) {
+	tmpDir := setupTestEnv(t)
+
+	bashrcPath := filepath.Join(tmpDir, ".bashrc")
+	_ = os.WriteFile(bashrcPath, []byte("# bashrc\n"), 0644)
+
+	ui.SelectFn = func(label string, options []string) (int, error) {
+		for idx, opt := range options {
+			if strings.Contains(opt, "Bash") {
+				return idx, nil
+			}
+		}
+		return 0, nil
+	}
+
+	err := runPrompt([]string{"install"})
+	if err != nil {
+		t.Fatalf("runPrompt install failed: %v", err)
+	}
+
+	content, err := os.ReadFile(bashrcPath)
+	if err != nil {
+		t.Fatalf("failed to read .bashrc: %v", err)
+	}
+	if !strings.Contains(string(content), "__git_user_update_ps1") {
+		t.Errorf("expected .bashrc to contain __git_user_update_ps1")
+	}
+}
+
+func TestPromptInstall_PowerShell(t *testing.T) {
+	tmpDir := setupTestEnv(t)
+
+	ui.SelectFn = func(label string, options []string) (int, error) {
+		for idx, opt := range options {
+			if strings.Contains(opt, "PowerShell") {
+				return idx, nil
+			}
+		}
+		return 0, nil
+	}
+
+	err := runPrompt([]string{"install"})
+	if err != nil {
+		t.Fatalf("runPrompt install failed: %v", err)
+	}
+
+	psPath := filepath.Join(tmpDir, ".config", "powershell", "Microsoft.PowerShell_profile.ps1")
+	if _, err := os.Stat(psPath); err != nil {
+		t.Fatalf("expected powershell profile to be created at %s", psPath)
+	}
+
+	content, err := os.ReadFile(psPath)
+	if err != nil {
+		t.Fatalf("failed to read powershell profile: %v", err)
+	}
+	if !strings.Contains(string(content), "git-user prompt") {
+		t.Errorf("expected powershell profile to contain git-user prompt")
+	}
+}
+

@@ -16,42 +16,37 @@ import (
 )
 
 // These are byte-for-byte the blocks prompt.go's installZsh/installBash/
-// installStarship/installFish append or write. Kept in sync with them so
-// uninstall can find-and-remove exactly what was added, and nothing else.
+// installStarship/installFish/installPowerShell append or write. Kept in sync
+// with them so uninstall can find-and-remove exactly what was added, and nothing else.
 const (
-	zshPromptBlock = `
+	zshPromptBlockLegacy = `
 # --- git-user prompt integration ---
 function _git_user_prompt() {
   local user=$(git-user prompt 2>/dev/null)
   if [[ -n "$user" ]]; then
-    echo "%F{blue} ${user}%f"
+    echo "%F{blue} ${user}%f"
   fi
 }
 RPROMPT='$(_git_user_prompt)'
 `
-	bashPromptBlock = `
+
+	bashPromptBlockLegacy = `
 # --- git-user prompt integration ---
 __git_user_prompt() {
   local user=$(git-user prompt 2>/dev/null)
   if [ -n "$user" ]; then
-    echo -e "\033[1;34m ${user}\033[0m "
+    echo -e "\033[1;34m ${user}\033[0m "
   fi
 }
 # Prepend to PS1 dynamically
 PROMPT_COMMAND='PS1="$(__git_user_prompt)\u@\h:\w\$ "'
 `
-	starshipPromptBlock = `
-[custom.gituser]
-command = "git-user prompt"
-when = "git rev-parse --is-inside-work-tree 2>/dev/null"
-format = "[$output]($style) "
-style = "bold blue"
-`
-	fishPromptFile = `function fish_right_prompt
+
+	fishPromptFileLegacy = `function fish_right_prompt
   set -l git_user (git-user prompt 2>/dev/null)
   if test -n "$git_user"
     set_color blue
-    echo -n " $git_user"
+    echo -n " $git_user"
     set_color normal
   end
 end
@@ -296,38 +291,62 @@ func removePromptIntegration() {
 		return
 	}
 
-	removeBlock := func(path, block, label string) {
+	removeBlockWithLegacy := func(path, block, legacyBlock, label string) {
 		content, err := os.ReadFile(path)
 		if err != nil {
 			return
 		}
-		if !strings.Contains(string(content), block) {
-			if strings.Contains(string(content), "git-user prompt") {
-				ui.Warn(fmt.Sprintf("%s contains a modified git-user prompt block — remove it manually.", path))
+		str := string(content)
+		if strings.Contains(str, block) {
+			str = strings.Replace(str, block, "", 1)
+			if err := os.WriteFile(path, []byte(str), 0644); err == nil {
+				ui.Success(fmt.Sprintf("Removed %s prompt integration from %s", label, path))
 			}
 			return
 		}
-		updated := strings.Replace(string(content), block, "", 1)
-		if err := os.WriteFile(path, []byte(updated), 0644); err != nil {
-			ui.Warn(fmt.Sprintf("Could not clean up %s: %v", path, err))
+		if legacyBlock != "" && strings.Contains(str, legacyBlock) {
+			str = strings.Replace(str, legacyBlock, "", 1)
+			if err := os.WriteFile(path, []byte(str), 0644); err == nil {
+				ui.Success(fmt.Sprintf("Removed %s prompt integration from %s", label, path))
+			}
 			return
 		}
-		ui.Success(fmt.Sprintf("Removed %s prompt integration from %s", label, path))
+		if strings.Contains(str, "git-user prompt") {
+			ui.Warn(fmt.Sprintf("%s contains a modified git-user prompt block — remove it manually.", path))
+		}
 	}
 
-	removeBlock(filepath.Join(home, ".zshrc"), zshPromptBlock, "zsh")
-	removeBlock(filepath.Join(home, ".bashrc"), bashPromptBlock, "bash")
-	removeBlock(filepath.Join(home, ".config", "starship.toml"), starshipPromptBlock, "starship")
+	removeBlockWithLegacy(filepath.Join(home, ".zshrc"), zshPromptBlock, zshPromptBlockLegacy, "zsh")
+	removeBlockWithLegacy(filepath.Join(home, ".bashrc"), bashPromptBlock, bashPromptBlockLegacy, "bash")
+	removeBlockWithLegacy(filepath.Join(home, ".config", "starship.toml"), starshipPromptBlock, "", "starship")
+
+	// Fish prompt removal
+	fishConfPath := filepath.Join(home, ".config", "fish", "conf.d", "git_user_prompt.fish")
+	if _, err := os.Stat(fishConfPath); err == nil {
+		_ = os.Remove(fishConfPath)
+		ui.Success("Removed fish prompt integration: " + fishConfPath)
+	}
 
 	fishPath := filepath.Join(home, ".config", "fish", "functions", "fish_right_prompt.fish")
 	if content, err := os.ReadFile(fishPath); err == nil {
-		if strings.TrimSpace(string(content)) == strings.TrimSpace(fishPromptFile) {
+		trimmed := strings.TrimSpace(string(content))
+		if trimmed == strings.TrimSpace(fishPromptBlock) || trimmed == strings.TrimSpace(fishPromptFileLegacy) {
 			if err := os.Remove(fishPath); err == nil {
 				ui.Success("Removed fish prompt integration: " + fishPath)
 			}
 		} else if strings.Contains(string(content), "git-user prompt") {
 			ui.Warn(fmt.Sprintf("%s references git-user but has custom content — remove it manually.", fishPath))
 		}
+	}
+
+	// PowerShell profile removal
+	psPaths := []string{
+		filepath.Join(home, ".config", "powershell", "Microsoft.PowerShell_profile.ps1"),
+		filepath.Join(home, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1"),
+		filepath.Join(home, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"),
+	}
+	for _, p := range psPaths {
+		removeBlockWithLegacy(p, powerShellPromptBlock, "", "powershell")
 	}
 }
 

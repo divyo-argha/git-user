@@ -50,7 +50,7 @@ Starship automatically reloads its configuration files on the fly. Simply naviga
 
 ## 🐚 Zsh & Oh My Zsh
 
-For standard Zsh or Oh My Zsh setups, we can utilize the built-in `RPROMPT` (Right Prompt) feature.
+For standard Zsh or Oh My Zsh setups, we utilize `RPROMPT` with `add-zsh-hook` and `PROMPT_SUBST` for robust theme compatibility (including Oh My Zsh themes like `robbyrussell`, `agnoster`, etc.).
 
 **Step 1: Inject the prompt function**
 Run the following command to safely append the integration function to your `.zshrc` file:
@@ -58,13 +58,42 @@ Run the following command to safely append the integration function to your `.zs
 cat << 'EOF' >> ~/.zshrc
 
 # --- git-user prompt integration ---
+setopt PROMPT_SUBST 2>/dev/null
+
 function _git_user_prompt() {
-  local user=$(git-user prompt 2>/dev/null)
+  local user
+  user=$(git-user prompt 2>/dev/null)
   if [[ -n "$user" ]]; then
-    echo "%F{blue} ${user}%f"
+    local icon=" "
+    if [[ "$TERM" == "linux" || "$TERM" == "dumb" ]]; then
+      icon="git:"
+    fi
+    if [[ -n "$GIT_USER_PROMPT_ICON" ]]; then
+      icon="$GIT_USER_PROMPT_ICON"
+    fi
+    echo "%F{blue}${icon}${user}%f"
   fi
 }
-RPROMPT='$(_git_user_prompt)'
+
+autoload -Uz add-zsh-hook 2>/dev/null
+
+_git_user_setup_prompt() {
+  local p="$(_git_user_prompt)"
+  if [[ -n "$p" ]]; then
+    if [[ -z "$_GIT_USER_ORIG_RPROMPT" && -n "$RPROMPT" && "$RPROMPT" != *"$p"* ]]; then
+      _GIT_USER_ORIG_RPROMPT="$RPROMPT"
+    fi
+    RPROMPT="${p}${_GIT_USER_ORIG_RPROMPT:+ $_GIT_USER_ORIG_RPROMPT}"
+  elif [[ -n "$_GIT_USER_ORIG_RPROMPT" ]]; then
+    RPROMPT="$_GIT_USER_ORIG_RPROMPT"
+  fi
+}
+
+if functions add-zsh-hook >/dev/null 2>&1; then
+  add-zsh-hook precmd _git_user_setup_prompt
+else
+  RPROMPT='$(_git_user_prompt)'
+fi
 EOF
 ```
 
@@ -78,7 +107,7 @@ source ~/.zshrc
 
 ## 🐚 Bash
 
-For standard Bash users, you can prepend the active profile to your `PS1` prompt variable using `PROMPT_COMMAND`.
+For standard Bash users, the prompt dynamically updates `PS1` using `PROMPT_COMMAND` while preserving your custom prompt colors/theme and properly enclosing escape sequences so cursor positioning and line-wrapping never break.
 
 **Step 1: Inject the prompt function**
 Run the following command in your terminal to append the integration to your `.bashrc`:
@@ -89,11 +118,28 @@ cat << 'EOF' >> ~/.bashrc
 __git_user_prompt() {
   local user=$(git-user prompt 2>/dev/null)
   if [ -n "$user" ]; then
-    echo -e "\033[1;34m ${user}\033[0m "
+    local icon=" "
+    if [ "$TERM" = "linux" ] || [ "$TERM" = "dumb" ]; then
+      icon="git:"
+    fi
+    if [ -n "$GIT_USER_PROMPT_ICON" ]; then
+      icon="$GIT_USER_PROMPT_ICON"
+    fi
+    printf "\001\033[1;34m\002%s%s\001\033[0m\002 " "$icon" "$user"
   fi
 }
-# Prepend to PS1 dynamically
-PROMPT_COMMAND='PS1="$(__git_user_prompt)\u@\h:\w\$ "'
+
+__git_user_update_ps1() {
+  if [ -z "$__GIT_USER_ORIG_PS1" ]; then
+    __GIT_USER_ORIG_PS1="$PS1"
+  fi
+  local p=$(__git_user_prompt)
+  PS1="${p}${__GIT_USER_ORIG_PS1}"
+}
+
+if [[ ! "$PROMPT_COMMAND" =~ __git_user_update_ps1 ]]; then
+  PROMPT_COMMAND="__git_user_update_ps1${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+fi
 EOF
 ```
 
@@ -107,32 +153,47 @@ source ~/.bashrc
 
 ## 🐟 Fish Shell
 
-Fish handles right-aligned prompts using a dedicated `fish_right_prompt` function. 
+Fish handles right-aligned prompts using `fish_right_prompt`. The integration preserves any existing right prompt functions defined by your theme or configuration.
 
-**Step 1: Prepare the functions directory**
-Ensure your custom functions directory exists:
+**Step 1: Create the prompt configuration**
+Run the following command to install the integration to Fish's autoload directory:
 ```bash
-mkdir -p ~/.config/fish/functions
-```
+mkdir -p ~/.config/fish/conf.d
+cat << 'EOF' > ~/.config/fish/conf.d/git_user_prompt.fish
+# --- git-user prompt integration ---
+if status is-interactive
+    if functions -q fish_right_prompt; and not functions -q __git_user_orig_right_prompt
+        functions -c fish_right_prompt __git_user_orig_right_prompt
+    end
 
-**Step 2: Create the prompt file**
-Run the following command to create (or overwrite) the right prompt function file:
-```bash
-cat << 'EOF' > ~/.config/fish/functions/fish_right_prompt.fish
-function fish_right_prompt
-  set -l git_user (git-user prompt 2>/dev/null)
-  if test -n "$git_user"
-    set_color blue
-    echo -n " $git_user"
-    set_color normal
-  end
+    function fish_right_prompt -d "Display active git-user profile in right prompt"
+        set -l git_user (git-user prompt 2>/dev/null)
+        if test -n "$git_user"
+            set -l icon " "
+            if test "$TERM" = "linux" -o "$TERM" = "dumb"
+                set icon "git:"
+            end
+            if set -q GIT_USER_PROMPT_ICON
+                set icon "$GIT_USER_PROMPT_ICON"
+            end
+            set_color blue
+            echo -n "$icon$git_user"
+            set_color normal
+        end
+        if functions -q __git_user_orig_right_prompt
+            echo -n " "
+            __git_user_orig_right_prompt
+        end
+    end
 end
 EOF
 ```
-*Note: If you already have a heavily customized `fish_right_prompt.fish`, you may need to open it manually and merge the `git_user` logic inside your existing function.*
 
-**Step 3: Reload Fish**
-Simply close and reopen your terminal, or type `fish` to start a new session with the updated prompt.
+**Step 2: Reload Fish**
+Simply close and reopen your terminal, or run:
+```bash
+source ~/.config/fish/conf.d/git_user_prompt.fish
+```
 
 ---
 
