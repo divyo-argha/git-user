@@ -378,6 +378,9 @@ func ListRemotes() ([]string, error) {
 // whose URL starts with "https://". Returns false when not in a repo, when
 // there are no remotes, or when all remotes already use SSH.
 func HasHTTPSRemotes() bool {
+	if !IsInRepo() {
+		return false
+	}
 	remotes, err := ListRemotes()
 	if err != nil || len(remotes) == 0 {
 		return false

@@ -119,3 +119,40 @@ func TestDashboardOutOfSyncWarningAndFix(t *testing.T) {
 		t.Error("expected no cmd for 'f' when in sync")
 	}
 }
+
+func TestNewDashboardNilStoreAndRefresh(t *testing.T) {
+	th := theme.DefaultTheme()
+
+	// Should not panic with nil store
+	dash := NewDashboard(nil, th)
+	if dash == nil {
+		t.Fatal("expected non-nil dashboard from NewDashboard(nil, th)")
+	}
+	if dash.store == nil {
+		t.Error("expected non-nil store initialized internally")
+	}
+
+	// Refresh with nil store should not panic
+	dash.Refresh(nil)
+	dash.SetStore(nil)
+
+	// SetVersionStatus should update internal state and action menu
+	dash.SetVersionStatus("9.9.9", true)
+	if !dash.updateAvailable || dash.latestVersion != "9.9.9" {
+		t.Errorf("expected version status cached, got ver=%s avail=%v", dash.latestVersion, dash.updateAvailable)
+	}
+
+	// refreshActions should preserve the update item state
+	dash.refreshActions()
+	foundUpdate := false
+	for _, item := range dash.actions.Items() {
+		if item.Key == "update" && !item.Disabled {
+			foundUpdate = true
+			break
+		}
+	}
+	if !foundUpdate {
+		t.Error("expected update item to remain enabled after refreshActions")
+	}
+}
+

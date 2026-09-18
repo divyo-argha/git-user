@@ -29,14 +29,21 @@ type Dashboard struct {
 	filterMode  bool   // true when '/' has been pressed and user is typing
 	filterQuery string // current filter text
 	leftWidth   int    // updated each View(); used for mouse pane detection
-	syncOut     bool   // git config does not match the active identity
+	syncOut         bool   // git config does not match the active identity
+	latestVersion   string // cached for action menu rebuilds
+	updateAvailable bool   // cached for action menu rebuilds
 }
 
 func NewDashboard(store *config.Store, th theme.Theme) *Dashboard {
+	if store == nil {
+		store = &config.Store{}
+	}
+	inRepo := git.IsInRepo()
+	hasHTTPS := inRepo && git.HasHTTPSRemotes()
 	return &Dashboard{
 		store:      store,
 		identities: components.NewIdentityList(store, th),
-		actions:    components.SystemActions(th, git.HasHTTPSRemotes(), git.IsInRepo()),
+		actions:    components.SystemActions(th, hasHTTPS, inRepo),
 		activePane: PaneIdentities,
 		theme:      th,
 	}
@@ -64,10 +71,13 @@ func (d *Dashboard) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		if msg.Err == nil && msg.Store != nil {
 			d.store = msg.Store
 			d.identities.Refresh(msg.Store)
+			d.refreshActions()
 		}
 	case core.SyncStatusMsg:
 		d.syncOut = msg.Err == nil && !msg.InSync
 	case core.VersionCheckMsg:
+		d.latestVersion = msg.LatestVersion
+		d.updateAvailable = msg.UpdateAvailable
 		d.actions.SetUpdateStatus(msg.LatestVersion, msg.UpdateAvailable)
 		return d, nil
 	case tea.MouseMsg:
@@ -307,17 +317,41 @@ func (d *Dashboard) viewSingleColumn(width, height int) string {
 	return d.theme.ActivePane(width, height).Render(content)
 }
 
+func (d *Dashboard) refreshActions() {
+	inRepo := git.IsInRepo()
+	hasHTTPS := inRepo && git.HasHTTPSRemotes()
+	prevKey := ""
+	if sel := d.actions.Selected(); sel != nil {
+		prevKey = sel.Key
+	}
+	d.actions = components.SystemActions(d.theme, hasHTTPS, inRepo)
+	if d.updateAvailable && d.latestVersion != "" {
+		d.actions.SetUpdateStatus(d.latestVersion, true)
+	}
+	if prevKey != "" {
+		d.actions.FindAndSetCursorByKey(prevKey)
+	}
+}
+
 func (d *Dashboard) Refresh(store *config.Store) {
-	d.store = store
-	d.identities.Refresh(store)
+	if store != nil {
+		d.store = store
+		d.identities.Refresh(store)
+	}
+	d.refreshActions()
 }
 
 func (d *Dashboard) SetStore(store *config.Store) {
-	d.store = store
-	d.identities.Refresh(store)
+	if store != nil {
+		d.store = store
+		d.identities.Refresh(store)
+	}
+	d.refreshActions()
 }
 
 func (d *Dashboard) SetVersionStatus(latestVersion string, updateAvailable bool) {
+	d.latestVersion = latestVersion
+	d.updateAvailable = updateAvailable
 	d.actions.SetUpdateStatus(latestVersion, updateAvailable)
 }
 
