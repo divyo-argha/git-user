@@ -203,6 +203,11 @@ git-user() {
     esac
 }
 
+# Also seamlessly support 'gu switch -s ...'
+gu() {
+    git-user "$@"
+}
+
 # Also seamlessly support 'git user switch -s ...'
 git() {
     if [ "$1" = "user" ]; then
@@ -242,6 +247,18 @@ function git-user --wraps=git-user --description 'Git identity manager'
             command git-user $argv
     end
 end
+
+function gu --wraps=git-user --description 'Git identity manager alias'
+    git-user $argv
+end
+
+function git --wraps=git --description 'Git version control system'
+    if test "$argv[1]" = "user"
+        git-user $argv[2..-1]
+        return $status
+    end
+    command git $argv
+end
 `
 
 const powerShellInitScript = `# git-user shell integration for PowerShell
@@ -267,5 +284,19 @@ function git-user {
         }
     }
     & (Get-Command git-user -CommandType Application) @args
+}
+
+function gu {
+    param([Parameter(ValueFromRemainingArguments = $true)]$args)
+    git-user @args
+}
+
+function git {
+    param([Parameter(ValueFromRemainingArguments = $true)]$args)
+    if ($args.Count -gt 0 -and $args[0] -eq "user") {
+        git-user @($args | Select-Object -Skip 1)
+        return
+    }
+    & (Get-Command git -CommandType Application) @args
 }
 `

@@ -147,6 +147,21 @@ if (Get-Command git-user -ErrorAction SilentlyContinue) {
     }
 }
 `
+
+	nushellPromptBlock = `
+# --- git-user prompt integration ---
+$env.PROMPT_COMMAND_RIGHT = {||
+    let user = (do -i { git-user prompt } | complete)
+    if ($user.exit_code == 0) and ($user.stdout != "") {
+        let u = ($user.stdout | str trim)
+        let icon = (if ($env.TERM? == "linux" or $env.TERM? == "dumb") { "git:" } else { " " })
+        let icon = (if ($env.GIT_USER_PROMPT_ICON? != null) { $env.GIT_USER_PROMPT_ICON } else { $icon })
+        $"(ansi blue)($icon)($u)(ansi reset)"
+    } else {
+        ""
+    }
+}
+`
 )
 
 func runPrompt(args []string) error {
@@ -268,21 +283,31 @@ func runPromptInstall() error {
 
 	if runtime.GOOS == "windows" {
 		options = append(options, "PowerShell (recommended - Windows)")
+		options = append(options, "Nushell")
 	} else if strings.Contains(shellEnv, "zsh") {
 		options = append(options, "Zsh (recommended - active shell)")
 		options = append(options, "Bash")
 		options = append(options, "Fish")
 		options = append(options, "PowerShell")
+		options = append(options, "Nushell")
 	} else if strings.Contains(shellEnv, "fish") {
 		options = append(options, "Fish (recommended - active shell)")
 		options = append(options, "Zsh")
 		options = append(options, "Bash")
+		options = append(options, "PowerShell")
+		options = append(options, "Nushell")
+	} else if strings.Contains(shellEnv, "nu") {
+		options = append(options, "Nushell (recommended - active shell)")
+		options = append(options, "Zsh")
+		options = append(options, "Bash")
+		options = append(options, "Fish")
 		options = append(options, "PowerShell")
 	} else {
 		options = append(options, "Bash (recommended - active shell)")
 		options = append(options, "Zsh")
 		options = append(options, "Fish")
 		options = append(options, "PowerShell")
+		options = append(options, "Nushell")
 	}
 
 	if !hasStarship {
@@ -312,6 +337,8 @@ func runPromptInstall() error {
 		return installFish()
 	} else if strings.Contains(choice, "PowerShell") {
 		return installPowerShell()
+	} else if strings.Contains(choice, "Nushell") {
+		return installNushell()
 	}
 
 	return nil
@@ -556,5 +583,46 @@ func installPowerShell() error {
 	}
 
 	ui.Info("Restart your PowerShell session or run '. $PROFILE' to apply.")
+	return nil
+}
+
+func installNushell() error {
+	home, _ := os.UserHomeDir()
+	var path string
+	if runtime.GOOS == "windows" {
+		appData := os.Getenv("APPDATA")
+		if appData == "" {
+			appData = filepath.Join(home, "AppData", "Roaming")
+		}
+		path = filepath.Join(appData, "nushell", "env.nu")
+	} else {
+		path = filepath.Join(home, ".config", "nushell", "env.nu")
+	}
+
+	if content, err := os.ReadFile(path); err == nil {
+		str := string(content)
+		if strings.Contains(str, "git-user prompt") {
+			ui.Warn("Nushell prompt integration is already installed in " + path)
+			return nil
+		}
+	}
+
+	_ = backupFile(path)
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("creating nushell config directory: %w", err)
+	}
+
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("opening file: %w", err)
+	}
+	defer f.Close()
+
+	if _, err := f.WriteString(nushellPromptBlock); err != nil {
+		return fmt.Errorf("writing configuration: %w", err)
+	}
+
+	ui.Success("Successfully appended git-user integration to " + path)
+	ui.Info("Restart Nushell to see your active profile in the right prompt.")
 	return nil
 }

@@ -348,6 +348,10 @@ func removePromptIntegration() {
 	for _, p := range psPaths {
 		removeBlockWithLegacy(p, powerShellPromptBlock, "", "powershell")
 	}
+
+	// Nushell profile removal
+	nuPath := filepath.Join(home, ".config", "nushell", "env.nu")
+	removeBlockWithLegacy(nuPath, nushellPromptBlock, "", "nushell")
 }
 
 // removeShellIntegration cleans up git-user init hooks from shell startup files.

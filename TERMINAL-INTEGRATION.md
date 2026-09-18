@@ -264,15 +264,19 @@ source ~/.zshrc
 Nushell relies on its `env.nu` file to control the right prompt.
 
 **Step 1: Open your environment config**
-Open your `env.nu` configuration file. You can easily find its path by running `config env` inside Nushell.
+Open your `env.nu` configuration file (e.g. `~/.config/nushell/env.nu` on Linux/macOS or `%APPDATA%\nushell\env.nu` on Windows). You can easily find its path by running `config env` inside Nushell.
 
 **Step 2: Update the right prompt**
-Find or create the `PROMPT_COMMAND_RIGHT` variable, and add the `git-user prompt` command to it:
+Append the following block to your `env.nu` file:
 ```nushell
-let-env PROMPT_COMMAND_RIGHT = {||
-    let user = (git-user prompt | complete)
+# --- git-user prompt integration ---
+$env.PROMPT_COMMAND_RIGHT = {||
+    let user = (do -i { git-user prompt } | complete)
     if ($user.exit_code == 0) and ($user.stdout != "") {
-        $"(ansi blue) ($user.stdout | str trim)(ansi reset)"
+        let u = ($user.stdout | str trim)
+        let icon = (if ($env.TERM? == "linux" or $env.TERM? == "dumb") { "git:" } else { " " })
+        let icon = (if ($env.GIT_USER_PROMPT_ICON? != null) { $env.GIT_USER_PROMPT_ICON } else { $icon })
+        $"(ansi blue)($icon)($u)(ansi reset)"
     } else {
         ""
     }
