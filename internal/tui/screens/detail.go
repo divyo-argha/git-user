@@ -481,7 +481,7 @@ func (d *Detail) View(width, height int) string {
 		return d.theme.ErrorStyle().Render("Identity not found: " + d.name)
 	}
 
-	contentH := height - 4
+	contentH := height
 	if contentH < 10 {
 		contentH = 10
 	}
@@ -492,11 +492,13 @@ func (d *Detail) View(width, height int) string {
 		return d.theme.ActionPane(paneWidth, contentH).Render(viewContent)
 	}
 
-	// 2-Column Responsive Layout
-	rightWidth := d.actions.PreferredWidth(30, 46)
-	leftWidth := width - rightWidth - theme.PaneGap - 2*theme.PaneBorder
+	// 2-Column Responsive Layout: both columns are always equal width
+	availWidth := width - theme.PaneGap - 2*theme.PaneBorder
+	leftWidth := availWidth / 2
+	rightWidth := availWidth - leftWidth
 	if leftWidth < 28 {
 		leftWidth = 28
+		rightWidth = 28
 	}
 
 	leftContent := d.renderOverview(leftWidth, contentH, user)
@@ -504,6 +506,24 @@ func (d *Detail) View(width, height int) string {
 
 	leftBox := d.theme.InactivePane(leftWidth, contentH).Render(leftContent)
 	rightBox := d.theme.PulsingActivePane(rightWidth, contentH, d.animFrame).Render(rightContent)
+
+	// Symmetrical height: ensure both rendered panes match height exactly
+	hLeft := lipgloss.Height(leftBox)
+	hRight := lipgloss.Height(rightBox)
+	if hLeft != hRight {
+		maxH := hLeft
+		if hRight > maxH {
+			maxH = hRight
+		}
+		targetInnerH := maxH - 2
+		if hLeft < maxH {
+			leftBox = d.theme.InactivePane(leftWidth, targetInnerH).Render(leftContent)
+		}
+		if hRight < maxH {
+			rightContent = d.actions.View(rightWidth, targetInnerH, true)
+			rightBox = d.theme.PulsingActivePane(rightWidth, targetInnerH, d.animFrame).Render(rightContent)
+		}
+	}
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, leftBox, "   ", rightBox)
 }

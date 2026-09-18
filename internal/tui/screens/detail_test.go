@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
@@ -71,6 +72,16 @@ func TestDetail(t *testing.T) {
 	viewWide := detailActive.View(100, 24)
 	if viewWide == "" {
 		t.Errorf("Active profile View rendered empty string on wide screen")
+	}
+
+	for _, w := range []int{80, 100, 120, 150} {
+		for _, h := range []int{24, 30, 40} {
+			view := detailActive.View(w, h)
+			if view == "" {
+				t.Fatalf("View rendered empty string for %dx%d", w, h)
+			}
+			t.Logf("Terminal %dx%d => View rendered: %dx%d", w, h, lipgloss.Width(view), lipgloss.Height(view))
+		}
 	}
 
 	viewNarrow := detailActive.View(60, 24)
