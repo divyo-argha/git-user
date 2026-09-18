@@ -12,6 +12,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/identity"
 	"github.com/divyo-argha/git-user/internal/keyring"
+	"github.com/divyo-argha/git-user/internal/promptops"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -286,72 +287,14 @@ func removeManagedIncludeIfs() {
 // append, by literal match — so a file the user has since edited around the
 // block is left alone (with a warning) rather than partially mangled.
 func removePromptIntegration() {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return
-	}
-
-	removeBlockWithLegacy := func(path, block, legacyBlock, label string) {
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return
-		}
-		str := string(content)
-		if strings.Contains(str, block) {
-			str = strings.Replace(str, block, "", 1)
-			if err := os.WriteFile(path, []byte(str), 0644); err == nil {
-				ui.Success(fmt.Sprintf("Removed %s prompt integration from %s", label, path))
-			}
-			return
-		}
-		if legacyBlock != "" && strings.Contains(str, legacyBlock) {
-			str = strings.Replace(str, legacyBlock, "", 1)
-			if err := os.WriteFile(path, []byte(str), 0644); err == nil {
-				ui.Success(fmt.Sprintf("Removed %s prompt integration from %s", label, path))
-			}
-			return
-		}
-		if strings.Contains(str, "git-user prompt") {
-			ui.Warn(fmt.Sprintf("%s contains a modified git-user prompt block — remove it manually.", path))
+	lines, _ := promptops.UninstallAll()
+	for _, l := range lines {
+		if strings.HasPrefix(l, "Notice:") {
+			ui.Warn(l)
+		} else if !strings.HasPrefix(l, "No active") {
+			ui.Success(l)
 		}
 	}
-
-	removeBlockWithLegacy(filepath.Join(home, ".zshrc"), zshPromptBlock, zshPromptBlockLegacy, "zsh")
-	removeBlockWithLegacy(filepath.Join(home, ".bashrc"), bashPromptBlock, bashPromptBlockLegacy, "bash")
-	removeBlockWithLegacy(filepath.Join(home, ".config", "starship.toml"), starshipPromptBlock, "", "starship")
-
-	// Fish prompt removal
-	fishConfPath := filepath.Join(home, ".config", "fish", "conf.d", "git_user_prompt.fish")
-	if _, err := os.Stat(fishConfPath); err == nil {
-		_ = os.Remove(fishConfPath)
-		ui.Success("Removed fish prompt integration: " + fishConfPath)
-	}
-
-	fishPath := filepath.Join(home, ".config", "fish", "functions", "fish_right_prompt.fish")
-	if content, err := os.ReadFile(fishPath); err == nil {
-		trimmed := strings.TrimSpace(string(content))
-		if trimmed == strings.TrimSpace(fishPromptBlock) || trimmed == strings.TrimSpace(fishPromptFileLegacy) {
-			if err := os.Remove(fishPath); err == nil {
-				ui.Success("Removed fish prompt integration: " + fishPath)
-			}
-		} else if strings.Contains(string(content), "git-user prompt") {
-			ui.Warn(fmt.Sprintf("%s references git-user but has custom content — remove it manually.", fishPath))
-		}
-	}
-
-	// PowerShell profile removal
-	psPaths := []string{
-		filepath.Join(home, ".config", "powershell", "Microsoft.PowerShell_profile.ps1"),
-		filepath.Join(home, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1"),
-		filepath.Join(home, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"),
-	}
-	for _, p := range psPaths {
-		removeBlockWithLegacy(p, powerShellPromptBlock, "", "powershell")
-	}
-
-	// Nushell profile removal
-	nuPath := filepath.Join(home, ".config", "nushell", "env.nu")
-	removeBlockWithLegacy(nuPath, nushellPromptBlock, "", "nushell")
 }
 
 // removeShellIntegration cleans up git-user init hooks from shell startup files.

@@ -56,6 +56,7 @@ func TestSystemActions(t *testing.T) {
 
 	foundFixRemote := false
 	foundImportOriginal := false
+	foundPromptIntegration := false
 	for _, item := range m.items {
 		if item.Key == "fix-remote" {
 			foundFixRemote = true
@@ -63,12 +64,18 @@ func TestSystemActions(t *testing.T) {
 		if item.Key == "import-original" {
 			foundImportOriginal = true
 		}
+		if item.Key == "prompt-integration" {
+			foundPromptIntegration = true
+		}
 	}
 	if foundFixRemote {
 		t.Errorf("SystemActions should NOT include fix-remote when showFixRemote=false")
 	}
 	if !foundImportOriginal {
 		t.Errorf("SystemActions should include the import-original action")
+	}
+	if !foundPromptIntegration {
+		t.Errorf("SystemActions should include the prompt-integration action")
 	}
 
 	// With fix-remote

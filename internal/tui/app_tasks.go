@@ -198,6 +198,16 @@ func titleForKind(kind string) string {
 		return "Self-Update"
 	case "install-shell":
 		return "Shell Integration"
+	case "prompt-status":
+		return "Terminal Prompt Status"
+	case "install-prompt":
+		return "Prompt Integration Installed"
+	case "uninstall-prompt":
+		return "Prompt Integration Removed"
+	case "set-prompt-icon":
+		return "Prompt Icon Updated"
+	case "toggle-prompt-always":
+		return "Prompt Visibility Setting"
 	}
 	return "Result"
 }

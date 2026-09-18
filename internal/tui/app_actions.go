@@ -11,6 +11,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/keyring"
+	"github.com/divyo-argha/git-user/internal/promptops"
 	"github.com/divyo-argha/git-user/internal/shellinit"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/screens"
@@ -86,6 +87,7 @@ func (a *App) multiAccountMenuCmd() tea.Cmd {
 	}
 	sh := shellinit.Detect("")
 	opts = append(opts,
+		screens.Option{Label: "❯ Terminal prompt indicator (Fish, Zsh, Bash, etc.)", Key: "prompt-menu"},
 		screens.Option{Label: fmt.Sprintf("⌘ Install optional shell shortcut (%s)", shellLabel(sh)), Key: "install"},
 		screens.Option{Label: "ℹ How this works", Key: "info"},
 		screens.Option{Label: "Cancel", Key: ""},
@@ -94,6 +96,171 @@ func (a *App) multiAccountMenuCmd() tea.Cmd {
 		"Work With Multiple Accounts",
 		core.OptionsHelp(),
 		"multi-account",
+		opts,
+		a.theme,
+	))
+}
+
+const terminalIntegrationGuideText = `TERMINAL PROMPT INTEGRATION GUIDE
+
+Display your active Git profile name and status indicator directly inside your
+terminal shell prompt across Fish, Zsh, Bash, PowerShell, Nushell, and Starship!
+
+────────────────────────────────────────────────────────────────────────
+SUPPORTED SHELLS & CONFIGURATION FILES:
+
+  • Fish Shell:
+    Configuration is installed automatically to:
+      ~/.config/fish/conf.d/git_user_prompt.fish
+    Fish loads this automatically on startup. If you use a custom theme
+    (like Tide, Hydro, or Starship), your existing right prompt is preserved.
+
+  • Zsh / Oh My Zsh:
+    Configuration is appended to:
+      ~/.zshrc
+    Uses dynamic precmd hooks and PROMPT_SUBST with RPROMPT support.
+    Run 'source ~/.zshrc' after installation to activate.
+    Powerlevel10k users: Add a custom 'gituser' prompt segment in ~/.p10k.zsh.
+
+  • Bash:
+    Configuration is appended to:
+      ~/.bashrc
+    Uses PROMPT_COMMAND with ANSI escape guards (\001 and \002) to guarantee
+    zero cursor jumps or line-wrapping bugs on long commands.
+    Run 'source ~/.bashrc' after installation to activate.
+
+  • Starship Prompt:
+    Configuration is added to:
+      ~/.config/starship.toml
+    Adds a custom [custom.gituser] module running 'git-user prompt'.
+
+  • PowerShell (Windows & Unix):
+    Installed into your $PROFILE script:
+      Windows: ~/Documents/PowerShell/Microsoft.PowerShell_profile.ps1
+      Linux/macOS: ~/.config/powershell/Microsoft.PowerShell_profile.ps1
+    Wraps the prompt function while preserving existing prompt customizations.
+
+  • Nushell:
+    Installed to:
+      Linux/macOS: ~/.config/nushell/env.nu
+      Windows: %APPDATA%\nushell\env.nu
+    Uses modern $env.PROMPT_COMMAND_RIGHT closures with error tolerance.
+
+────────────────────────────────────────────────────────────────────────
+CUSTOMIZING ICONS & GLYPHS:
+
+  • Default:  <profile> (requires a Nerd Font installed in your terminal).
+  • Fallback: On virtual consoles or dumb terminals (TERM=linux or dumb),
+    icons automatically switch to plain ASCII 'git:<profile>'.
+  • Custom: Set environment variable:
+      export GIT_USER_PROMPT_ICON="🚀 "
+    or configure your preferred icon directly in the TUI prompt settings.
+
+────────────────────────────────────────────────────────────────────────
+COMMAND-LINE UTILITIES:
+
+  • Show active profile:
+      git-user prompt
+  • Show with icon:
+      git-user prompt --icon
+  • Always show even outside git repos:
+      git-user prompt --always
+  • Interactive installer from terminal:
+      git-user prompt install
+  • Temporary session switch in current terminal:
+      gu switch -s <name>
+`
+
+func (a *App) promptIntegrationMenuCmd() tea.Cmd {
+	activeTarget := promptops.DetectActiveTarget()
+	activeInfo := promptops.CheckTarget(activeTarget)
+
+	installedStatus := " [Not Installed]"
+	if activeInfo.Installed {
+		installedStatus = " [Installed]"
+	}
+
+	opts := []screens.Option{
+		{Label: "✦ View Status & Live Preview", Key: "status"},
+		{Label: fmt.Sprintf("▶ Install for Active Shell (%s)%s", activeInfo.Name, installedStatus), Key: "install-active:" + string(activeTarget)},
+		{Label: "↓ Choose Shell to Install...", Key: "install-pick"},
+		{Label: "⚙ Configure Icon & Appearance", Key: "config-appearance"},
+		{Label: "✖ Uninstall from Shell...", Key: "uninstall-pick"},
+		{Label: "ℹ Integration Guide & Tips", Key: "help"},
+		{Label: "Cancel", Key: ""},
+	}
+
+	return pushCmd(screens.NewOptions(
+		"Terminal Prompt Indicator",
+		core.OptionsHelp(),
+		"prompt-menu",
+		opts,
+		a.theme,
+	))
+}
+
+func (a *App) promptInstallPickCmd() tea.Cmd {
+	targets := promptops.CheckAllTargets()
+	var opts []screens.Option
+	for _, info := range targets {
+		badge := ""
+		if info.Installed {
+			badge = " (installed)"
+		}
+		activeTag := ""
+		if info.IsActive {
+			activeTag = " ★ active"
+		}
+		opts = append(opts, screens.Option{
+			Label: fmt.Sprintf("%s%s%s", info.Name, activeTag, badge),
+			Key:   "install:" + string(info.Target),
+		})
+	}
+	opts = append(opts, screens.Option{Label: "Cancel", Key: ""})
+	return pushCmd(screens.NewOptions(
+		"Select Shell For Prompt Integration",
+		core.OptionsHelp(),
+		"prompt-install-pick",
+		opts,
+		a.theme,
+	))
+}
+
+func (a *App) promptUninstallPickCmd() tea.Cmd {
+	activeTarget := promptops.DetectActiveTarget()
+	activeName := promptops.TargetName(activeTarget)
+
+	opts := []screens.Option{
+		{Label: fmt.Sprintf("Uninstall from active shell (%s)", activeName), Key: "uninstall:" + string(activeTarget)},
+		{Label: "Uninstall from ALL shells", Key: "uninstall:all"},
+		{Label: "Cancel", Key: ""},
+	}
+	return pushCmd(screens.NewOptions(
+		"Uninstall Prompt Integration",
+		core.OptionsHelp(),
+		"prompt-uninstall-pick",
+		opts,
+		a.theme,
+	))
+}
+
+func (a *App) promptConfigPickCmd() tea.Cmd {
+	alwaysState := "OFF (Git repos only)"
+	if a.store != nil && a.store.Prompt != nil && a.store.Prompt.Always {
+		alwaysState = "ON (Always visible)"
+	}
+	opts := []screens.Option{
+		{Label: "Nerd Font Icon ( ) — Default", Key: "icon:nerd"},
+		{Label: "Plain ASCII Tag (git: ) — No special font required", Key: "icon:plain"},
+		{Label: "Custom Icon / Emoji — Enter custom text", Key: "icon:custom"},
+		{Label: "No Icon — Profile name only", Key: "icon:none"},
+		{Label: fmt.Sprintf("Toggle Always Show (current: %s)", alwaysState), Key: "toggle-always"},
+		{Label: "Cancel", Key: ""},
+	}
+	return pushCmd(screens.NewOptions(
+		"Prompt Appearance & Options",
+		core.OptionsHelp(),
+		"prompt-config-pick",
 		opts,
 		a.theme,
 	))
@@ -218,6 +385,9 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			return a, pushCmd(screens.NewReport("Open Side-by-Side Terminal", manualShellWindowInstructions(msg.Name, err), a.theme))
 		}
 		return a, core.ShowToastCmd(fmt.Sprintf("Opened a new terminal window for %q — safe to use alongside this one", msg.Name), theme.ToastStyleSuccess, 3*time.Second)
+
+	case "prompt-integration":
+		return a, a.promptIntegrationMenuCmd()
 
 	case "shell-integration":
 		return a, a.multiAccountMenuCmd()

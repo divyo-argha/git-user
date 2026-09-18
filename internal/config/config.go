@@ -212,12 +212,19 @@ type SyncConfig struct {
 	DeviceName string `json:"device_name,omitempty"`
 }
 
+type PromptConfig struct {
+	Icon   string `json:"icon,omitempty"`
+	Always bool   `json:"always,omitempty"`
+	Plain  bool   `json:"plain,omitempty"`
+}
+
 type Store struct {
 	Current        string          `json:"current"`
 	Users          []User          `json:"users"`
 	Original       *OriginalConfig `json:"original,omitempty"`
 	Sync           *SyncConfig     `json:"sync,omitempty"`
 	ImportPrompted bool            `json:"import_prompted,omitempty"` // whether the first-run import prompt has been shown
+	Prompt         *PromptConfig   `json:"prompt,omitempty"`
 
 	// loadedHash is the SHA-256 of the config file contents as read by Load().
 	// It is never serialized. Save() refuses to overwrite the file if its

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/divyo-argha/git-user/internal/config"
-	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/promptops"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -182,83 +182,11 @@ func runPrompt(args []string) error {
 		}
 	}
 
-	// Output only inside git repos unless --always was specified
-	if !always && !git.IsInRepo() {
-		return nil
+	store, _ := config.Load()
+	out := promptops.ResolvePrompt(store, withIcon, plain, always)
+	if out != "" {
+		fmt.Print(out)
 	}
-
-	// Load config store
-	store, err := config.Load()
-	if err != nil {
-		return nil
-	}
-
-	var name string
-	var badge string
-
-	// 1. Session override
-	if session := os.Getenv("GIT_USER_SESSION"); session != "" {
-		name = session
-		badge = "session"
-	} else if authorName := os.Getenv("GIT_AUTHOR_NAME"); authorName != "" {
-		name = authorName
-		badge = "session"
-	} else if git.IsInRepo() {
-		// 2. Local repository override or directory binding override
-		gitName := git.CurrentName()
-		gitEmail := git.CurrentEmail()
-		if gitName != "" || gitEmail != "" {
-			for _, u := range store.Users {
-				if u.Name == gitName || (gitEmail != "" && u.Email == gitEmail) {
-					name = u.Name
-					if u.IsTemporary {
-						badge = "temp"
-					} else if git.HasLocalOverride() && u.Name != store.Current {
-						badge = "local"
-					}
-					break
-				}
-			}
-			if name == "" && gitName != "" {
-				name = gitName
-				if git.HasLocalOverride() {
-					badge = "local"
-				}
-			}
-		}
-	}
-
-	// 3. Global active profile
-	if name == "" && store.Current != "" {
-		name = store.Current
-		if u := store.CurrentUser(); u != nil && u.IsTemporary {
-			badge = "temp"
-		}
-	}
-
-	if name == "" {
-		return nil
-	}
-
-	out := name
-	if !plain && badge != "" {
-		out = fmt.Sprintf("%s (%s)", name, badge)
-	}
-
-	if withIcon {
-		icon := os.Getenv("GIT_USER_PROMPT_ICON")
-		if icon == "" {
-			term := os.Getenv("TERM")
-			if term == "linux" || term == "dumb" || term == "cons25" {
-				icon = "git:"
-			} else {
-				icon = " "
-			}
-		}
-		out = icon + out
-	}
-
-	fmt.Print(out)
 	return nil
 }
 

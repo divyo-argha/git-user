@@ -408,6 +408,12 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 			}
 			return opSignerAddEmail(repoRoot, email, expandPath(pubkeyFile))
 		})
+
+	case "prompt-icon-form":
+		icon := msg.Values[0]
+		return a, a.runTaskCmd("set-prompt-icon", icon, func() (opResult, error) {
+			return opSetPromptIcon(a.store, icon)
+		})
 	}
 
 	return a, nil

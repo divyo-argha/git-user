@@ -4,11 +4,19 @@ You can display your active `git-user` profile directly in your terminal prompt.
 
 ## 🚀 Easy Automatic Installation (Recommended)
 
+### Option A: From the Interactive TUI Panel
+Launch the TUI and navigate to the right pane (`Tab` or `l`):
+1. Run `git-user`
+2. Under **Profiles & System**, select **`❯ Terminal prompt indicator`**
+3. Select **`▶ Install for Active Shell`** (or choose any specific shell from the menu)
+4. You can also view live preview & status diagnostics, change icon styles, and toggle visibility options directly inside the TUI!
+
+### Option B: From the Terminal Command Line
 Simply run the interactive installer in your terminal:
 ```bash
 git-user prompt install
 ```
-This command auto-detects your active shell (Zsh, Bash, Fish) or prompt framework (Starship), takes a safe timestamped backup of your config file, and automatically appends/integrates the prompt configuration for you!
+This command auto-detects your active shell (Fish, Zsh, Bash, PowerShell, Nushell) or prompt framework (Starship), takes a safe timestamped backup of your config file, and automatically appends/integrates the prompt configuration for you!
 
 ---
 

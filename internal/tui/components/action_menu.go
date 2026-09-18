@@ -67,6 +67,7 @@ func SystemActions(th theme.Theme, showFixRemote, inRepo bool) ActionMenu {
 		ActionItem{Label: "◈ Commit identity stats", Key: "stats"},
 		ActionItem{Label: "⚓ Git hooks", Key: "hook"},
 		ActionItem{Label: "↻ Sync identities", Key: "sync"},
+		ActionItem{Label: "❯ Terminal prompt indicator", Key: "prompt-integration"},
 		ActionItem{Label: "⌘ Multiple accounts & shell integration", Key: "shell-integration"},
 		ActionItem{Label: "▲ Up to date", Key: "update", Disabled: true},
 		ActionItem{IsSection: true, Label: "Danger Zone"},

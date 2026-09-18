@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/promptops"
 	"github.com/divyo-argha/git-user/internal/shellinit"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/screens"
@@ -166,6 +167,9 @@ func (a *App) handleOptionResult(msg core.OptionResultMsg) (tea.Model, tea.Cmd) 
 			}
 			return a, core.ShowToastCmd(fmt.Sprintf("Opened a new terminal window for %q — safe to use alongside this one", name), theme.ToastStyleSuccess, 3*time.Second)
 
+		case msg.Choice == "prompt-menu":
+			return a, a.promptIntegrationMenuCmd()
+
 		case msg.Choice == "install":
 			sh := shellinit.Detect("")
 			return a, pushCmd(screens.NewConfirm(
@@ -176,6 +180,77 @@ func (a *App) handleOptionResult(msg core.OptionResultMsg) (tea.Model, tea.Cmd) 
 
 		case msg.Choice == "info":
 			return a, pushCmd(screens.NewReport("Multiple Accounts & Shell Integration", shellIntegrationSnippet, a.theme))
+		}
+
+	case "prompt-menu":
+		switch {
+		case msg.Choice == "status":
+			return a, a.runTaskCmd("prompt-status", "", func() (opResult, error) {
+				return opPromptStatus(a.store)
+			})
+		case strings.HasPrefix(msg.Choice, "install-active:"):
+			target := promptops.Target(strings.TrimPrefix(msg.Choice, "install-active:"))
+			return a, a.runTaskCmd("install-prompt", string(target), func() (opResult, error) {
+				return opInstallPrompt(target)
+			})
+		case msg.Choice == "install-pick":
+			return a, a.promptInstallPickCmd()
+		case msg.Choice == "config-appearance":
+			return a, a.promptConfigPickCmd()
+		case msg.Choice == "uninstall-pick":
+			return a, a.promptUninstallPickCmd()
+		case msg.Choice == "help":
+			return a, pushCmd(screens.NewReport("Terminal Prompt Integration Guide", terminalIntegrationGuideText, a.theme))
+		}
+
+	case "prompt-install-pick":
+		if strings.HasPrefix(msg.Choice, "install:") {
+			target := promptops.Target(strings.TrimPrefix(msg.Choice, "install:"))
+			return a, a.runTaskCmd("install-prompt", string(target), func() (opResult, error) {
+				return opInstallPrompt(target)
+			})
+		}
+
+	case "prompt-uninstall-pick":
+		if strings.HasPrefix(msg.Choice, "uninstall:") {
+			target := promptops.Target(strings.TrimPrefix(msg.Choice, "uninstall:"))
+			return a, a.runTaskCmd("uninstall-prompt", string(target), func() (opResult, error) {
+				return opUninstallPrompt(target)
+			})
+		}
+
+	case "prompt-config-pick":
+		switch msg.Choice {
+		case "icon:nerd":
+			return a, a.runTaskCmd("set-prompt-icon", "nerd", func() (opResult, error) {
+				return opSetPromptIcon(a.store, "")
+			})
+		case "icon:plain":
+			return a, a.runTaskCmd("set-prompt-icon", "plain", func() (opResult, error) {
+				return opSetPromptIcon(a.store, "git:")
+			})
+		case "icon:none":
+			return a, a.runTaskCmd("set-prompt-icon", "none", func() (opResult, error) {
+				return opSetPromptIcon(a.store, "none")
+			})
+		case "icon:custom":
+			currentIcon := ""
+			if a.store != nil && a.store.Prompt != nil {
+				currentIcon = a.store.Prompt.Icon
+			}
+			return a, pushCmd(screens.NewForm(
+				"Set Custom Prompt Icon",
+				"Enter icon, emoji, or text prefix (e.g. '🚀 ', '[git] ')",
+				"prompt-icon-form",
+				[]screens.FormInput{
+					{Label: "Icon Prefix:", Value: currentIcon},
+				},
+				a.theme,
+			))
+		case "toggle-always":
+			return a, a.runTaskCmd("toggle-prompt-always", "", func() (opResult, error) {
+				return opTogglePromptAlways(a.store)
+			})
 		}
 
 	case "token-action":
