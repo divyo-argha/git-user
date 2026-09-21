@@ -316,11 +316,13 @@ func opRemove(store *config.Store, name string) (string, error) {
 	return sshKey, nil
 }
 
-// opDeleteKeyFiles removes an SSH key pair.
-func opDeleteKeyFiles(keyPath string) {
+// opDeleteKeyFiles securely deletes an SSH key pair (3-pass overwrite before
+// unlink), matching the CLI's remove path (internal/cli/remove.go) so a key
+// deleted from the TUI isn't forensically recoverable from disk any more
+// than one deleted from the CLI.
+func opDeleteKeyFiles(keyPath string) error {
 	if keyPath == "" {
-		return
+		return nil
 	}
-	_ = os.Remove(keyPath)
-	_ = os.Remove(keyPath + ".pub")
+	return identity.SecureDeleteKeyPair(keyPath)
 }

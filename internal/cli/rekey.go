@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/identity"
 	"github.com/divyo-argha/git-user/internal/rekeyops"
 	"github.com/divyo-argha/git-user/internal/ui"
 	"github.com/divyo-argha/git-user/internal/validate"
@@ -126,11 +127,13 @@ func runRekey(args []string) error {
 
 	_, _ = ui.Prompt("Press Enter once you've replaced the key on your platform...")
 
+	verified := false
 	if err := verifySSHConnectionWithKey(newKeyPath); err != nil {
 		ui.Warn("SSH verification failed. Please check that you've added the new key correctly.")
 		ui.Info(fmt.Sprintf("You can test manually with: ssh -i %s -o IdentitiesOnly=yes -T git@github.com", newKeyPath))
 	} else {
 		ui.Success("SSH connection verified with new key!")
+		verified = true
 	}
 
 	if result.SignKeyCarried {
@@ -143,6 +146,22 @@ func runRekey(args []string) error {
 	}
 
 	ui.Success(fmt.Sprintf("SSH key rotated successfully for %s", name))
-	ui.Info("Old key backed up with .backup extension")
+
+	if result.HadOldKey {
+		ui.Info(fmt.Sprintf("Old key backed up to %s", result.BackupPath))
+		if !verified {
+			ui.Info("Keeping the backup since SSH verification didn't succeed — rerun 'git-user rekey' cleanup once you've confirmed the new key works.")
+		} else if ui.Confirm(fmt.Sprintf("Securely delete the old key backup now that the new key is verified? (%s)", result.BackupPath), false) {
+			if err := identity.SecureDelete(result.BackupPath); err != nil {
+				ui.Errorf("deleting backup: %v", err)
+			} else {
+				_ = identity.SecureDelete(result.BackupPath + ".pub")
+				ui.Success("Old key backup securely deleted")
+			}
+		} else {
+			ui.Info("Backup kept — remove it later with: git-user doctor (flags stale backups) or delete it manually.")
+		}
+	}
+
 	return nil
 }

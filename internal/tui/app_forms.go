@@ -94,6 +94,12 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 		if newPass != msg.Values[1] {
 			return a, tea.Batch(core.ShowToastCmd("Passphrases do not match", theme.ToastStyleError, 3*time.Second), a.sshPassphraseFormCmd(name, email, mode, choice, keyPath))
 		}
+		// Empty stays valid — this passphrase is optional (Skippable()).
+		if newPass != "" {
+			if err := validate.Passphrase(newPass, 8); err != nil {
+				return a, tea.Batch(core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second), a.sshPassphraseFormCmd(name, email, mode, choice, keyPath))
+			}
+		}
 		return a, pushCmd(screens.NewConfirm(
 			"Would you like to sign your Git commits automatically using this identity's SSH key?",
 			fmt.Sprintf("ssh-sign:%s|%s|%s|%s|%s|%s", name, email, mode, choice, newPass, keyPath),
@@ -231,6 +237,9 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 		if msg.Values[1] == "" {
 			return a, tea.Batch(core.ShowToastCmd("Passphrase must not be empty", theme.ToastStyleError, 3*time.Second), a.passphraseSetProtectedFormCmd(rest))
 		}
+		if err := validate.Passphrase(msg.Values[1], 8); err != nil {
+			return a, tea.Batch(core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second), a.passphraseSetProtectedFormCmd(rest))
+		}
 		return a, a.runTaskCmd("passphrase-set", rest, func() (opResult, error) {
 			err := opPassphraseSet(a.store, rest, msg.Values[0], msg.Values[1])
 			return opResult{detail: fmt.Sprintf("Passphrase changed for %q", rest)}, err
@@ -242,6 +251,9 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 		}
 		if msg.Values[0] == "" {
 			return a, tea.Batch(core.ShowToastCmd("Passphrase must not be empty", theme.ToastStyleError, 3*time.Second), a.passphraseSetFormCmd(rest))
+		}
+		if err := validate.Passphrase(msg.Values[0], 8); err != nil {
+			return a, tea.Batch(core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second), a.passphraseSetFormCmd(rest))
 		}
 		return a, a.runTaskCmd("passphrase-set", rest, func() (opResult, error) {
 			err := opPassphraseSet(a.store, rest, "", msg.Values[0])
@@ -281,6 +293,13 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 		name, keyPath := field(fields, 0), field(fields, 1)
 		if msg.Values[0] != msg.Values[1] {
 			return a, tea.Batch(core.ShowToastCmd("Passphrases do not match", theme.ToastStyleError, 3*time.Second), a.rekeyPassFormCmd(name, keyPath))
+		}
+		// Empty stays valid here — a rekey passphrase is optional (leaving the
+		// key unprotected is a deliberate choice, gated by Skippable()).
+		if msg.Values[0] != "" {
+			if err := validate.Passphrase(msg.Values[0], 8); err != nil {
+				return a, tea.Batch(core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second), a.rekeyPassFormCmd(name, keyPath))
+			}
 		}
 		return a, a.runTaskCmd("rekey", name, func() (opResult, error) {
 			return opRekey(a.store, name, keyPath, msg.Values[0])

@@ -9,7 +9,14 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
+	"github.com/divyo-argha/git-user/internal/validate"
 )
+
+// minSSHPassphraseLen matches the minimum enforced for the export-bundle and
+// sync-setup passphrases elsewhere in this codebase (internal/cli/export.go,
+// internal/tui/app_actions.go's syncSetupFormCmd) — SSH key passphrases were
+// previously the one passphrase flow with no strength floor at all.
+const minSSHPassphraseLen = 8
 
 func runPassphrase(args []string) error {
 	var name string
@@ -230,6 +237,10 @@ func promptRequiredPassphrase() (string, error) {
 	if passphrase == "" {
 		ui.Error("Passphrase must not be empty.")
 		return "", fmt.Errorf("empty passphrase")
+	}
+	if err := validate.Passphrase(passphrase, minSSHPassphraseLen); err != nil {
+		ui.Error(err.Error())
+		return "", err
 	}
 
 	confirm, err := readPassphrase(ConfirmPassphrasePrompt)

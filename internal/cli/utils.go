@@ -230,6 +230,8 @@ func generateAndDisplayKey(name, email string) (string, error) {
 		confirm, err := readPassphrase(ConfirmPassphrasePrompt)
 		if err != nil || newPass != confirm {
 			ui.Error("Passphrases do not match. Skipping passphrase setup.")
+		} else if err := validate.Passphrase(newPass, minSSHPassphraseLen); err != nil {
+			ui.Errorf("%v. Skipping passphrase setup.", err)
 		} else if err := ssh.ChangeKeyPassphrase(keyPath, "", newPass); err != nil {
 			ui.Errorf("Could not add passphrase: %v", err)
 		} else {

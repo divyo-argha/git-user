@@ -2,6 +2,7 @@ package screens
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -122,6 +123,9 @@ func (d *Detail) refreshActions() {
 			})
 		}
 		items = append(items, components.ActionItem{Label: "↻ Rotate SSH key", Key: "rekey"})
+		if _, err := os.Stat(user.SSHKey + ".backup"); err == nil {
+			items = append(items, components.ActionItem{Label: theme.IconKey + " Securely delete old key backup", Key: "delete-backup"})
+		}
 		items = append(items, components.ActionItem{Label: "✕ Remove SSH key", Key: "unbind"})
 	}
 	// HTTPS token is an SSH-independent credential path (for networks/CI

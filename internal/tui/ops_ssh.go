@@ -365,6 +365,32 @@ func opRekey(store *config.Store, name, keyPath, passphrase string) (opResult, e
 	return opResult{detail: report, showReport: true}, nil
 }
 
+// opDeleteBackupKey securely deletes the pre-rotation ".backup" key pair left
+// behind by opRekey for the identity's current SSH key. Offered from the
+// detail screen only once a backup file actually exists (see
+// internal/tui/screens/detail.go), and gated behind a confirm dialog the
+// user must accept after confirming the rotated key already works — an
+// unprotected old key left on disk indefinitely is exactly the kind of
+// forgotten secret this closes off.
+func opDeleteBackupKey(store *config.Store, name string) error {
+	user := store.FindUser(name)
+	if user == nil {
+		return fmt.Errorf("identity %q not found", name)
+	}
+	if user.SSHKey == "" {
+		return fmt.Errorf("identity %q has no SSH key bound", name)
+	}
+	backupPath := user.SSHKey + ".backup"
+	if _, err := os.Stat(backupPath); err != nil {
+		return fmt.Errorf("no backup key found at %s", backupPath)
+	}
+	if err := identity.SecureDelete(backupPath); err != nil {
+		return err
+	}
+	_ = identity.SecureDelete(backupPath + ".pub")
+	return nil
+}
+
 // opPassphraseSet sets or changes an identity's key passphrase.
 func opPassphraseSet(store *config.Store, name, oldPass, newPass string) error {
 	user := store.FindUser(name)

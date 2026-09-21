@@ -72,8 +72,10 @@ func (a *App) handleConfirmResult(msg core.ConfirmResultMsg) (tea.Model, tea.Cmd
 	case "delete-key":
 		keyPath := rest
 		return a, a.runTaskCmd("delete-key", "", func() (opResult, error) {
-			opDeleteKeyFiles(keyPath)
-			return opResult{detail: "SSH key files deleted"}, nil
+			if err := opDeleteKeyFiles(keyPath); err != nil {
+				return opResult{}, err
+			}
+			return opResult{detail: "SSH key files securely deleted"}, nil
 		})
 
 	case "unbind":
@@ -84,6 +86,15 @@ func (a *App) handleConfirmResult(msg core.ConfirmResultMsg) (tea.Model, tea.Cmd
 
 	case "rekey":
 		return a, a.rekeyKeyNameFormCmd(rest, "")
+
+	case "delete-backup":
+		name := rest
+		return a, a.runTaskCmd("delete-backup", name, func() (opResult, error) {
+			if err := opDeleteBackupKey(a.store, name); err != nil {
+				return opResult{}, err
+			}
+			return opResult{detail: "Old key backup securely deleted"}, nil
+		})
 
 	case "token-remove":
 		return a, a.runTaskCmd("token-remove", rest, func() (opResult, error) {

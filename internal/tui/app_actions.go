@@ -487,6 +487,13 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			a.theme,
 		))
 
+	case "delete-backup":
+		return a, pushCmd(screens.NewConfirm(
+			fmt.Sprintf("Securely delete the old (pre-rotation) key backup for %q? Only do this once you've confirmed the current key works.", msg.Name),
+			"delete-backup:"+msg.Name,
+			a.theme,
+		))
+
 	case "passphrase":
 		return a, pushCmd(screens.NewPassphraseMenu(a.store, msg.Name, a.theme))
 
