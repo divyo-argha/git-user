@@ -532,15 +532,33 @@ func Run(store *config.Store, opts Options) (Report, error) {
 	if git.IsInRepo() {
 		add(Check{IsProgress: true, Category: "Repository", Message: "Checking current repository remotes..."})
 		if remotes, err := git.ListRemotes(); err == nil && len(remotes) > 0 {
-			hasHTTPS := false
+			hasHTTPSFetch := false
+			hasHTTPSPush := false
 			var detail []string
 			for _, remote := range remotes {
-				if url, err := git.GetRemoteURL(remote); err == nil && strings.HasPrefix(url, "https://") {
-					hasHTTPS = true
-					detail = append(detail, fmt.Sprintf("  %s: %s", remote, url))
+				fetchURL, err := git.GetRemoteURL(remote)
+				if err == nil && strings.HasPrefix(fetchURL, "https://") {
+					hasHTTPSFetch = true
+				}
+				pushURL, err := git.GetPushRemoteURL(remote)
+				if err == nil && strings.HasPrefix(pushURL, "https://") {
+					hasHTTPSPush = true
+					detail = append(detail, fmt.Sprintf("  %s: %s (push: %s)", remote, fetchURL, pushURL))
+				} else if err != nil && strings.HasPrefix(fetchURL, "https://") {
+					hasHTTPSPush = true
+					detail = append(detail, fmt.Sprintf("  %s: %s", remote, fetchURL))
 				}
 			}
-			if hasHTTPS {
+			if hasHTTPSFetch && !hasHTTPSPush {
+				var pushDetail []string
+				for _, remote := range remotes {
+					fURL, _ := git.GetRemoteURL(remote)
+					pURL, _ := git.GetPushRemoteURL(remote)
+					pushDetail = append(pushDetail, fmt.Sprintf("  %s: %s (push: %s via pushInsteadOf)", remote, fURL, pURL))
+				}
+				add(Check{ID: "repo-remotes", Category: "Repository", Name: "Repository remotes", Status: StatusPass,
+					Message: "Repository uses HTTPS for fetch and SSH for push (via pushInsteadOf)", Detail: pushDetail})
+			} else if hasHTTPSPush {
 				add(Check{ID: "repo-remotes-notice", Category: "Repository", Name: "Repository remotes", Status: StatusNotice,
 					Message: "Repository uses HTTPS remotes", Detail: detail})
 				if fix {
@@ -570,12 +588,12 @@ func Run(store *config.Store, opts Options) (Report, error) {
 					}
 				} else {
 					var fixDetail []string
-					fixDetail = append(fixDetail, "  Fix: Run 'git-user fix-remote' to convert to SSH")
+					fixDetail = append(fixDetail, "  Fix: Run 'git-user fix-remote' to route push over SSH")
 					if activeSSHFailed && !activeUserHasToken {
 						fixDetail = append(fixDetail, "  Or, since SSH just failed above: git-user token <name> --set")
 					}
 					add(Check{ID: "repo-remotes", Category: "Repository", Name: "Repository remotes", Status: StatusWarn,
-						Message: "Repository uses HTTPS remotes (not converted to SSH)", Detail: fixDetail})
+						Message: "Repository pushes over HTTPS (passwords deprecated; not routed to SSH)", Detail: fixDetail})
 				}
 			} else {
 				add(Check{ID: "repo-remotes", Category: "Repository", Name: "Repository remotes", Status: StatusPass, Message: "All remotes use SSH"})

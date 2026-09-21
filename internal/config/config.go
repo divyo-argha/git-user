@@ -710,6 +710,9 @@ func syncIncludeIfs(s *Store) error {
 		if u.SSHKey != "" {
 			sb.WriteString("[core]\n")
 			sb.WriteString(fmt.Sprintf("\tsshCommand = ssh -i %q -o IdentitiesOnly=yes\n", u.SSHKey))
+			for _, host := range git.DefaultPushInsteadOfHosts() {
+				sb.WriteString(fmt.Sprintf("[url \"git@%s:\"]\n\tpushInsteadOf = %q\n", host, fmt.Sprintf("https://%s/", host)))
+			}
 		}
 		if !u.SignDisabled && u.SignKey != "" {
 			if u.SignFormat == "ssh" {

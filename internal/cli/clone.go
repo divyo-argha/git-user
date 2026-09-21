@@ -174,6 +174,27 @@ func configureRepoLocal(repoPath string, u *config.User) error {
 	if u.SSHKey != "" {
 		sshVal := fmt.Sprintf("ssh -i %q -o IdentitiesOnly=yes", u.SSHKey)
 		commands = append(commands, []string{"config", "--local", "core.sshCommand", sshVal})
+
+		// Configure implicit SSH push for HTTPS remotes so git push transparently works over SSH
+		out, err := exec.Command("git", "-C", repoPath, "remote", "get-url", "origin").Output()
+		if err == nil {
+			urlStr := strings.TrimSpace(string(out))
+			if strings.HasPrefix(urlStr, "https://") {
+				trimmed := strings.TrimPrefix(urlStr, "https://")
+				parts := strings.SplitN(trimmed, "/", 2)
+				if len(parts) > 0 {
+					host := parts[0]
+					if atIdx := strings.LastIndex(host, "@"); atIdx >= 0 {
+						host = host[atIdx+1:]
+					}
+					if host != "" {
+						sshBase := fmt.Sprintf("git@%s:", host)
+						httpsBase := fmt.Sprintf("https://%s/", host)
+						commands = append(commands, []string{"config", "--local", fmt.Sprintf("url.%s.pushInsteadOf", sshBase), httpsBase})
+					}
+				}
+			}
+		}
 	}
 
 	if !u.SignDisabled && u.SignKey != "" {

@@ -71,3 +71,19 @@ func TestVarsWiresAskpassWithToken(t *testing.T) {
 		t.Errorf("expected the identity name in the askpass command, got: %s", params)
 	}
 }
+
+func TestVarsWiresPushInsteadOfWithSSH(t *testing.T) {
+	u := &config.User{Name: "work", Email: "work@example.com", SSHKey: "/home/user/.ssh/id_rsa"}
+	params := Vars(u)["GIT_CONFIG_PARAMETERS"]
+
+	if !strings.Contains(params, "url.git@github.com:.pushInsteadOf=https://github.com/") {
+		t.Errorf("expected github.com pushInsteadOf in GIT_CONFIG_PARAMETERS, got: %s", params)
+	}
+	if !strings.Contains(params, "url.git@gitlab.com:.pushInsteadOf=https://gitlab.com/") {
+		t.Errorf("expected gitlab.com pushInsteadOf in GIT_CONFIG_PARAMETERS, got: %s", params)
+	}
+	if !strings.Contains(params, "url.git@bitbucket.org:.pushInsteadOf=https://bitbucket.org/") {
+		t.Errorf("expected bitbucket.org pushInsteadOf in GIT_CONFIG_PARAMETERS, got: %s", params)
+	}
+}
+

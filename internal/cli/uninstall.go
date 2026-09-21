@@ -135,6 +135,9 @@ func runUninstall(args []string) error {
 	// explicitly, or a since-uninstalled git-user binary is left configured
 	// as the credential helper for every git command.
 	git.RemoveAskpassConfig()
+	for _, host := range git.DefaultPushInsteadOfHosts() {
+		git.RemovePushInsteadOf(host, false)
+	}
 
 	// 2. Remove directory-binding includeIf entries git-user owns.
 	git.RemoveManagedIncludeIfs()

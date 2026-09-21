@@ -39,7 +39,7 @@ func NewDashboard(store *config.Store, th theme.Theme) *Dashboard {
 		store = &config.Store{}
 	}
 	inRepo := git.IsInRepo()
-	hasHTTPS := inRepo && git.HasHTTPSRemotes()
+	hasHTTPS := inRepo && git.HasHTTPSPushRemotes()
 	return &Dashboard{
 		store:      store,
 		identities: components.NewIdentityList(store, th),
@@ -319,7 +319,7 @@ func (d *Dashboard) viewSingleColumn(width, height int) string {
 
 func (d *Dashboard) refreshActions() {
 	inRepo := git.IsInRepo()
-	hasHTTPS := inRepo && git.HasHTTPSRemotes()
+	hasHTTPS := inRepo && git.HasHTTPSPushRemotes()
 	prevKey := ""
 	if sel := d.actions.Selected(); sel != nil {
 		prevKey = sel.Key

@@ -413,6 +413,66 @@ func GetRemoteURL(remote string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// GetPushRemoteURL returns the resolved push URL for a remote, taking into
+// account any url.<base>.pushInsteadOf or url.<base>.insteadOf rewrites.
+func GetPushRemoteURL(remote string) (string, error) {
+	cmd := gitCmd("remote", "get-url", "--push", "--", remote)
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// ConfigurePushInsteadOf configures Git to transparently route pushes to https://<host>/
+// over SSH (git@<host>:) using url.<sshBase>.pushInsteadOf.
+func ConfigurePushInsteadOf(host string, local bool) error {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return fmt.Errorf("host cannot be empty")
+	}
+	sshBase := fmt.Sprintf("git@%s:", host)
+	httpsBase := fmt.Sprintf("https://%s/", host)
+	return setConfig(fmt.Sprintf("url.%s.pushInsteadOf", sshBase), httpsBase, local)
+}
+
+// RemovePushInsteadOf removes a pushInsteadOf rewrite for a given host.
+func RemovePushInsteadOf(host string, local bool) {
+	sshBase := fmt.Sprintf("git@%s:", host)
+	unsetConfig(fmt.Sprintf("url.%s.pushInsteadOf", sshBase), local)
+}
+
+// DefaultPushInsteadOfHosts returns the standard Git hosting platforms
+// for automatic implicit SSH push rewriting.
+func DefaultPushInsteadOfHosts() []string {
+	return []string{"github.com", "gitlab.com", "bitbucket.org"}
+}
+
+// HasHTTPSPushRemotes reports whether any remote in the current repository
+// resolves its push URL to HTTPS (meaning pushes are not protected by SSH).
+func HasHTTPSPushRemotes() bool {
+	if !IsInRepo() {
+		return false
+	}
+	remotes, err := ListRemotes()
+	if err != nil || len(remotes) == 0 {
+		return false
+	}
+	for _, remote := range remotes {
+		pushURL, err := GetPushRemoteURL(remote)
+		if err == nil && strings.HasPrefix(pushURL, "https://") {
+			return true
+		}
+		if err != nil {
+			fetchURL, fErr := GetRemoteURL(remote)
+			if fErr == nil && strings.HasPrefix(fetchURL, "https://") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func SetRemoteURL(remote, url string) error {
 	cmd := gitCmd("remote", "set-url", "--", remote, url)
 	return cmd.Run()

@@ -52,6 +52,13 @@ func Vars(u *config.User) map[string]string {
 		gitParams = append(gitParams, fmt.Sprintf("%s=%s", k, v))
 	}
 
+	// Implicit SSH push: route HTTPS pushes to major platforms over SSH
+	if u.SSHKey != "" || u.SSHCommand != "" {
+		for _, host := range []string{"github.com", "gitlab.com", "bitbucket.org"} {
+			gitParams = append(gitParams, fmt.Sprintf("url.git@%s:.pushInsteadOf=https://%s/", host, host))
+		}
+	}
+
 	// HTTPS credential (for hosts/proxies where SSH isn't available): route
 	// credential prompts back through this same git-user binary rather than
 	// ever placing the token in git config — see AskpassCommand and

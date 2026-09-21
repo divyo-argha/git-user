@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
@@ -275,22 +274,12 @@ func runSwitch(args []string) error {
 	}
 
 	if git.IsInRepo() {
-		remotes, _ := git.ListRemotes()
-		hasHTTPS := false
-		for _, remote := range remotes {
-			url, err := git.GetRemoteURL(remote)
-			if err == nil && strings.HasPrefix(url, "https://") {
-				hasHTTPS = true
-				break
-			}
-		}
-
-		if hasHTTPS {
+		if git.HasHTTPSPushRemotes() {
 			fmt.Println()
-			ui.Warn("This repo uses HTTPS remotes")
+			ui.Warn("This repo pushes over HTTPS (passwords are deprecated by GitHub/GitLab)")
 
-			if ui.Confirm("Convert to SSH for passwordless push?", true) {
-				_ = runFixRemote(nil)
+			if ui.Confirm("Route push over SSH for passwordless push?", true) {
+				_ = runFixRemote([]string{"--implicit"})
 			}
 		}
 	}

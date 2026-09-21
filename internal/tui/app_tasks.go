@@ -57,9 +57,9 @@ func (a *App) handleTaskResult(msg core.TaskResultMsg) (tea.Model, tea.Cmd) {
 		if msg.ShowReport {
 			cmds = append(cmds, pushCmd(screens.NewReport(titleForKind(msg.Kind), msg.Detail, a.theme)))
 		}
-		if git.HasHTTPSRemotes() {
+		if git.HasHTTPSPushRemotes() {
 			cmds = append(cmds, pushCmd(screens.NewConfirm(
-				"This repo uses HTTPS remotes. Convert to SSH for passwordless push?",
+				"This repo pushes over HTTPS. Route push over SSH for passwordless push?",
 				"switch-https",
 				a.theme,
 			)))
