@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/divyo-argha/git-user/internal/testutil"
 )
 
 func TestExpandPath(t *testing.T) {
@@ -67,9 +69,7 @@ func TestGenerateAndDisplayKey_KeyExists(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Override private directory for this test
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
+	testutil.SetHomeDir(t, tmpDir)
 
 	// Create .ssh directory
 	sshDir := filepath.Join(tmpDir, ".ssh")

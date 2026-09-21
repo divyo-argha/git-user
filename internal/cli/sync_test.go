@@ -9,6 +9,7 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/testutil"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -76,8 +77,7 @@ func TestRunSync_SetupAndSync(t *testing.T) {
 	// Now simulate another device syncing from the same remote repo!
 	// We create a new clean local environment targeting the same remote
 	tmpDir2 := t.TempDir()
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir2)
+	testutil.SetHomeDir(t, tmpDir2)
 	_ = exec.Command("git", "config", "--global", "--add", "safe.directory", "*").Run()
 	_ = exec.Command("git", "config", "--global", "user.name", "Test User").Run()
 	_ = exec.Command("git", "config", "--global", "user.email", "test@example.com").Run()
@@ -118,9 +118,6 @@ func TestRunSync_SetupAndSync(t *testing.T) {
 	if store2.Current != "dev" {
 		t.Errorf("expected \"dev\" to be activated on a device with no prior active identity, got current=%q", store2.Current)
 	}
-
-	// Restore original private for cleanup
-	os.Setenv("HOME", oldHome)
 }
 
 // TestRunSync_AppliesKeyToActiveIdentity guards against a regression where
@@ -176,9 +173,7 @@ func TestRunSync_AppliesKeyToActiveIdentity(t *testing.T) {
 	// Second device: "dev" already exists locally (e.g. imported by name
 	// earlier) but has no SSH key yet, and it's already the active identity.
 	tmpDir2 := t.TempDir()
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir2)
-	t.Cleanup(func() { os.Setenv("HOME", oldHome) })
+	testutil.SetHomeDir(t, tmpDir2)
 	_ = exec.Command("git", "config", "--global", "--add", "safe.directory", "*").Run()
 	_ = exec.Command("git", "config", "--global", "user.name", "Test User").Run()
 	_ = exec.Command("git", "config", "--global", "user.email", "test@example.com").Run()

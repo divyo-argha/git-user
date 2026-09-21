@@ -17,7 +17,7 @@ func TestIsIdentityInSync(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	t.Setenv("HOME", dir)
+	testutil.SetHomeDir(t, dir)
 
 	// No git config yet → out of sync.
 	if git.IsIdentityInSync("eng", "eng@example.com") {
@@ -199,6 +199,38 @@ func TestConfigureSigning(t *testing.T) {
 	}
 }
 
+// TestApplyIdentitySSHConfig covers all three branches of the shared helper
+// both internal/cli's switch and internal/tui's opSwitch route through: an
+// explicit SSHCommand takes priority (preserving an identity imported from
+// the original gitconfig), then a bound SSHKey, then neither means any
+// existing core.sshCommand is removed.
+func TestApplyIdentitySSHConfig(t *testing.T) {
+	testutil.Sandbox(t)
+
+	explicitCmd := `ssh -i /custom/key -o IdentitiesOnly=yes`
+	if err := git.ApplyIdentitySSHConfig(explicitCmd, "/should/be/ignored", false); err != nil {
+		t.Fatalf("ApplyIdentitySSHConfig (explicit command): %v", err)
+	}
+	if got := git.CurrentSSHCommand(); got != explicitCmd {
+		t.Errorf("expected explicit SSHCommand to take priority, got %q", got)
+	}
+
+	keyPath := filepath.Join(t.TempDir(), "id_ed25519")
+	if err := git.ApplyIdentitySSHConfig("", keyPath, false); err != nil {
+		t.Fatalf("ApplyIdentitySSHConfig (key only): %v", err)
+	}
+	if got := git.CurrentSSHCommand(); !strings.Contains(got, keyPath) {
+		t.Errorf("expected sshCommand derived from key path %q, got %q", keyPath, got)
+	}
+
+	if err := git.ApplyIdentitySSHConfig("", "", false); err != nil {
+		t.Fatalf("ApplyIdentitySSHConfig (neither): %v", err)
+	}
+	if got := git.CurrentSSHCommand(); got != "" {
+		t.Errorf("expected core.sshCommand to be removed when identity has no command/key, got %q", got)
+	}
+}
+
 func TestSSHQuote(t *testing.T) {
 	quoted := git.SSHQuote("/home/user/.ssh/id_ed25519")
 	if !strings.HasPrefix(quoted, "'") && !strings.HasPrefix(quoted, `"`) {
@@ -256,4 +288,3 @@ func TestRepoConfigPathAndWorktree(t *testing.T) {
 		t.Errorf("RepoConfigPath in worktree = %q, want %q", wtCfg, expectedWtCfg)
 	}
 }
-

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/testutil"
 )
 
 func TestTargetName(t *testing.T) {
@@ -23,7 +24,7 @@ func TestTargetName(t *testing.T) {
 
 func TestInstallAndUninstall_Targets(t *testing.T) {
 	tmpHome := t.TempDir()
-	t.Setenv("HOME", tmpHome)
+	testutil.SetHomeDir(t, tmpHome)
 
 	targets := []Target{
 		TargetStarship,
@@ -147,7 +148,7 @@ func TestResolvePrompt(t *testing.T) {
 
 func TestUninstallAll(t *testing.T) {
 	tmpHome := t.TempDir()
-	t.Setenv("HOME", tmpHome)
+	testutil.SetHomeDir(t, tmpHome)
 
 	// Install a few targets
 	_, _ = Install(TargetBash)

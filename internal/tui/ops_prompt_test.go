@@ -6,6 +6,7 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/promptops"
+	"github.com/divyo-argha/git-user/internal/testutil"
 )
 
 func TestOpPromptStatus(t *testing.T) {
@@ -33,7 +34,7 @@ func TestOpPromptStatus(t *testing.T) {
 
 func TestOpInstallAndUninstallPrompt(t *testing.T) {
 	tmpHome := t.TempDir()
-	t.Setenv("HOME", tmpHome)
+	testutil.SetHomeDir(t, tmpHome)
 
 	// Install
 	res, err := opInstallPrompt(promptops.TargetFish)
@@ -56,7 +57,7 @@ func TestOpInstallAndUninstallPrompt(t *testing.T) {
 
 func TestOpPromptPreferences(t *testing.T) {
 	tmpHome := t.TempDir()
-	t.Setenv("HOME", tmpHome)
+	testutil.SetHomeDir(t, tmpHome)
 
 	store := &config.Store{
 		Current: "alice",

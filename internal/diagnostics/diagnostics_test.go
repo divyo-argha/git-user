@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/testutil"
 	"github.com/divyo-argha/git-user/internal/validate"
 )
 
@@ -55,7 +56,7 @@ func TestSigningDisabledMessage(t *testing.T) {
 
 func TestRunDiagnostics(t *testing.T) {
 	tmpHome := t.TempDir()
-	t.Setenv("HOME", tmpHome)
+	testutil.SetHomeDir(t, tmpHome)
 
 	keyPath := filepath.Join(tmpHome, "id_test")
 	_ = os.WriteFile(keyPath, []byte("test-key"), 0600)

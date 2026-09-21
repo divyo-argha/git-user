@@ -9,7 +9,32 @@ permissions:
   contents: read
 
 jobs:
+  # Runs the real test suite on all three OSes. Windows and macOS previously
+  # were only ever cross-compiled (see the `build` job below), never actually
+  # executed — every Windows-specific code path (Git-for-Windows discovery,
+  # PowerShell/cmd shell-integration install, the direct-.gitconfig fallback,
+  # etc.) and every macOS-specific path (Keychain integration) shipped with
+  # zero automated test execution behind them.
   test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Configure Git safe directory
+        shell: bash
+        run: git config --global --add safe.directory '*'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+      - run: go test ./...
+
+  # Cross-compilation and the npm packaging script only need to be checked
+  # once, so they stay on a single ubuntu-latest job separate from the test
+  # matrix above.
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Configure Git safe directory
@@ -18,7 +43,6 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: 'go.mod'
-      - run: go test ./...
       - name: Verify cross-platform compilation
         run: |
           GOOS=windows GOARCH=amd64 go build -o /dev/null ./cmd/git-user

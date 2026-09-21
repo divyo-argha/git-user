@@ -37,6 +37,7 @@ var dangerousCalls = []string{
 // dangerous calls above.
 var sandboxMarkers = []string{
 	"testutil.Sandbox(",
+	"testutil.SetHomeDir(",
 	"withTempConfig(",
 	"setupTestEnv(",
 	`Setenv("HOME"`,

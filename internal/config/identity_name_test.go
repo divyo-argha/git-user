@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/testutil"
 )
 
 func TestValidIdentityName(t *testing.T) {
@@ -39,7 +40,7 @@ func TestValidIdentityName(t *testing.T) {
 
 func TestDefaultSSHKeyPath(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	testutil.SetHomeDir(t, home)
 
 	path, err := config.DefaultSSHKeyPath("work")
 	if err != nil {
@@ -53,7 +54,7 @@ func TestDefaultSSHKeyPath(t *testing.T) {
 
 func TestDefaultSSHKeyPathRejectsTraversal(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	testutil.SetHomeDir(t, home)
 
 	for _, name := range []string{"../../../.bashrc", "/etc/passwd", "..", "has/slash"} {
 		if path, err := config.DefaultSSHKeyPath(name); err == nil {
@@ -64,7 +65,7 @@ func TestDefaultSSHKeyPathRejectsTraversal(t *testing.T) {
 
 func TestSSHKeyPathForFilename(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	testutil.SetHomeDir(t, home)
 
 	path, err := config.SSHKeyPathForFilename("git_work")
 	if err != nil {
@@ -84,7 +85,7 @@ func TestSSHKeyPathForFilename(t *testing.T) {
 
 func TestSuggestSSHKeyFilenameAvoidsCollision(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	testutil.SetHomeDir(t, home)
 	sshDir := filepath.Join(home, ".ssh")
 	if err := os.MkdirAll(sshDir, 0700); err != nil {
 		t.Fatal(err)
@@ -117,7 +118,7 @@ func TestSuggestSSHKeyFilenameAvoidsCollision(t *testing.T) {
 
 func TestListSSHKeyFiles(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	testutil.SetHomeDir(t, home)
 	sshDir := filepath.Join(home, ".ssh")
 	if err := os.MkdirAll(sshDir, 0700); err != nil {
 		t.Fatal(err)

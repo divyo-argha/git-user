@@ -390,3 +390,24 @@ func TestNormalizeBindPath(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckFilePermissions exercises both branches: on Windows, POSIX mode
+// bits don't reflect real ACLs, so the check must report itself
+// inapplicable rather than produce a false "insecure" warning or a no-op
+// chmod; everywhere else, it must actually distinguish 0600 from anything
+// looser.
+func TestCheckFilePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		if pc := config.CheckFilePermissions(0600); pc.Applicable {
+			t.Errorf("expected permission checks to be inapplicable on Windows, got %+v", pc)
+		}
+		return
+	}
+
+	if pc := config.CheckFilePermissions(0600); !pc.Applicable || !pc.Secure {
+		t.Errorf("CheckFilePermissions(0600) = %+v, want {Applicable: true, Secure: true}", pc)
+	}
+	if pc := config.CheckFilePermissions(0644); !pc.Applicable || pc.Secure {
+		t.Errorf("CheckFilePermissions(0644) = %+v, want {Applicable: true, Secure: false}", pc)
+	}
+}

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/divyo-argha/git-user/internal/testutil"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 )
@@ -313,18 +314,10 @@ func TestEnsureMacOSKeychainConfigured(t *testing.T) {
 		return
 	}
 
-	originalHome := os.Getenv("HOME")
-	defer os.Setenv("HOME", originalHome)
+	tmpDir := t.TempDir()
+	testutil.SetHomeDir(t, tmpDir)
 
-	tmpDir, err := os.MkdirTemp("", "ssh-private-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp private dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	os.Setenv("HOME", tmpDir)
-
-	err = EnsureMacOSKeychainConfigured()
+	err := EnsureMacOSKeychainConfigured()
 	if err != nil {
 		t.Fatalf("EnsureMacOSKeychainConfigured failed: %v", err)
 	}

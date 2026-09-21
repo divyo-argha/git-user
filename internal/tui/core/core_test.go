@@ -9,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/testutil"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
 )
 
@@ -281,7 +282,7 @@ func TestCheckSyncStatusCmd(t *testing.T) {
 
 	// Active identity without a matching git config reports out of sync.
 	dir := t.TempDir()
-	t.Setenv("HOME", dir)
+	testutil.SetHomeDir(t, dir)
 	store := &config.Store{}
 	if err := store.AddUser("eng", "eng@example.com"); err != nil {
 		t.Fatal(err)
@@ -456,4 +457,3 @@ func TestCheckVersionCmd_Offline(t *testing.T) {
 		t.Fatal("CheckVersionCmd returned nil")
 	}
 }
-

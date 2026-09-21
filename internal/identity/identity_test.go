@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/divyo-argha/git-user/internal/testutil"
 )
 
 func TestMode_String(t *testing.T) {
@@ -52,9 +54,7 @@ func TestManager_CreateTemporary(t *testing.T) {
 	}
 
 	// Set up environment
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
+	testutil.SetHomeDir(t, tmpDir)
 
 	manager, err := NewManager()
 	if err != nil {
@@ -105,9 +105,7 @@ func TestManager_GetCurrent(t *testing.T) {
 		t.Fatalf("creating config file: %v", err)
 	}
 
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
+	testutil.SetHomeDir(t, tmpDir)
 
 	manager, err := NewManager()
 	if err != nil {
@@ -146,9 +144,7 @@ func TestManager_CaptureSnapshot(t *testing.T) {
 		t.Fatalf("creating config dir: %v", err)
 	}
 
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
+	testutil.SetHomeDir(t, tmpDir)
 
 	manager, err := NewManager()
 	if err != nil {

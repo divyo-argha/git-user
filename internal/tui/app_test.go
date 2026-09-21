@@ -10,6 +10,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/testutil"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
@@ -21,7 +22,7 @@ import (
 // written back and the store switched to it.
 func TestFixSyncAction_ReappliesActive(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("HOME", dir)
+	testutil.SetHomeDir(t, dir)
 	t.Setenv("GIT_USER_CONFIG", filepath.Join(dir, "config.json"))
 
 	store := &config.Store{}
@@ -69,7 +70,7 @@ func TestFixSyncAction_ReappliesActive(t *testing.T) {
 // TestFixSyncAction_NoActiveIdentity shows an error toast without running a task.
 func TestFixSyncAction_NoActiveIdentity(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("HOME", dir)
+	testutil.SetHomeDir(t, dir)
 	t.Setenv("GIT_USER_CONFIG", filepath.Join(dir, "config.json"))
 
 	store := &config.Store{}

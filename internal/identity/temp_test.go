@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/divyo-argha/git-user/internal/testutil"
 )
 
 func TestStateManagement(t *testing.T) {
@@ -99,9 +101,7 @@ func TestTempService(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Mock HOME to isolate test operations
-	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
+	testutil.SetHomeDir(t, tmpDir)
 
 	// Create directories to satisfy paths
 	sshDir := filepath.Join(tmpDir, ".ssh")

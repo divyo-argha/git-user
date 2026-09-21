@@ -5,12 +5,13 @@ import (
 	"testing"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/testutil"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
 func TestRunRekey_CancelledAndMissing(t *testing.T) {
 	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
+	testutil.SetHomeDir(t, tmpDir)
 	t.Setenv("GIT_USER_CONFIG", filepath.Join(tmpDir, ".git-users.json"))
 
 	store := &config.Store{
