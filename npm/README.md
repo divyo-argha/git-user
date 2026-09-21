@@ -102,10 +102,11 @@ git-user current                       # Print currently active identity
 git-user list                          # List all registered identities
 
 # Terminal Session Isolation (Multi-Terminal Workflows)
-command -v git-user >/dev/null 2>&1 && eval "$(git-user init 2>/dev/null)" # Enable seamless per-session switching
+command -v git-user >/dev/null 2>&1 && eval "$(git-user init 2>/dev/null)" # Enable seamless per-session switching (bash/zsh)
+git-user init cmd > "%USERPROFILE%\gu.cmd" # Enable seamless session switching in Windows cmd.exe
 git-user switch --session <name>       # Lock current terminal tab to an identity
 eval "$(git-user env <name>)"          # Export identity env vars directly
-git-user shell <name>                  # Launch an isolated subshell for an identity
+git-user shell <name>                  # Launch an isolated subshell for an identity (supports cmd/bash/pwsh)
 git-user exec <name> -- <cmd...>       # Run a single command under an identity
 
 # Directory & Auto-Switching
@@ -121,6 +122,7 @@ git-user hook install                  # Install pre-commit guard hook
 # Sync & Maintenance
 git-user sync                          # Sync identities across devices
 git-user doctor                        # Run environment health check
+git-user install-git                   # Securely install Git via verified Microsoft winget / OS package manager
 git-user tui                           # Open interactive terminal interface
 git-user --update                      # Update to latest version
 ```

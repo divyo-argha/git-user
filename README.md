@@ -729,6 +729,7 @@ ssh-keygen missing) are still only reported, never silently fixed.
 | SSH verification failed | Key not added to platform yet — run `git-user pubkey` to copy the public key |
 | `Permission denied` during install | Expected — installer needs sudo for `/usr/local/bin` |
 | Git asks for credentials on push | Run `git-user fix-remote` to convert HTTPS → SSH |
+| Git is not installed or not found | Run `git-user install-git` (on Windows uses verified Microsoft `winget`; on macOS/Linux suggests official package manager) |
 
 ---
 

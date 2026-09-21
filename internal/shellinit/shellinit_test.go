@@ -17,6 +17,8 @@ func TestDetect(t *testing.T) {
 		{"bash", Posix},
 		{"pwsh", PowerShell},
 		{"powershell", PowerShell},
+		{"cmd", Cmd},
+		{"batch", Cmd},
 	}
 	for _, c := range cases {
 		if got := Detect(c.explicit); got != c.want {
@@ -71,6 +73,9 @@ func TestScript(t *testing.T) {
 	}
 	if !strings.Contains(Script(PowerShell), "function git-user") {
 		t.Error("expected powershell script to define a git-user function")
+	}
+	if !strings.Contains(Script(Cmd), "@echo off") || !strings.Contains(Script(Cmd), "git-user.exe env") {
+		t.Error("expected cmd script to contain @echo off and git-user.exe env")
 	}
 }
 

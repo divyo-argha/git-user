@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/config"
@@ -21,6 +22,9 @@ func openIdentityShellCmd(name string, user *config.User) tea.Cmd {
 	shellPath := shellinit.ResolveShellPath()
 
 	vars := gitenv.Vars(user)
+	if strings.Contains(strings.ToLower(shellPath), "cmd") {
+		vars["PROMPT"] = fmt.Sprintf("(%s) $P$G", user.Name)
+	}
 	env := make([]string, 0, len(vars)+len(os.Environ()))
 	for k, v := range vars {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))

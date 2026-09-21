@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/keyring"
@@ -38,6 +39,9 @@ func runShell(args []string) error {
 	shellPath := shellinit.ResolveShellPath()
 
 	vars := EnvVars(user)
+	if strings.Contains(strings.ToLower(shellPath), "cmd") {
+		vars["PROMPT"] = fmt.Sprintf("(%s) $P$G", user.Name)
+	}
 	// Overrides must come before the inherited environment — see the same
 	// note in exec.go: appending after os.Environ() lets a duplicate key
 	// from the parent shell win under first-match getenv() semantics.

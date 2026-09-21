@@ -16,8 +16,9 @@ import (
 // opSwitch switches the active identity. Passphrase is optional; if the key is
 // protected and not loaded it must be provided (or retrieved from the keychain).
 func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
+	var warnings []string
 	if !git.IsInstalled() {
-		return opResult{}, fmt.Errorf("git is not installed or not on PATH")
+		warnings = append(warnings, "Git binary not found on PATH. Saved identity directly to ~/.gitconfig.")
 	}
 
 	store.SnapshotOriginal(git.CurrentName(), git.CurrentEmail(), git.CurrentSSHCommand(), git.CurrentSigningKey(), git.CurrentSignFormat(), git.CurrentCommitGPGSign())
@@ -30,8 +31,6 @@ func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
 	if store.Current == name && git.IsIdentityInSync(user.Name, user.Email) {
 		return opResult{detail: fmt.Sprintf("Already using identity %q (%s) — nothing to do.", user.Name, user.Email)}, nil
 	}
-
-	var warnings []string
 
 	// Auto-logout: unload the previous identity's key and clean up temporaries.
 	if store.Current != "" && store.Current != name {

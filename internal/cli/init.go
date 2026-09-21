@@ -25,6 +25,8 @@ func runInit(args []string) error {
 			explicitShell = "fish"
 		case "--powershell", "--pwsh", "powershell", "pwsh":
 			explicitShell = "powershell"
+		case "--cmd", "cmd", "batch":
+			explicitShell = "cmd"
 		case "--bash", "bash", "--zsh", "zsh", "--sh", "sh":
 			explicitShell = "posix"
 		case "-h", "--help":

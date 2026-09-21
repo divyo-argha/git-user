@@ -28,6 +28,7 @@ This command auto-detects your active shell (Fish, Zsh, Bash, PowerShell, Nushel
 - [Oh My Posh (Cross-Shell)](#-oh-my-posh-cross-shell)
 - [Spaceship Prompt (Zsh)](#-spaceship-prompt-zsh)
 - [PowerShell](#-powershell)
+- [Windows Command Prompt (CMD)](#-windows-command-prompt-cmd)
 - [Nushell](#-nushell)
 - [Powerlevel10k (Advanced Zsh)](#-powerlevel10k-advanced-zsh)
 
@@ -372,6 +373,36 @@ Restart your terminal, or reload your profile in the active session:
 ```
 
 ---
+
+## 🪟 Windows Command Prompt (CMD)
+
+Windows Command Prompt (`cmd.exe`) does not execute functions like Unix shells or PowerShell, but `git-user` provides two native solutions to achieve seamless session switching and prompt branding in standard `cmd.exe`:
+
+### Option A: Isolated Identity Subshell (Instant, Zero Setup)
+Run `git-user shell <name>` in any Command Prompt window:
+```cmd
+git-user shell work
+```
+- Spawns a dedicated subshell where all Git commands run with the `work` identity.
+- Sets your command prompt automatically to `(work) C:\path\to\repo>`.
+- Simply type `exit` to terminate the session and restore your previous prompt.
+
+### Option B: The `gu.cmd` Session Switcher Batch Wrapper
+To switch identities within your *active* `cmd.exe` window without spawning a subshell, generate a `gu.cmd` helper into any folder in your `%PATH%` (e.g. `%USERPROFILE%`):
+
+**Step 1: Generate `gu.cmd`**
+```cmd
+git-user init cmd > "%USERPROFILE%\gu.cmd"
+```
+*(Ensure `%USERPROFILE%` is in your `%PATH%`, or place `gu.cmd` in `C:\Windows\System32` or your custom scripts directory).*
+
+**Step 2: Use `gu` in CMD**
+- `gu dev` - Instantly sets session `GIT_*` environment variables and updates the prompt to `(dev) C:\path>`.
+- `gu --unset` - Restores standard default Git config and resets prompt to `C:\path>`.
+- `gu` or any other arguments pass through to `git-user` directly!
+
+---
+
 
 ## 🛠 Powerlevel10k (Advanced Zsh)
 

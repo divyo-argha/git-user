@@ -302,7 +302,18 @@ func Run(store *config.Store, opts Options) (Report, error) {
 
 	add(Check{IsProgress: true, Category: "System", Message: "Checking git installation..."})
 	if !git.IsInstalled() {
-		add(Check{ID: "git-installed", Category: "System", Name: "Git installation", Status: StatusWarn, Message: "Git is not installed or not on PATH"})
+		fixHint := "Install Git via your package manager"
+		if runtime.GOOS == "windows" {
+			fixHint = "Run 'git-user install-git' or 'winget install Git.Git'"
+		}
+		add(Check{
+			ID:       "git-installed",
+			Category: "System",
+			Name:     "Git installation",
+			Status:   StatusWarn,
+			Message:  "Git is not installed or not on PATH",
+			FixHint:  fixHint,
+		})
 	} else {
 		gitVersion, _ := exec.Command("git", "--version").Output()
 		add(Check{ID: "git-installed", Category: "System", Name: "Git installation", Status: StatusPass,

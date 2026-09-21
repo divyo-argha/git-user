@@ -137,3 +137,66 @@ func TestDetectShell_WindowsGitBash(t *testing.T) {
 		t.Errorf("detectShell with MSYSTEM set and PSModulePath got %v, want ShellPosix", got)
 	}
 }
+
+func TestRunEnv_CmdOutput(t *testing.T) {
+	setupTestEnv(t)
+
+	store := &config.Store{
+		Current: "dev",
+		Users: []config.User{
+			{Name: "dev", Email: "dev@example.com"},
+		},
+	}
+	if err := config.Save(store); err != nil {
+		t.Fatalf("saving config: %v", err)
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runEnv([]string{"dev", "--cmd"})
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEnv failed: %v", err)
+	}
+
+	buf := make([]byte, 2048)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	if !strings.Contains(output, `set "GIT_AUTHOR_NAME=dev"`) {
+		t.Errorf("expected set GIT_AUTHOR_NAME in output, got:\n%s", output)
+	}
+	if !strings.Contains(output, `set "PROMPT=(dev) $P$G"`) {
+		t.Errorf("expected set PROMPT in output, got:\n%s", output)
+	}
+}
+
+func TestRunEnv_CmdUnset(t *testing.T) {
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runEnv([]string{"--unset", "--cmd"})
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEnv --unset failed: %v", err)
+	}
+
+	buf := make([]byte, 2048)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	if !strings.Contains(output, "set GIT_AUTHOR_NAME=") {
+		t.Errorf("expected set GIT_AUTHOR_NAME= in output, got:\n%s", output)
+	}
+	if !strings.Contains(output, "set PROMPT=$P$G") {
+		t.Errorf("expected set PROMPT=$P$G in output, got:\n%s", output)
+	}
+}
+

@@ -72,6 +72,7 @@ COMMANDS
     log [-n <count>|--all]     Show the identity-switch audit log
     logout                     Sign out and clear active identity
     uninstall [--yes]          Remove git-user entirely: identities, keys, config, restore original git identity
+    install-git                Securely install official Git via verified Microsoft winget or package manager
     tui                        Interactive menu
     completion <shell>         Generate shell completion (bash/zsh/fish)
 
@@ -253,6 +254,8 @@ func Execute() error {
 		return runExec(rest)
 	case "init":
 		return runInit(rest)
+	case "install-git":
+		return runInstallGit(rest)
 	default:
 		// Try as identity name → detail view
 		if handleUnknownArg(sub) {
@@ -363,6 +366,8 @@ func normalizeSubcommand(sub string) string {
 		return "completion"
 	case "tui", "--tui", "-i", "--interactive":
 		return "tui"
+	case "install-git", "--install-git":
+		return "install-git"
 	default:
 		return sub
 	}

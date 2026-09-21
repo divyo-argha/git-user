@@ -124,8 +124,9 @@ func runSwitch(args []string) error {
 	}
 
 	if !git.IsInstalled() {
-		ui.Error("git is not installed or not on PATH")
-		return fmt.Errorf("git not found")
+		ui.Warn("Git executable was not found in PATH.")
+		ui.Info("Configuration will be saved directly to ~/.gitconfig.")
+		ui.Info("To install official Git, run: git-user install-git  (or: winget install Git.Git)")
 	}
 
 	store, err := config.Load()

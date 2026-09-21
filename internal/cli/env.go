@@ -160,6 +160,12 @@ func printExportScript(st ShellType, vars map[string]string) error {
 			fmt.Printf("export %s=%s\n", k, posixQuote(val))
 		}
 	}
+
+	if st == ShellCmd {
+		if uName, ok := vars["GIT_USER_SESSION"]; ok && uName != "" {
+			fmt.Printf("set \"PROMPT=(%s) $P$G\"\n", cmdSanitize(uName))
+		}
+	}
 	return nil
 }
 
@@ -223,6 +229,7 @@ func printUnsetScript(st ShellType) error {
 		for _, k := range keys {
 			fmt.Printf("set %s=\n", k)
 		}
+		fmt.Printf("set PROMPT=$P$G\n")
 	default: // POSIX
 		fmt.Printf("unset %s\n", strings.Join(keys, " "))
 	}

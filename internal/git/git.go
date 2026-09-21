@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -28,13 +29,9 @@ func ClearIdentity() {
 }
 
 func ClearIdentityScope(local bool) {
-	flag := "--global"
-	if local {
-		flag = "--local"
-	}
-	exec.Command("git", "config", flag, "--unset-all", "user.name").Run()
-	exec.Command("git", "config", flag, "--unset-all", "user.email").Run()
-	exec.Command("git", "config", flag, "--unset-all", "core.sshCommand").Run()
+	unsetConfig("user.name", local)
+	unsetConfig("user.email", local)
+	unsetConfig("core.sshCommand", local)
 	RemoveSigningConfigScope(local)
 }
 
@@ -147,6 +144,14 @@ func SSHQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
+func gitBinary() string {
+	return findWindowsGit()
+}
+
+func gitCmd(args ...string) *exec.Cmd {
+	return exec.Command(gitBinary(), args...)
+}
+
 func SetSSHCommand(val string) error {
 	return SetSSHCommandScope(val, false)
 }
@@ -160,12 +165,7 @@ func RemoveSSHConfig() error {
 }
 
 func RemoveSSHConfigScope(local bool) error {
-	flag := "--global"
-	if local {
-		flag = "--local"
-	}
-	cmd := exec.Command("git", "config", flag, "--unset-all", "core.sshCommand")
-	_ = cmd.Run()
+	unsetConfig("core.sshCommand", local)
 	return nil
 }
 
@@ -184,16 +184,12 @@ func ConfigureSigning(key, format string) error {
 }
 
 func ConfigureSigningScope(key, format string, local bool) error {
-	flag := "--global"
-	if local {
-		flag = "--local"
-	}
 	if format == "ssh" {
 		if err := setConfig("gpg.format", "ssh", local); err != nil {
 			return err
 		}
 	} else if format == "gpg" {
-		exec.Command("git", "config", flag, "--unset-all", "gpg.format").Run()
+		unsetConfig("gpg.format", local)
 	}
 
 	if err := setConfig("user.signingkey", key, local); err != nil {
@@ -223,11 +219,7 @@ func RemoveAskpassConfig() {
 }
 
 func RemoveAskpassConfigScope(local bool) {
-	flag := "--global"
-	if local {
-		flag = "--local"
-	}
-	exec.Command("git", "config", flag, "--unset-all", "core.askpass").Run()
+	unsetConfig("core.askpass", local)
 }
 
 func CurrentAskpass() string {
@@ -240,53 +232,95 @@ func RemoveSigningConfig() {
 }
 
 func RemoveSigningConfigScope(local bool) {
-	flag := "--global"
-	if local {
-		flag = "--local"
-	}
-	exec.Command("git", "config", flag, "--unset-all", "user.signingkey").Run()
-	exec.Command("git", "config", flag, "--unset-all", "commit.gpgsign").Run()
-	exec.Command("git", "config", flag, "--unset-all", "gpg.format").Run()
+	unsetConfig("user.signingkey", local)
+	unsetConfig("commit.gpgsign", local)
+	unsetConfig("gpg.format", local)
 }
 
 func IsInstalled() bool {
+	bin := gitBinary()
+	if bin != "git" {
+		return true
+	}
 	_, err := exec.LookPath("git")
 	return err == nil
 }
 
 func setConfig(key, value string, local bool) error {
-	flag := "--global"
+	if IsInstalled() {
+		flag := "--global"
+		if local {
+			flag = "--local"
+		}
+		cmd := gitCmd("config", flag, "--replace-all", key, value)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("git config %s --replace-all %s: %w\n%s", flag, key, err, strings.TrimSpace(string(out)))
+		}
+		return nil
+	}
+
+	cfgPath := GlobalConfigPath()
 	if local {
-		flag = "--local"
+		cfgPath = filepath.Join(".git", "config")
 	}
-	cmd := exec.Command("git", "config", flag, "--replace-all", key, value)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("git config %s --replace-all %s: %w\n%s", flag, key, err, strings.TrimSpace(string(out)))
+	if cfgPath == "" {
+		return fmt.Errorf("git is not installed and could not locate config path")
 	}
-	return nil
+	return setDirectConfig(cfgPath, key, value)
+}
+
+func unsetConfig(key string, local bool) {
+	if IsInstalled() {
+		flag := "--global"
+		if local {
+			flag = "--local"
+		}
+		_ = gitCmd("config", flag, "--unset-all", key).Run()
+		return
+	}
+	cfgPath := GlobalConfigPath()
+	if local {
+		cfgPath = filepath.Join(".git", "config")
+	}
+	if cfgPath != "" {
+		_ = unsetDirectConfig(cfgPath, key)
+	}
 }
 
 func getConfig(key string, local bool) (string, error) {
-	flag := "--global"
+	if IsInstalled() {
+		flag := "--global"
+		if local {
+			flag = "--local"
+		}
+		cmd := gitCmd("config", flag, key)
+		out, err := cmd.Output()
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimSpace(string(out)), nil
+	}
+	cfgPath := GlobalConfigPath()
 	if local {
-		flag = "--local"
+		cfgPath = filepath.Join(".git", "config")
 	}
-	cmd := exec.Command("git", "config", flag, key)
-	out, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
+	return getDirectConfig(cfgPath, key)
 }
 
 func getConfigResolved(key string) (string, error) {
-	cmd := exec.Command("git", "config", key)
-	out, err := cmd.Output()
-	if err != nil {
-		return "", err
+	if IsInstalled() {
+		cmd := gitCmd("config", key)
+		out, err := cmd.Output()
+		if err != nil {
+			return "", err
+		}
+		return strings.TrimSpace(string(out)), nil
 	}
-	return strings.TrimSpace(string(out)), nil
+	if val, err := getDirectConfig(filepath.Join(".git", "config"), key); err == nil && val != "" {
+		return val, nil
+	}
+	return getDirectConfig(GlobalConfigPath(), key)
 }
 
 func HasLocalOverride() bool {
@@ -297,14 +331,29 @@ func HasLocalOverride() bool {
 }
 
 func IsInRepo() bool {
-	cmd := exec.Command("git", "rev-parse", "--git-dir")
-	return cmd.Run() == nil
+	if IsInstalled() {
+		cmd := gitCmd("rev-parse", "--git-dir")
+		return cmd.Run() == nil
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		return false
+	}
+	for {
+		if fi, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return fi.IsDir() || fi.Mode().IsRegular()
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return false
 }
 
 func GetRemoteURL(remote string) (string, error) {
-	// "--" stops a remote name from a malicious repo (e.g. "--upload-pack=…")
-	// from being parsed as a flag instead of the positional remote name.
-	cmd := exec.Command("git", "remote", "get-url", "--", remote)
+	cmd := gitCmd("remote", "get-url", "--", remote)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -313,7 +362,7 @@ func GetRemoteURL(remote string) (string, error) {
 }
 
 func SetRemoteURL(remote, url string) error {
-	cmd := exec.Command("git", "remote", "set-url", "--", remote, url)
+	cmd := gitCmd("remote", "set-url", "--", remote, url)
 	return cmd.Run()
 }
 
@@ -365,7 +414,7 @@ func ConvertRemotesToSSH() ([]RemoteConversionResult, error) {
 }
 
 func ListRemotes() ([]string, error) {
-	cmd := exec.Command("git", "remote")
+	cmd := gitCmd("remote")
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, err
@@ -429,7 +478,7 @@ func ConvertHTTPSToSSH(httpsURL string) (string, bool) {
 
 // CurrentBranch returns the name of the currently checked out branch.
 func CurrentBranch() string {
-	out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	out, err := gitCmd("rev-parse", "--abbrev-ref", "HEAD").Output()
 	if err != nil {
 		return ""
 	}
@@ -437,7 +486,7 @@ func CurrentBranch() string {
 }
 
 func RepoRoot() (string, error) {
-	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	out, err := gitCmd("rev-parse", "--show-toplevel").Output()
 	if err != nil {
 		return "", err
 	}
@@ -446,7 +495,7 @@ func RepoRoot() (string, error) {
 
 // CurrentRepoName returns the directory name of the current git repository root.
 func CurrentRepoName() string {
-	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	out, err := gitCmd("rev-parse", "--show-toplevel").Output()
 	if err != nil {
 		return ""
 	}

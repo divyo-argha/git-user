@@ -406,7 +406,7 @@ Examples:
 
 Generate a shell integration wrapper function to enable seamless per-terminal switching.
 
-Supported shells: bash, zsh, fish, powershell
+Supported shells: bash, zsh, fish, powershell, cmd
 
 Installation:
   # Bash / Zsh (add to ~/.bashrc or ~/.zshrc):
@@ -416,7 +416,20 @@ Installation:
   command -q git-user; and git-user init fish 2>/dev/null | source
 
   # PowerShell (add to $PROFILE):
-  if (Get-Command git-user -ErrorAction SilentlyContinue) { Invoke-Expression (& git-user init powershell 2>$null) }`,
+  if (Get-Command git-user -ErrorAction SilentlyContinue) { Invoke-Expression (& git-user init powershell 2>$null) }
+
+  # Windows Command Prompt (CMD):
+  git-user init cmd > "%USERPROFILE%\gu.cmd"`,
+		"install-git": `Usage: git-user install-git [flags]
+
+Securely install official Git on your system.
+On Windows, installs official Git for Windows via Microsoft Windows Package
+Manager (winget), verified with Microsoft Authenticode signature and SHA-256 hash.
+On macOS/Linux, displays recommended package manager commands.
+
+Flags:
+  -y, --yes                    Automatically confirm installation without prompting
+  -h, --help                   Show this help`,
 	}
 	if u, ok := usage[sub]; ok {
 		return u

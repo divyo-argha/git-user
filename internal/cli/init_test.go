@@ -129,3 +129,29 @@ func TestRunInit_InstallAndUpgrade(t *testing.T) {
 	}
 }
 
+func TestRunInit_Cmd(t *testing.T) {
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runInit([]string{"cmd"})
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runInit cmd failed: %v", err)
+	}
+
+	buf := make([]byte, 2048)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	if !strings.Contains(output, "@echo off") {
+		t.Errorf("expected @echo off in cmd init script, got:\n%s", output)
+	}
+	if !strings.Contains(output, "git-user.exe env") {
+		t.Errorf("expected git-user.exe env in cmd init script, got:\n%s", output)
+	}
+}
+
+
