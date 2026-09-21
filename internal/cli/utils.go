@@ -59,13 +59,18 @@ func ensureKeyUnlocked(keyPath string) error {
 		return nil
 	}
 
-	// Prefer the keychain passphrase of the identity that owns this key.
-	if name := keychainNameForKey(keyPath); name != "" {
-		if secret, kerr := keyring.GetKeychainPassphrase(name); kerr == nil && secret != "" {
+	// Prefer the keychain passphrase of the identity that owns this key. The
+	// resolved user (if any) also supplies its configured agent TTL/confirm
+	// settings for the AddSSHKeyWithOptions calls below.
+	user := userForKey(keyPath)
+	var opts ssh.AgentLoadOptions
+	if user != nil {
+		opts = ssh.AgentLoadOptions{LifetimeSecs: uint32(user.GetAgentTTL().Seconds()), ConfirmBeforeUse: user.AgentConfirmBeforeUse}
+		if secret, kerr := keyring.GetKeychainPassphrase(user.Name); kerr == nil && secret != "" {
 			if ssh.VerifyPassphrase(keyPath, secret) {
-				return ssh.AddSSHKeyWithPassphrase(keyPath, secret)
+				return ssh.AddSSHKeyWithOptions(keyPath, secret, opts)
 			}
-			_ = keyring.DeleteKeychainPassphrase(name)
+			_ = keyring.DeleteKeychainPassphrase(user.Name)
 		}
 	}
 
@@ -79,21 +84,21 @@ func ensureKeyUnlocked(keyPath string) error {
 	if !ssh.VerifyPassphrase(keyPath, pass) {
 		return fmt.Errorf("incorrect passphrase")
 	}
-	return ssh.AddSSHKeyWithPassphrase(keyPath, pass)
+	return ssh.AddSSHKeyWithOptions(keyPath, pass, opts)
 }
 
-// keychainNameForKey returns the identity name that owns the given key, if any.
-func keychainNameForKey(keyPath string) string {
+// userForKey returns the identity that owns the given key, if any.
+func userForKey(keyPath string) *config.User {
 	store, err := config.Load()
 	if err != nil {
-		return ""
+		return nil
 	}
-	for _, u := range store.Users {
-		if u.SSHKey == keyPath {
-			return u.Name
+	for i := range store.Users {
+		if store.Users[i].SSHKey == keyPath {
+			return &store.Users[i]
 		}
 	}
-	return ""
+	return nil
 }
 
 func expandPath(path string) string {

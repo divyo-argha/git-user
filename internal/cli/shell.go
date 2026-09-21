@@ -130,7 +130,8 @@ func ensureSSHKeyUnlocked(user *config.User) error {
 		ui.Warn(fmt.Sprintf("Key for %q was NOT loaded into any ssh-agent — the next push/pull may hang or fail asking for a passphrase.", user.Name))
 		return nil
 	}
-	if err := ssh.AddSSHKeyWithPassphrase(user.SSHKey, passphrase); err != nil {
+	opts := ssh.AgentLoadOptions{LifetimeSecs: uint32(user.GetAgentTTL().Seconds()), ConfirmBeforeUse: user.AgentConfirmBeforeUse}
+	if err := ssh.AddSSHKeyWithOptions(user.SSHKey, passphrase, opts); err != nil {
 		ui.Warn(fmt.Sprintf("Could not load key into agent: %v", err))
 		return nil
 	}

@@ -279,6 +279,10 @@ func Run(store *config.Store, opts Options) (Report, error) {
 					if protected {
 						add(Check{ID: "profile-passphrase", Category: "Profiles & Security Audit", Name: "Passphrase protection", Subject: u.Name, Status: StatusPass,
 							Message: fmt.Sprintf("Profile %q SSH key is passphrase protected", u.Name)})
+						if u.GetPassphraseMode() == "persistent" {
+							add(Check{ID: "profile-passphrase-mode-note", Category: "Profiles & Security Audit", Name: "Passphrase mode", Subject: u.Name, Status: StatusInfo,
+								Message: fmt.Sprintf("Profile %q uses persistent keychain mode — protects against offline key theft, not against use of an already-unlocked session.", u.Name)})
+						}
 					} else {
 						add(Check{ID: "profile-passphrase", Category: "Profiles & Security Audit", Name: "Passphrase protection", Subject: u.Name, Status: StatusWarn,
 							Message: fmt.Sprintf("Profile %q SSH key has no passphrase", u.Name)})

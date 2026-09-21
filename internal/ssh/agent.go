@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/ui"
@@ -132,9 +133,64 @@ func ParseSSHKeyFingerprint(line string) (string, error) {
 	return fields[1], nil
 }
 
-// AddSSHKeyWithPassphrase adds the SSH key to the agent using the provided passphrase.
-// It tries in-process parsing and loading first, and falls back to a secure SSH_ASKPASS execution.
+// AgentLoadOptions constrains how long a key stays usable once loaded into
+// the SSH agent, and whether each use requires fresh confirmation.
+// LifetimeSecs of 0 means no limit. Neither constraint protects a key
+// that's already loaded before it was set — both only take effect on the
+// Add call that applies them.
+type AgentLoadOptions struct {
+	LifetimeSecs     uint32
+	ConfirmBeforeUse bool
+}
+
+// LikelyHasConfirmPromptSupport is a best-effort check for whether turning
+// on AgentLoadOptions.ConfirmBeforeUse will actually be able to show a
+// prompt: the confirmation UI is rendered by whatever process is running as
+// the system ssh-agent (not git-user, and usually not started by it), using
+// that agent's own askpass/GUI notifier. On a headless session with no such
+// notifier reachable, a confirm-required key simply fails to sign with no
+// visible prompt at all. This can't be exact — SSH agent forwarding, tmux,
+// or a differently-configured agent can all produce false negatives — so
+// callers must use it to warn, never to block.
+func LikelyHasConfirmPromptSupport() bool {
+	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+		return true // native Keychain/Touch ID and Windows OpenSSH both have their own confirm UI
+	}
+	return os.Getenv("SSH_ASKPASS") != "" || os.Getenv("DISPLAY") != "" || os.Getenv("WAYLAND_DISPLAY") != ""
+}
+
+// sshAddArgs builds the flags+positional argument list for an `ssh-add`
+// invocation from opts, in the order ssh-add expects (flags before the
+// positional key path). appleUseKeychain adds --apple-use-keychain on
+// darwin when true — the caller passes false for a plain fallback attempt
+// after a --apple-use-keychain attempt has already failed. Split out as a
+// pure function so it's unit-testable without actually running ssh-add.
+func sshAddArgs(keyPath string, opts AgentLoadOptions, appleUseKeychain bool) []string {
+	var args []string
+	if opts.LifetimeSecs > 0 {
+		args = append(args, "-t", strconv.FormatUint(uint64(opts.LifetimeSecs), 10))
+	}
+	if opts.ConfirmBeforeUse {
+		args = append(args, "-c")
+	}
+	if appleUseKeychain && runtime.GOOS == "darwin" {
+		args = append(args, "--apple-use-keychain")
+	}
+	return append(args, keyPath)
+}
+
+// AddSSHKeyWithPassphrase adds the SSH key to the agent using the provided
+// passphrase, with no lifetime limit and no confirm-before-use constraint.
+// Equivalent to AddSSHKeyWithOptions(keyPath, passphrase, AgentLoadOptions{}).
 func AddSSHKeyWithPassphrase(keyPath, passphrase string) error {
+	return AddSSHKeyWithOptions(keyPath, passphrase, AgentLoadOptions{})
+}
+
+// AddSSHKeyWithOptions is AddSSHKeyWithPassphrase with an agent lifetime
+// and/or confirm-before-use constraint applied to the loaded key (see
+// AgentLoadOptions). It tries in-process parsing and loading first, and
+// falls back to a secure SSH_ASKPASS execution.
+func AddSSHKeyWithOptions(keyPath, passphrase string, opts AgentLoadOptions) error {
 	EnsureSSHBinariesOnPath()
 	if runtime.GOOS == "darwin" {
 		_ = EnsureMacOSKeychainConfigured()
@@ -155,8 +211,10 @@ func AddSSHKeyWithPassphrase(keyPath, passphrase string) error {
 			if errDial == nil {
 				defer conn.Close()
 				errAdd := client.Add(agent.AddedKey{
-					PrivateKey: privKey,
-					Comment:    keyPath,
+					PrivateKey:       privKey,
+					Comment:          keyPath,
+					LifetimeSecs:     opts.LifetimeSecs,
+					ConfirmBeforeUse: opts.ConfirmBeforeUse,
 				})
 				if errAdd == nil {
 					if runtime.GOOS == "darwin" {
@@ -169,15 +227,16 @@ func AddSSHKeyWithPassphrase(keyPath, passphrase string) error {
 	}
 
 	// Try with --apple-use-keychain / -K on macOS
-	args := []string{keyPath}
-	if runtime.GOOS == "darwin" {
-		args = []string{"--apple-use-keychain", keyPath}
-	}
+	args := sshAddArgs(keyPath, opts, true)
 
 	secrets := map[string]string{EnvPassphrase: passphrase}
 	if _, err := runViaAskpass("ssh-add", args, secrets); err != nil {
-		// Fallback to standard ssh-add keyPath
-		outFallback, errFallback := runViaAskpass("ssh-add", []string{keyPath}, secrets)
+		// Fallback to standard ssh-add keyPath (deliberately without
+		// --apple-use-keychain — that's exactly what failed above), still
+		// carrying the same lifetime/confirm constraints so a Darwin
+		// failure path doesn't silently drop them on retry.
+		fallbackArgs := sshAddArgs(keyPath, opts, false)
+		outFallback, errFallback := runViaAskpass("ssh-add", fallbackArgs, secrets)
 		if errFallback != nil {
 			return fmt.Errorf("ssh-add failed: %v, output: %s", errFallback, string(outFallback))
 		}

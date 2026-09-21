@@ -82,6 +82,9 @@ func runSecurityCheck(args []string) error {
 				issues++
 			} else if protected {
 				ui.Success("  Passphrase protected")
+				if user.GetPassphraseMode() == "persistent" {
+					ui.Info("  Mode: persistent keychain — protects against offline key theft, not against use of an already-unlocked session")
+				}
 			} else {
 				ui.Warn("  No passphrase detected")
 				ui.Info("  Fix: ssh-keygen -p -f " + user.SSHKey)

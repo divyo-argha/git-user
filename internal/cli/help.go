@@ -151,7 +151,19 @@ Flags:
   -r, --remove                 Remove the passphrase
   --verify                     Verify the passphrase (deprecated short form: -v)
   -m, --mode <mode>            persistent | login | everytime
-  -h, --help                   Show this help`,
+  --ttl <duration>             How long a passphrase-unlocked key stays usable in the
+                                ssh-agent before it's forgotten: 1h, 4h, 8h, 24h, or
+                                "none" for no limit (default: 8h)
+  --confirm-on-use             Require a fresh confirmation prompt for every signature,
+                                not just once at unlock (needs a GUI/askpass-capable
+                                ssh-agent — see --no-confirm-on-use to turn it back off)
+  --no-confirm-on-use          Turn off confirm-on-use
+  -h, --help                   Show this help
+
+persistent mode stores the passphrase in your OS keychain so it auto-unlocks
+on switch. That protects the key if this device is lost or stolen while
+off/locked — it does not protect against someone using your already-unlocked,
+logged-in session. --ttl and --confirm-on-use bound that exposure.`,
 		"token": `Usage: git-user token <name> [flags]
 
 Manage an HTTPS personal-access-token (or app password) for an identity.

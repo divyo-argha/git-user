@@ -6,6 +6,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/ssh"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
@@ -24,6 +25,8 @@ func runPassphrase(args []string) error {
 	var set bool
 	var verify bool
 	var modeVal string
+	var ttlVal string
+	var confirmVal *bool
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -38,6 +41,17 @@ func runPassphrase(args []string) error {
 			i++
 		} else if strings.HasPrefix(arg, "--mode=") {
 			modeVal = strings.TrimPrefix(arg, "--mode=")
+		} else if arg == "--ttl" && i+1 < len(args) {
+			ttlVal = args[i+1]
+			i++
+		} else if strings.HasPrefix(arg, "--ttl=") {
+			ttlVal = strings.TrimPrefix(arg, "--ttl=")
+		} else if arg == "--confirm-on-use" {
+			v := true
+			confirmVal = &v
+		} else if arg == "--no-confirm-on-use" {
+			v := false
+			confirmVal = &v
 		} else if !strings.HasPrefix(arg, "-") {
 			name = arg
 		}
@@ -78,20 +92,45 @@ func runPassphrase(args []string) error {
 		return err
 	}
 
-	if modeVal != "" {
-		modeVal = strings.ToLower(modeVal)
-		switch modeVal {
-		case "keychain", "persistent":
-			modeVal = "persistent"
-		case "agent", "login":
-			modeVal = "login"
-		case "ask", "everytime":
-			modeVal = "everytime"
-		default:
-			ui.Errorf("Invalid passphrase behavior mode %q. Options: persistent, login, everytime", modeVal)
-			return fmt.Errorf("invalid mode")
+	var ttlStored string
+	var ttlChanged bool
+	if ttlVal != "" {
+		ttlChanged = true
+		lower := strings.ToLower(ttlVal)
+		if lower == "none" || lower == "unlimited" || lower == "0" {
+			ttlStored = "0"
+		} else {
+			d, perr := time.ParseDuration(ttlVal)
+			if perr != nil || d < 0 {
+				ui.Errorf("Invalid --ttl value %q. Use a duration like 1h, 4h, 8h, 24h, or \"none\" for no limit.", ttlVal)
+				return fmt.Errorf("invalid ttl")
+			}
+			ttlStored = ttlVal
 		}
-		user.PassphraseMode = modeVal
+	}
+
+	if modeVal != "" || ttlChanged || confirmVal != nil {
+		if modeVal != "" {
+			modeVal = strings.ToLower(modeVal)
+			switch modeVal {
+			case "keychain", "persistent":
+				modeVal = "persistent"
+			case "agent", "login":
+				modeVal = "login"
+			case "ask", "everytime":
+				modeVal = "everytime"
+			default:
+				ui.Errorf("Invalid passphrase behavior mode %q. Options: persistent, login, everytime", modeVal)
+				return fmt.Errorf("invalid mode")
+			}
+			user.PassphraseMode = modeVal
+		}
+		if ttlChanged {
+			user.AgentTTL = ttlStored
+		}
+		if confirmVal != nil {
+			user.AgentConfirmBeforeUse = *confirmVal
+		}
 		if err := config.Save(store); err != nil {
 			ui.Errorf("saving config: %v", err)
 			return err
@@ -102,7 +141,29 @@ func runPassphrase(args []string) error {
 		if modeVal == "everytime" {
 			_ = ssh.RemoveSSHKey(user.SSHKey)
 		}
-		ui.Success(fmt.Sprintf("Passphrase behavior for %q set to: %s", user.Name, modeVal))
+		if modeVal != "" {
+			ui.Success(fmt.Sprintf("Passphrase behavior for %q set to: %s", user.Name, modeVal))
+			if modeVal == "persistent" {
+				ui.Info("Persistent mode protects the key if this device is lost or stolen while off/locked. It does not protect against someone using your already-unlocked, logged-in session.")
+			}
+		}
+		if ttlChanged {
+			label := ttlStored
+			if ttlStored == "0" {
+				label = "no limit"
+			}
+			ui.Success(fmt.Sprintf("Agent TTL for %q set to: %s", user.Name, label))
+		}
+		if confirmVal != nil {
+			state := "disabled"
+			if *confirmVal {
+				state = "enabled"
+			}
+			ui.Success(fmt.Sprintf("Confirm-on-use for %q: %s", user.Name, state))
+			if *confirmVal && !ssh.LikelyHasConfirmPromptSupport() {
+				ui.Warn("No GUI/askpass detected here — signing may fail silently if your ssh-agent needs one to prompt for confirmation.")
+			}
+		}
 		return nil
 	}
 

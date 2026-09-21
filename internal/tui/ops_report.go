@@ -73,7 +73,8 @@ func opCheckSSH(store *config.Store, name, passphrase string) (opResult, error) 
 		if !ssh.VerifyPassphrase(user.SSHKey, p) {
 			return opResult{}, fmt.Errorf("incorrect passphrase")
 		}
-		if err := ssh.AddSSHKeyWithPassphrase(user.SSHKey, p); err != nil {
+		opts := ssh.AgentLoadOptions{LifetimeSecs: uint32(user.GetAgentTTL().Seconds()), ConfirmBeforeUse: user.AgentConfirmBeforeUse}
+		if err := ssh.AddSSHKeyWithOptions(user.SSHKey, p, opts); err != nil {
 			return opResult{}, fmt.Errorf("could not load key into agent: %w", err)
 		}
 	}

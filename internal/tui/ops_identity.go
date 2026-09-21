@@ -75,8 +75,11 @@ func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
 			// report success with no indication the key was never loaded.
 			if agentErr := ssh.EnsureSSHAgent(); agentErr != nil {
 				warnings = append(warnings, fmt.Sprintf("Key for %q was NOT loaded into any ssh-agent (no agent reachable) — the next push/pull may hang or fail asking for a passphrase.", user.Name))
-			} else if err := ssh.AddSSHKeyWithPassphrase(user.SSHKey, p); err != nil {
-				warnings = append(warnings, fmt.Sprintf("Could not load key into agent: %v", err))
+			} else {
+				opts := ssh.AgentLoadOptions{LifetimeSecs: uint32(user.GetAgentTTL().Seconds()), ConfirmBeforeUse: user.AgentConfirmBeforeUse}
+				if err := ssh.AddSSHKeyWithOptions(user.SSHKey, p, opts); err != nil {
+					warnings = append(warnings, fmt.Sprintf("Could not load key into agent: %v", err))
+				}
 			}
 		}
 	}

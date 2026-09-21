@@ -95,3 +95,61 @@ func TestRunPassphraseModeErrorsOnSaveFailure(t *testing.T) {
 		t.Fatal("expected an error when config.Save fails, got nil")
 	}
 }
+
+func TestRunPassphraseTTLAndConfirmFlags(t *testing.T) {
+	tmpDir := setupTestEnv(t)
+
+	keyPath := filepath.Join(tmpDir, "dev_key")
+	if err := os.WriteFile(keyPath, []byte("dummy"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	store, _ := config.Load()
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.BindSSHKey("dev", keyPath)
+	if err := config.Save(store); err != nil {
+		t.Fatalf("priming config: %v", err)
+	}
+
+	if err := runPassphrase([]string{"dev", "--ttl", "4h", "--confirm-on-use"}); err != nil {
+		t.Fatalf("runPassphrase: %v", err)
+	}
+	store, _ = config.Load()
+	u := store.FindUser("dev")
+	if u.AgentTTL != "4h" {
+		t.Errorf("expected AgentTTL=4h, got %q", u.AgentTTL)
+	}
+	if !u.AgentConfirmBeforeUse {
+		t.Errorf("expected AgentConfirmBeforeUse=true")
+	}
+
+	if err := runPassphrase([]string{"dev", "--ttl", "none", "--no-confirm-on-use"}); err != nil {
+		t.Fatalf("runPassphrase: %v", err)
+	}
+	store, _ = config.Load()
+	u = store.FindUser("dev")
+	if u.AgentTTL != "0" {
+		t.Errorf(`expected AgentTTL="0" (no limit) after --ttl none, got %q`, u.AgentTTL)
+	}
+	if u.AgentConfirmBeforeUse {
+		t.Errorf("expected AgentConfirmBeforeUse=false after --no-confirm-on-use")
+	}
+}
+
+func TestRunPassphraseInvalidTTL(t *testing.T) {
+	tmpDir := setupTestEnv(t)
+	keyPath := filepath.Join(tmpDir, "dev_key")
+	if err := os.WriteFile(keyPath, []byte("dummy"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	store, _ := config.Load()
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.BindSSHKey("dev", keyPath)
+	if err := config.Save(store); err != nil {
+		t.Fatalf("priming config: %v", err)
+	}
+
+	if err := runPassphrase([]string{"dev", "--ttl", "not-a-duration"}); err == nil {
+		t.Fatal("expected an error for an invalid --ttl value")
+	}
+}

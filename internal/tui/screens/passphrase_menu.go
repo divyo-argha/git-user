@@ -37,6 +37,41 @@ func NewPassphraseMenu(store *config.Store, name string, th theme.Theme) *Passph
 	return pm
 }
 
+// agentTTLCycle is the fixed set of choices the "Agent TTL" row cycles
+// through on each Enter press. "0" means no limit — distinct from "", which
+// only ever means "never explicitly set, use config.DefaultAgentTTL" and is
+// never re-selected by cycling (see nextAgentTTL).
+var agentTTLCycle = []string{"1h", "4h", "8h", "24h", "0"}
+
+// agentTTLDisplayLabel renders a User.AgentTTL value for the menu row.
+func agentTTLDisplayLabel(raw string) string {
+	switch raw {
+	case "":
+		return "8h (default)"
+	case "0":
+		return "No limit"
+	default:
+		return raw
+	}
+}
+
+// nextAgentTTL returns the next value in agentTTLCycle after raw. The unset
+// "" state is normalized to "8h" first, since that's its actual effective
+// value (config.User.GetAgentTTL()) — cycling from it should move to
+// whatever comes after 8h, not restart the cycle.
+func nextAgentTTL(raw string) string {
+	cur := raw
+	if cur == "" {
+		cur = "8h"
+	}
+	for i, v := range agentTTLCycle {
+		if v == cur {
+			return agentTTLCycle[(i+1)%len(agentTTLCycle)]
+		}
+	}
+	return agentTTLCycle[0]
+}
+
 func (pm *PassphraseMenu) refreshActions() {
 	user := pm.store.FindUser(pm.name)
 	if user == nil {
@@ -61,6 +96,19 @@ func (pm *PassphraseMenu) refreshActions() {
 
 	items = append(items, components.ActionItem{Label: "Security & Behavior", IsSection: true})
 	items = append(items, components.ActionItem{Label: fmt.Sprintf("  Behavior   : %s", modeLabel), Key: "passphrase-mode"})
+	if mode == "persistent" {
+		items = append(items, components.ActionItem{
+			Label:    "  ⓘ Protects against theft of a powered-off/locked device — not against use of your already-unlocked session.",
+			Key:      "persistent-mode-info",
+			Disabled: true,
+		})
+	}
+	items = append(items, components.ActionItem{Label: fmt.Sprintf("  Agent TTL  : %s", agentTTLDisplayLabel(user.AgentTTL)), Key: "agent-ttl"})
+	confirmLabel := "Off"
+	if user.AgentConfirmBeforeUse {
+		confirmLabel = "On"
+	}
+	items = append(items, components.ActionItem{Label: fmt.Sprintf("  Confirm Use: %s", confirmLabel), Key: "agent-confirm"})
 	items = append(items, components.ActionItem{Label: "  Lock Key   : Unload from SSH Agent", Key: "lock-key", Disabled: pm.keyLoadedChecked && !pm.keyLoaded})
 	items = append(items, components.ActionItem{Label: "  Verify     : Test Key Passphrase", Key: "passphrase-verify", Disabled: !pm.passphraseProtected})
 
@@ -178,6 +226,43 @@ func (pm *PassphraseMenu) handleEnter() (core.Screen, tea.Cmd) {
 		}
 		pm.refreshActions()
 		return pm, core.ShowToastCmd("Passphrase mode: "+labelMsg, theme.ToastStyleSuccess, 2*time.Second)
+
+	case "agent-ttl":
+		user := pm.store.FindUser(pm.name)
+		if user == nil {
+			return pm, nil
+		}
+		curr := user.AgentTTL
+		next := nextAgentTTL(curr)
+		user.AgentTTL = next
+		if err := config.Save(pm.store); err != nil {
+			user.AgentTTL = curr
+			return pm, core.ShowToastCmd("⚠ Could not save agent TTL: "+err.Error(), theme.ToastStyleError, 4*time.Second)
+		}
+		pm.refreshActions()
+		return pm, core.ShowToastCmd("Agent TTL: "+agentTTLDisplayLabel(next), theme.ToastStyleSuccess, 2*time.Second)
+
+	case "agent-confirm":
+		user := pm.store.FindUser(pm.name)
+		if user == nil {
+			return pm, nil
+		}
+		curr := user.AgentConfirmBeforeUse
+		next := !curr
+		user.AgentConfirmBeforeUse = next
+		if err := config.Save(pm.store); err != nil {
+			user.AgentConfirmBeforeUse = curr
+			return pm, core.ShowToastCmd("⚠ Could not save confirm-on-use: "+err.Error(), theme.ToastStyleError, 4*time.Second)
+		}
+		pm.refreshActions()
+		label := "Confirm on each use: Off"
+		if next {
+			label = "Confirm on each use: On"
+		}
+		if next && !ssh.LikelyHasConfirmPromptSupport() {
+			return pm, core.ShowToastCmd("⚠ "+label+" — no GUI/askpass detected here; signing may fail silently if your ssh-agent needs one to prompt.", theme.ToastStyleError, 5*time.Second)
+		}
+		return pm, core.ShowToastCmd(label, theme.ToastStyleSuccess, 2*time.Second)
 
 	case "lock-key":
 		user := pm.store.FindUser(pm.name)

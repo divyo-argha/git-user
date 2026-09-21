@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/validate"
@@ -163,21 +164,23 @@ func ListSSHKeyFiles() ([]SSHKeyFile, error) {
 }
 
 type User struct {
-	Name                string            `json:"name"`
-	Email               string            `json:"email"`
-	Aliases             []string          `json:"aliases,omitempty"`
-	SSHKey              string            `json:"ssh_key,omitempty"`
-	SSHCommand          string            `json:"ssh_command,omitempty"` // original core.sshCommand to preserve exactly
-	SignKey             string            `json:"sign_key,omitempty"`
-	SignFormat          string            `json:"sign_format,omitempty"` // "ssh" or "gpg"
-	SignDisabled        bool              `json:"sign_disabled,omitempty"`
-	PassphraseMode      string            `json:"passphrase_mode,omitempty"` // "persistent", "login", "everytime"
-	Source              string            `json:"source,omitempty"`          // "original" or empty (manual)
-	BindPaths           []string          `json:"bind_paths,omitempty"`
-	CustomConfig        map[string]string `json:"custom_config,omitempty"`
-	HTTPSUsername       string            `json:"https_username,omitempty"`      // username paired with a keyring-stored token; see internal/cli/token.go
-	HTTPSTokenExpiresAt string            `json:"https_token_expires,omitempty"` // optional YYYY-MM-DD; the token itself is never stored here, only its expiry (not secret) so doctor can warn
-	IsTemporary         bool              `json:"-"`
+	Name                  string            `json:"name"`
+	Email                 string            `json:"email"`
+	Aliases               []string          `json:"aliases,omitempty"`
+	SSHKey                string            `json:"ssh_key,omitempty"`
+	SSHCommand            string            `json:"ssh_command,omitempty"` // original core.sshCommand to preserve exactly
+	SignKey               string            `json:"sign_key,omitempty"`
+	SignFormat            string            `json:"sign_format,omitempty"` // "ssh" or "gpg"
+	SignDisabled          bool              `json:"sign_disabled,omitempty"`
+	PassphraseMode        string            `json:"passphrase_mode,omitempty"` // "persistent", "login", "everytime"
+	AgentTTL              string            `json:"agent_ttl,omitempty"`       // Go duration ("1h","4h","8h","24h"), "0" for no limit, or empty for DefaultAgentTTL
+	AgentConfirmBeforeUse bool              `json:"agent_confirm_before_use,omitempty"`
+	Source                string            `json:"source,omitempty"` // "original" or empty (manual)
+	BindPaths             []string          `json:"bind_paths,omitempty"`
+	CustomConfig          map[string]string `json:"custom_config,omitempty"`
+	HTTPSUsername         string            `json:"https_username,omitempty"`      // username paired with a keyring-stored token; see internal/cli/token.go
+	HTTPSTokenExpiresAt   string            `json:"https_token_expires,omitempty"` // optional YYYY-MM-DD; the token itself is never stored here, only its expiry (not secret) so doctor can warn
+	IsTemporary           bool              `json:"-"`
 }
 
 func (u *User) GetPassphraseMode() string {
@@ -185,6 +188,31 @@ func (u *User) GetPassphraseMode() string {
 		return "persistent"
 	}
 	return u.PassphraseMode
+}
+
+// DefaultAgentTTL is how long a passphrase-unlocked key stays loaded in the
+// SSH agent when an identity hasn't set its own AgentTTL: long enough to
+// cover a workday without re-prompting mid-session, short enough to bound
+// how long the key stays usable by anyone with access to an
+// already-unlocked session after the legitimate user has stepped away.
+const DefaultAgentTTL = 8 * time.Hour
+
+// GetAgentTTL returns how long this identity's key should stay loaded in
+// the SSH agent before it's automatically forgotten. "0" means no limit
+// (explicit user opt-out); empty or malformed values fail safe toward
+// DefaultAgentTTL rather than toward "no limit".
+func (u *User) GetAgentTTL() time.Duration {
+	if u.AgentTTL == "" {
+		return DefaultAgentTTL
+	}
+	if u.AgentTTL == "0" {
+		return 0
+	}
+	d, err := time.ParseDuration(u.AgentTTL)
+	if err != nil || d < 0 {
+		return DefaultAgentTTL
+	}
+	return d
 }
 
 // GetHTTPSUsername returns the username to pair with this identity's stored

@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/divyo-argha/git-user/internal/config"
 )
@@ -409,5 +410,33 @@ func TestCheckFilePermissions(t *testing.T) {
 	}
 	if pc := config.CheckFilePermissions(0644); !pc.Applicable || pc.Secure {
 		t.Errorf("CheckFilePermissions(0644) = %+v, want {Applicable: true, Secure: false}", pc)
+	}
+}
+
+// TestGetAgentTTL covers the three states an identity's AgentTTL can be in:
+// unset (falls back to config.DefaultAgentTTL), explicitly "0" (no limit —
+// must never be confused with unset), and a parsed duration. A malformed
+// value must fail safe toward the bounded default, never toward unlimited.
+func TestGetAgentTTL(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		want time.Duration
+	}{
+		{"unset defaults to DefaultAgentTTL", "", config.DefaultAgentTTL},
+		{"explicit zero means no limit", "0", 0},
+		{"1h parses", "1h", time.Hour},
+		{"4h parses", "4h", 4 * time.Hour},
+		{"24h parses", "24h", 24 * time.Hour},
+		{"malformed falls back to default, not unlimited", "not-a-duration", config.DefaultAgentTTL},
+		{"negative falls back to default", "-1h", config.DefaultAgentTTL},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			u := &config.User{AgentTTL: c.raw}
+			if got := u.GetAgentTTL(); got != c.want {
+				t.Errorf("GetAgentTTL() with AgentTTL=%q = %v, want %v", c.raw, got, c.want)
+			}
+		})
 	}
 }

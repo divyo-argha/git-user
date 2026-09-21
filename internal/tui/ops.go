@@ -127,7 +127,8 @@ func unlockIdentitySSHKeyForShell(user *config.User, passphrase string) (warning
 	if agentErr := ssh.EnsureSSHAgent(); agentErr != nil {
 		return fmt.Sprintf("Key for %q was NOT loaded into any ssh-agent (no agent reachable) — the next push/pull may hang or fail asking for a passphrase.", user.Name), nil
 	}
-	if err := ssh.AddSSHKeyWithPassphrase(user.SSHKey, p); err != nil {
+	opts := ssh.AgentLoadOptions{LifetimeSecs: uint32(user.GetAgentTTL().Seconds()), ConfirmBeforeUse: user.AgentConfirmBeforeUse}
+	if err := ssh.AddSSHKeyWithOptions(user.SSHKey, p, opts); err != nil {
 		return fmt.Sprintf("Could not load key into agent: %v", err), nil
 	}
 	return "", nil
