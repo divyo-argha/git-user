@@ -19,7 +19,7 @@ const (
 // window is already focused), otherwise a plain console via `start`.
 func spawnIdentityTerminal(exePath, name string) error {
 	if wt, err := exec.LookPath("wt.exe"); err == nil {
-		cmd := exec.Command(wt, "-w", "-1", exePath, "shell", name)
+		cmd := exec.Command(wt, "-w", "-1", "cmd.exe", "/c", exePath, "shell", name)
 		cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: detachedProcess | createNewProcessGroup}
 		if err := cmd.Start(); err == nil {
 			return nil

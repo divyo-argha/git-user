@@ -223,3 +223,55 @@ func TestRunCapturedSetsTerminalPromptDisabled(t *testing.T) {
 		t.Errorf("expected GIT_TERMINAL_PROMPT=0, got %q", out)
 	}
 }
+
+func TestOpSwitchSession_ShellFormatting(t *testing.T) {
+	withTempConfig(t)
+	store := &config.Store{Users: []config.User{{Name: "alice", Email: "alice@example.com"}}}
+
+	// Test CMD shell
+	t.Setenv("SHELL", "")
+	t.Setenv("BASH", "")
+	t.Setenv("MSYSTEM", "")
+	t.Setenv("PSModulePath", "")
+	t.Setenv("PROMPT", "$P$G")
+	res, err := opSwitchSession(store, "alice")
+	if err != nil {
+		t.Fatalf("opSwitchSession for CMD: %v", err)
+	}
+	if !strings.Contains(res.detail, "gu alice") {
+		t.Errorf("expected 'gu alice' for CMD, got:\n%s", res.detail)
+	}
+
+	// Test PowerShell
+	t.Setenv("PROMPT", "")
+	t.Setenv("PSModulePath", `C:\Program Files\PowerShell\Modules`)
+	res, err = opSwitchSession(store, "alice")
+	if err != nil {
+		t.Fatalf("opSwitchSession for PowerShell: %v", err)
+	}
+	if !strings.Contains(res.detail, "Invoke-Expression (& git-user env alice --pwsh)") {
+		t.Errorf("expected Invoke-Expression for PowerShell, got:\n%s", res.detail)
+	}
+
+	// Test Fish
+	t.Setenv("PSModulePath", "")
+	t.Setenv("SHELL", "/usr/bin/fish")
+	res, err = opSwitchSession(store, "alice")
+	if err != nil {
+		t.Fatalf("opSwitchSession for Fish: %v", err)
+	}
+	if !strings.Contains(res.detail, "git-user env alice --fish | source") {
+		t.Errorf("expected fish source for Fish, got:\n%s", res.detail)
+	}
+
+	// Test Posix / Bash
+	t.Setenv("SHELL", "/bin/bash")
+	res, err = opSwitchSession(store, "alice")
+	if err != nil {
+		t.Fatalf("opSwitchSession for Bash: %v", err)
+	}
+	if !strings.Contains(res.detail, `eval "$(git-user env alice)"`) {
+		t.Errorf("expected eval for Bash, got:\n%s", res.detail)
+	}
+}
+

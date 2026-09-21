@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/divyo-argha/git-user/logo"
+	"github.com/mattn/go-isatty"
 )
 
 // ErrNotInteractive is returned by Prompt/Select when stdout is not a
@@ -95,6 +96,9 @@ var (
 func IsTTY() bool {
 	if IsTTYFn != nil {
 		return IsTTYFn()
+	}
+	if isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()) {
+		return true
 	}
 	fi, err := os.Stdout.Stat()
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/identity"
 	"github.com/divyo-argha/git-user/internal/keyring"
+	"github.com/divyo-argha/git-user/internal/shellinit"
 	"github.com/divyo-argha/git-user/internal/ssh"
 	"github.com/divyo-argha/git-user/internal/tui/screens"
 	"os"
@@ -159,7 +160,19 @@ func opSwitchSession(store *config.Store, name string) (opResult, error) {
 		return opResult{}, fmt.Errorf("identity %q not found", name)
 	}
 
-	cmd := fmt.Sprintf(`eval "$(git-user env %s)"`, name)
+	sh := shellinit.Detect("")
+	var cmd string
+	switch sh {
+	case shellinit.PowerShell:
+		cmd = fmt.Sprintf(`Invoke-Expression (& git-user env %s --pwsh)`, name)
+	case shellinit.Cmd:
+		cmd = fmt.Sprintf(`gu %s`, name)
+	case shellinit.Fish:
+		cmd = fmt.Sprintf(`git-user env %s --fish | source`, name)
+	default:
+		cmd = fmt.Sprintf(`eval "$(git-user env %s)"`, name)
+	}
+
 	if err := screens.ClipboardWrite(cmd); err != nil {
 		return opResult{}, fmt.Errorf("copy to clipboard: %w", err)
 	}

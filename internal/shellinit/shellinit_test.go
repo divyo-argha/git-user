@@ -131,3 +131,34 @@ func TestInstallFreshUpgradeAlready(t *testing.T) {
 		t.Fatalf("legacy snippet was not upgraded, got:\n%s", zshContent)
 	}
 }
+
+func TestInstall_Cmd(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
+
+	results, err := Install(Cmd, "cmd")
+	if err != nil {
+		t.Fatalf("Install Cmd: %v", err)
+	}
+	if len(results) != 1 || results[0].Status != StatusInstalled {
+		t.Fatalf("expected StatusInstalled, got %+v", results)
+	}
+	content, err := os.ReadFile(results[0].File)
+	if err != nil {
+		t.Fatalf("reading gu.cmd: %v", err)
+	}
+	if !strings.Contains(string(content), "git-user.exe env") {
+		t.Fatalf("expected git-user.exe env in gu.cmd, got:\n%s", string(content))
+	}
+
+	// Re-install is StatusAlready
+	results, err = Install(Cmd, "cmd")
+	if err != nil {
+		t.Fatalf("reinstall Cmd: %v", err)
+	}
+	if len(results) != 1 || results[0].Status != StatusAlready {
+		t.Fatalf("expected StatusAlready, got %+v", results)
+	}
+}
+

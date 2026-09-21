@@ -9,6 +9,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/identity"
 	"github.com/divyo-argha/git-user/internal/ui"
 	"github.com/divyo-argha/git-user/internal/version"
+	"github.com/mattn/go-isatty"
 )
 
 var (
@@ -71,6 +72,9 @@ func printVersion() {
 
 // stdinIsTTY reports whether stdin is attached to a terminal.
 func stdinIsTTY() bool {
+	if isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd()) {
+		return true
+	}
 	fi, err := os.Stdin.Stat()
 	if err != nil {
 		return false

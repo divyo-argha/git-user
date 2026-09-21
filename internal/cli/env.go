@@ -49,7 +49,10 @@ func detectShell(explicit string) ShellType {
 		return ShellPosix
 	}
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" || os.Getenv("PSModulePath") != "" || os.Getenv("PROMPT") != "" {
+		if os.Getenv("PROMPT") != "" && os.Getenv("PSExecutionPolicyPreference") == "" {
+			return ShellCmd
+		}
 		if os.Getenv("PSModulePath") != "" {
 			return ShellPowerShell
 		}

@@ -52,10 +52,14 @@ func Detect(explicit string) Shell {
 		return Posix
 	}
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" || os.Getenv("PSModulePath") != "" || os.Getenv("PROMPT") != "" {
+		if os.Getenv("PROMPT") != "" && os.Getenv("PSExecutionPolicyPreference") == "" {
+			return Cmd
+		}
 		if os.Getenv("PSModulePath") != "" {
 			return PowerShell
 		}
+		return Cmd
 	}
 
 	return Posix
@@ -170,7 +174,17 @@ func Install(sh Shell, explicitShell string) ([]Result, error) {
 		} else {
 			targetFiles = []string{filepath.Join(home, ".config", "powershell", "Microsoft.PowerShell_profile.ps1")}
 		}
-		initSnippet = "\n# git-user shell integration\nif (Get-Command git-user -ErrorAction SilentlyContinue) { Invoke-Expression (& git-user init powershell 2>$null) }\n"
+	case Cmd:
+		guPath := filepath.Join(home, "gu.cmd")
+		if content, err := os.ReadFile(guPath); err == nil {
+			if strings.Contains(string(content), "git-user.exe env") {
+				return []Result{{File: guPath, Status: StatusAlready}}, nil
+			}
+		}
+		if err := os.WriteFile(guPath, []byte(cmdInitScript), 0755); err != nil {
+			return nil, fmt.Errorf("could not write %s: %w", guPath, err)
+		}
+		return []Result{{File: guPath, Status: StatusInstalled}}, nil
 	default: // Posix
 		initSnippet = "\n# git-user shell integration\ncommand -v git-user >/dev/null 2>&1 && eval \"$(git-user init 2>/dev/null)\"\n"
 		if explicitShell == "bash" {

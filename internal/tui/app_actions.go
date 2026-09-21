@@ -279,6 +279,8 @@ func shellLabel(sh shellinit.Shell) string {
 		return "fish"
 	case shellinit.PowerShell:
 		return "PowerShell"
+	case shellinit.Cmd:
+		return "cmd.exe"
 	default:
 		return "bash/zsh"
 	}
@@ -293,6 +295,8 @@ func installConfirmQuestion(sh shellinit.Shell) string {
 		return "Add the git-user shell shortcut to ~/.config/fish/config.fish?"
 	case shellinit.PowerShell:
 		return "Add the git-user shell shortcut to your PowerShell $PROFILE?"
+	case shellinit.Cmd:
+		return "Create the gu.cmd batch helper in your user profile folder (%USERPROFILE%\\gu.cmd)?"
 	default:
 		return "Add the git-user shell shortcut to ~/.zshrc / ~/.bashrc?"
 	}

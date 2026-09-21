@@ -4,12 +4,18 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"github.com/atotto/clipboard"
 )
 
-// ClipboardWrite writes text to the system clipboard using the first available
-// clipboard tool: pbcopy (macOS), wl-copy (Wayland), xclip/xsel (Linux/X11),
-// or clip.exe / PowerShell (Windows).
+// ClipboardWrite writes text to the system clipboard.
+// It uses native clipboard APIs via github.com/atotto/clipboard (direct Win32 API on Windows,
+// pbcopy on macOS, wl-copy/xclip/xsel on Linux), with fallbacks to CLI tools.
 func ClipboardWrite(text string) error {
+	if err := clipboard.WriteAll(text); err == nil {
+		return nil
+	}
+
 	tools := [][]string{
 		{"pbcopy"},
 		{"wl-copy"},
@@ -17,7 +23,7 @@ func ClipboardWrite(text string) error {
 		{"xsel", "--clipboard", "--input"},
 		{"clip.exe"},
 		{"clip"},
-		{"powershell.exe", "-NoProfile", "-Command", "Set-Clipboard"},
+		{"powershell.exe", "-NoProfile", "-Command", "$input | Set-Clipboard"},
 	}
 	for _, tool := range tools {
 		if _, err := exec.LookPath(tool[0]); err != nil {

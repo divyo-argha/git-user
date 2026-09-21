@@ -5,6 +5,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
+	"runtime"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -49,6 +52,23 @@ func CheckAgentCmd() tea.Cmd {
 	return func() tea.Msg {
 		socket := os.Getenv("SSH_AUTH_SOCK")
 		if socket == "" {
+			if runtime.GOOS == "windows" {
+				out, err := exec.Command("ssh-add", "-l").CombinedOutput()
+				if err == nil {
+					lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+					count := 0
+					for _, l := range lines {
+						if strings.TrimSpace(l) != "" {
+							count++
+						}
+					}
+					return AgentStatusMsg{Connected: true, KeyCount: count}
+				}
+				outStr := strings.ToLower(string(out))
+				if strings.Contains(outStr, "no identities") || strings.Contains(outStr, "empty") {
+					return AgentStatusMsg{Connected: true, KeyCount: 0}
+				}
+			}
 			return AgentStatusMsg{Connected: false}
 		}
 
@@ -102,42 +122,7 @@ type KeyLoadedMsg struct {
 
 // isKeyLoaded checks if the given SSH key is loaded in the agent.
 func isKeyLoaded(keyPath string) bool {
-	pubKeyPath := keyPath + ".pub"
-	data, err := os.ReadFile(pubKeyPath)
-	if err != nil {
-		return false
-	}
-
-	pubKey, _, _, _, err := ssh.ParseAuthorizedKey(data)
-	if err != nil {
-		return false
-	}
-
-	targetFP := ssh.FingerprintSHA256(pubKey)
-
-	socket := os.Getenv("SSH_AUTH_SOCK")
-	if socket == "" {
-		return false
-	}
-
-	conn, err := net.Dial("unix", socket)
-	if err != nil {
-		return false
-	}
-	defer conn.Close()
-
-	client := agent.NewClient(conn)
-	keys, err := client.List()
-	if err != nil {
-		return false
-	}
-
-	for _, key := range keys {
-		if ssh.FingerprintSHA256(key) == targetFP {
-			return true
-		}
-	}
-	return false
+	return gituserssh.IsSSHKeyLoaded(keyPath)
 }
 
 // CheckKeyPassphraseCmd checks if an SSH key is passphrase-protected.
