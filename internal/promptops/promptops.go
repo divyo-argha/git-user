@@ -482,7 +482,7 @@ func targetDescription(t Target) string {
 		return "PROMPT_COMMAND PS1 wrapper with readline escape guards"
 	case TargetStarship:
 		return "Native custom module [custom.gituser] in starship.toml"
-	case PowerShellPromptBlock:
+	case TargetPowerShell:
 		return "Cross-platform prompt wrapper function in PowerShell profile"
 	case TargetNushell:
 		return "Right prompt closure hook ($env.PROMPT_COMMAND_RIGHT) in env.nu"
@@ -868,7 +868,9 @@ func ResolvePrompt(store *config.Store, withIcon, plain, always bool) string {
 		if icon == "" && store != nil && store.Prompt != nil && store.Prompt.Icon != "" {
 			icon = store.Prompt.Icon
 		}
-		if icon == "" {
+		if icon == "none" {
+			icon = ""
+		} else if icon == "" {
 			term := os.Getenv("TERM")
 			if term == "linux" || term == "dumb" || term == "cons25" {
 				icon = "git:"

@@ -100,4 +100,37 @@ func TestOpPromptPreferences(t *testing.T) {
 	if store.Prompt.Always {
 		t.Errorf("expected store.Prompt.Always to be false")
 	}
+
+	// Toggle plain
+	resPlain, err := opTogglePromptPlain(store)
+	if err != nil {
+		t.Fatalf("opTogglePromptPlain failed: %v", err)
+	}
+	if !strings.Contains(resPlain.detail, "ON") {
+		t.Errorf("expected ON in plain toggle result: %s", resPlain.detail)
+	}
+	if !store.Prompt.Plain {
+		t.Errorf("expected store.Prompt.Plain to be true")
+	}
+
+	resPlain2, err := opTogglePromptPlain(store)
+	if err != nil {
+		t.Fatalf("opTogglePromptPlain second call failed: %v", err)
+	}
+	if !strings.Contains(resPlain2.detail, "OFF") {
+		t.Errorf("expected OFF in plain toggle result: %s", resPlain2.detail)
+	}
+	if store.Prompt.Plain {
+		t.Errorf("expected store.Prompt.Plain to be false")
+	}
+
+	// Set icon none and verify opPromptStatus output
+	_, _ = opSetPromptIcon(store, "none")
+	statusRes, err := opPromptStatus(store)
+	if err != nil {
+		t.Fatalf("opPromptStatus failed: %v", err)
+	}
+	if !strings.Contains(statusRes.detail, "(none / disabled)") {
+		t.Errorf("expected '(none / disabled)' in status report, got:\n%s", statusRes.detail)
+	}
 }

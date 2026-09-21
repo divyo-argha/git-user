@@ -249,12 +249,17 @@ func (a *App) promptConfigPickCmd() tea.Cmd {
 	if a.store != nil && a.store.Prompt != nil && a.store.Prompt.Always {
 		alwaysState = "ON (Always visible)"
 	}
+	plainState := "OFF (includes badges)"
+	if a.store != nil && a.store.Prompt != nil && a.store.Prompt.Plain {
+		plainState = "ON (name only)"
+	}
 	opts := []screens.Option{
 		{Label: "Nerd Font Icon ( ) — Default", Key: "icon:nerd"},
 		{Label: "Plain ASCII Tag (git: ) — No special font required", Key: "icon:plain"},
 		{Label: "Custom Icon / Emoji — Enter custom text", Key: "icon:custom"},
 		{Label: "No Icon — Profile name only", Key: "icon:none"},
 		{Label: fmt.Sprintf("Toggle Always Show (current: %s)", alwaysState), Key: "toggle-always"},
+		{Label: fmt.Sprintf("Toggle Plain Format (current: %s)", plainState), Key: "toggle-plain"},
 		{Label: "Cancel", Key: ""},
 	}
 	return pushCmd(screens.NewOptions(

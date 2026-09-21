@@ -251,6 +251,10 @@ func (a *App) handleOptionResult(msg core.OptionResultMsg) (tea.Model, tea.Cmd) 
 			return a, a.runTaskCmd("toggle-prompt-always", "", func() (opResult, error) {
 				return opTogglePromptAlways(a.store)
 			})
+		case "toggle-plain":
+			return a, a.runTaskCmd("toggle-prompt-plain", "", func() (opResult, error) {
+				return opTogglePromptPlain(a.store)
+			})
 		}
 
 	case "token-action":

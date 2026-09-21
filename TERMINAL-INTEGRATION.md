@@ -27,6 +27,7 @@ This command auto-detects your active shell (Fish, Zsh, Bash, PowerShell, Nushel
 - [Fish Shell](#-fish-shell)
 - [Oh My Posh (Cross-Shell)](#-oh-my-posh-cross-shell)
 - [Spaceship Prompt (Zsh)](#-spaceship-prompt-zsh)
+- [PowerShell](#-powershell)
 - [Nushell](#-nushell)
 - [Powerlevel10k (Advanced Zsh)](#-powerlevel10k-advanced-zsh)
 
@@ -320,6 +321,55 @@ $env.PROMPT_COMMAND_RIGHT = {||
 
 **Step 3: Reload Nushell**
 Save the file and restart Nushell to see your new right prompt!
+
+---
+
+## 🐚 PowerShell
+
+For PowerShell (Windows PowerShell or PowerShell Core on Windows, macOS, or Linux), the integration wraps your prompt function while preserving your prompt customizations.
+
+**Step 1: Open your PowerShell profile**
+Open your profile in your preferred editor (or run `notepad $PROFILE` on Windows):
+```powershell
+if (-not (Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
+```
+
+**Step 2: Append the prompt integration block**
+Add the following block to your `$PROFILE`:
+```powershell
+# --- git-user prompt integration ---
+if (Get-Command git-user -ErrorAction SilentlyContinue) {
+    if (-not (Test-Path Function:\__git_user_orig_prompt)) {
+        if (Test-Path Function:\prompt) {
+            Copy-Item Function:\prompt Function:\__git_user_orig_prompt
+        }
+    }
+    function global:prompt {
+        $u = $(git-user prompt 2>$null)
+        if ($u) {
+            $icon = " "
+            if ($env:TERM -eq "linux" -or $env:TERM -eq "dumb") {
+                $icon = "git:"
+            }
+            if ($env:GIT_USER_PROMPT_ICON) {
+                $icon = $env:GIT_USER_PROMPT_ICON
+            }
+            Write-Host -NoNewline -ForegroundColor Blue "$icon$u "
+        }
+        if (Test-Path Function:\__git_user_orig_prompt) {
+            & (Get-Item Function:\__git_user_orig_prompt)
+        } else {
+            "PS $($executionContext.SessionState.Path.CurrentLocation)$('>' * ($nestedPromptLevel + 1)) "
+        }
+    }
+}
+```
+
+**Step 3: Reload PowerShell**
+Restart your terminal, or reload your profile in the active session:
+```powershell
+. $PROFILE
+```
 
 ---
 

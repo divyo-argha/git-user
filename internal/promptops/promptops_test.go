@@ -14,6 +14,10 @@ func TestTargetName(t *testing.T) {
 		if name == "" {
 			t.Errorf("TargetName for %s is empty", target)
 		}
+		desc := targetDescription(target)
+		if desc == "" {
+			t.Errorf("targetDescription for %s is empty", target)
+		}
 	}
 }
 
@@ -123,6 +127,22 @@ func TestResolvePrompt(t *testing.T) {
 	if promptOutside != "" {
 		t.Errorf("expected empty string outside repo, got %q", promptOutside)
 	}
+
+	// Case 4: store.Prompt.Icon == "none" should produce no icon prefix
+	store.Prompt = &config.PromptConfig{Icon: "none"}
+	promptNoIcon := ResolvePrompt(store, true, false, true)
+	if promptNoIcon != "alice" {
+		t.Errorf("expected 'alice' without icon prefix, got %q", promptNoIcon)
+	}
+
+	// Case 5: store.Prompt.Plain == true should disable badges
+	t.Setenv("GIT_USER_SESSION", "session-user")
+	store.Prompt = &config.PromptConfig{Plain: true}
+	promptConfigPlain := ResolvePrompt(store, false, false, false)
+	if promptConfigPlain != "session-user" {
+		t.Errorf("expected 'session-user' with plain=true from config, got %q", promptConfigPlain)
+	}
+	t.Setenv("GIT_USER_SESSION", "")
 }
 
 func TestUninstallAll(t *testing.T) {

@@ -166,6 +166,21 @@ _git_user_completions() {
             COMPREPLY=( $(compgen -W "bash zsh fish" -- ${cur}) )
             return 0
             ;;
+        prompt)
+            if [ $COMP_CWORD -eq 2 ]; then
+                COMPREPLY=( $(compgen -W "install uninstall --icon --always --plain" -- ${cur}) )
+            elif [ $COMP_CWORD -eq 3 ]; then
+                case "${COMP_WORDS[2]}" in
+                    install)
+                        COMPREPLY=( $(compgen -W "starship zsh bash fish powershell nushell" -- ${cur}) )
+                        ;;
+                    uninstall)
+                        COMPREPLY=( $(compgen -W "starship zsh bash fish powershell nushell all" -- ${cur}) )
+                        ;;
+                esac
+            fi
+            return 0
+            ;;
         export)
             if [ "${COMP_WORDS[1]}" = "export" ]; then
                 COMPREPLY=( $(compgen -W "--all" -- ${cur}) )
@@ -209,6 +224,20 @@ _git_user() {
                 completion)
                     _values 'shell' bash zsh fish
                     ;;
+                prompt)
+                    if (( CURRENT == 2 )); then
+                        _values 'action' install uninstall --icon --always --plain
+                    elif (( CURRENT == 3 )); then
+                        case $words[2] in
+                            install)
+                                _values 'target' starship zsh bash fish powershell nushell
+                                ;;
+                            uninstall)
+                                _values 'target' starship zsh bash fish powershell nushell all
+                                ;;
+                        esac
+                    fi
+                    ;;
                 export)
                     if (( CURRENT == 2 )); then
                         _values 'option' --all
@@ -243,6 +272,16 @@ func fishCompletion() string {
 	out += "\n# Completion shell types\n"
 	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from completion\" -a \"bash zsh fish\"\n"
 	out += "complete -c gu -f -n \"__fish_seen_subcommand_from completion\" -a \"bash zsh fish\"\n\n"
+
+	out += "# Prompt subcommands and flags\n"
+	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from prompt\" -a \"install uninstall\" -d \"Prompt subcommands\"\n"
+	out += "complete -c gu -f -n \"__fish_seen_subcommand_from prompt\" -a \"install uninstall\" -d \"Prompt subcommands\"\n"
+	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from prompt\" -l \"icon\" -s \"i\" -d \"Include icon prefix\"\n"
+	out += "complete -c gu -f -n \"__fish_seen_subcommand_from prompt\" -l \"icon\" -s \"i\" -d \"Include icon prefix\"\n"
+	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from prompt\" -l \"always\" -s \"a\" -d \"Always output profile\"\n"
+	out += "complete -c gu -f -n \"__fish_seen_subcommand_from prompt\" -l \"always\" -s \"a\" -d \"Always output profile\"\n"
+	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from prompt\" -l \"plain\" -s \"p\" -d \"Plain name only\"\n"
+	out += "complete -c gu -f -n \"__fish_seen_subcommand_from prompt\" -l \"plain\" -s \"p\" -d \"Plain name only\"\n\n"
 
 	out += "# Export --all flag\n"
 	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from export\" -l \"all\" -d \"Export all identities\"\n"

@@ -90,7 +90,9 @@ func opPromptStatus(store *config.Store) (opResult, error) {
 	alwaysPref := "False (hidden outside Git repositories)"
 	plainPref := "False (includes (session) or (local) badges)"
 	if store != nil && store.Prompt != nil {
-		if store.Prompt.Icon != "" {
+		if store.Prompt.Icon == "none" {
+			iconPref = "(none / disabled)"
+		} else if store.Prompt.Icon != "" {
 			iconPref = fmt.Sprintf("%q", store.Prompt.Icon)
 		}
 		if store.Prompt.Always {
@@ -180,3 +182,23 @@ func opTogglePromptAlways(store *config.Store) (opResult, error) {
 	}
 	return opResult{detail: fmt.Sprintf("Prompt indicator always-show is now %s", state)}, nil
 }
+
+// opTogglePromptPlain toggles the "plain format" preference in config.json.
+func opTogglePromptPlain(store *config.Store) (opResult, error) {
+	if store == nil {
+		return opResult{}, fmt.Errorf("config store not available")
+	}
+	if store.Prompt == nil {
+		store.Prompt = &config.PromptConfig{}
+	}
+	store.Prompt.Plain = !store.Prompt.Plain
+	if err := config.Save(store); err != nil {
+		return opResult{}, fmt.Errorf("saving prompt preference: %w", err)
+	}
+	state := "ON (name only without badges)"
+	if !store.Prompt.Plain {
+		state = "OFF (includes badges like (session) or (local))"
+	}
+	return opResult{detail: fmt.Sprintf("Prompt indicator plain format is now %s", state)}, nil
+}
+

@@ -77,7 +77,9 @@ func RemoveSigner(repoRoot, principal string) (removed bool, err error) {
 }
 
 func WireAllowedSignersConfig(repoRoot string) (changed bool, err error) {
-	current, _ := exec.Command("git", "config", "--local", "gpg.ssh.allowedSignersFile").Output()
+	checkCmd := exec.Command("git", "config", "--local", "gpg.ssh.allowedSignersFile")
+	checkCmd.Dir = repoRoot
+	current, _ := checkCmd.Output()
 	if strings.TrimSpace(string(current)) == config.AllowedSignersFileName {
 		return false, nil
 	}

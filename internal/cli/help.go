@@ -55,9 +55,27 @@ Flags:
   --plain                    Plain, machine-readable output (name <email>)
   --json                     JSON output
   -h, --help                 Show this help`,
-		"prompt": `Usage: git-user prompt
+		"prompt": `Usage: git-user prompt [install [shell] | uninstall [shell|all]] [flags]
 
-Output the active identity for terminal integration.`,
+Output active identity for terminal integration or manage prompt hooks.
+
+Commands:
+  prompt                     Output active profile name (when inside a repo)
+  prompt install [target]    Install prompt integration (starship, zsh, bash, fish, powershell, nushell)
+  prompt uninstall [target]  Remove prompt integration for target shell or all
+
+Flags:
+  -i, --icon                 Include profile icon prefix
+  -a, --always               Output profile even when outside git repositories
+  -p, --plain                Output plain profile name without session/local badges
+  -h, --help                 Show this help
+
+Examples:
+  git-user prompt
+  git-user prompt --icon
+  git-user prompt install
+  git-user prompt install zsh
+  git-user prompt uninstall all`,
 		"remove": `Usage: git-user remove <name> [flags]
 
 Delete an identity.
