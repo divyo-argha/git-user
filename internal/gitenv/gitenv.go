@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
@@ -33,7 +34,7 @@ func Vars(u *config.User) map[string]string {
 				keyPath = filepath.Join(home, keyPath[2:])
 			}
 		}
-		vars["GIT_SSH_COMMAND"] = fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes", keyPath)
+		vars["GIT_SSH_COMMAND"] = fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes", shellQuote(keyPath))
 	}
 
 	// Git config parameters (ensures git config user.name, git config user.email, and signing are overridden)
@@ -85,12 +86,16 @@ func AskpassCommand(identityName string) (string, error) {
 	return fmt.Sprintf("%s __askpass %s", shellQuote(exePath), shellQuote(identityName)), nil
 }
 
-// shellQuote wraps s in single quotes for safe interpolation into a POSIX
-// shell command string — core.askpass, like core.sshCommand, is executed via
-// the shell, so this (not sqQuote below, which is for a different consumer:
-// git's own GIT_CONFIG_PARAMETERS parser) is what protects against a
-// pathological exe path or identity name breaking out of the command.
+// shellQuote wraps s for safe interpolation into a command string (such as
+// GIT_SSH_COMMAND or core.askpass). On Windows, paths use forward slashes and
+// double quotes so Windows OpenSSH and CreateProcess properly handle spaces
+// without treating single quotes as literal characters of the filename.
+// On POSIX, single quotes protect against shell metacharacters.
 func shellQuote(s string) string {
+	if runtime.GOOS == "windows" {
+		clean := filepath.ToSlash(s)
+		return `"` + strings.ReplaceAll(clean, `"`, `\"`) + `"`
+	}
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 

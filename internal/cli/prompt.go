@@ -94,14 +94,23 @@ func runPromptInstall(targetArg string) error {
 		hasStarship = true
 	}
 
-	shellEnv := os.Getenv("SHELL")
+	shellEnv := strings.ToLower(os.Getenv("SHELL"))
+	isGitBash := strings.Contains(shellEnv, "bash") ||
+		strings.Contains(shellEnv, "sh") ||
+		os.Getenv("BASH") != "" ||
+		os.Getenv("MSYSTEM") != ""
 
 	if hasStarship {
 		options = append(options, "Starship Prompt (recommended - detected)")
 	}
 
-	if runtime.GOOS == "windows" {
+	if isGitBash && runtime.GOOS == "windows" {
+		options = append(options, "Bash / Git Bash (recommended - active shell)")
+		options = append(options, "PowerShell")
+		options = append(options, "Nushell")
+	} else if runtime.GOOS == "windows" {
 		options = append(options, "PowerShell (recommended - Windows)")
+		options = append(options, "Bash / Git Bash")
 		options = append(options, "Nushell")
 	} else if strings.Contains(shellEnv, "zsh") {
 		options = append(options, "Zsh (recommended - active shell)")

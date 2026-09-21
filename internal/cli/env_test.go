@@ -117,3 +117,23 @@ func TestRunEnv_Unset(t *testing.T) {
 		t.Errorf("expected unset statement in output, got:\n%s", output)
 	}
 }
+
+func TestDetectShell_WindowsGitBash(t *testing.T) {
+	t.Setenv("PSModulePath", `C:\Program Files\WindowsPowerShell\Modules`)
+	t.Setenv("SHELL", `/usr/bin/bash`)
+	if got := detectShell(""); got != ShellPosix {
+		t.Errorf("detectShell with SHELL=/usr/bin/bash and PSModulePath got %v, want ShellPosix", got)
+	}
+
+	t.Setenv("SHELL", "")
+	t.Setenv("BASH", `/usr/bin/bash`)
+	if got := detectShell(""); got != ShellPosix {
+		t.Errorf("detectShell with BASH set and PSModulePath got %v, want ShellPosix", got)
+	}
+
+	t.Setenv("BASH", "")
+	t.Setenv("MSYSTEM", "MINGW64")
+	if got := detectShell(""); got != ShellPosix {
+		t.Errorf("detectShell with MSYSTEM set and PSModulePath got %v, want ShellPosix", got)
+	}
+}

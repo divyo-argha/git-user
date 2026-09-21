@@ -7,6 +7,7 @@ package shellinit
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -43,6 +44,10 @@ func Detect(explicit string) Shell {
 	if strings.Contains(shellEnv, "pwsh") || strings.Contains(shellEnv, "powershell") {
 		return PowerShell
 	}
+	if strings.Contains(shellEnv, "bash") || strings.Contains(shellEnv, "zsh") || strings.Contains(shellEnv, "sh") ||
+		os.Getenv("BASH") != "" || os.Getenv("MSYSTEM") != "" {
+		return Posix
+	}
 
 	if runtime.GOOS == "windows" {
 		if os.Getenv("PSModulePath") != "" {
@@ -51,6 +56,46 @@ func Detect(explicit string) Shell {
 	}
 
 	return Posix
+}
+
+// ResolveShellPath determines the shell executable path to launch for isolated subshells.
+// On Windows, Git Bash and MSYS2 provide virtual Unix paths (e.g. /usr/bin/bash) which
+// cannot be directly launched by Windows CreateProcess without resolving to a Win32 executable.
+func ResolveShellPath() string {
+	shellPath := os.Getenv("SHELL")
+	if runtime.GOOS == "windows" {
+		if shellPath != "" {
+			if (strings.HasPrefix(shellPath, "/") || strings.HasPrefix(shellPath, "\\")) && !strings.Contains(shellPath, ":") {
+				base := filepath.Base(shellPath)
+				if lp, err := exec.LookPath(base); err == nil {
+					return lp
+				}
+				if lp, err := exec.LookPath(base + ".exe"); err == nil {
+					return lp
+				}
+			}
+			if lp, err := exec.LookPath(shellPath); err == nil {
+				return lp
+			}
+		}
+		if os.Getenv("BASH") != "" || os.Getenv("MSYSTEM") != "" {
+			if lp, err := exec.LookPath("bash.exe"); err == nil {
+				return lp
+			}
+			if lp, err := exec.LookPath("bash"); err == nil {
+				return lp
+			}
+		}
+		if lp, err := exec.LookPath("powershell.exe"); err == nil {
+			return lp
+		}
+		return "powershell.exe"
+	}
+
+	if shellPath == "" {
+		return "/bin/sh"
+	}
+	return shellPath
 }
 
 // Script returns the shell-function wrapper source for `git-user init
@@ -267,23 +312,28 @@ const powerShellInitScript = `# git-user shell integration for PowerShell
 
 function git-user {
     param([Parameter(ValueFromRemainingArguments = $true)]$args)
+    $exe = (Get-Command git-user -ErrorAction SilentlyContinue | Where-Object { $_.CommandType -ne 'Function' } | Select-Object -First 1)
+    if (-not $exe) {
+        Write-Error "git-user: command not found"
+        return
+    }
     if ($args.Count -gt 0) {
         $sub = $args[0]
         if ($sub -eq "switch" -or $sub -eq "sw" -or $sub -eq "--switch" -or $sub -eq "-s") {
             if ($args -contains "--session" -or $args -contains "-s") {
-                $script = & (Get-Command git-user -CommandType Application) env --powershell @args
+                $script = & $exe env --powershell @args
                 Invoke-Expression ($script -join "` + "`" + `n")
                 return
             }
         } elseif ($sub -eq "logout" -or $sub -eq "signout" -or $sub -eq "lo") {
             if ($args -contains "--session" -or $args -contains "-s") {
-                $script = & (Get-Command git-user -CommandType Application) env --powershell --unset
+                $script = & $exe env --powershell --unset
                 Invoke-Expression ($script -join "` + "`" + `n")
                 return
             }
         }
     }
-    & (Get-Command git-user -CommandType Application) @args
+    & $exe @args
 }
 
 function gu {
@@ -297,6 +347,11 @@ function git {
         git-user @($args | Select-Object -Skip 1)
         return
     }
-    & (Get-Command git -CommandType Application) @args
+    $gitExe = (Get-Command git -ErrorAction SilentlyContinue | Where-Object { $_.CommandType -ne 'Function' } | Select-Object -First 1)
+    if (-not $gitExe) {
+        Write-Error "git: command not found"
+        return
+    }
+    & $gitExe @args
 }
 `

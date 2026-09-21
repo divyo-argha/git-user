@@ -93,12 +93,9 @@ func configureRepoLocal(repoPath string, u *config.User) error {
 		commands = append(commands, []string{"config", "--local", "core.sshCommand", u.SSHCommand})
 	} else if u.SSHKey != "" {
 		// core.sshCommand is executed via the shell by git itself, so the key
-		// path must be POSIX-shell-quoted here, not Go-quoted with %q — %q
-		// only escapes Go/C syntax and leaves shell metacharacters like $, `,
-		// ! live inside the double quotes it produces, which would let a key
-		// path containing e.g. $(...) run arbitrary commands the next time
-		// this repo shells out to ssh. Mirrors internal/git.ConfigureSSHScope.
-		sshVal := fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes", cloneShellQuote(u.SSHKey))
+		// path must be properly quoted here for the target platform.
+		// Mirrors internal/git.ConfigureSSHScope.
+		sshVal := fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes", git.SSHQuote(u.SSHKey))
 		commands = append(commands, []string{"config", "--local", "core.sshCommand", sshVal})
 	}
 
@@ -120,12 +117,4 @@ func configureRepoLocal(repoPath string, u *config.User) error {
 		}
 	}
 	return nil
-}
-
-// cloneShellQuote wraps s in single quotes for safe interpolation into a
-// POSIX shell command string, escaping any embedded single quotes. Mirrors
-// internal/git's unexported shellQuote; duplicated here rather than exported
-// across the package boundary for this one call site.
-func cloneShellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

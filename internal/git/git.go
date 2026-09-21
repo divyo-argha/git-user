@@ -3,6 +3,8 @@ package git
 import (
 	"fmt"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -125,19 +127,23 @@ func ConfigureSSH(keyPath string) error {
 
 func ConfigureSSHScope(keyPath string, local bool) error {
 	// core.sshCommand is executed via the shell by git itself (that's how
-	// GIT_SSH_COMMAND/core.sshCommand support flags and quoting), so the key
-	// path must be POSIX-shell-quoted here, not Go-quoted with %q — %q only
-	// escapes Go/C syntax and leaves shell metacharacters like $, `, ! live
-	// inside the double quotes it produces, which would let a key path
-	// containing e.g. $(...) run arbitrary commands the next time git shells
-	// out to ssh.
-	val := fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes", shellQuote(keyPath))
+	// GIT_SSH_COMMAND/core.sshCommand support flags and quoting). On Windows,
+	// OpenSSH treats single quotes as literal parts of the filename, so double
+	// quotes and forward slashes are required. On POSIX systems, single quotes
+	// protect against shell metacharacters like $, `, ! inside the key path.
+	val := fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes", SSHQuote(keyPath))
 	return setConfig("core.sshCommand", val, local)
 }
 
-// shellQuote wraps s in single quotes for safe interpolation into a POSIX
-// shell command string, escaping any embedded single quotes.
-func shellQuote(s string) string {
+// SSHQuote formats a path for interpolation into an SSH command (e.g. core.sshCommand).
+// On Windows, paths are converted to forward slashes and wrapped in double quotes
+// because Windows OpenSSH treats single quotes as literal parts of the filename.
+// On POSIX systems, single quotes protect against shell metacharacters like $, `, ! inside the key path.
+func SSHQuote(s string) string {
+	if runtime.GOOS == "windows" {
+		clean := filepath.ToSlash(s)
+		return `"` + strings.ReplaceAll(clean, `"`, `\"`) + `"`
+	}
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 

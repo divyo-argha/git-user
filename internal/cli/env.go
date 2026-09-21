@@ -44,6 +44,10 @@ func detectShell(explicit string) ShellType {
 	if strings.Contains(shellEnv, "pwsh") || strings.Contains(shellEnv, "powershell") {
 		return ShellPowerShell
 	}
+	if strings.Contains(shellEnv, "bash") || strings.Contains(shellEnv, "zsh") || strings.Contains(shellEnv, "sh") ||
+		os.Getenv("BASH") != "" || os.Getenv("MSYSTEM") != "" {
+		return ShellPosix
+	}
 
 	if runtime.GOOS == "windows" {
 		if os.Getenv("PSModulePath") != "" {

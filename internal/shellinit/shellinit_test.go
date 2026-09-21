@@ -25,6 +25,43 @@ func TestDetect(t *testing.T) {
 	}
 }
 
+func TestDetect_WindowsGitBash(t *testing.T) {
+	t.Setenv("PSModulePath", `C:\Program Files\WindowsPowerShell\Modules`)
+	t.Setenv("SHELL", `/usr/bin/bash`)
+	if got := Detect(""); got != Posix {
+		t.Errorf("Detect with SHELL=/usr/bin/bash and PSModulePath got %v, want Posix", got)
+	}
+
+	t.Setenv("SHELL", "")
+	t.Setenv("BASH", `/usr/bin/bash`)
+	if got := Detect(""); got != Posix {
+		t.Errorf("Detect with BASH set and PSModulePath got %v, want Posix", got)
+	}
+
+	t.Setenv("BASH", "")
+	t.Setenv("MSYSTEM", "MINGW64")
+	if got := Detect(""); got != Posix {
+		t.Errorf("Detect with MSYSTEM set and PSModulePath got %v, want Posix", got)
+	}
+}
+
+func TestPowerShellScript_CommandResolution(t *testing.T) {
+	script := Script(PowerShell)
+	if strings.Contains(script, "-CommandType Application") {
+		t.Errorf("powerShellInitScript should not restrict command lookup with -CommandType Application: %s", script)
+	}
+	if !strings.Contains(script, "Where-Object") {
+		t.Errorf("powerShellInitScript should filter functions using Where-Object: %s", script)
+	}
+}
+
+func TestResolveShellPath(t *testing.T) {
+	sh := ResolveShellPath()
+	if sh == "" {
+		t.Error("expected non-empty ResolveShellPath")
+	}
+}
+
 func TestScript(t *testing.T) {
 	if !strings.Contains(Script(Posix), "git-user()") {
 		t.Error("expected posix script to define a git-user() wrapper function")

@@ -198,3 +198,10 @@ func TestConfigureSigning(t *testing.T) {
 		}
 	}
 }
+
+func TestSSHQuote(t *testing.T) {
+	quoted := git.SSHQuote("/home/user/.ssh/id_ed25519")
+	if !strings.HasPrefix(quoted, "'") && !strings.HasPrefix(quoted, `"`) {
+		t.Errorf("expected quoted path, got %s", quoted)
+	}
+}

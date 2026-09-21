@@ -169,3 +169,24 @@ func TestUninstallAll(t *testing.T) {
 		}
 	}
 }
+
+func TestDetectActiveTarget_WindowsGitBash(t *testing.T) {
+	t.Setenv("STARSHIP_SHELL", "")
+	t.Setenv("PSModulePath", `C:\Program Files\WindowsPowerShell\Modules`)
+	t.Setenv("SHELL", `/usr/bin/bash`)
+	if got := DetectActiveTarget(); got != TargetBash {
+		t.Errorf("DetectActiveTarget with SHELL=/usr/bin/bash and PSModulePath got %v, want TargetBash", got)
+	}
+
+	t.Setenv("SHELL", "")
+	t.Setenv("BASH", `/usr/bin/bash`)
+	if got := DetectActiveTarget(); got != TargetBash {
+		t.Errorf("DetectActiveTarget with BASH set and PSModulePath got %v, want TargetBash", got)
+	}
+
+	t.Setenv("BASH", "")
+	t.Setenv("MSYSTEM", "MINGW64")
+	if got := DetectActiveTarget(); got != TargetBash {
+		t.Errorf("DetectActiveTarget with MSYSTEM set and PSModulePath got %v, want TargetBash", got)
+	}
+}

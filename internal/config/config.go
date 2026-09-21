@@ -713,7 +713,7 @@ func syncIncludeIfs(s *Store) error {
 				k := parts[0]
 				v := parts[1]
 				if strings.Contains(v, "profile-") && strings.HasSuffix(v, ".gitconfig") {
-					existingKeys[k] = v
+					existingKeys[k] = filepath.ToSlash(v)
 				}
 			}
 		}
@@ -725,7 +725,7 @@ func syncIncludeIfs(s *Store) error {
 		if len(u.BindPaths) == 0 {
 			continue
 		}
-		snippetPath := filepath.Join(configDir, fmt.Sprintf("profile-%s.gitconfig", u.Name))
+		snippetPath := filepath.ToSlash(filepath.Join(configDir, fmt.Sprintf("profile-%s.gitconfig", u.Name)))
 
 		for _, p := range u.BindPaths {
 			normPath := normalizeBindPath(p)
@@ -753,16 +753,24 @@ func syncIncludeIfs(s *Store) error {
 	return nil
 }
 
-func normalizeBindPath(path string) string {
-	if strings.HasPrefix(path, "~/") {
+// NormalizeBindPath converts a repository bind path to the canonical form expected by Git's includeIf.
+func NormalizeBindPath(path string) string {
+	if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, "~\\") {
 		home, _ := os.UserHomeDir()
 		path = filepath.Join(home, path[2:])
 	}
 	if abs, err := filepath.Abs(path); err == nil {
 		path = abs
 	}
+	// Git requires forward slashes in includeif patterns even on Windows,
+	// because backslashes are interpreted as escape characters.
+	path = filepath.ToSlash(path)
 	if !strings.HasSuffix(path, "/") {
 		path += "/"
 	}
 	return path
+}
+
+func normalizeBindPath(path string) string {
+	return NormalizeBindPath(path)
 }

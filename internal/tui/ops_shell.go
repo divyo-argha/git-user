@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"runtime"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/gitenv"
+	"github.com/divyo-argha/git-user/internal/shellinit"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 )
 
@@ -18,20 +18,14 @@ import (
 // the *exec.Cmd — tea.ExecProcess wires them to the program's own I/O as
 // part of the suspend/resume handoff.
 func openIdentityShellCmd(name string, user *config.User) tea.Cmd {
-	shellPath := os.Getenv("SHELL")
-	if shellPath == "" {
-		if runtime.GOOS == "windows" {
-			shellPath = "powershell.exe"
-		} else {
-			shellPath = "/bin/sh"
-		}
-	}
+	shellPath := shellinit.ResolveShellPath()
 
 	vars := gitenv.Vars(user)
-	env := os.Environ()
+	env := make([]string, 0, len(vars)+len(os.Environ()))
 	for k, v := range vars {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
+	env = append(env, os.Environ()...)
 
 	cmd := exec.Command(shellPath)
 	cmd.Env = env

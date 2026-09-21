@@ -369,13 +369,14 @@ func DetectActiveTarget() Target {
 	if strings.Contains(shellEnv, "pwsh") || strings.Contains(shellEnv, "powershell") {
 		return TargetPowerShell
 	}
+	if strings.Contains(shellEnv, "bash") || strings.Contains(shellEnv, "sh") ||
+		os.Getenv("BASH") != "" || os.Getenv("MSYSTEM") != "" {
+		return TargetBash
+	}
 	if runtime.GOOS == "windows" {
 		if os.Getenv("PSModulePath") != "" {
 			return TargetPowerShell
 		}
-	}
-	if strings.Contains(shellEnv, "bash") {
-		return TargetBash
 	}
 	if runtime.GOOS == "darwin" {
 		return TargetZsh

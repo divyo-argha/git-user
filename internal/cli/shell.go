@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"runtime"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/keyring"
+	"github.com/divyo-argha/git-user/internal/shellinit"
 	"github.com/divyo-argha/git-user/internal/ssh"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
@@ -35,14 +35,7 @@ func runShell(args []string) error {
 		return err
 	}
 
-	shellPath := os.Getenv("SHELL")
-	if shellPath == "" {
-		if runtime.GOOS == "windows" {
-			shellPath = "powershell.exe"
-		} else {
-			shellPath = "/bin/sh"
-		}
-	}
+	shellPath := shellinit.ResolveShellPath()
 
 	vars := EnvVars(user)
 	// Overrides must come before the inherited environment — see the same

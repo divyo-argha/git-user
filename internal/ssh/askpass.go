@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -39,6 +40,30 @@ case "$1" in
 esac
 `
 
+const askpassBatchScript = `@echo off
+echo "%*" | findstr /i "old current" >nul
+if not errorlevel 1 goto :print_old
+
+echo "%*" | findstr /i "new again confirm" >nul
+if not errorlevel 1 goto :print_new
+
+if defined ` + EnvPassphrase + ` goto :print_pass
+if defined ` + EnvOldPassphrase + ` goto :print_old
+goto :print_new
+
+:print_pass
+echo %` + EnvPassphrase + `%
+goto :eof
+
+:print_old
+echo %` + EnvOldPassphrase + `%
+goto :eof
+
+:print_new
+echo %` + EnvNewPassphrase + `%
+goto :eof
+`
+
 // runViaAskpass runs name(args...) with secrets supplied to a freshly
 // generated SSH_ASKPASS helper script rather than on the command line.
 func runViaAskpass(name string, args []string, secrets map[string]string) ([]byte, error) {
@@ -48,9 +73,17 @@ func runViaAskpass(name string, args []string, secrets map[string]string) ([]byt
 	}
 	defer os.RemoveAll(dir)
 
-	scriptPath := filepath.Join(dir, "askpass.sh")
-	if err := os.WriteFile(scriptPath, []byte(askpassScript), 0o700); err != nil {
-		return nil, fmt.Errorf("writing askpass helper: %w", err)
+	var scriptPath string
+	if runtime.GOOS == "windows" {
+		scriptPath = filepath.Join(dir, "askpass.cmd")
+		if err := os.WriteFile(scriptPath, []byte(askpassBatchScript), 0o700); err != nil {
+			return nil, fmt.Errorf("writing askpass helper: %w", err)
+		}
+	} else {
+		scriptPath = filepath.Join(dir, "askpass.sh")
+		if err := os.WriteFile(scriptPath, []byte(askpassScript), 0o700); err != nil {
+			return nil, fmt.Errorf("writing askpass helper: %w", err)
+		}
 	}
 
 	env := os.Environ()

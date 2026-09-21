@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/divyo-argha/git-user/internal/config"
@@ -360,4 +361,20 @@ func TestSyncIncludeIfsHonorsEnvConfigPath(t *testing.T) {
 	key := "includeif.gitdir/i:" + dir + "/.path"
 	_ = exec.Command("git", "config", "--global", "--unset-all", key).Run()
 	_ = os.Remove(snippet)
+}
+
+func TestNormalizeBindPath(t *testing.T) {
+	cases := []string{
+		"~/projects/foo",
+		"/tmp/bar",
+	}
+	for _, c := range cases {
+		norm := config.NormalizeBindPath(c)
+		if !strings.HasSuffix(norm, "/") {
+			t.Errorf("NormalizeBindPath(%q) = %q, expected trailing slash", c, norm)
+		}
+		if strings.Contains(norm, "\\") {
+			t.Errorf("NormalizeBindPath(%q) = %q, expected only forward slashes", c, norm)
+		}
+	}
 }
