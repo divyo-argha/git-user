@@ -848,7 +848,7 @@ func (a *App) registerFormCmd(kind, name, email string) tea.Cmd {
 // name/email/key-choice/filename already collected earlier in the chain.
 func (a *App) sshPassphraseFormCmd(name, email, mode, choice, keyPath string) tea.Cmd {
 	return pushCmd(screens.NewForm("SSH Key Passphrase", "Optional: protect the new key (leave empty or press Esc to skip)", fmt.Sprintf("ssh-passphrase:%s|%s|%s|%s|%s", name, email, mode, choice, keyPath), []screens.FormInput{
-		{Label: "New Passphrase:", IsPassword: true},
+		{Label: "New Passphrase:", IsPassword: true, Hint: validate.PassphraseHintLine},
 		{Label: "Confirm Passphrase:", IsPassword: true},
 	}, a.theme).Skippable())
 }
@@ -990,14 +990,14 @@ func validateRekeyFilename(currentKeyPath string) func(string) error {
 func (a *App) passphraseSetProtectedFormCmd(name string) tea.Cmd {
 	return pushCmd(screens.NewForm("Change Passphrase", "Enter current and new passphrase for "+name, "passphrase-set-protected:"+name, []screens.FormInput{
 		{Label: "Current Passphrase:", IsPassword: true},
-		{Label: "New Passphrase:", IsPassword: true},
+		{Label: "New Passphrase:", IsPassword: true, Hint: validate.PassphraseHintLine},
 		{Label: "Confirm New Passphrase:", IsPassword: true},
 	}, a.theme))
 }
 
 func (a *App) passphraseSetFormCmd(name string) tea.Cmd {
 	return pushCmd(screens.NewForm("Set Passphrase", "Enter a new passphrase for "+name, "passphrase-set:"+name, []screens.FormInput{
-		{Label: "New Passphrase:", IsPassword: true},
+		{Label: "New Passphrase:", IsPassword: true, Hint: validate.PassphraseHintLine},
 		{Label: "Confirm New Passphrase:", IsPassword: true},
 	}, a.theme))
 }
@@ -1034,7 +1034,7 @@ func (a *App) syncSetupFormCmd(repoURL string) tea.Cmd {
 // itself, just retype the passphrase.
 func (a *App) rekeyPassFormCmd(name, keyPath string) tea.Cmd {
 	return pushCmd(screens.NewForm("New Key Passphrase", "Optional: protect the new key (leave empty or press Esc to skip)", fmt.Sprintf("rekey-pass:%s|%s", name, keyPath), []screens.FormInput{
-		{Label: "New Passphrase:", IsPassword: true},
+		{Label: "New Passphrase:", IsPassword: true, Hint: validate.PassphraseHintLine},
 		{Label: "Confirm Passphrase:", IsPassword: true},
 	}, a.theme).Skippable())
 }

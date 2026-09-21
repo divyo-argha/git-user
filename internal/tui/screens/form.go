@@ -16,6 +16,11 @@ type FormInput struct {
 	IsPassword  bool
 	Value       string
 	Validate    func(string) error
+	// Hint, when set, is re-evaluated on every render (like Validate) but
+	// rendered as dim informational text rather than an error — for
+	// non-blocking feedback (e.g. a passphrase strength indicator) that
+	// should never look like a validation failure.
+	Hint func(string) string
 }
 
 // Form is a generic form screen.
@@ -26,6 +31,7 @@ type Form struct {
 	inputs     []components.TextInput
 	labels     []string
 	validators []func(string) error
+	hints      []func(string) string
 	cursor     int
 	theme      theme.Theme
 	skippable  bool
@@ -37,6 +43,7 @@ func NewForm(title, help, context string, fields []FormInput, th theme.Theme) *F
 	var inputs []components.TextInput
 	var labels []string
 	var validators []func(string) error
+	var hints []func(string) string
 
 	for _, f := range fields {
 		ti := components.NewTextInput(th, f.Placeholder, f.IsPassword)
@@ -46,6 +53,7 @@ func NewForm(title, help, context string, fields []FormInput, th theme.Theme) *F
 		inputs = append(inputs, ti)
 		labels = append(labels, f.Label)
 		validators = append(validators, f.Validate)
+		hints = append(hints, f.Hint)
 	}
 
 	if len(inputs) > 0 {
@@ -59,6 +67,7 @@ func NewForm(title, help, context string, fields []FormInput, th theme.Theme) *F
 		inputs:     inputs,
 		labels:     labels,
 		validators: validators,
+		hints:      hints,
 		theme:      th,
 	}
 }
@@ -218,6 +227,13 @@ func (f *Form) View(width, height int) string {
 				if err := f.validators[i](val); err != nil {
 					lines = append(lines, "  "+f.theme.ErrorStyle().Render("⚠ "+err.Error()))
 				}
+			}
+		}
+		// Show a non-blocking informational hint (e.g. passphrase strength),
+		// styled dim rather than as an error so it never reads as a failure.
+		if f.hints[i] != nil {
+			if hint := f.hints[i](f.inputs[i].Value()); hint != "" {
+				lines = append(lines, "  "+f.theme.Dim().Render(hint))
 			}
 		}
 		lines = append(lines, "")

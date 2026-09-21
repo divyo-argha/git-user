@@ -6,8 +6,19 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 )
+
+// HardenedKDFRounds is the ssh-keygen `-a` (KDF rounds) value git-user uses
+// for every passphrase-protected key it encrypts, in place of OpenSSH's own
+// default of 16. bcrypt_pbkdf's cost scales ~linearly with rounds, so this
+// is a ~6.25x increase in the cost of each offline guess against a copied
+// key file, while adding well under a second to a legitimate interactive
+// unlock. There is no user-facing setting for this — it's applied
+// automatically to every key, matching git-user's design of not asking
+// users to understand or configure cryptographic parameters themselves.
+const HardenedKDFRounds = 100
 
 // Environment variables carrying passphrases to the askpass helper script
 // (see runViaAskpass). ssh-keygen/ssh-add are run with SSH_ASKPASS pointed at
@@ -113,7 +124,7 @@ func runViaAskpass(name string, args []string, secrets map[string]string) ([]byt
 // a passphrase on the ssh-keygen command line.
 func ChangeKeyPassphrase(keyPath, oldPassphrase, newPassphrase string) error {
 	EnsureSSHBinariesOnPath()
-	out, err := runViaAskpass("ssh-keygen", []string{"-p", "-f", keyPath}, map[string]string{
+	out, err := runViaAskpass("ssh-keygen", []string{"-p", "-a", strconv.Itoa(HardenedKDFRounds), "-f", keyPath}, map[string]string{
 		EnvOldPassphrase: oldPassphrase,
 		EnvNewPassphrase: newPassphrase,
 	})
@@ -128,7 +139,7 @@ func ChangeKeyPassphrase(keyPath, oldPassphrase, newPassphrase string) error {
 // passphrase is supplied via SSH_ASKPASS rather than the command line.
 func GenerateKey(keyPath, comment, passphrase string) error {
 	EnsureSSHBinariesOnPath()
-	args := []string{"-t", "ed25519", "-C", comment, "-f", keyPath}
+	args := []string{"-t", "ed25519", "-C", comment, "-f", keyPath, "-a", strconv.Itoa(HardenedKDFRounds)}
 
 	if passphrase == "" {
 		out, err := exec.Command("ssh-keygen", append(args, "-N", "")...).CombinedOutput()

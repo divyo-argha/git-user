@@ -109,6 +109,7 @@ func (pm *PassphraseMenu) refreshActions() {
 		confirmLabel = "On"
 	}
 	items = append(items, components.ActionItem{Label: fmt.Sprintf("  Confirm Use: %s", confirmLabel), Key: "agent-confirm"})
+	items = append(items, components.ActionItem{Label: "  Harden     : One-shot lockdown for a shared device", Key: "passphrase-harden", Disabled: pm.passphraseChecked && !pm.passphraseProtected})
 	items = append(items, components.ActionItem{Label: "  Lock Key   : Unload from SSH Agent", Key: "lock-key", Disabled: pm.keyLoadedChecked && !pm.keyLoaded})
 	items = append(items, components.ActionItem{Label: "  Verify     : Test Key Passphrase", Key: "passphrase-verify", Disabled: !pm.passphraseProtected})
 
@@ -263,6 +264,31 @@ func (pm *PassphraseMenu) handleEnter() (core.Screen, tea.Cmd) {
 			return pm, core.ShowToastCmd("⚠ "+label+" — no GUI/askpass detected here; signing may fail silently if your ssh-agent needs one to prompt.", theme.ToastStyleError, 5*time.Second)
 		}
 		return pm, core.ShowToastCmd(label, theme.ToastStyleSuccess, 2*time.Second)
+
+	case "passphrase-harden":
+		user := pm.store.FindUser(pm.name)
+		if user == nil {
+			return pm, nil
+		}
+		prevMode, prevTTL, prevConfirm := user.PassphraseMode, user.AgentTTL, user.AgentConfirmBeforeUse
+		user.PassphraseMode = "everytime"
+		user.AgentTTL = config.HardenedAgentTTL
+		user.AgentConfirmBeforeUse = true
+		if err := config.Save(pm.store); err != nil {
+			user.PassphraseMode, user.AgentTTL, user.AgentConfirmBeforeUse = prevMode, prevTTL, prevConfirm
+			return pm, core.ShowToastCmd("⚠ Could not harden this profile: "+err.Error(), theme.ToastStyleError, 4*time.Second)
+		}
+		_ = keyring.DeleteKeychainPassphrase(user.Name)
+		if user.SSHKey != "" {
+			_ = ssh.RemoveSSHKey(user.SSHKey)
+		}
+		pm.keyLoaded = false
+		pm.refreshActions()
+		label := fmt.Sprintf("Hardened for shared-device use: ask-every-time + %s timeout + confirm-on-use", config.HardenedAgentTTL)
+		if !ssh.LikelyHasConfirmPromptSupport() {
+			return pm, core.ShowToastCmd("⚠ "+label+" — no GUI/askpass detected here; confirm-on-use may fail silently.", theme.ToastStyleError, 5*time.Second)
+		}
+		return pm, core.ShowToastCmd(label, theme.ToastStyleSuccess, 3*time.Second)
 
 	case "lock-key":
 		user := pm.store.FindUser(pm.name)

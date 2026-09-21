@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
@@ -144,7 +145,7 @@ func interactiveSSHSetup(name, email string, store *config.Store, noSign bool) e
 
 		ui.Info("Generating SSH key...")
 		ui.Info("You will be prompted to set a passphrase for the key.")
-		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
+		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "", "-a", strconv.Itoa(ssh.HardenedKDFRounds))
 		if err := cmd.Run(); err != nil {
 			ui.Error("Key generation failed")
 			return err

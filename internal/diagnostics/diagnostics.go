@@ -80,12 +80,54 @@ func SigningDisabledMessage(u *config.User) string {
 type Options struct {
 	Fix       bool
 	VerifySSH func(keyPath string) error
+	// Interactive tells Run it's being driven by a live human right now (a
+	// real terminal for the CLI, or the TUI — which has no unattended mode
+	// at all). It currently gates only the shared-device auto-hardening
+	// under Fix: that check changes passphrase-unlock behavior (mode,
+	// agent TTL, confirm-on-use), not just a file permission, so it must
+	// never apply itself silently from an unattended/scripted `doctor
+	// --fix` run (e.g. in CI or a container) — only when a person actually
+	// asked for it right now. Every other --fix check is unaffected.
+	Interactive bool
+}
+
+// isLikelySharedMachine is a best-effort, cross-platform heuristic for
+// "does this machine look like it has more than one person's account on
+// it" — used only to decide whether to *suggest* (or, under --fix, apply)
+// shared-device hardening; the manual action (CLI --harden, the TUI
+// "Harden" row) is never gated by it. Counts sibling directories next to
+// the current user's home directory (the same shape as /home/*, /Users/*,
+// C:\Users\* on Linux/macOS/Windows) that look like other user profiles.
+// Fails closed: any error, or fewer than 2 siblings, reports false rather
+// than risk a false positive from a directory listing it couldn't read.
+func isLikelySharedMachine() bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	entries, err := os.ReadDir(filepath.Dir(home))
+	if err != nil {
+		return false
+	}
+	skip := map[string]bool{
+		"Shared": true, "Guest": true, "Public": true, "Default": true,
+		"Default User": true, "All Users": true, "lost+found": true,
+	}
+	siblings := 0
+	for _, e := range entries {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") || skip[e.Name()] || e.Name() == filepath.Base(home) {
+			continue
+		}
+		siblings++
+	}
+	return siblings >= 2
 }
 
 func Run(store *config.Store, opts Options) (Report, error) {
 	var checks []Check
 	add := func(c Check) { checks = append(checks, c) }
 	fix := opts.Fix
+	looksShared := isLikelySharedMachine()
 
 	activeSSHFailed := false
 	activeUserHasToken := false
@@ -282,6 +324,38 @@ func Run(store *config.Store, opts Options) (Report, error) {
 						if u.GetPassphraseMode() == "persistent" {
 							add(Check{ID: "profile-passphrase-mode-note", Category: "Profiles & Security Audit", Name: "Passphrase mode", Subject: u.Name, Status: StatusInfo,
 								Message: fmt.Sprintf("Profile %q uses persistent keychain mode — protects against offline key theft, not against use of an already-unlocked session.", u.Name)})
+						}
+						underHardened := u.GetPassphraseMode() != "everytime" || u.AgentTTL == "" || !u.AgentConfirmBeforeUse
+						if underHardened && looksShared {
+							if fix && opts.Interactive {
+								// u is a loop copy — mutate the store's own
+								// entry so config.Save persists the change.
+								target := store.FindUser(u.Name)
+								target.PassphraseMode = "everytime"
+								target.AgentTTL = config.HardenedAgentTTL
+								target.AgentConfirmBeforeUse = true
+								if err := config.Save(store); err != nil {
+									add(Check{ID: "profile-hardening", Category: "Profiles & Security Audit", Name: "Shared-device hardening", Subject: u.Name, Status: StatusWarn,
+										Message: fmt.Sprintf("Could not harden %q: %v", u.Name, err)})
+								} else {
+									_ = keyring.DeleteKeychainPassphrase(u.Name)
+									_ = ssh.RemoveSSHKey(u.SSHKey)
+									add(Check{ID: "profile-hardening", Category: "Profiles & Security Audit", Name: "Shared-device hardening", Subject: u.Name, Status: StatusPass, Fixed: true,
+										Message: fmt.Sprintf("Hardened %q for shared-device use: ask-every-time + %s agent timeout + confirm-on-use", u.Name, config.HardenedAgentTTL)})
+								}
+							} else {
+								msg := fmt.Sprintf("This looks like a shared machine — profile %q could be hardened against other logged-in users", u.Name)
+								if fix && !opts.Interactive {
+									// --fix was requested, but this isn't a live
+									// session — never silently change how a
+									// passphrase is unlocked from an unattended
+									// run (e.g. CI/a container), only report it.
+									msg = fmt.Sprintf("This looks like a shared machine — profile %q could be hardened, but that changes passphrase-unlock behavior so it's never auto-applied in a non-interactive run", u.Name)
+								}
+								add(Check{ID: "profile-hardening", Category: "Profiles & Security Audit", Name: "Shared-device hardening", Subject: u.Name, Status: StatusNotice, Scored: false,
+									Message: msg,
+									FixHint: fmt.Sprintf("Run 'git-user passphrase %s --harden' interactively", u.Name)})
+							}
 						}
 					} else {
 						add(Check{ID: "profile-passphrase", Category: "Profiles & Security Audit", Name: "Passphrase protection", Subject: u.Name, Status: StatusWarn,

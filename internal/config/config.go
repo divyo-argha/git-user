@@ -197,6 +197,13 @@ func (u *User) GetPassphraseMode() string {
 // already-unlocked session after the legitimate user has stepped away.
 const DefaultAgentTTL = 8 * time.Hour
 
+// HardenedAgentTTL is the agent lifetime applied by the one-shot "harden for
+// a shared device" action (CLI `passphrase --harden`, the TUI passphrase
+// menu's "Harden" row, and doctor's auto-fix on a machine that looks
+// shared): short enough to matter if someone else is using the same
+// account, long enough not to force re-entry mid-task.
+const HardenedAgentTTL = "15m"
+
 // GetAgentTTL returns how long this identity's key should stay loaded in
 // the SSH agent before it's automatically forgotten. "0" means no limit
 // (explicit user opt-out); empty or malformed values fail safe toward

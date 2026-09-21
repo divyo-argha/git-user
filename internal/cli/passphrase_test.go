@@ -153,3 +153,38 @@ func TestRunPassphraseInvalidTTL(t *testing.T) {
 		t.Fatal("expected an error for an invalid --ttl value")
 	}
 }
+
+// TestRunPassphraseHardenFlag covers --harden as a one-shot bundle: a
+// single invocation must set mode/TTL/confirm-on-use together, matching
+// what --mode everytime --ttl 15m --confirm-on-use would do individually.
+func TestRunPassphraseHardenFlag(t *testing.T) {
+	tmpDir := setupTestEnv(t)
+
+	keyPath := filepath.Join(tmpDir, "dev_key")
+	if err := os.WriteFile(keyPath, []byte("dummy"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	store, _ := config.Load()
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.BindSSHKey("dev", keyPath)
+	if err := config.Save(store); err != nil {
+		t.Fatalf("priming config: %v", err)
+	}
+
+	if err := runPassphrase([]string{"dev", "--harden"}); err != nil {
+		t.Fatalf("runPassphrase: %v", err)
+	}
+
+	store, _ = config.Load()
+	u := store.FindUser("dev")
+	if u.PassphraseMode != "everytime" {
+		t.Errorf("expected PassphraseMode=everytime after --harden, got %q", u.PassphraseMode)
+	}
+	if u.AgentTTL != config.HardenedAgentTTL {
+		t.Errorf("expected AgentTTL=%q after --harden, got %q", config.HardenedAgentTTL, u.AgentTTL)
+	}
+	if !u.AgentConfirmBeforeUse {
+		t.Errorf("expected AgentConfirmBeforeUse=true after --harden")
+	}
+}

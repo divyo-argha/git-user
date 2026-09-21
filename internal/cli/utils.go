@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/ui"
@@ -222,7 +223,7 @@ func generateAndDisplayKey(name, email string) (string, error) {
 
 	ui.Info(fmt.Sprintf("Generating SSH key at %s...", keyPath))
 	ssh.EnsureSSHBinariesOnPath()
-	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
+	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "", "-a", strconv.Itoa(ssh.HardenedKDFRounds))
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("ssh-keygen failed: %w", err)
 	}
@@ -233,10 +234,13 @@ func generateAndDisplayKey(name, email string) (string, error) {
 	if err != nil {
 		ui.Warn("Skipping passphrase setup.")
 	} else if newPass != "" {
+		if hint := validate.PassphraseHintLine(newPass); hint != "" {
+			ui.Info("Strength: " + hint)
+		}
 		confirm, err := readPassphrase(ConfirmPassphrasePrompt)
 		if err != nil || newPass != confirm {
 			ui.Error("Passphrases do not match. Skipping passphrase setup.")
-		} else if err := validate.Passphrase(newPass, minSSHPassphraseLen); err != nil {
+		} else if err := validate.Passphrase(newPass, 0); err != nil {
 			ui.Errorf("%v. Skipping passphrase setup.", err)
 		} else if err := ssh.ChangeKeyPassphrase(keyPath, "", newPass); err != nil {
 			ui.Errorf("Could not add passphrase: %v", err)

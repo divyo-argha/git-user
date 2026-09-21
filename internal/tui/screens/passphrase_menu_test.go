@@ -247,3 +247,37 @@ func TestPassphraseMenuModeToggleWarnsOnSaveFailure(t *testing.T) {
 		t.Errorf("Expected the mode change to be rolled back after a failed save, got %q", u.GetPassphraseMode())
 	}
 }
+
+// TestPassphraseMenuHarden covers the one-shot "Harden" row: a single Enter
+// press must set all three settings (mode, TTL, confirm-on-use) and persist
+// them in one action, with no follow-up form.
+func TestPassphraseMenuHarden(t *testing.T) {
+	t.Setenv("GIT_USER_CONFIG", t.TempDir()+"/config.json")
+	th := theme.DefaultTheme()
+	store := &config.Store{
+		Current: "eng",
+		Users:   []config.User{{Name: "eng", Email: "eng@company.com", SSHKey: "/path/to/key", PassphraseMode: "persistent"}},
+	}
+	pm := NewPassphraseMenu(store, "eng", th)
+
+	pm.actions.FindAndSetCursorByKey("passphrase-harden")
+	_, cmd := pm.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatalf("expected a toast command on Harden")
+	}
+	msg := cmd()
+	if _, ok := msg.(core.ToastMsg); !ok {
+		t.Fatalf("expected core.ToastMsg, got %T", msg)
+	}
+
+	u := store.FindUser("eng")
+	if u.PassphraseMode != "everytime" {
+		t.Errorf("expected PassphraseMode=everytime after Harden, got %q", u.PassphraseMode)
+	}
+	if u.AgentTTL != config.HardenedAgentTTL {
+		t.Errorf("expected AgentTTL=%q after Harden, got %q", config.HardenedAgentTTL, u.AgentTTL)
+	}
+	if !u.AgentConfirmBeforeUse {
+		t.Error("expected AgentConfirmBeforeUse=true after Harden")
+	}
+}

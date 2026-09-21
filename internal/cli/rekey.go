@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
@@ -90,7 +91,7 @@ func runRekey(args []string) error {
 		ui.Info(fmt.Sprintf("Generating new SSH key at %s...", keyPath))
 		ui.Info("You will be prompted to set a passphrase for the key.")
 		ssh.EnsureSSHBinariesOnPath()
-		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", user.Email, "-f", keyPath)
+		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", user.Email, "-f", keyPath, "-a", strconv.Itoa(ssh.HardenedKDFRounds))
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

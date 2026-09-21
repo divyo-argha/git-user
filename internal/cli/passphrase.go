@@ -13,12 +13,6 @@ import (
 	"github.com/divyo-argha/git-user/internal/validate"
 )
 
-// minSSHPassphraseLen matches the minimum enforced for the export-bundle and
-// sync-setup passphrases elsewhere in this codebase (internal/cli/export.go,
-// internal/tui/app_actions.go's syncSetupFormCmd) — SSH key passphrases were
-// previously the one passphrase flow with no strength floor at all.
-const minSSHPassphraseLen = 8
-
 func runPassphrase(args []string) error {
 	var name string
 	var remove bool
@@ -27,6 +21,7 @@ func runPassphrase(args []string) error {
 	var modeVal string
 	var ttlVal string
 	var confirmVal *bool
+	var harden bool
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -52,9 +47,23 @@ func runPassphrase(args []string) error {
 		} else if arg == "--no-confirm-on-use" {
 			v := false
 			confirmVal = &v
+		} else if arg == "--harden" {
+			harden = true
 		} else if !strings.HasPrefix(arg, "-") {
 			name = arg
 		}
+	}
+
+	// --harden is sugar for the three-setting bundle a shared-device lockdown
+	// needs — no separate save/messaging logic, it just pre-fills the same
+	// fields the individual --mode/--ttl/--confirm-on-use flags set, then
+	// flows through the combined apply-and-save block below like any other
+	// combination of them.
+	if harden {
+		modeVal = "everytime"
+		ttlVal = config.HardenedAgentTTL
+		v := true
+		confirmVal = &v
 	}
 
 	store, err := config.Load()
@@ -299,9 +308,12 @@ func promptRequiredPassphrase() (string, error) {
 		ui.Error("Passphrase must not be empty.")
 		return "", fmt.Errorf("empty passphrase")
 	}
-	if err := validate.Passphrase(passphrase, minSSHPassphraseLen); err != nil {
+	if err := validate.Passphrase(passphrase, 0); err != nil {
 		ui.Error(err.Error())
 		return "", err
+	}
+	if hint := validate.PassphraseHintLine(passphrase); hint != "" {
+		ui.Info("Strength: " + hint)
 	}
 
 	confirm, err := readPassphrase(ConfirmPassphrasePrompt)

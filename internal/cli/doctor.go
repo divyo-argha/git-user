@@ -25,7 +25,7 @@ func runDoctor(args []string) error {
 		store = loaded
 	}
 
-	report, _ := diagnostics.Run(store, diagnostics.Options{Fix: fix, VerifySSH: verifySSHConnectionWithKey})
+	report, _ := diagnostics.Run(store, diagnostics.Options{Fix: fix, VerifySSH: verifySSHConnectionWithKey, Interactive: ui.IsTTY()})
 
 	if jsonOutput {
 		var warnings []string

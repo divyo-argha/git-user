@@ -2,11 +2,13 @@ package screens
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/divyo-argha/git-user/internal/tui/core"
 	"github.com/divyo-argha/git-user/internal/tui/theme"
+	"github.com/divyo-argha/git-user/internal/validate"
 )
 
 func TestForm(t *testing.T) {
@@ -128,5 +130,29 @@ func TestFormValidation(t *testing.T) {
 	}
 	if form.errMessage != "" {
 		t.Errorf("Expected error message to be cleared, got %q", form.errMessage)
+	}
+}
+
+// TestFormHintRendersLiveOnEveryKeystroke covers FormInput.Hint end to end:
+// unlike Validate, a hint must render as non-blocking informational text
+// (e.g. a passphrase strength indicator) that updates on every render, not
+// just on submit, and must never appear for an empty field.
+func TestFormHintRendersLiveOnEveryKeystroke(t *testing.T) {
+	f := NewForm("T", "help", "ctx", []FormInput{
+		{Label: "New Passphrase:", IsPassword: true, Hint: validate.PassphraseHintLine},
+	}, theme.DefaultTheme())
+
+	if out := f.View(80, 24); strings.Contains(out, "weak") || strings.Contains(out, "Weak") || strings.Contains(out, "Strong") || strings.Contains(out, "Fair") {
+		t.Errorf("expected no strength hint for an empty field, got:\n%s", out)
+	}
+
+	f.inputs[0].SetValue("aaaa")
+	if out := f.View(80, 24); !strings.Contains(out, "Very weak") {
+		t.Errorf("expected a 'Very weak' hint after typing a weak value, got:\n%s", out)
+	}
+
+	f.inputs[0].SetValue("K9$mQ2!vT8&nP5xyz")
+	if out := f.View(80, 24); !strings.Contains(out, "Strong") && !strings.Contains(out, "Good") {
+		t.Errorf("expected a stronger hint after typing a strong value, got:\n%s", out)
 	}
 }

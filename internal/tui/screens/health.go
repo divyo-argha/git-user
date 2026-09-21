@@ -73,7 +73,10 @@ func verifySSHForHealth(keyPath string) error {
 func (h *Health) loadCmd(fix bool) tea.Cmd {
 	store := h.store
 	return func() tea.Msg {
-		report, err := diagnostics.Run(store, diagnostics.Options{Fix: fix, VerifySSH: verifySSHForHealth})
+		// The TUI has no unattended mode — a human is always driving it live
+		// (this is the request a person just made by pressing "fix" on this
+		// screen), unlike a scripted `doctor --fix` run.
+		report, err := diagnostics.Run(store, diagnostics.Options{Fix: fix, VerifySSH: verifySSHForHealth, Interactive: true})
 		return healthLoadedMsg{report: report, err: err}
 	}
 }

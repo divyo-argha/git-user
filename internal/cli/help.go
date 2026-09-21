@@ -158,6 +158,8 @@ Flags:
                                 not just once at unlock (needs a GUI/askpass-capable
                                 ssh-agent — see --no-confirm-on-use to turn it back off)
   --no-confirm-on-use          Turn off confirm-on-use
+  --harden                     One-shot shared-device lockdown: shorthand for
+                                --mode everytime --ttl 15m --confirm-on-use
   -h, --help                   Show this help
 
 persistent mode stores the passphrase in your OS keychain so it auto-unlocks
