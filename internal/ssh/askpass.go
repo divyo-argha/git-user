@@ -112,6 +112,7 @@ func runViaAskpass(name string, args []string, secrets map[string]string) ([]byt
 // the passphrase protecting the private key at keyPath, without ever placing
 // a passphrase on the ssh-keygen command line.
 func ChangeKeyPassphrase(keyPath, oldPassphrase, newPassphrase string) error {
+	EnsureSSHBinariesOnPath()
 	out, err := runViaAskpass("ssh-keygen", []string{"-p", "-f", keyPath}, map[string]string{
 		EnvOldPassphrase: oldPassphrase,
 		EnvNewPassphrase: newPassphrase,
@@ -126,6 +127,7 @@ func ChangeKeyPassphrase(keyPath, oldPassphrase, newPassphrase string) error {
 // comment, protected by passphrase (which may be empty). A non-empty
 // passphrase is supplied via SSH_ASKPASS rather than the command line.
 func GenerateKey(keyPath, comment, passphrase string) error {
+	EnsureSSHBinariesOnPath()
 	args := []string{"-t", "ed25519", "-C", comment, "-f", keyPath}
 
 	if passphrase == "" {
@@ -151,6 +153,7 @@ func GenerateKey(keyPath, comment, passphrase string) error {
 // used as a fallback for OpenSSH-format keys whose KDF golang's crypto/ssh
 // does not support.
 func verifyPassphraseViaAskpass(keyPath, passphrase string) ([]byte, error) {
+	EnsureSSHBinariesOnPath()
 	return runViaAskpass("ssh-keygen", []string{"-y", "-f", keyPath}, map[string]string{
 		EnvPassphrase: passphrase,
 	})

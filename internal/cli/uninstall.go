@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,6 +14,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/identity"
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/promptops"
+	"github.com/divyo-argha/git-user/internal/shellinit"
 	"github.com/divyo-argha/git-user/internal/ui"
 )
 
@@ -269,16 +271,10 @@ func removeManagedIncludeIfs() {
 		return
 	}
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		line = strings.TrimRight(line, "\r")
-		if line == "" {
+		key, value, ok := git.ParseConfigGetRegexpLine(line)
+		if !ok {
 			continue
 		}
-		parts := strings.SplitN(line, " ", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
 		if strings.Contains(value, "profile-") && strings.HasSuffix(value, ".gitconfig") {
 			_ = exec.Command("git", "config", "--global", "--unset-all", key).Run()
 		}
@@ -311,7 +307,12 @@ func removeShellIntegration() {
 		if err != nil {
 			return
 		}
-		str := string(content)
+		// A Windows text editor round-tripping this file can convert its
+		// line endings to CRLF, which would otherwise make every literal
+		// LF-only snippet below fail to match and leave the stale
+		// integration silently in place.
+		hadCRLF := bytes.Contains(content, []byte("\r\n"))
+		str := strings.ReplaceAll(string(content), "\r\n", "\n")
 		modified := false
 		for _, snip := range snippets {
 			if strings.Contains(str, snip) {
@@ -319,13 +320,17 @@ func removeShellIntegration() {
 				modified = true
 			}
 		}
-		if modified {
-			if err := os.WriteFile(path, []byte(str), 0644); err != nil {
-				ui.Warn(fmt.Sprintf("Could not clean up %s: %v", path, err))
-				return
-			}
-			ui.Success(fmt.Sprintf("Removed %s shell integration from %s", label, path))
+		if !modified {
+			return
 		}
+		if hadCRLF {
+			str = strings.ReplaceAll(str, "\n", "\r\n")
+		}
+		if err := os.WriteFile(path, []byte(str), 0644); err != nil {
+			ui.Warn(fmt.Sprintf("Could not clean up %s: %v", path, err))
+			return
+		}
+		ui.Success(fmt.Sprintf("Removed %s shell integration from %s", label, path))
 	}
 
 	posixSnippets := []string{
@@ -353,14 +358,23 @@ func removeShellIntegration() {
 		"\n# git-user shell integration\nInvoke-Expression (& git-user init powershell)\n",
 	}
 	if runtime.GOOS == "windows" {
-		removeSnippets(filepath.Join(home, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1"), "powershell", pwshSnippets)
-		removeSnippets(filepath.Join(home, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"), "powershell", pwshSnippets)
+		// Same resolution Install() uses — a naive home/Documents join can
+		// miss the profile entirely when OneDrive has redirected Documents.
+		docsDir := shellinit.ResolveWindowsDocumentsDir(home)
+		removeSnippets(filepath.Join(docsDir, "PowerShell", "Microsoft.PowerShell_profile.ps1"), "powershell", pwshSnippets)
+		removeSnippets(filepath.Join(docsDir, "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"), "powershell", pwshSnippets)
 
-		// Also clean up gu.cmd batch helper if installed
+		// Also clean up gu.cmd batch helper if installed. Matched on the
+		// specific marker Install() writes (see cmdInitScript), not just the
+		// generic substring "git-user" — a same-named file the user created
+		// for something unrelated that happens to mention git-user in a
+		// comment must not be silently deleted.
 		guCmdPath := filepath.Join(home, "gu.cmd")
 		if content, err := os.ReadFile(guCmdPath); err == nil {
-			if strings.Contains(string(content), "git-user.exe env") || strings.Contains(string(content), "git-user") {
-				if err := os.Remove(guCmdPath); err == nil {
+			if strings.Contains(string(content), "git-user.exe env") {
+				if err := os.Remove(guCmdPath); err != nil {
+					ui.Warn(fmt.Sprintf("Could not remove %s: %v", guCmdPath, err))
+				} else {
 					ui.Success(fmt.Sprintf("Removed %s", guCmdPath))
 				}
 			}

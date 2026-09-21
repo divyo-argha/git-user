@@ -216,6 +216,7 @@ func generateAndDisplayKey(name, email string) (string, error) {
 	}
 
 	ui.Info(fmt.Sprintf("Generating SSH key at %s...", keyPath))
+	ssh.EnsureSSHBinariesOnPath()
 	cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", email, "-f", keyPath, "-N", "")
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("ssh-keygen failed: %w", err)

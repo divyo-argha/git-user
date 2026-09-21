@@ -63,6 +63,7 @@ func IsSSHKeyLoaded(keyPath string) bool {
 }
 
 func SSHKeyFingerprint(keyPath string) (string, error) {
+	EnsureSSHBinariesOnPath()
 	pubKeyPath := keyPath + ".pub"
 	data, err := os.ReadFile(pubKeyPath)
 	if err != nil {
@@ -89,6 +90,7 @@ func SSHKeyFingerprint(keyPath string) (string, error) {
 }
 
 func LoadedSSHKeyFingerprints() ([]string, error) {
+	EnsureSSHBinariesOnPath()
 	client, conn, err := GetAgentClient()
 	if err == nil {
 		defer conn.Close()
@@ -133,6 +135,7 @@ func ParseSSHKeyFingerprint(line string) (string, error) {
 // AddSSHKeyWithPassphrase adds the SSH key to the agent using the provided passphrase.
 // It tries in-process parsing and loading first, and falls back to a secure SSH_ASKPASS execution.
 func AddSSHKeyWithPassphrase(keyPath, passphrase string) error {
+	EnsureSSHBinariesOnPath()
 	if runtime.GOOS == "darwin" {
 		_ = EnsureMacOSKeychainConfigured()
 	}
@@ -252,6 +255,7 @@ func addKeyToMacOSKeychain(keyPath, passphrase string) error {
 }
 
 func RemoveSSHKey(keyPath string) error {
+	EnsureSSHBinariesOnPath()
 	pubKeyPath := keyPath + ".pub"
 	data, err := os.ReadFile(pubKeyPath)
 	if err == nil {

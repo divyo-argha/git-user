@@ -19,6 +19,7 @@ func opInstallShellIntegration(sh shellinit.Shell, explicitShell string) (opResu
 	}
 
 	var lines []string
+	var warning string
 	for _, r := range results {
 		switch r.Status {
 		case shellinit.StatusInstalled:
@@ -28,9 +29,15 @@ func opInstallShellIntegration(sh shellinit.Shell, explicitShell string) (opResu
 		case shellinit.StatusAlready:
 			lines = append(lines, fmt.Sprintf("Already installed in %s", r.File))
 		}
+		if r.Warning != "" && warning == "" {
+			warning = r.Warning
+		}
 	}
 	if len(lines) == 0 {
 		lines = append(lines, "Nothing to do.")
+	}
+	if warning != "" {
+		lines = append(lines, "", "⚠ "+warning)
 	}
 	lines = append(lines, "", "Open a new terminal (or `source` the file) to start using it.")
 

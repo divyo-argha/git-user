@@ -52,12 +52,25 @@ func Detect(explicit string) Shell {
 		return Posix
 	}
 
+	// Neither $PROMPT nor $PSModulePath is a fully reliable signal on its
+	// own: $PROMPT is inherited by a PowerShell session launched from an
+	// open cmd.exe window (PowerShell doesn't clear it), and $PSModulePath
+	// can be a persistent user/system env var present even in a plain
+	// cmd.exe session that never touched PowerShell. $PSModulePath is
+	// checked first because a cmd.exe-only session essentially never has it
+	// set unless PowerShell has run at least once in that session tree —
+	// misdetecting a genuinely PowerShell-untouched cmd.exe session as
+	// PowerShell is rarer, and less harmful, than the reverse (which
+	// previously made PowerShell-launched-from-cmd sessions emit cmd.exe
+	// `set` syntax that PowerShell's Invoke-Expression can't run at all).
+	// When this heuristic still gets it wrong, --shell/-s is the escape
+	// hatch (see Detect's explicit-override branch above).
 	if runtime.GOOS == "windows" || os.Getenv("PSModulePath") != "" || os.Getenv("PROMPT") != "" {
-		if os.Getenv("PROMPT") != "" && os.Getenv("PSExecutionPolicyPreference") == "" {
-			return Cmd
-		}
 		if os.Getenv("PSModulePath") != "" {
 			return PowerShell
+		}
+		if os.Getenv("PROMPT") != "" {
+			return Cmd
 		}
 		return Cmd
 	}
@@ -145,8 +158,48 @@ const (
 
 // Result reports what Install did to a single rc file.
 type Result struct {
-	File   string
-	Status Status
+	File    string
+	Status  Status
+	Warning string // non-empty if the install succeeded but may not take effect (e.g. a restrictive PowerShell execution policy)
+}
+
+// ResolveWindowsDocumentsDir returns the real "My Documents" folder,
+// following OneDrive Known Folder Redirection when it's active — PowerShell
+// itself resolves $PROFILE via [Environment]::GetFolderPath('MyDocuments'),
+// which follows that redirection, but a naive filepath.Join(home,
+// "Documents") does not. Without this, an install can report success while
+// writing to a path PowerShell will never actually look at. Falls back to
+// home+"Documents" if the lookup fails for any reason (e.g. powershell.exe
+// not resolvable yet).
+func ResolveWindowsDocumentsDir(home string) string {
+	fallback := filepath.Join(home, "Documents")
+	out, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", "[Environment]::GetFolderPath('MyDocuments')").Output()
+	if err != nil {
+		return fallback
+	}
+	dir := strings.TrimSpace(string(out))
+	if dir == "" {
+		return fallback
+	}
+	return dir
+}
+
+// CheckPowerShellExecutionPolicy returns a warning if the CurrentUser-scope
+// execution policy would stop PowerShell from loading $PROFILE at all — the
+// stock "Restricted" default on a non-developer Windows machine — so an
+// install that otherwise reports success doesn't leave the user thinking the
+// integration is live when PowerShell will silently never run it.
+// Best-effort: any failure to query (e.g. powershell.exe missing) is treated
+// as "can't tell" rather than surfaced as a warning.
+func CheckPowerShellExecutionPolicy() string {
+	out, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", "Get-ExecutionPolicy -Scope CurrentUser").Output()
+	if err != nil {
+		return ""
+	}
+	if strings.TrimSpace(string(out)) == "Restricted" {
+		return `PowerShell's CurrentUser execution policy is "Restricted", so your profile won't load and this integration won't take effect until you run: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+	}
+	return ""
 }
 
 // Install appends the shell-integration snippet to the target rc file(s) for
@@ -171,9 +224,10 @@ func Install(sh Shell, explicitShell string) ([]Result, error) {
 	case PowerShell:
 		initSnippet = "\n# git-user shell integration\nif (Get-Command git-user -ErrorAction SilentlyContinue) { Invoke-Expression (& git-user init powershell 2>$null) }\n"
 		if runtime.GOOS == "windows" {
+			docsDir := ResolveWindowsDocumentsDir(home)
 			targetFiles = []string{
-				filepath.Join(home, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1"),
-				filepath.Join(home, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"),
+				filepath.Join(docsDir, "PowerShell", "Microsoft.PowerShell_profile.ps1"),
+				filepath.Join(docsDir, "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"),
 			}
 		} else {
 			targetFiles = []string{filepath.Join(home, ".config", "powershell", "Microsoft.PowerShell_profile.ps1")}
@@ -239,6 +293,14 @@ func Install(sh Shell, explicitShell string) ([]Result, error) {
 		}
 		f.Close()
 		results = append(results, Result{File: targetFile, Status: StatusInstalled})
+	}
+
+	if sh == PowerShell && runtime.GOOS == "windows" && len(results) > 0 {
+		if warning := CheckPowerShellExecutionPolicy(); warning != "" {
+			for i := range results {
+				results[i].Warning = warning
+			}
+		}
 	}
 
 	return results, nil

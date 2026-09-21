@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/validate"
 )
 
@@ -705,17 +706,12 @@ func syncIncludeIfs(s *Store) error {
 	if err == nil {
 		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 		for _, line := range lines {
-			line = strings.TrimRight(line, "\r")
-			if line == "" {
+			k, v, ok := git.ParseConfigGetRegexpLine(line)
+			if !ok {
 				continue
 			}
-			parts := strings.SplitN(line, " ", 2)
-			if len(parts) == 2 {
-				k := strings.TrimSpace(parts[0])
-				v := strings.TrimSpace(parts[1])
-				if strings.Contains(v, "profile-") && strings.HasSuffix(v, ".gitconfig") {
-					existingKeys[k] = filepath.ToSlash(v)
-				}
+			if strings.Contains(v, "profile-") && strings.HasSuffix(v, ".gitconfig") {
+				existingKeys[k] = filepath.ToSlash(v)
 			}
 		}
 	}

@@ -398,13 +398,22 @@ func Run(store *config.Store, opts Options) (Report, error) {
 		filepath.Join(home, ".bashrc"),
 		filepath.Join(home, ".config", "fish", "config.fish"),
 		filepath.Join(home, ".config", "powershell", "Microsoft.PowerShell_profile.ps1"),
-		filepath.Join(home, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1"),
-		filepath.Join(home, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"),
+	}
+	if runtime.GOOS == "windows" {
+		// Same resolution Install() uses — a naive home/Documents join can
+		// miss the profile entirely when OneDrive has redirected Documents.
+		docsDir := shellinit.ResolveWindowsDocumentsDir(home)
+		rcFiles = append(rcFiles,
+			filepath.Join(docsDir, "PowerShell", "Microsoft.PowerShell_profile.ps1"),
+			filepath.Join(docsDir, "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"),
+		)
 	}
 	legacyShellFound := false
+	powerShellIntegrationFound := false
 	for _, rc := range rcFiles {
 		if content, err := os.ReadFile(rc); err == nil {
-			if strings.Contains(string(content), "eval \"$(git-user init)\"") {
+			str := string(content)
+			if strings.Contains(str, "eval \"$(git-user init)\"") {
 				legacyShellFound = true
 				if !fix {
 					add(Check{ID: "shell-integration", Category: "System", Name: "Shell integration", Status: StatusWarn,
@@ -412,6 +421,20 @@ func Run(store *config.Store, opts Options) (Report, error) {
 						FixHint: "Run 'git-user init install' to upgrade to safe invocation"})
 				}
 			}
+			if strings.Contains(str, "git-user init") && strings.HasSuffix(rc, ".ps1") {
+				powerShellIntegrationFound = true
+			}
+		}
+	}
+	// A profile can be installed correctly and still never run: a stock,
+	// non-developer Windows machine defaults its CurrentUser execution
+	// policy to "Restricted", which stops PowerShell from loading $PROFILE
+	// at all. File-content checks above can't see that — only actually
+	// asking PowerShell can.
+	if powerShellIntegrationFound && runtime.GOOS == "windows" {
+		if warning := shellinit.CheckPowerShellExecutionPolicy(); warning != "" {
+			add(Check{ID: "shell-integration-policy", Category: "System", Name: "PowerShell execution policy", Status: StatusWarn,
+				Message: "Shell integration is installed but won't load", Detail: []string{"  " + warning}})
 		}
 	}
 	if legacyShellFound && fix {

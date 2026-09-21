@@ -56,6 +56,7 @@ func runInitInstall(sh shellinit.Shell, explicitShell string) error {
 	}
 
 	installedCount := 0
+	warned := false
 	for _, r := range results {
 		switch r.Status {
 		case shellinit.StatusUpgraded:
@@ -65,6 +66,10 @@ func runInitInstall(sh shellinit.Shell, explicitShell string) error {
 		case shellinit.StatusInstalled:
 			ui.Success(fmt.Sprintf("Installed shell integration to %s", r.File))
 			installedCount++
+		}
+		if r.Warning != "" && !warned {
+			ui.Warn(r.Warning)
+			warned = true
 		}
 	}
 

@@ -49,12 +49,17 @@ func detectShell(explicit string) ShellType {
 		return ShellPosix
 	}
 
+	// See internal/shellinit.Detect for why $PSModulePath is checked ahead
+	// of $PROMPT here: neither is fully reliable alone, but $PROMPT is
+	// inherited by a PowerShell session launched from cmd.exe, which
+	// previously made this function misdetect it as Cmd and emit `set`
+	// syntax PowerShell can't eval.
 	if runtime.GOOS == "windows" || os.Getenv("PSModulePath") != "" || os.Getenv("PROMPT") != "" {
-		if os.Getenv("PROMPT") != "" && os.Getenv("PSExecutionPolicyPreference") == "" {
-			return ShellCmd
-		}
 		if os.Getenv("PSModulePath") != "" {
 			return ShellPowerShell
+		}
+		if os.Getenv("PROMPT") != "" {
+			return ShellCmd
 		}
 		return ShellCmd
 	}
@@ -103,6 +108,14 @@ func runEnv(args []string) error {
 	}
 
 	st := detectShell(explicitShell)
+	// Auto-detection on Windows is a best-effort heuristic (see detectShell)
+	// and can occasionally guess wrong — e.g. PowerShell launched from an
+	// open cmd.exe window. Since a wrong guess here means the emitted script
+	// silently fails to eval, name the guess and the override so a bad guess
+	// is a one-flag fix instead of a confusing dead end.
+	if explicitShell == "" && runtime.GOOS == "windows" {
+		fmt.Fprintf(os.Stderr, "(detected shell: %s — override with --shell powershell|cmd|bash if this is wrong)\n", st)
+	}
 
 	if unsetMode {
 		fmt.Fprintf(os.Stderr, "✔ Cleared terminal session override. Returned to global profile.\n")

@@ -9,6 +9,25 @@ import (
 	"strings"
 )
 
+// ParseConfigGetRegexpLine parses one line of `git config --get-regexp`
+// output into its key/value pair. It trims a trailing \r that a redirected/
+// console-piped git.exe invocation can leave on each line on Windows —
+// without this, a value like "...gitconfig\r" fails a HasSuffix(".gitconfig")
+// check downstream, silently leaving a stale includeIf entry un-removed.
+// Returns ok=false for a blank line or one that doesn't split into exactly
+// two space-separated fields.
+func ParseConfigGetRegexpLine(line string) (key, value string, ok bool) {
+	line = strings.TrimRight(line, "\r")
+	if line == "" {
+		return "", "", false
+	}
+	parts := strings.SplitN(line, " ", 2)
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), true
+}
+
 func Apply(name, email string) error {
 	return ApplyScope(name, email, false)
 }
@@ -146,6 +165,16 @@ func SSHQuote(s string) string {
 
 func gitBinary() string {
 	return findWindowsGit()
+}
+
+// BinaryPath returns the resolved path to the git executable (just "git" if
+// nothing more specific was found on this system). Exported so other
+// packages needing binaries that travel alongside a Git for Windows install
+// — e.g. internal/ssh, to locate its bundled OpenSSH client under
+// <install>\usr\bin — can reuse this discovery instead of re-implementing
+// their own copy of findWindowsGit's candidate search.
+func BinaryPath() string {
+	return gitBinary()
 }
 
 func gitCmd(args ...string) *exec.Cmd {

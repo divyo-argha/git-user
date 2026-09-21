@@ -11,6 +11,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/identity"
 	"github.com/divyo-argha/git-user/internal/rekeyops"
+	"github.com/divyo-argha/git-user/internal/ssh"
 	"github.com/divyo-argha/git-user/internal/ui"
 	"github.com/divyo-argha/git-user/internal/validate"
 )
@@ -88,6 +89,7 @@ func runRekey(args []string) error {
 	generateKey := func(keyPath string) error {
 		ui.Info(fmt.Sprintf("Generating new SSH key at %s...", keyPath))
 		ui.Info("You will be prompted to set a passphrase for the key.")
+		ssh.EnsureSSHBinariesOnPath()
 		cmd := exec.Command("ssh-keygen", "-t", "ed25519", "-C", user.Email, "-f", keyPath)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
