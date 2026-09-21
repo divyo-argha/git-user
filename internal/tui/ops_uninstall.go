@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -38,7 +37,7 @@ func opUninstall(store *config.Store) (opResult, error) {
 	}
 	git.RemoveAskpassConfig()
 
-	uninstallRemoveManagedIncludeIfs()
+	git.RemoveManagedIncludeIfs()
 	report.WriteString("Removed directory-binding (includeIf) git config.\n")
 
 	for _, u := range store.Users {
@@ -131,24 +130,4 @@ func uninstallRestoreOriginal(o *config.OriginalConfig) error {
 		git.RemoveSigningConfig()
 	}
 	return errors.Join(errs...)
-}
-
-// uninstallRemoveManagedIncludeIfs strips only the global includeIf entries
-// that point at git-user's own profile-*.gitconfig snippet files, leaving any
-// unrelated includeIf rules the user configured by hand alone. Mirrors
-// removeManagedIncludeIfs in internal/cli/uninstall.go.
-func uninstallRemoveManagedIncludeIfs() {
-	out, err := exec.Command("git", "config", "--global", "--get-regexp", `includeif\..*\.path`).Output()
-	if err != nil {
-		return
-	}
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		key, value, ok := git.ParseConfigGetRegexpLine(line)
-		if !ok {
-			continue
-		}
-		if strings.Contains(value, "profile-") && strings.HasSuffix(value, ".gitconfig") {
-			_ = exec.Command("git", "config", "--global", "--unset-all", key).Run()
-		}
-	}
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/keyring"
+	"github.com/divyo-argha/git-user/internal/switchops"
 	"github.com/divyo-argha/git-user/internal/ui"
 	"github.com/divyo-argha/git-user/internal/validate"
 )
@@ -89,7 +90,9 @@ func runRename(args []string) error {
 		// identity name as an argument — re-wire it to the new name, or it
 		// keeps invoking the __askpass helper with a name config.json no
 		// longer has, and every HTTPS credential prompt starts failing.
-		applyHTTPSCredentialConfig(u, false)
+		if w := switchops.ApplyHTTPSCredentialConfig(u, false); w != "" {
+			ui.Warn(w)
+		}
 	}
 
 	if localOverrideMatched {

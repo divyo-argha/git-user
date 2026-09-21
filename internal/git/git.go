@@ -28,6 +28,28 @@ func ParseConfigGetRegexpLine(line string) (key, value string, ok bool) {
 	return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), true
 }
 
+// RemoveManagedIncludeIfs strips only the global includeIf entries that
+// point at git-user's own profile-*.gitconfig snippet files, leaving any
+// unrelated includeIf rules the user configured by hand alone. Shared by
+// internal/cli's `uninstall` and internal/tui's uninstall action so the two
+// can't drift apart on what counts as "git-user's own" — they previously
+// each carried an independent copy of this exact logic.
+func RemoveManagedIncludeIfs() {
+	out, err := exec.Command("git", "config", "--global", "--get-regexp", `includeif\..*\.path`).Output()
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		key, value, ok := ParseConfigGetRegexpLine(line)
+		if !ok {
+			continue
+		}
+		if strings.Contains(value, "profile-") && strings.HasSuffix(value, ".gitconfig") {
+			_ = exec.Command("git", "config", "--global", "--unset-all", key).Run()
+		}
+	}
+}
+
 func Apply(name, email string) error {
 	return ApplyScope(name, email, false)
 }

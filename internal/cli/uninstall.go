@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -138,7 +137,7 @@ func runUninstall(args []string) error {
 	git.RemoveAskpassConfig()
 
 	// 2. Remove directory-binding includeIf entries git-user owns.
-	removeManagedIncludeIfs()
+	git.RemoveManagedIncludeIfs()
 	ui.Success("Removed directory-binding (includeIf) git config.")
 
 	// 3. Remove keychain passphrases and (optionally) generated SSH keys.
@@ -262,25 +261,6 @@ func classifyIdentityKeys(store *config.Store) (generated, external []string) {
 	return generated, external
 }
 
-// removeManagedIncludeIfs strips only the global includeIf entries that point
-// at git-user's own profile-*.gitconfig snippet files, leaving any unrelated
-// includeIf rules the user configured by hand alone.
-func removeManagedIncludeIfs() {
-	out, err := exec.Command("git", "config", "--global", "--get-regexp", `includeif\..*\.path`).Output()
-	if err != nil {
-		return
-	}
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		key, value, ok := git.ParseConfigGetRegexpLine(line)
-		if !ok {
-			continue
-		}
-		if strings.Contains(value, "profile-") && strings.HasSuffix(value, ".gitconfig") {
-			_ = exec.Command("git", "config", "--global", "--unset-all", key).Run()
-		}
-	}
-}
-
 // removePromptIntegration removes exactly the blocks prompt.go's installers
 // append, by literal match — so a file the user has since edited around the
 // block is left alone (with a warning) rather than partially mangled.
@@ -383,4 +363,3 @@ func removeShellIntegration() {
 		removeSnippets(filepath.Join(home, ".config", "powershell", "Microsoft.PowerShell_profile.ps1"), "powershell", pwshSnippets)
 	}
 }
-

@@ -8,8 +8,8 @@ import (
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/shellinit"
 	"github.com/divyo-argha/git-user/internal/ssh"
+	"github.com/divyo-argha/git-user/internal/switchops"
 	"github.com/divyo-argha/git-user/internal/tui/screens"
-	"os"
 )
 
 // ── Switch / Logout / Remove ──────────────────────────────────────────────────
@@ -29,35 +29,18 @@ func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
 		return opResult{}, fmt.Errorf("identity %q not found", name)
 	}
 
-	if store.Current == name && git.IsIdentityInSync(user.Name, user.Email) {
+	if switchops.AlreadyActive(store, user, false) {
 		return opResult{detail: fmt.Sprintf("Already using identity %q (%s) — nothing to do.", user.Name, user.Email)}, nil
 	}
 
 	// Auto-logout: unload the previous identity's key and clean up temporaries.
-	if store.Current != "" && store.Current != name {
-		if prev := store.CurrentUser(); prev != nil {
-			if prev.SSHKey != "" && ssh.IsSSHKeyLoaded(prev.SSHKey) {
-				_ = ssh.RemoveSSHKey(prev.SSHKey)
-			}
-			if prev.GetPassphraseMode() == "everytime" && prev.SSHKey != "" {
-				_ = ssh.RemoveSSHKey(prev.SSHKey)
-			}
-			if prev.IsTemporary {
-				store.RemoveUser(prev.Name, true)
-				if prev.SSHKey != "" {
-					_ = identity.SecureDeleteKeyPair(prev.SSHKey)
-					_ = identity.ForgetTempKey(prev.SSHKey)
-				}
-				_ = keyring.DeleteKeychainPassphrase(prev.Name)
-			}
-		}
-	}
+	// Notices are discarded (not surfaced in `warnings`) to keep this
+	// unchanged from opSwitch's previous behavior, which never reported them.
+	_ = switchops.LogoutPrevious(store, name)
 
 	// Warn if the bound SSH key file is missing.
-	if user.SSHKey != "" {
-		if _, statErr := os.Stat(user.SSHKey); statErr != nil {
-			warnings = append(warnings, fmt.Sprintf("Bound SSH key not found: %s — fix it with bind using the new key path.", user.SSHKey))
-		}
+	if switchops.BoundKeyMissing(user) {
+		warnings = append(warnings, fmt.Sprintf("Bound SSH key not found: %s — fix it with bind using the new key path.", user.SSHKey))
 	}
 
 	// Passphrase gate.
@@ -98,43 +81,11 @@ func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
 		}
 	}
 
-	if git.IsInRepo() && git.HasLocalOverride() {
-		git.ClearIdentityScope(true)
-	}
-
-	if err := git.Apply(user.Name, user.Email); err != nil {
-		return opResult{}, fmt.Errorf("applying git config: %w", err)
-	}
-	if err := applyUserSSHConfig(user, false); err != nil {
-		warnings = append(warnings, fmt.Sprintf("applying SSH config: %v", err))
-	}
-	if !user.SignDisabled && user.SignKey != "" {
-		if err := git.ConfigureSigning(user.SignKey, user.SignFormat); err != nil {
-			warnings = append(warnings, fmt.Sprintf("applying signing config: %v", err))
-		}
-	} else {
-		git.RemoveSigningConfig()
-	}
-	if w := applyHTTPSCredentialConfig(user, false); w != "" {
-		warnings = append(warnings, w)
-	}
-	if prev := store.CurrentUser(); prev != nil {
-		for k := range prev.CustomConfig {
-			_ = unsetActiveCustomConfig(k, false)
-		}
-	}
-	for k, v := range user.CustomConfig {
-		_ = applyActiveCustomConfig(k, v, false)
-	}
-
-	if err := store.SetCurrent(name); err != nil {
+	applyWarnings, err := switchops.ApplyIdentity(store, user, false, applyActiveCustomConfig, unsetActiveCustomConfig)
+	if err != nil {
 		return opResult{}, err
 	}
-	if err := config.Save(store); err != nil {
-		return opResult{}, fmt.Errorf("saving config: %w", err)
-	}
-	wd, _ := os.Getwd()
-	_ = config.AppendSwitchLog(user.Name, wd)
+	warnings = append(warnings, applyWarnings...)
 
 	report := fmt.Sprintf("Switched to %q (%s)\n", user.Name, user.Email)
 	if !user.SignDisabled && user.SignKey != "" {
@@ -182,17 +133,6 @@ func opSwitchSession(store *config.Store, name string) (opResult, error) {
 		cmd, name,
 	)
 	return opResult{detail: detail}, nil
-}
-
-// applyUserSSHConfig mirrors the CLI logic for core.sshCommand.
-func applyUserSSHConfig(user *config.User, local bool) error {
-	if user.SSHCommand != "" {
-		return git.SetSSHCommandScope(user.SSHCommand, local)
-	}
-	if user.SSHKey != "" {
-		return git.ConfigureSSHScope(user.SSHKey, local)
-	}
-	return git.RemoveSSHConfigScope(local)
 }
 
 func applyActiveCustomConfig(key, value string, local bool) error {
@@ -256,7 +196,7 @@ func opRename(store *config.Store, name, newName string) error {
 		if err := git.Apply(u.Name, u.Email); err != nil {
 			return fmt.Errorf("re-applying git config: %w", err)
 		}
-		applyHTTPSCredentialConfig(u, false)
+		switchops.ApplyHTTPSCredentialConfig(u, false)
 	}
 	if localOverrideMatched && u != nil {
 		_ = git.ApplyScope(u.Name, u.Email, true)

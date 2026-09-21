@@ -5,6 +5,7 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/keyring"
+	"github.com/divyo-argha/git-user/internal/switchops"
 )
 
 // opSetHTTPSToken stores an HTTPS personal-access-token for an identity (the
@@ -46,7 +47,7 @@ func opSetHTTPSToken(store *config.Store, name, token, username, expiresAt strin
 		detail += fmt.Sprintf(" Expiry recorded: %s.", expiresAt)
 	}
 	if store.Current == name {
-		if w := applyHTTPSCredentialConfig(user, false); w != "" {
+		if w := switchops.ApplyHTTPSCredentialConfig(user, false); w != "" {
 			detail += "\n" + w
 		} else {
 			detail += "\nHTTPS remotes will now authenticate as this identity automatically."
@@ -73,7 +74,7 @@ func opRemoveHTTPSToken(store *config.Store, name string) (opResult, error) {
 		_ = config.Save(store)
 	}
 	if store.Current == name {
-		applyHTTPSCredentialConfig(user, false)
+		switchops.ApplyHTTPSCredentialConfig(user, false)
 	}
 	return opResult{detail: fmt.Sprintf("HTTPS token removed for %q.", name)}, nil
 }

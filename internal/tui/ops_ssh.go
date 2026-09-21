@@ -10,6 +10,7 @@ import (
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/identity"
 	"github.com/divyo-argha/git-user/internal/keyring"
+	"github.com/divyo-argha/git-user/internal/rekeyops"
 	"github.com/divyo-argha/git-user/internal/ssh"
 )
 
@@ -265,66 +266,22 @@ func opRekey(store *config.Store, name, keyPath, passphrase string) (opResult, e
 		return opResult{}, fmt.Errorf("identity %q not found", name)
 	}
 
-	oldKeyPath := user.SSHKey
-	if oldKeyPath == "" {
-		var err error
-		oldKeyPath, err = config.DefaultSSHKeyPath(name)
-		if err != nil {
-			return opResult{}, err
-		}
-	}
-	newKeyPath := keyPath
-	if newKeyPath == "" {
-		newKeyPath = oldKeyPath
-	}
-	signKeyWasOldKey := user.SignFormat == "ssh" && user.SignKey == oldKeyPath
-
-	sshDir := filepath.Dir(newKeyPath)
-	if err := os.MkdirAll(sshDir, 0700); err != nil {
-		return opResult{}, fmt.Errorf("creating .ssh directory: %w", err)
-	}
-	if newKeyPath != oldKeyPath {
-		if _, err := os.Stat(newKeyPath); err == nil {
-			return opResult{}, fmt.Errorf("a key already exists at %s — choose a different filename", newKeyPath)
-		}
+	generateKey := func(newKeyPath string) error {
+		return ssh.GenerateKey(newKeyPath, user.Email, passphrase)
 	}
 
-	backupPath := oldKeyPath + ".backup"
-	hasOldKey := false
-	if _, err := os.Stat(oldKeyPath); err == nil {
-		hasOldKey = true
-		// Unload the old key from the agent so the rotated fingerprint doesn't linger.
-		if ssh.IsSSHKeyLoaded(oldKeyPath) {
-			_ = ssh.RemoveSSHKey(oldKeyPath)
-		}
-		if err := os.Rename(oldKeyPath, backupPath); err != nil {
-			return opResult{}, fmt.Errorf("backing up key: %w", err)
-		}
-		if _, err := os.Stat(oldKeyPath + ".pub"); err == nil {
-			_ = os.Rename(oldKeyPath+".pub", backupPath+".pub")
-		}
+	result, err := rekeyops.Rotate(store, name, keyPath, generateKey)
+	if err != nil {
+		return opResult{}, err
 	}
+	newKeyPath := result.NewKeyPath
 
-	if err := ssh.GenerateKey(newKeyPath, user.Email, passphrase); err != nil {
-		if hasOldKey {
-			_ = os.Rename(backupPath, oldKeyPath)
-			_ = os.Rename(backupPath+".pub", oldKeyPath+".pub")
-		}
-		return opResult{}, fmt.Errorf("generating SSH key: %w", err)
-	}
 	if passphrase != "" {
 		_ = keyring.SetKeychainPassphrase(name, passphrase)
 	} else {
 		_ = keyring.DeleteKeychainPassphrase(name)
 	}
 
-	if err := store.BindSSHKey(name, newKeyPath); err != nil {
-		return opResult{}, err
-	}
-	signKeyUpdated := false
-	if signKeyWasOldKey {
-		signKeyUpdated = store.SetSigningKey(name, newKeyPath, "ssh") == nil
-	}
 	if err := config.Save(store); err != nil {
 		return opResult{}, err
 	}
@@ -350,7 +307,7 @@ func opRekey(store *config.Store, name, keyPath, passphrase string) (opResult, e
 	}
 
 	signKeyNote := ""
-	if signKeyUpdated {
+	if result.SignKeyCarried {
 		signKeyNote = "Commit signing key updated to the rotated key.\n\n"
 	}
 

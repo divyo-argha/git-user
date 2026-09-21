@@ -2,37 +2,16 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
-	"github.com/divyo-argha/git-user/internal/gitenv"
-	"github.com/divyo-argha/git-user/internal/identity"
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/ssh"
+	"github.com/divyo-argha/git-user/internal/switchops"
 	"github.com/divyo-argha/git-user/internal/ui"
 	"github.com/divyo-argha/git-user/internal/validate"
 )
-
-// applyHTTPSCredentialConfig wires core.askpass to this identity's stored
-// HTTPS token (if any), or removes it if not — mirroring the signing-config
-// block right above each call site, which similarly sets-or-removes based on
-// whether the new identity has a signing key configured.
-func applyHTTPSCredentialConfig(user *config.User, local bool) {
-	if !keyring.HasHTTPSToken(user.Name) {
-		git.RemoveAskpassConfigScope(local)
-		return
-	}
-	cmd, err := gitenv.AskpassCommand(user.Name)
-	if err != nil {
-		ui.Warn(fmt.Sprintf("Could not resolve git-user's own path to wire up the HTTPS token: %v", err))
-		return
-	}
-	if err := git.ConfigureAskpassScope(cmd, local); err != nil {
-		ui.Warn(fmt.Sprintf("Could not apply core.askpass: %v", err))
-	}
-}
 
 func runSwitch(args []string) error {
 	localMode := false
@@ -164,49 +143,30 @@ func runSwitch(args []string) error {
 		return fmt.Errorf("user not found")
 	}
 
-	if !localMode && store.Current == name && git.IsIdentityInSync(user.Name, user.Email) {
+	if switchops.AlreadyActive(store, user, localMode) {
 		ui.Info(fmt.Sprintf("Already using identity %q (%s) — nothing to do.", user.Name, user.Email))
 		return nil
 	}
 
-	// Auto-logout: unload the previous identity's key from ssh-agent. This only
-	// applies to a global switch — a `--local` switch never changes the global
-	// "current" identity (store.Current, store.Save are untouched below for
-	// localMode), so the previous global identity is still active everywhere
-	// else. Running this for a local switch would incorrectly unload its key
-	// from the agent and, worse, permanently delete a temporary identity's key
-	// files while it's still the active identity outside this repo.
-	if !localMode && store.Current != "" && store.Current != name {
-		if prev := store.CurrentUser(); prev != nil {
-			if prev.SSHKey != "" && ssh.IsSSHKeyLoaded(prev.SSHKey) {
-				_ = ssh.RemoveSSHKey(prev.SSHKey)
-				ui.Info(fmt.Sprintf("Unloaded SSH key for previous identity %q", prev.Name))
-			}
-			if prev.GetPassphraseMode() == "everytime" && prev.SSHKey != "" {
-				_ = ssh.RemoveSSHKey(prev.SSHKey)
-			}
-			if prev.IsTemporary {
-				if err := store.RemoveUser(prev.Name, true); err != nil {
-					ui.Warn(fmt.Sprintf("Could not remove temporary identity record: %v", err))
-				} else {
-					ui.Info(fmt.Sprintf("Temporary identity %q deleted.", prev.Name))
-					if prev.SSHKey != "" {
-						_ = identity.SecureDeleteKeyPair(prev.SSHKey)
-						ui.Info(fmt.Sprintf("Temporary SSH key files deleted: %s", prev.SSHKey))
-					}
-					_ = keyring.DeleteKeychainPassphrase(prev.Name)
-				}
-			}
+	// Auto-logout: unload the previous identity's key from ssh-agent, and
+	// clean up a temporary previous identity. This only applies to a global
+	// switch — a `--local` switch never changes the global "current" identity
+	// (store.Current, store.Save are untouched below for localMode), so the
+	// previous global identity is still active everywhere else. Running this
+	// for a local switch would incorrectly unload its key from the agent
+	// and, worse, permanently delete a temporary identity's key files while
+	// it's still the active identity outside this repo.
+	if !localMode {
+		for _, notice := range switchops.LogoutPrevious(store, name) {
+			ui.Info(notice)
 		}
 	}
 
 	// Warn clearly if the bound SSH key file is missing so a switch never
 	// silently produces broken push behavior with the wrong/absent key.
-	if user.SSHKey != "" {
-		if _, statErr := os.Stat(user.SSHKey); statErr != nil {
-			ui.Warn(fmt.Sprintf("Bound SSH key not found: %s", user.SSHKey))
-			ui.Info(fmt.Sprintf("Fix it with: git-user bind-key %s --ssh-key <path>", user.Name))
-		}
+	if switchops.BoundKeyMissing(user) {
+		ui.Warn(fmt.Sprintf("Bound SSH key not found: %s", user.SSHKey))
+		ui.Info(fmt.Sprintf("Fix it with: git-user bind-key %s --ssh-key <path>", user.Name))
 	}
 
 	// Passphrase gate
@@ -264,87 +224,31 @@ func runSwitch(args []string) error {
 		}
 	}
 
+	// Captured before ApplyIdentity performs the same check internally (as
+	// part of clearing the override), purely so the message below can still
+	// name what happened — see switchops.ApplyIdentity's doc comment.
+	hadLocalOverride := !localMode && git.IsInRepo() && git.HasLocalOverride()
+
+	warnings, err := switchops.ApplyIdentity(store, user, localMode, applyActiveCustomConfig, unsetActiveCustomConfig)
+	if err != nil {
+		ui.Errorf("%v", err)
+		return err
+	}
+	for _, w := range warnings {
+		ui.Warn(w)
+	}
+
+	if hadLocalOverride {
+		ui.Info("Cleared local repository gitconfig overrides to apply global identity.")
+	}
+
 	if localMode {
-		if err := git.ApplyScope(user.Name, user.Email, true); err != nil {
-			ui.Errorf("applying local git config: %v", err)
-			return err
-		}
-
-		if err := applyUserSSHConfig(user, true); err != nil {
-			ui.Warn(fmt.Sprintf("applying local SSH config: %v", err))
-		}
-
-		if !user.SignDisabled && user.SignKey != "" {
-			if err := git.ConfigureSigningScope(user.SignKey, user.SignFormat, true); err != nil {
-				ui.Warn(fmt.Sprintf("applying local signing config: %v", err))
-			}
-		} else {
-			git.RemoveSigningConfigScope(true)
-		}
-		applyHTTPSCredentialConfig(user, true)
-
-		if prev := store.CurrentUser(); prev != nil {
-			for k := range prev.CustomConfig {
-				_ = unsetActiveCustomConfig(k, true)
-			}
-		}
-		for k, v := range user.CustomConfig {
-			_ = applyActiveCustomConfig(k, v, true)
-		}
-
 		ui.AnimatedSuccess(fmt.Sprintf("Locally switched to %q (%s) for the current repository", user.Name, user.Email))
-		if !user.SignDisabled && user.SignKey != "" {
-			ui.Success(fmt.Sprintf("Commit Signing: Enabled (%s)", user.SignFormat))
-		}
-		_ = config.AppendSwitchLog(user.Name, currentDir())
 	} else {
-		if git.IsInRepo() && git.HasLocalOverride() {
-			git.ClearIdentityScope(true)
-			ui.Info("Cleared local repository gitconfig overrides to apply global identity.")
-		}
-
-		if err := git.Apply(user.Name, user.Email); err != nil {
-			ui.Errorf("applying git config: %v", err)
-			return err
-		}
-
-		if err := applyUserSSHConfig(user, false); err != nil {
-			ui.Warn(fmt.Sprintf("applying SSH config: %v", err))
-		}
-
-		if !user.SignDisabled && user.SignKey != "" {
-			if err := git.ConfigureSigning(user.SignKey, user.SignFormat); err != nil {
-				ui.Warn(fmt.Sprintf("applying signing config: %v", err))
-			}
-		} else {
-			git.RemoveSigningConfig()
-		}
-		applyHTTPSCredentialConfig(user, false)
-
-		if prev := store.CurrentUser(); prev != nil {
-			for k := range prev.CustomConfig {
-				_ = unsetActiveCustomConfig(k, false)
-			}
-		}
-		for k, v := range user.CustomConfig {
-			_ = applyActiveCustomConfig(k, v, false)
-		}
-
-		if err := store.SetCurrent(name); err != nil {
-			ui.Errorf("%v", err)
-			return err
-		}
-
-		if err := config.Save(store); err != nil {
-			ui.Errorf("saving config: %v", err)
-			return err
-		}
-
 		ui.AnimatedSuccess(fmt.Sprintf("Switched to %q (%s)", user.Name, user.Email))
-		if !user.SignDisabled && user.SignKey != "" {
-			ui.Success(fmt.Sprintf("Commit Signing: Enabled (%s)", user.SignFormat))
-		}
-		_ = config.AppendSwitchLog(user.Name, currentDir())
+	}
+	if !user.SignDisabled && user.SignKey != "" {
+		ui.Success(fmt.Sprintf("Commit Signing: Enabled (%s)", user.SignFormat))
 	}
 
 	if user.SSHKey != "" {
@@ -668,14 +572,4 @@ func findOriginalIdentity(store *config.Store) string {
 // when the identity has no key at all.
 func applyUserSSHConfig(user *config.User, local bool) error {
 	return git.ApplyIdentitySSHConfig(user.SSHCommand, user.SSHKey, local)
-}
-
-// currentDir returns the working directory for the switch-log entry, or ""
-// if it can't be determined.
-func currentDir() string {
-	wd, err := os.Getwd()
-	if err != nil {
-		return ""
-	}
-	return wd
 }
