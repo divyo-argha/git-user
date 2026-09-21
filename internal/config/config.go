@@ -705,13 +705,14 @@ func syncIncludeIfs(s *Store) error {
 	if err == nil {
 		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 		for _, line := range lines {
+			line = strings.TrimRight(line, "\r")
 			if line == "" {
 				continue
 			}
 			parts := strings.SplitN(line, " ", 2)
 			if len(parts) == 2 {
-				k := parts[0]
-				v := parts[1]
+				k := strings.TrimSpace(parts[0])
+				v := strings.TrimSpace(parts[1])
 				if strings.Contains(v, "profile-") && strings.HasSuffix(v, ".gitconfig") {
 					existingKeys[k] = filepath.ToSlash(v)
 				}
@@ -755,7 +756,11 @@ func syncIncludeIfs(s *Store) error {
 
 // NormalizeBindPath converts a repository bind path to the canonical form expected by Git's includeIf.
 func NormalizeBindPath(path string) string {
-	if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, "~\\") {
+	if path == "~" {
+		if home, err := os.UserHomeDir(); err == nil {
+			path = home
+		}
+	} else if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, "~\\") {
 		home, _ := os.UserHomeDir()
 		path = filepath.Join(home, path[2:])
 	}
@@ -765,6 +770,11 @@ func NormalizeBindPath(path string) string {
 	// Git requires forward slashes in includeif patterns even on Windows,
 	// because backslashes are interpreted as escape characters.
 	path = filepath.ToSlash(path)
+	// On Windows, normalize drive letters to uppercase (e.g. C:/ instead of c:/)
+	// to prevent case mismatches in Git includeIf dictionaries and maps.
+	if runtime.GOOS == "windows" && len(path) >= 2 && path[1] == ':' {
+		path = strings.ToUpper(path[:1]) + path[1:]
+	}
 	if !strings.HasSuffix(path, "/") {
 		path += "/"
 	}

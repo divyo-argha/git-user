@@ -269,6 +269,7 @@ func removeManagedIncludeIfs() {
 		return
 	}
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		line = strings.TrimRight(line, "\r")
 		if line == "" {
 			continue
 		}
@@ -276,7 +277,8 @@ func removeManagedIncludeIfs() {
 		if len(parts) != 2 {
 			continue
 		}
-		key, value := parts[0], parts[1]
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
 		if strings.Contains(value, "profile-") && strings.HasSuffix(value, ".gitconfig") {
 			_ = exec.Command("git", "config", "--global", "--unset-all", key).Run()
 		}
@@ -351,7 +353,18 @@ func removeShellIntegration() {
 		"\n# git-user shell integration\nInvoke-Expression (& git-user init powershell)\n",
 	}
 	if runtime.GOOS == "windows" {
+		removeSnippets(filepath.Join(home, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1"), "powershell", pwshSnippets)
 		removeSnippets(filepath.Join(home, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"), "powershell", pwshSnippets)
+
+		// Also clean up gu.cmd batch helper if installed
+		guCmdPath := filepath.Join(home, "gu.cmd")
+		if content, err := os.ReadFile(guCmdPath); err == nil {
+			if strings.Contains(string(content), "git-user.exe env") || strings.Contains(string(content), "git-user") {
+				if err := os.Remove(guCmdPath); err == nil {
+					ui.Success(fmt.Sprintf("Removed %s", guCmdPath))
+				}
+			}
+		}
 	} else {
 		removeSnippets(filepath.Join(home, ".config", "powershell", "Microsoft.PowerShell_profile.ps1"), "powershell", pwshSnippets)
 	}

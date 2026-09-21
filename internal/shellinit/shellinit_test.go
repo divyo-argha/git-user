@@ -162,3 +162,40 @@ func TestInstall_Cmd(t *testing.T) {
 	}
 }
 
+func TestInstall_PowerShell(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
+
+	results, err := Install(PowerShell, "powershell")
+	if err != nil {
+		t.Fatalf("Install PowerShell: %v", err)
+	}
+	if len(results) == 0 {
+		t.Fatalf("expected at least 1 result for PowerShell install")
+	}
+	for _, r := range results {
+		if r.Status != StatusInstalled {
+			t.Errorf("expected StatusInstalled, got %v for %s", r.Status, r.File)
+		}
+		content, err := os.ReadFile(r.File)
+		if err != nil {
+			t.Fatalf("reading %s: %v", r.File, err)
+		}
+		if !strings.Contains(string(content), "Invoke-Expression (& git-user init powershell") {
+			t.Errorf("expected PowerShell init snippet in %s, got:\n%s", r.File, string(content))
+		}
+	}
+
+	// Reinstall should be StatusAlready
+	results, err = Install(PowerShell, "powershell")
+	if err != nil {
+		t.Fatalf("reinstall PowerShell: %v", err)
+	}
+	for _, r := range results {
+		if r.Status != StatusAlready {
+			t.Errorf("expected StatusAlready on reinstall, got %v for %s", r.Status, r.File)
+		}
+	}
+}
+

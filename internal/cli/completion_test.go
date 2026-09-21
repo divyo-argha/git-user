@@ -36,4 +36,15 @@ func TestRunCompletion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
+	// Test Case 6: PowerShell shell
+	err = runCompletion([]string{"powershell"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	err = runCompletion([]string{"pwsh"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 }

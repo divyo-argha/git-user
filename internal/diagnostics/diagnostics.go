@@ -11,6 +11,7 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/hookops"
 	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/shellinit"
 	"github.com/divyo-argha/git-user/internal/ssh"
@@ -345,22 +346,26 @@ func Run(store *config.Store, opts Options) (Report, error) {
 	pathEnv := os.Getenv("PATH")
 	if pathEnv != "" {
 		var foundPaths []string
-		binName := "git-user"
+		var candidateNames []string
 		if runtime.GOOS == "windows" {
-			binName = "git-user.exe"
+			candidateNames = []string{"git-user.exe", "git-user.cmd", "git-user.bat", "git-user"}
+		} else {
+			candidateNames = []string{"git-user"}
 		}
 		for _, dir := range filepath.SplitList(pathEnv) {
-			p := filepath.Join(dir, binName)
-			if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
-				duplicate := false
-				for _, prev := range foundPaths {
-					if prev == p {
-						duplicate = true
-						break
+			for _, bin := range candidateNames {
+				p := filepath.Join(dir, bin)
+				if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+					duplicate := false
+					for _, prev := range foundPaths {
+						if prev == p {
+							duplicate = true
+							break
+						}
 					}
-				}
-				if !duplicate {
-					foundPaths = append(foundPaths, p)
+					if !duplicate {
+						foundPaths = append(foundPaths, p)
+					}
 				}
 			}
 		}
@@ -380,7 +385,7 @@ func Run(store *config.Store, opts Options) (Report, error) {
 			}
 			detail = append(detail, "  If commands behave unexpectedly, remove stale versions or adjust your PATH order.")
 			add(Check{ID: "path-shadowing", Category: "System", Name: "Binary resolution", Status: StatusNotice,
-				Message: fmt.Sprintf("Multiple %s binaries detected in PATH:", binName), Detail: detail})
+				Message: "Multiple git-user binaries detected in PATH:", Detail: detail})
 		} else {
 			add(Check{ID: "path-shadowing", Category: "System", Name: "Binary resolution", Status: StatusPass,
 				Message: "Binary resolution OK (no shadowing detected)"})
@@ -392,6 +397,9 @@ func Run(store *config.Store, opts Options) (Report, error) {
 		filepath.Join(home, ".zshrc"),
 		filepath.Join(home, ".bashrc"),
 		filepath.Join(home, ".config", "fish", "config.fish"),
+		filepath.Join(home, ".config", "powershell", "Microsoft.PowerShell_profile.ps1"),
+		filepath.Join(home, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1"),
+		filepath.Join(home, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"),
 	}
 	legacyShellFound := false
 	for _, rc := range rcFiles {
@@ -479,7 +487,11 @@ func Run(store *config.Store, opts Options) (Report, error) {
 				compliant := true
 
 				hookInstalled := false
-				if content, err := os.ReadFile(filepath.Join(repoRoot, ".git", "hooks", "pre-commit")); err == nil {
+				hooksDir := filepath.Join(repoRoot, ".git", "hooks")
+				if hDir, err := hookops.GitHooksDir(); err == nil {
+					hooksDir = hDir
+				}
+				if content, err := os.ReadFile(filepath.Join(hooksDir, "pre-commit")); err == nil {
 					hookInstalled = strings.HasPrefix(string(content), "#!/bin/sh\n# git-user")
 				}
 				if !hookInstalled {

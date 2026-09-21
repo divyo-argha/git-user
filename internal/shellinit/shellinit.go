@@ -169,8 +169,12 @@ func Install(sh Shell, explicitShell string) ([]Result, error) {
 		targetFiles = []string{filepath.Join(home, ".config", "fish", "config.fish")}
 		initSnippet = "\n# git-user shell integration\ncommand -q git-user; and git-user init fish 2>/dev/null | source\n"
 	case PowerShell:
+		initSnippet = "\n# git-user shell integration\nif (Get-Command git-user -ErrorAction SilentlyContinue) { Invoke-Expression (& git-user init powershell 2>$null) }\n"
 		if runtime.GOOS == "windows" {
-			targetFiles = []string{filepath.Join(home, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1")}
+			targetFiles = []string{
+				filepath.Join(home, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1"),
+				filepath.Join(home, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"),
+			}
 		} else {
 			targetFiles = []string{filepath.Join(home, ".config", "powershell", "Microsoft.PowerShell_profile.ps1")}
 		}

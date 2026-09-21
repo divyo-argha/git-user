@@ -205,3 +205,55 @@ func TestSSHQuote(t *testing.T) {
 		t.Errorf("expected quoted path, got %s", quoted)
 	}
 }
+
+func TestRepoConfigPathAndWorktree(t *testing.T) {
+	tmp := t.TempDir()
+	origWd, _ := os.Getwd()
+	defer func() { _ = os.Chdir(origWd) }()
+
+	// 1. Standard repo with .git directory
+	repoDir := filepath.Join(tmp, "my-repo")
+	gitDir := filepath.Join(repoDir, ".git")
+	subDir := filepath.Join(repoDir, "src", "pkg")
+	if err := os.MkdirAll(gitDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.WriteFile(filepath.Join(gitDir, "config"), []byte("[core]\n\tbare = false\n"), 0644)
+
+	// Change into subDir
+	_ = os.Chdir(subDir)
+
+	cfgPath := git.RepoConfigPath()
+	expectedCfg := filepath.Join(gitDir, "config")
+	if filepath.Clean(cfgPath) != filepath.Clean(expectedCfg) {
+		t.Errorf("RepoConfigPath from subDir = %q, want %q", cfgPath, expectedCfg)
+	}
+
+	repoName := git.CurrentRepoName()
+	if repoName != "my-repo" {
+		t.Errorf("CurrentRepoName = %q, want 'my-repo'", repoName)
+	}
+
+	// 2. Worktree with .git file pointer
+	wtDir := filepath.Join(tmp, "my-worktree")
+	wtActualGitDir := filepath.Join(gitDir, "worktrees", "wt1")
+	if err := os.MkdirAll(wtActualGitDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(wtDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.WriteFile(filepath.Join(wtDir, ".git"), []byte("gitdir: "+wtActualGitDir), 0644)
+	_ = os.WriteFile(filepath.Join(wtActualGitDir, "config"), []byte("[core]\n"), 0644)
+
+	_ = os.Chdir(wtDir)
+	wtCfg := git.RepoConfigPath()
+	expectedWtCfg := filepath.Join(wtActualGitDir, "config")
+	if filepath.Clean(wtCfg) != filepath.Clean(expectedWtCfg) {
+		t.Errorf("RepoConfigPath in worktree = %q, want %q", wtCfg, expectedWtCfg)
+	}
+}
+

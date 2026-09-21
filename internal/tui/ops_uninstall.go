@@ -143,6 +143,7 @@ func uninstallRemoveManagedIncludeIfs() {
 		return
 	}
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		line = strings.TrimRight(line, "\r")
 		if line == "" {
 			continue
 		}
@@ -150,7 +151,7 @@ func uninstallRemoveManagedIncludeIfs() {
 		if len(parts) != 2 {
 			continue
 		}
-		key, value := parts[0], parts[1]
+		key, value := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
 		if strings.Contains(value, "profile-") && strings.HasSuffix(value, ".gitconfig") {
 			_ = exec.Command("git", "config", "--global", "--unset-all", key).Run()
 		}

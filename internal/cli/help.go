@@ -258,7 +258,7 @@ Examples:
 Launch the interactive terminal UI.`,
 		"completion": `Usage: git-user completion <shell>
 
-Generate shell completion (bash, zsh, or fish).`,
+Generate shell completion (bash, zsh, fish, or powershell).`,
 		"hook": `Usage: git-user hook <install|uninstall|check>
 
 Manage git-user's identity-checking hooks: install writes a pre-commit,

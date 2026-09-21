@@ -262,7 +262,7 @@ func setConfig(key, value string, local bool) error {
 
 	cfgPath := GlobalConfigPath()
 	if local {
-		cfgPath = filepath.Join(".git", "config")
+		cfgPath = RepoConfigPath()
 	}
 	if cfgPath == "" {
 		return fmt.Errorf("git is not installed and could not locate config path")
@@ -281,7 +281,7 @@ func unsetConfig(key string, local bool) {
 	}
 	cfgPath := GlobalConfigPath()
 	if local {
-		cfgPath = filepath.Join(".git", "config")
+		cfgPath = RepoConfigPath()
 	}
 	if cfgPath != "" {
 		_ = unsetDirectConfig(cfgPath, key)
@@ -303,7 +303,7 @@ func getConfig(key string, local bool) (string, error) {
 	}
 	cfgPath := GlobalConfigPath()
 	if local {
-		cfgPath = filepath.Join(".git", "config")
+		cfgPath = RepoConfigPath()
 	}
 	return getDirectConfig(cfgPath, key)
 }
@@ -312,13 +312,14 @@ func getConfigResolved(key string) (string, error) {
 	if IsInstalled() {
 		cmd := gitCmd("config", key)
 		out, err := cmd.Output()
-		if err != nil {
-			return "", err
+		if err == nil {
+			return strings.TrimSpace(string(out)), nil
 		}
-		return strings.TrimSpace(string(out)), nil
 	}
-	if val, err := getDirectConfig(filepath.Join(".git", "config"), key); err == nil && val != "" {
-		return val, nil
+	if loc := RepoConfigPath(); loc != "" {
+		if val, err := getDirectConfig(loc, key); err == nil && val != "" {
+			return val, nil
+		}
 	}
 	return getDirectConfig(GlobalConfigPath(), key)
 }
@@ -422,6 +423,7 @@ func ListRemotes() ([]string, error) {
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 	var remotes []string
 	for _, line := range lines {
+		line = strings.TrimSpace(line)
 		if line != "" {
 			remotes = append(remotes, line)
 		}
@@ -476,32 +478,122 @@ func ConvertHTTPSToSSH(httpsURL string) (string, bool) {
 	return fmt.Sprintf("git@%s:%s.git", host, path), true
 }
 
-// CurrentBranch returns the name of the currently checked out branch.
-func CurrentBranch() string {
-	out, err := gitCmd("rev-parse", "--abbrev-ref", "HEAD").Output()
+// RepoConfigPath resolves the path to the current repository's .git/config file,
+// correctly navigating parent directories and following gitdir pointers in worktrees/submodules.
+func RepoConfigPath() string {
+	root, err := RepoRoot()
+	if err != nil || root == "" {
+		return ""
+	}
+	gitEntry := filepath.Join(root, ".git")
+	fi, err := os.Stat(gitEntry)
 	if err != nil {
 		return ""
 	}
-	return strings.TrimSpace(string(out))
+	if fi.IsDir() {
+		return filepath.Join(gitEntry, "config")
+	}
+	// In git worktrees and submodules, .git is a regular file containing "gitdir: <path>"
+	data, err := os.ReadFile(gitEntry)
+	if err != nil {
+		return ""
+	}
+	line := strings.TrimSpace(string(data))
+	if strings.HasPrefix(line, "gitdir:") {
+		target := strings.TrimSpace(strings.TrimPrefix(line, "gitdir:"))
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(root, target)
+		}
+		cfg := filepath.Join(target, "config")
+		if _, err := os.Stat(cfg); err == nil {
+			return cfg
+		}
+		commondir := filepath.Join(target, "commondir")
+		if cData, err := os.ReadFile(commondir); err == nil {
+			cTarget := strings.TrimSpace(string(cData))
+			if !filepath.IsAbs(cTarget) {
+				cTarget = filepath.Join(target, cTarget)
+			}
+			cCfg := filepath.Join(cTarget, "config")
+			if _, err := os.Stat(cCfg); err == nil {
+				return cCfg
+			}
+		}
+		return cfg
+	}
+	return ""
+}
+
+// CurrentBranch returns the name of the currently checked out branch.
+func CurrentBranch() string {
+	if IsInstalled() {
+		out, err := gitCmd("rev-parse", "--abbrev-ref", "HEAD").Output()
+		if err == nil {
+			branch := strings.TrimSpace(string(out))
+			if branch != "" && branch != "HEAD" {
+				return branch
+			}
+		}
+	}
+	root, err := RepoRoot()
+	if err != nil || root == "" {
+		return ""
+	}
+	gitEntry := filepath.Join(root, ".git")
+	headPath := filepath.Join(gitEntry, "HEAD")
+	if fi, err := os.Stat(gitEntry); err == nil && !fi.IsDir() {
+		if data, err := os.ReadFile(gitEntry); err == nil {
+			line := strings.TrimSpace(string(data))
+			if strings.HasPrefix(line, "gitdir:") {
+				target := strings.TrimSpace(strings.TrimPrefix(line, "gitdir:"))
+				if !filepath.IsAbs(target) {
+					target = filepath.Join(root, target)
+				}
+				headPath = filepath.Join(target, "HEAD")
+			}
+		}
+	}
+	if data, err := os.ReadFile(headPath); err == nil {
+		line := strings.TrimSpace(string(data))
+		if strings.HasPrefix(line, "ref: refs/heads/") {
+			return strings.TrimPrefix(line, "ref: refs/heads/")
+		}
+	}
+	return ""
 }
 
 func RepoRoot() (string, error) {
-	out, err := gitCmd("rev-parse", "--show-toplevel").Output()
+	if IsInstalled() {
+		out, err := gitCmd("rev-parse", "--show-toplevel").Output()
+		if err == nil {
+			return strings.TrimSpace(string(out)), nil
+		}
+	}
+	dir, err := os.Getwd()
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(out)), nil
+	for {
+		gitEntry := filepath.Join(dir, ".git")
+		if fi, err := os.Stat(gitEntry); err == nil {
+			if fi.IsDir() || fi.Mode().IsRegular() {
+				return dir, nil
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return "", fmt.Errorf("not in a git repository")
 }
 
 // CurrentRepoName returns the directory name of the current git repository root.
 func CurrentRepoName() string {
-	out, err := gitCmd("rev-parse", "--show-toplevel").Output()
-	if err != nil {
+	root, err := RepoRoot()
+	if err != nil || root == "" {
 		return ""
 	}
-	top := strings.TrimSpace(string(out))
-	if top == "" {
-		return ""
-	}
-	return top[strings.LastIndex(top, "/")+1:]
+	return filepath.Base(filepath.Clean(root))
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -365,6 +366,7 @@ func TestSyncIncludeIfsHonorsEnvConfigPath(t *testing.T) {
 
 func TestNormalizeBindPath(t *testing.T) {
 	cases := []string{
+		"~",
 		"~/projects/foo",
 		"/tmp/bar",
 	}
@@ -375,6 +377,16 @@ func TestNormalizeBindPath(t *testing.T) {
 		}
 		if strings.Contains(norm, "\\") {
 			t.Errorf("NormalizeBindPath(%q) = %q, expected only forward slashes", c, norm)
+		}
+		if strings.HasPrefix(norm, "~") {
+			t.Errorf("NormalizeBindPath(%q) = %q, expected tilde to be expanded", c, norm)
+		}
+	}
+
+	if runtime.GOOS == "windows" {
+		normWin := config.NormalizeBindPath(`c:\projects\repo`)
+		if !strings.HasPrefix(normWin, "C:/") {
+			t.Errorf("expected uppercase drive letter C:/, got %q", normWin)
 		}
 	}
 }
