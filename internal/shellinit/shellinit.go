@@ -172,6 +172,9 @@ type Result struct {
 // home+"Documents" if the lookup fails for any reason (e.g. powershell.exe
 // not resolvable yet).
 func ResolveWindowsDocumentsDir(home string) string {
+	if dir := os.Getenv("GIT_USER_DOCUMENTS_DIR"); dir != "" {
+		return dir
+	}
 	fallback := filepath.Join(home, "Documents")
 	out, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", "[Environment]::GetFolderPath('MyDocuments')").Output()
 	if err != nil {

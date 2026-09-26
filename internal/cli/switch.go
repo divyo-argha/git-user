@@ -216,7 +216,7 @@ func runSwitch(args []string) error {
 			} else {
 				opts := ssh.AgentLoadOptions{LifetimeSecs: uint32(user.GetAgentTTL().Seconds()), ConfirmBeforeUse: user.AgentConfirmBeforeUse}
 				if err := ssh.AddSSHKeyWithOptions(user.SSHKey, passphrase, opts); err != nil {
-					ui.Warn(fmt.Sprintf("Could not load key into agent: %v", err))
+					ui.Warn(fmt.Sprintf("Key for %q was NOT loaded into any ssh-agent: %v — the next push/pull may hang or fail asking for a passphrase.", user.Name, err))
 				} else {
 					ui.Success("Key unlocked and loaded into ssh-agent.")
 				}

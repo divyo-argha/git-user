@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/divyo-argha/git-user/internal/config"
@@ -67,6 +68,9 @@ func TestChangeSSHKeyPassphrase(t *testing.T) {
 // fail to persist. Forces the save (but not the preceding load) to fail by
 // making the config directory read-only after priming it.
 func TestRunPassphraseModeErrorsOnSaveFailure(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("permission-based failure injection doesn't work on Windows")
+	}
 	if os.Getuid() == 0 {
 		t.Skip("permission-based failure injection doesn't work as root")
 	}

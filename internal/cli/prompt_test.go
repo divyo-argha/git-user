@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -21,6 +22,9 @@ func TestPromptCommand(t *testing.T) {
 }
 
 func TestPromptInstall_Zsh(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Zsh is not a selectable prompt target on Windows")
+	}
 	tmpDir := setupTestEnv(t)
 
 	// Pre-create a dummy .zshrc
@@ -125,6 +129,9 @@ func TestPromptInstall_Starship(t *testing.T) {
 }
 
 func TestPromptInstall_Fish(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Fish is not a selectable prompt target on Windows")
+	}
 	tmpDir := setupTestEnv(t)
 
 	ui.SelectFn = func(label string, options []string) (int, error) {
@@ -207,6 +214,9 @@ func TestPromptInstall_PowerShell(t *testing.T) {
 	}
 
 	psPath := filepath.Join(tmpDir, ".config", "powershell", "Microsoft.PowerShell_profile.ps1")
+	if runtime.GOOS == "windows" {
+		psPath = filepath.Join(tmpDir, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1")
+	}
 	if _, err := os.Stat(psPath); err != nil {
 		t.Fatalf("expected powershell profile to be created at %s", psPath)
 	}

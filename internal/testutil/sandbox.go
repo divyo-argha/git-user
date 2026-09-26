@@ -32,5 +32,6 @@ func Sandbox(t *testing.T) string {
 	t.Setenv("SSH_AUTH_SOCK", "")
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(dir, ".config"))
 	t.Setenv("XDG_DATA_HOME", filepath.Join(dir, ".local", "share"))
+	t.Setenv("GIT_USER_DOCUMENTS_DIR", filepath.Join(dir, "Documents"))
 	return dir
 }
