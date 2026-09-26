@@ -2,6 +2,7 @@ package git_test
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -76,15 +77,50 @@ func TestConvertHTTPSToSSH(t *testing.T) {
 }
 
 func TestCurrentBranchAndRepo(t *testing.T) {
-	// Since we are running in a Git repository, these should return correct non-empty values
+	if !git.IsInstalled() {
+		t.Skip("git not installed")
+	}
+
+	tmpDir := t.TempDir()
+	initCmd := exec.Command("git", "init", "-b", "main", tmpDir)
+	if err := initCmd.Run(); err != nil {
+		initCmd = exec.Command("git", "init", tmpDir)
+		if err := initCmd.Run(); err != nil {
+			t.Fatalf("git init failed: %v", err)
+		}
+		_ = exec.Command("git", "-C", tmpDir, "checkout", "-b", "main").Run()
+	}
+
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getting working directory: %v", err)
+	}
+	defer os.Chdir(oldWd)
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("changing directory to tmpDir: %v", err)
+	}
+
 	branch := git.CurrentBranch()
-	if branch == "" {
-		t.Errorf("Expected non-empty current branch name")
+	if branch != "main" && branch != "master" {
+		t.Errorf("Expected branch 'main' or 'master', got %q", branch)
 	}
 
 	repoName := git.CurrentRepoName()
-	if repoName != "git-user" {
-		t.Errorf("Expected current repo name 'git-user', got %q", repoName)
+	if repoName != filepath.Base(tmpDir) {
+		t.Errorf("Expected current repo name %q, got %q", filepath.Base(tmpDir), repoName)
+	}
+
+	// In detached HEAD state (e.g. goreleaser or CI checkout of a release tag),
+	// CurrentBranch should return empty string.
+	_ = os.WriteFile(filepath.Join(tmpDir, "file.txt"), []byte("hello"), 0644)
+	_ = exec.Command("git", "-C", tmpDir, "-c", "user.name=Test", "-c", "user.email=test@example.com", "add", ".").Run()
+	_ = exec.Command("git", "-C", tmpDir, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "init").Run()
+	_ = exec.Command("git", "-C", tmpDir, "checkout", "--detach").Run()
+
+	detachedBranch := git.CurrentBranch()
+	if detachedBranch != "" {
+		t.Errorf("Expected empty branch name in detached HEAD, got %q", detachedBranch)
 	}
 }
 
