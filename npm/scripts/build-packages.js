@@ -3,12 +3,12 @@ const fs = require('fs');
 const path = require('path');
 
 const targets = [
-  { os: 'darwin', arch: 'amd64', nodeOs: 'darwin', nodeArch: 'x64', ext: '' },
-  { os: 'darwin', arch: 'arm64', nodeOs: 'darwin', nodeArch: 'arm64', ext: '' },
-  { os: 'linux', arch: 'amd64', nodeOs: 'linux', nodeArch: 'x64', ext: '' },
-  { os: 'linux', arch: 'arm64', nodeOs: 'linux', nodeArch: 'arm64', ext: '' },
-  { os: 'windows', arch: 'amd64', nodeOs: 'windows', nodeArch: 'x64', ext: '.exe' },
-  { os: 'windows', arch: 'arm64', nodeOs: 'windows', nodeArch: 'arm64', ext: '.exe' }
+  { os: 'darwin', arch: 'amd64', nodeOs: 'darwin', npmOs: 'darwin', nodeArch: 'x64', ext: '' },
+  { os: 'darwin', arch: 'arm64', nodeOs: 'darwin', npmOs: 'darwin', nodeArch: 'arm64', ext: '' },
+  { os: 'linux', arch: 'amd64', nodeOs: 'linux', npmOs: 'linux', nodeArch: 'x64', ext: '' },
+  { os: 'linux', arch: 'arm64', nodeOs: 'linux', npmOs: 'linux', nodeArch: 'arm64', ext: '' },
+  { os: 'windows', arch: 'amd64', nodeOs: 'windows', npmOs: 'win32', nodeArch: 'x64', ext: '.exe' },
+  { os: 'windows', arch: 'arm64', nodeOs: 'windows', npmOs: 'win32', nodeArch: 'arm64', ext: '.exe' }
 ];
 
 const npmDir = path.join(__dirname, '..');
@@ -72,7 +72,7 @@ for (const target of targets) {
     bugs: mainPkg.bugs,
     homepage: mainPkg.homepage,
     engines: mainPkg.engines,
-    os: [target.nodeOs],
+    os: [target.npmOs || target.nodeOs],
     cpu: [target.nodeArch],
     files: ['bin'],
     publishConfig: {

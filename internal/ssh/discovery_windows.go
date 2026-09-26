@@ -30,22 +30,39 @@ func EnsureSSHBinariesOnPath() {
 			return
 		}
 
+		var candidates []string
+
+		// 1. Native Windows OpenSSH client (installed by default in Windows 10/11)
+		sysRoot := os.Getenv("SystemRoot")
+		if sysRoot == "" {
+			sysRoot = `C:\Windows`
+		}
+		candidates = append(candidates, filepath.Join(sysRoot, "System32", "OpenSSH"))
+
+		// 2. Git for Windows layout relative to discovered git binary (<root>\usr\bin)
 		gitPath := git.BinaryPath()
-		if gitPath == "" || gitPath == "git" || gitPath == "git.exe" {
-			return
+		if gitPath != "" && gitPath != "git" && gitPath != "git.exe" {
+			root := filepath.Dir(filepath.Dir(gitPath))
+			candidates = append(candidates, filepath.Join(root, "usr", "bin"))
 		}
 
-		// Git for Windows layout: <root>\cmd\git.exe or <root>\bin\git.exe,
-		// with its bundled OpenSSH client at <root>\usr\bin.
-		root := filepath.Dir(filepath.Dir(gitPath))
-		candidate := filepath.Join(root, "usr", "bin")
-		if fi, err := os.Stat(filepath.Join(candidate, "ssh-keygen.exe")); err != nil || fi.IsDir() {
-			return
+		// 3. Standard Git for Windows installation locations
+		candidates = append(candidates,
+			`C:\Program Files\Git\usr\bin`,
+			`C:\Program Files (x86)\Git\usr\bin`,
+		)
+		if localApp := os.Getenv("LOCALAPPDATA"); localApp != "" {
+			candidates = append(candidates, filepath.Join(localApp, "Programs", "Git", "usr", "bin"))
 		}
 
-		currPath := os.Getenv("PATH")
-		if currPath != "" {
-			_ = os.Setenv("PATH", candidate+string(os.PathListSeparator)+currPath)
+		for _, candidate := range candidates {
+			if fi, err := os.Stat(filepath.Join(candidate, "ssh-keygen.exe")); err == nil && !fi.IsDir() {
+				currPath := os.Getenv("PATH")
+				if currPath != "" {
+					_ = os.Setenv("PATH", candidate+string(os.PathListSeparator)+currPath)
+				}
+				return
+			}
 		}
 	})
 }

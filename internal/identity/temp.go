@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 )
 
@@ -61,9 +62,11 @@ func (ts *TempService) ValidateTempDirectory() error {
 		return fmt.Errorf("temp path is not a directory: %s", ts.tempDir)
 	}
 
-	mode := info.Mode().Perm()
-	if mode&0077 != 0 {
-		return fmt.Errorf("insecure temp directory permissions: %o (expected 0700)", mode)
+	if runtime.GOOS != "windows" {
+		mode := info.Mode().Perm()
+		if mode&0077 != 0 {
+			return fmt.Errorf("insecure temp directory permissions: %o (expected 0700)", mode)
+		}
 	}
 
 	return nil

@@ -10,6 +10,7 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/shellinit"
 )
 
 // Target represents a supported shell or prompt framework.
@@ -398,7 +399,8 @@ func PrimaryConfigPath(t Target) string {
 		return filepath.Join(home, ".config", "starship.toml")
 	case TargetPowerShell:
 		if runtime.GOOS == "windows" {
-			return filepath.Join(home, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1")
+			docsDir := shellinit.ResolveWindowsDocumentsDir(home)
+			return filepath.Join(docsDir, "PowerShell", "Microsoft.PowerShell_profile.ps1")
 		}
 		return filepath.Join(home, ".config", "powershell", "Microsoft.PowerShell_profile.ps1")
 	case TargetNushell:
@@ -434,11 +436,17 @@ func CheckTarget(t Target) TargetInfo {
 			installed = true
 		}
 	case TargetPowerShell:
+		docsDir := home
+		if runtime.GOOS == "windows" {
+			docsDir = shellinit.ResolveWindowsDocumentsDir(home)
+		}
 		paths := []string{
 			path,
-			filepath.Join(home, ".config", "powershell", "Microsoft.PowerShell_profile.ps1"),
+			filepath.Join(docsDir, "PowerShell", "Microsoft.PowerShell_profile.ps1"),
+			filepath.Join(docsDir, "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"),
 			filepath.Join(home, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1"),
 			filepath.Join(home, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"),
+			filepath.Join(home, ".config", "powershell", "Microsoft.PowerShell_profile.ps1"),
 		}
 		for _, p := range paths {
 			if data, err := os.ReadFile(p); err == nil && strings.Contains(string(data), "git-user prompt") {
@@ -647,26 +655,46 @@ func installFish() (string, error) {
 }
 
 func installPowerShell() (string, error) {
-	path := PrimaryConfigPath(TargetPowerShell)
-	if content, err := os.ReadFile(path); err == nil {
-		str := string(content)
-		if strings.Contains(str, "git-user prompt") {
-			return fmt.Sprintf("PowerShell prompt integration is already installed in %s", path), nil
+	home, _ := os.UserHomeDir()
+	var targets []string
+	if runtime.GOOS == "windows" {
+		docsDir := shellinit.ResolveWindowsDocumentsDir(home)
+		targets = []string{
+			filepath.Join(docsDir, "PowerShell", "Microsoft.PowerShell_profile.ps1"),
+			filepath.Join(docsDir, "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"),
 		}
+	} else {
+		targets = []string{PrimaryConfigPath(TargetPowerShell)}
 	}
-	_, _ = BackupFile(path)
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return "", fmt.Errorf("creating powershell profile directory: %w", err)
+
+	installedCount := 0
+	var lastPath string
+	for _, path := range targets {
+		if content, err := os.ReadFile(path); err == nil {
+			str := string(content)
+			if strings.Contains(str, "git-user prompt") {
+				continue
+			}
+		}
+		_, _ = BackupFile(path)
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			continue
+		}
+		f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			continue
+		}
+		if _, err := f.WriteString(PowerShellPromptBlock); err == nil {
+			installedCount++
+			lastPath = path
+		}
+		f.Close()
 	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return "", fmt.Errorf("opening file: %w", err)
+
+	if installedCount == 0 {
+		return fmt.Sprintf("PowerShell prompt integration is already installed in %s", targets[0]), nil
 	}
-	defer f.Close()
-	if _, err := f.WriteString(PowerShellPromptBlock); err != nil {
-		return "", fmt.Errorf("writing configuration: %w", err)
-	}
-	return fmt.Sprintf("Appended PowerShell prompt integration to %s", path), nil
+	return fmt.Sprintf("Appended PowerShell prompt integration to %s", lastPath), nil
 }
 
 func installNushell() (string, error) {
@@ -749,10 +777,16 @@ func Uninstall(t Target) ([]string, error) {
 	case TargetStarship:
 		removeFileBlock(filepath.Join(home, ".config", "starship.toml"), "Starship", StarshipPromptBlock)
 	case TargetPowerShell:
+		docsDir := home
+		if runtime.GOOS == "windows" {
+			docsDir = shellinit.ResolveWindowsDocumentsDir(home)
+		}
 		paths := []string{
-			filepath.Join(home, ".config", "powershell", "Microsoft.PowerShell_profile.ps1"),
+			filepath.Join(docsDir, "PowerShell", "Microsoft.PowerShell_profile.ps1"),
+			filepath.Join(docsDir, "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"),
 			filepath.Join(home, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1"),
 			filepath.Join(home, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1"),
+			filepath.Join(home, ".config", "powershell", "Microsoft.PowerShell_profile.ps1"),
 		}
 		for _, p := range paths {
 			removeFileBlock(p, "PowerShell", PowerShellPromptBlock)

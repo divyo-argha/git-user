@@ -74,8 +74,8 @@ func TestScript(t *testing.T) {
 	if !strings.Contains(Script(PowerShell), "function git-user") {
 		t.Error("expected powershell script to define a git-user function")
 	}
-	if !strings.Contains(Script(Cmd), "@echo off") || !strings.Contains(Script(Cmd), "git-user.exe env") {
-		t.Error("expected cmd script to contain @echo off and git-user.exe env")
+	if !strings.Contains(Script(Cmd), "@echo off") || !strings.Contains(Script(Cmd), "git-user env") {
+		t.Error("expected cmd script to contain @echo off and git-user env")
 	}
 }
 
@@ -148,8 +148,8 @@ func TestInstall_Cmd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading gu.cmd: %v", err)
 	}
-	if !strings.Contains(string(content), "git-user.exe env") {
-		t.Fatalf("expected git-user.exe env in gu.cmd, got:\n%s", string(content))
+	if !strings.Contains(string(content), "git-user env") {
+		t.Fatalf("expected git-user env in gu.cmd, got:\n%s", string(content))
 	}
 
 	// Re-install is StatusAlready
