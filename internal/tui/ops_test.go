@@ -16,6 +16,7 @@ import (
 func withTempConfig(t *testing.T) {
 	t.Helper()
 	testutil.Sandbox(t)
+	keyring.MockForTest(t)
 }
 
 func TestExpandPath(t *testing.T) {

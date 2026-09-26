@@ -85,3 +85,46 @@ func HasHTTPSToken(profileName string) bool {
 	val, err := KeyringGet(httpsTokenService, profileName)
 	return err == nil && val != ""
 }
+
+// MockTestingTB is an interface satisfied by *testing.T and *testing.B.
+type MockTestingTB interface {
+	Helper()
+	Cleanup(func())
+}
+
+// MockForTest replaces KeyringGet, KeyringSet, KeyringDelete with an in-memory
+// store for the duration of the test, and automatically restores them on cleanup.
+func MockForTest(t MockTestingTB) map[string]string {
+	t.Helper()
+	mock := make(map[string]string)
+	oldGet := KeyringGet
+	oldSet := KeyringSet
+	oldDelete := KeyringDelete
+
+	KeyringGet = func(service, user string) (string, error) {
+		val, ok := mock[service+"/"+user]
+		if !ok {
+			return "", keyring.ErrNotFound
+		}
+		return val, nil
+	}
+	KeyringSet = func(service, user, password string) error {
+		mock[service+"/"+user] = password
+		return nil
+	}
+	KeyringDelete = func(service, user string) error {
+		if _, ok := mock[service+"/"+user]; !ok {
+			return keyring.ErrNotFound
+		}
+		delete(mock, service+"/"+user)
+		return nil
+	}
+
+	t.Cleanup(func() {
+		KeyringGet = oldGet
+		KeyringSet = oldSet
+		KeyringDelete = oldDelete
+	})
+	return mock
+}
+
