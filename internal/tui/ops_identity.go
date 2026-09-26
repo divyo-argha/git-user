@@ -78,7 +78,7 @@ func opSwitch(store *config.Store, name, passphrase string) (opResult, error) {
 			} else {
 				opts := ssh.AgentLoadOptions{LifetimeSecs: uint32(user.GetAgentTTL().Seconds()), ConfirmBeforeUse: user.AgentConfirmBeforeUse}
 				if err := ssh.AddSSHKeyWithOptions(user.SSHKey, p, opts); err != nil {
-					warnings = append(warnings, fmt.Sprintf("Could not load key into agent: %v", err))
+					warnings = append(warnings, fmt.Sprintf("Key for %q was NOT loaded into any ssh-agent: %v — the next push/pull may hang or fail asking for a passphrase.", user.Name, err))
 				}
 			}
 		}
@@ -127,14 +127,18 @@ func opSwitchSession(store *config.Store, name string) (opResult, error) {
 		cmd = fmt.Sprintf(`eval "$(git-user env %s)"`, name)
 	}
 
+	var detail string
 	if err := screens.ClipboardWrite(cmd); err != nil {
-		return opResult{}, fmt.Errorf("copy to clipboard: %w", err)
+		detail = fmt.Sprintf(
+			"Command for this session:\n  %s\n\nPaste it into the terminal you want %q active in and press Enter. It only affects that terminal session — your global identity and other terminals are unaffected.",
+			cmd, name,
+		)
+	} else {
+		detail = fmt.Sprintf(
+			"Copied to clipboard: %s\n\nPaste it into the terminal you want %q active in and press Enter. It only affects that terminal session — your global identity and other terminals are unaffected.",
+			cmd, name,
+		)
 	}
-
-	detail := fmt.Sprintf(
-		"Copied to clipboard: %s\n\nPaste it into the terminal you want %q active in and press Enter. It only affects that terminal session — your global identity and other terminals are unaffected.",
-		cmd, name,
-	)
 	return opResult{detail: detail}, nil
 }
 

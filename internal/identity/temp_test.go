@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -137,16 +138,18 @@ func TestTempService(t *testing.T) {
 	service.tempDir = sshDir
 
 	// Test insecure permissions
-	err = os.Chmod(sshDir, 0777)
-	if err != nil {
-		t.Fatalf("Chmod failed: %v", err)
+	if runtime.GOOS != "windows" {
+		err = os.Chmod(sshDir, 0777)
+		if err != nil {
+			t.Fatalf("Chmod failed: %v", err)
+		}
+		err = service.ValidateTempDirectory()
+		if err == nil {
+			t.Error("Expected validation error for insecure directory permissions")
+		}
+		// Restore permissions
+		_ = os.Chmod(sshDir, 0700)
 	}
-	err = service.ValidateTempDirectory()
-	if err == nil {
-		t.Error("Expected validation error for insecure directory permissions")
-	}
-	// Restore permissions
-	_ = os.Chmod(sshDir, 0700)
 
 	// 3. Add, Get, Remove Key operations
 	keyInfo := &TempKeyInfo{

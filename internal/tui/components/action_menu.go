@@ -256,13 +256,24 @@ func (m ActionMenu) View(width, height int, isActive bool) string {
 			raw := stripAnsi(label)
 			if item.IsDanger {
 				lines = append(lines, m.theme.DangerText().Render("▶ "+raw))
+			} else if item.Key == "update" && !item.Disabled {
+				lines = append(lines, m.theme.WarningStyle().Bold(true).Render("▶ "+raw))
 			} else {
 				lines = append(lines, m.theme.Selected().Render("▶ "+raw))
 			}
 		} else if isCursor && !isActive {
-			lines = append(lines, m.theme.Dim().Render("▶ "+stripAnsi(label)))
+			raw := stripAnsi(label)
+			if item.Key == "update" && !item.Disabled {
+				lines = append(lines, m.theme.WarningStyle().Render("▶ "+raw))
+			} else {
+				lines = append(lines, m.theme.Dim().Render("▶ "+raw))
+			}
 		} else {
-			lines = append(lines, "  "+label)
+			if item.Key == "update" && !item.Disabled {
+				lines = append(lines, "  "+m.theme.WarningStyle().Render(label))
+			} else {
+				lines = append(lines, "  "+label)
+			}
 		}
 	}
 

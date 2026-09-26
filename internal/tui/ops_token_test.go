@@ -132,7 +132,10 @@ func TestOpRenameMigratesKeyringSecretsAndAskpass(t *testing.T) {
 	if token, err := keyring.GetHTTPSToken("new"); err != nil || token != "ghp_abc123" {
 		t.Errorf("expected token migrated to new name, got (%q, %v)", token, err)
 	}
-	if askpass := git.CurrentAskpass(); !strings.Contains(askpass, "'new'") || strings.Contains(askpass, "'old'") {
+	askpass := git.CurrentAskpass()
+	hasNew := strings.Contains(askpass, "'new'") || strings.Contains(askpass, `"new"`)
+	hasOld := strings.Contains(askpass, "'old'") || strings.Contains(askpass, `"old"`)
+	if !hasNew || hasOld {
 		t.Errorf("expected core.askpass re-wired to the new name, got %q", askpass)
 	}
 }

@@ -149,8 +149,8 @@ func TestRunInit_Cmd(t *testing.T) {
 	if !strings.Contains(output, "@echo off") {
 		t.Errorf("expected @echo off in cmd init script, got:\n%s", output)
 	}
-	if !strings.Contains(output, "git-user.exe env") {
-		t.Errorf("expected git-user.exe env in cmd init script, got:\n%s", output)
+	if !strings.Contains(output, "git-user env") {
+		t.Errorf("expected git-user env in cmd init script, got:\n%s", output)
 	}
 }
 

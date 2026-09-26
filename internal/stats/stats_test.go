@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -317,6 +318,9 @@ func TestAuditRepositoryMode_SSHSignedCommitByRegisteredKeyIsSignedAndRegistered
 
 func requireGPG(t *testing.T) {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("GPG socket and MSYS path translation not supported on Windows CI")
+	}
 	if _, err := exec.LookPath("gpg"); err != nil {
 		t.Skip("gpg binary not available in PATH; skipping real-signature test")
 	}

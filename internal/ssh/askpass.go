@@ -36,9 +36,9 @@ const (
 // argv[1]) from the environment variables above. It carries no secret
 // material itself, so it is harmless even if briefly readable by others.
 const askpassScript = `#!/bin/sh
-case "$1" in
-  *[Oo]ld*|*[Cc]urrent*) printf '%s\n' "$` + EnvOldPassphrase + `" ;;
-  *[Nn]ew*|*[Aa]gain*|*[Cc]onfirm*) printf '%s\n' "$` + EnvNewPassphrase + `" ;;
+case "$*" in
+  *[Ee]nter\ [Oo]ld*|*[Ee]nter\ [Cc]urrent*|*[Oo]ld\ [Pp]assphrase:*) printf '%s\n' "$` + EnvOldPassphrase + `" ;;
+  *[Ee]nter\ [Nn]ew*|*[Aa]gain:*|*[Cc]onfirm:*|*[Ee]nter\ same*) printf '%s\n' "$` + EnvNewPassphrase + `" ;;
   *)
     if [ -n "$` + EnvPassphrase + `" ]; then
       printf '%s\n' "$` + EnvPassphrase + `"
@@ -52,10 +52,10 @@ esac
 `
 
 const askpassBatchScript = `@echo off
-echo "%*" | findstr /i "old current" >nul
+echo "%*" | findstr /i /c:"enter old" /c:"enter current" /c:"old passphrase" >nul
 if not errorlevel 1 goto :print_old
 
-echo "%*" | findstr /i "new again confirm" >nul
+echo "%*" | findstr /i /c:"enter new" /c:"again" /c:"confirm" /c:"enter same" >nul
 if not errorlevel 1 goto :print_new
 
 if defined ` + EnvPassphrase + ` goto :print_pass
@@ -63,14 +63,26 @@ if defined ` + EnvOldPassphrase + ` goto :print_old
 goto :print_new
 
 :print_pass
+if not defined ` + EnvPassphrase + ` (
+  echo.
+  goto :eof
+)
 echo %` + EnvPassphrase + `%
 goto :eof
 
 :print_old
+if not defined ` + EnvOldPassphrase + ` (
+  echo.
+  goto :eof
+)
 echo %` + EnvOldPassphrase + `%
 goto :eof
 
 :print_new
+if not defined ` + EnvNewPassphrase + ` (
+  echo.
+  goto :eof
+)
 echo %` + EnvNewPassphrase + `%
 goto :eof
 `
@@ -116,6 +128,10 @@ func runViaAskpass(name string, args []string, secrets map[string]string) ([]byt
 
 	cmd := exec.Command(name, args...)
 	cmd.Env = env
+	if devNull, err := os.Open(os.DevNull); err == nil {
+		cmd.Stdin = devNull
+		defer devNull.Close()
+	}
 	return cmd.CombinedOutput()
 }
 

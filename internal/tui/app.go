@@ -151,6 +151,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.refreshTick%60 == 0 && !a.taskRunning {
 			cmds = append(cmds, core.RefreshStoreCmd(), core.CheckSyncStatusCmd(a.store))
 		}
+		if a.refreshTick%300 == 0 && !a.taskRunning {
+			cmds = append(cmds, core.CheckVersionCmd(version.GetVersion()))
+		}
 		return a, tea.Batch(cmds...)
 
 	case tea.WindowSizeMsg:

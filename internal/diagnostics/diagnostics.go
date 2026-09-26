@@ -56,7 +56,11 @@ func TokenExpiryMessage(expiresAt string) string {
 	if err != nil {
 		return ""
 	}
-	days := int(time.Until(expiry).Hours() / 24)
+	nowYear, nowMonth, nowDay := time.Now().Date()
+	today := time.Date(nowYear, nowMonth, nowDay, 0, 0, 0, 0, time.UTC)
+	expYear, expMonth, expDay := expiry.Date()
+	expDate := time.Date(expYear, expMonth, expDay, 0, 0, 0, 0, time.UTC)
+	days := int(expDate.Sub(today).Hours() / 24)
 	switch {
 	case days < 0:
 		return fmt.Sprintf("HTTPS token expired %d day(s) ago (%s)", -days, expiresAt)

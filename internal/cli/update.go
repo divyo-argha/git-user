@@ -92,6 +92,7 @@ func RunUpdate() error {
 
 	var release githubRelease
 	var downloadURL string
+	var rateLimited bool
 
 	// 1. Try fetching latest release from /releases/latest
 	latestReq, _ := http.NewRequest("GET", "https://api.github.com/repos/divyo-argha/git-user/releases/latest", nil)
@@ -105,6 +106,8 @@ func RunUpdate() error {
 					downloadURL = url
 				}
 			}
+		} else if resp.StatusCode == http.StatusForbidden {
+			rateLimited = true
 		}
 		resp.Body.Close()
 	}
@@ -128,12 +131,17 @@ func RunUpdate() error {
 						}
 					}
 				}
+			} else if resp.StatusCode == http.StatusForbidden {
+				rateLimited = true
 			}
 			resp.Body.Close()
 		}
 	}
 
 	if downloadURL == "" || release.TagName == "" {
+		if rateLimited {
+			return fmt.Errorf("GitHub API rate limit exceeded (HTTP 403). Please try again later or install/update via npm: npm i -g git-userhub@latest")
+		}
 		return fmt.Errorf("no binary release found for %s/%s on GitHub", goos, goarch)
 	}
 
@@ -384,7 +392,13 @@ func handleNpmUpdate() error {
 	}
 
 	npmCmd := exec.Command("npm", "install", "-g", "git-userhub@latest")
-	if _, err := npmCmd.CombinedOutput(); err != nil {
+	if out, err := npmCmd.CombinedOutput(); err != nil {
+		outStr := strings.TrimSpace(string(out))
+		if strings.Contains(strings.ToLower(outStr), "eacces") || strings.Contains(strings.ToLower(outStr), "permission") {
+			ui.Warn("npm update requires elevated permissions.")
+			ui.Info("Please run: sudo npm install -g git-userhub@latest")
+			return nil
+		}
 		ui.Warn("Automatic npm update could not be completed.")
 		ui.Info("To update manually, run: npm install -g git-userhub@latest")
 		return nil

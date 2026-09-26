@@ -481,7 +481,7 @@ func (m typewriterModel) View() string {
 // AnimatedSuccess prints msg with a typewriter animation when connected to a TTY.
 // Falls back to plain Success() in non-interactive contexts (pipes, CI).
 func AnimatedSuccess(msg string) {
-	if !IsTTY() {
+	if os.Getenv("CI") != "" || !IsTTY() {
 		Success(msg)
 		return
 	}
@@ -492,7 +492,7 @@ func AnimatedSuccess(msg string) {
 		pos:   0,
 	}
 
-	p := tea.NewProgram(m, tea.WithoutRenderer())
+	p := tea.NewProgram(m, tea.WithoutRenderer(), tea.WithInput(strings.NewReader("")))
 	if _, err := p.Run(); err != nil {
 		// Fallback if Bubble Tea can't run
 		Success(msg)
@@ -563,7 +563,7 @@ func Spinner(label string) func() {
 		done:   doneCh,
 	}
 
-	p := tea.NewProgram(m, tea.WithoutRenderer())
+	p := tea.NewProgram(m, tea.WithoutRenderer(), tea.WithInput(strings.NewReader("")))
 
 	go func() {
 		defer close(doneCh)

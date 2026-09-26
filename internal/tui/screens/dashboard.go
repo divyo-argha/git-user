@@ -55,10 +55,14 @@ func (d *Dashboard) ShortHelp() string {
 	if d.filterMode {
 		return core.FilterHelp()
 	}
+	help := core.DashboardHelp()
 	if d.syncOut {
-		return core.DashboardHelp() + "  f•re-apply active identity"
+		help += "  f•re-apply active identity"
 	}
-	return core.DashboardHelp()
+	if d.updateAvailable && d.latestVersion != "" {
+		help += "  u•update (" + d.latestVersion + ")"
+	}
+	return help
 }
 
 func (d *Dashboard) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
@@ -190,6 +194,12 @@ func (d *Dashboard) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 				return d, func() tea.Msg {
 					return core.ActionResultMsg{Kind: "switch", Name: item.Name}
 				}
+			}
+		}
+	case "u", "U":
+		if d.updateAvailable {
+			return d, func() tea.Msg {
+				return core.ActionResultMsg{Kind: "update"}
 			}
 		}
 	case "f", "F":

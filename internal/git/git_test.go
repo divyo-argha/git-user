@@ -137,7 +137,7 @@ func TestConfigureSSH(t *testing.T) {
 		t.Fatalf("ConfigureSSH() failed: %v", err)
 	}
 
-	if got := git.CurrentSSHCommand(); !strings.Contains(got, testKeyPath) {
+	if got := git.CurrentSSHCommand(); !strings.Contains(got, testKeyPath) && !strings.Contains(got, filepath.ToSlash(testKeyPath)) {
 		t.Errorf("CurrentSSHCommand() = %q, want it to contain %q", got, testKeyPath)
 	}
 
@@ -219,7 +219,7 @@ func TestApplyIdentitySSHConfig(t *testing.T) {
 	if err := git.ApplyIdentitySSHConfig("", keyPath, false); err != nil {
 		t.Fatalf("ApplyIdentitySSHConfig (key only): %v", err)
 	}
-	if got := git.CurrentSSHCommand(); !strings.Contains(got, keyPath) {
+	if got := git.CurrentSSHCommand(); !strings.Contains(got, keyPath) && !strings.Contains(got, filepath.ToSlash(keyPath)) {
 		t.Errorf("expected sshCommand derived from key path %q, got %q", keyPath, got)
 	}
 
@@ -260,7 +260,9 @@ func TestRepoConfigPathAndWorktree(t *testing.T) {
 
 	cfgPath := git.RepoConfigPath()
 	expectedCfg := filepath.Join(gitDir, "config")
-	if filepath.Clean(cfgPath) != filepath.Clean(expectedCfg) {
+	realCfg, _ := filepath.EvalSymlinks(cfgPath)
+	realExpected, _ := filepath.EvalSymlinks(expectedCfg)
+	if (realCfg == "" || realCfg != realExpected) && filepath.Clean(cfgPath) != filepath.Clean(expectedCfg) {
 		t.Errorf("RepoConfigPath from subDir = %q, want %q", cfgPath, expectedCfg)
 	}
 

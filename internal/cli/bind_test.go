@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -63,7 +64,7 @@ func TestRunBind_Success(t *testing.T) {
 	}
 
 	// Verify git sshCommand was updated
-	expectedSSHCmd := "ssh -i '" + keyPath + "' -o IdentitiesOnly=yes"
+	expectedSSHCmd := fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes", git.SSHQuote(keyPath))
 	if git.CurrentSSHCommand() != expectedSSHCmd {
 		t.Errorf("expected git core.sshCommand to be %q, got %q", expectedSSHCmd, git.CurrentSSHCommand())
 	}

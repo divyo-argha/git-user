@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"context"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -90,7 +91,7 @@ func CheckPlatformConnection(keyPath, platform, host string, successPatterns []s
 	// BatchMode=yes prevents hanging on interactive passphrase/password prompts.
 	args := []string{"-T", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=5", "-o", "ConnectionAttempts=1"}
 	if keyPath != "" {
-		args = append(args, "-i", keyPath, "-o", "IdentitiesOnly=yes")
+		args = append(args, "-F", os.DevNull, "-i", keyPath, "-o", "IdentitiesOnly=yes")
 	}
 	args = append(args, host)
 

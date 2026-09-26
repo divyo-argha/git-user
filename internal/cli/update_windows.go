@@ -80,10 +80,22 @@ if not errorlevel 1 (
 `
 }
 
+// getTargetPID returns the PID of the process to wait for before performing
+// the binary swap or npm update. If launched from the TUI, it returns the
+// TUI's parent PID so the update only runs after the TUI has exited.
+func getTargetPID() int {
+	if parentPID := os.Getenv("GIT_USER_PARENT_PID"); parentPID != "" {
+		if p, err := strconv.Atoi(parentPID); err == nil && p > 0 {
+			return p
+		}
+	}
+	return os.Getpid()
+}
+
 // render substitutes {PID}, {NEW} and {OLD} placeholders.
 func render(tmpl, newBinary, execPath string) string {
 	return strings.NewReplacer(
-		"{PID}", strconv.Itoa(os.Getpid()),
+		"{PID}", strconv.Itoa(getTargetPID()),
 		"{NEW}", newBinary,
 		"{OLD}", execPath,
 	).Replace(tmpl)

@@ -23,9 +23,13 @@ import (
 // backing agent.Agent for TestAddSSHKeyWithOptions_ConfirmBeforeUse.
 func startTestAgent(t *testing.T, backing agent.Agent) string {
 	t.Helper()
-	tmpDir := t.TempDir()
+	tmpDir, err := os.MkdirTemp("", "ag-*")
+	if err != nil {
+		t.Fatalf("creating temp dir for agent: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
 
-	sockPath := filepath.Join(tmpDir, "agent.sock")
+	sockPath := filepath.Join(tmpDir, "a.sock")
 	l, err := net.Listen("unix", sockPath)
 	if err != nil {
 		t.Fatalf("listening on unix socket: %v", err)

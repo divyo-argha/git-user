@@ -300,7 +300,7 @@ func opRekey(store *config.Store, name, keyPath, passphrase string) (opResult, e
 		if agentErr := ssh.EnsureSSHAgent(); agentErr != nil {
 			agentNote = "⚠ New key was NOT loaded into any ssh-agent (no agent reachable) — the next push/pull may hang or fail asking for a passphrase.\n\n"
 		} else if err := ssh.AddSSHKeyWithOptions(newKeyPath, passphrase, ssh.AgentLoadOptions{LifetimeSecs: uint32(user.GetAgentTTL().Seconds()), ConfirmBeforeUse: user.AgentConfirmBeforeUse}); err != nil {
-			agentNote = fmt.Sprintf("⚠ Could not load new key into ssh-agent: %v\n\n", err)
+			agentNote = fmt.Sprintf("⚠ New key was NOT loaded into any ssh-agent: %v — the next push/pull may hang or fail asking for a passphrase.\n\n", err)
 		} else {
 			agentNote = "New key unlocked and loaded into ssh-agent.\n\n"
 		}

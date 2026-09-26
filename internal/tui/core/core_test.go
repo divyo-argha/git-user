@@ -457,3 +457,18 @@ func TestCheckVersionCmd_Offline(t *testing.T) {
 		t.Fatal("CheckVersionCmd returned nil")
 	}
 }
+
+func TestCheckVersionCmd_Resolves(t *testing.T) {
+	cmd := CheckVersionCmd("v1.0.0")
+	if cmd == nil {
+		t.Fatal("CheckVersionCmd returned nil")
+	}
+	msg := cmd()
+	vMsg, ok := msg.(VersionCheckMsg)
+	if !ok {
+		t.Fatalf("expected VersionCheckMsg, got %T", msg)
+	}
+	if vMsg.LatestVersion != "" && !vMsg.UpdateAvailable {
+		t.Errorf("expected update available for v1.0.0 against remote %s", vMsg.LatestVersion)
+	}
+}

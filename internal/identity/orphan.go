@@ -3,7 +3,6 @@ package identity
 import (
 	"fmt"
 	"os"
-	"syscall"
 	"time"
 )
 
@@ -92,27 +91,6 @@ func (od *OrphanDetector) CleanupOrphans(orphans []OrphanedKey) error {
 	return nil
 }
 
-// isProcessRunning checks if a process with the given PID is running
-func isProcessRunning(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-
-	// On Unix systems, we can check if a process exists by sending signal 0
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-
-	// Send signal 0 (null signal) to check if process exists
-	err = process.Signal(syscall.Signal(0))
-	if err != nil {
-		// Process doesn't exist or we don't have permission
-		return false
-	}
-
-	return true
-}
 
 // CleanupOrphanedStateEntries removes state entries for keys that no longer exist
 func (od *OrphanDetector) CleanupOrphanedStateEntries() error {

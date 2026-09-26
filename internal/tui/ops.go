@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
@@ -34,8 +35,17 @@ var (
 // non-interactive mode so it never blocks on a credential prompt.
 func runCaptured(dir, name string, args ...string) (string, error) {
 	cmd := exec.Command(name, args...)
+	if runtime.GOOS == "windows" {
+		lower := strings.ToLower(name)
+		if strings.HasSuffix(lower, ".cmd") || strings.HasSuffix(lower, ".bat") {
+			cmd = exec.Command("cmd.exe", append([]string{"/c", name}, args...)...)
+		}
+	}
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	cmd.Env = append(os.Environ(),
+		"GIT_TERMINAL_PROMPT=0",
+		fmt.Sprintf("GIT_USER_PARENT_PID=%d", os.Getpid()),
+	)
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf

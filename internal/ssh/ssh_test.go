@@ -244,12 +244,15 @@ func TestWithMockedAgent(t *testing.T) {
 }
 
 func TestEnsureSSHAgentError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows OpenSSH agent uses named pipes, so empty SSH_AUTH_SOCK is allowed")
+	}
 	// Temporarily clean/mock env to be empty
 	originalAuthSock := os.Getenv("SSH_AUTH_SOCK")
 	os.Setenv("SSH_AUTH_SOCK", "")
 	defer os.Setenv("SSH_AUTH_SOCK", originalAuthSock)
 
-	// Since we are running on mac (GOOS=darwin), it should warn and return an error
+	// Since we are running on Unix (GOOS=darwin/linux), it should warn and return an error
 	err := EnsureSSHAgent()
 	if err == nil {
 		t.Error("Expected error when SSH_AUTH_SOCK is empty")

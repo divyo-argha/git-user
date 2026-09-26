@@ -14,10 +14,9 @@ import (
 // The output is captured and returned as a Report so nothing leaks to the
 // terminal while the alt-screen is active.
 func opUpdate() (opResult, error) {
-	selfPath, err := exec.LookPath("git-user")
+	selfPath, err := os.Executable()
 	if err != nil {
-		// Try the running executable as fallback.
-		selfPath, err = os.Executable()
+		selfPath, err = exec.LookPath("git-user")
 		if err != nil {
 			return opResult{}, fmt.Errorf("could not locate git-user binary: %v", err)
 		}
@@ -41,10 +40,10 @@ func opUpdate() (opResult, error) {
 		return opResult{}, fmt.Errorf("update failed: %v", err)
 	}
 
-	// Detect new version from updated binary or captured output, and update in-memory version.
-	newVer := detectInstalledVersion(selfPath)
+	// Detect new version from captured output or updated binary, and update in-memory version.
+	newVer := extractUpdatedVersion(cleanOut)
 	if newVer == "" {
-		newVer = extractUpdatedVersion(cleanOut)
+		newVer = detectInstalledVersion(selfPath)
 	}
 	if newVer != "" {
 		version.SetVersion(newVer)
@@ -52,6 +51,8 @@ func opUpdate() (opResult, error) {
 
 	if cleanOut == "" {
 		cleanOut = "Update complete. Restart git-user to use the new version."
+	} else if strings.Contains(cleanOut, "background") || strings.Contains(cleanOut, "scheduled") {
+		cleanOut += "\n\nPress 'q' to exit git-user and complete the update."
 	}
 	return opResult{detail: cleanOut, showReport: true}, nil
 }

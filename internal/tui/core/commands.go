@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -172,40 +173,99 @@ func extractUsername(output, platform string) string {
 
 // ── Version Check Commands ───────────────────────────────────────────────────
 
-// CheckVersionCmd checks GitHub releases asynchronously for a newer version.
+func fetchGitHubRelease(client *http.Client) string {
+	req, err := http.NewRequest("GET", "https://api.github.com/repos/divyo-argha/git-user/releases/latest", nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("User-Agent", "git-user-tui")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+
+	var rel struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(rel.TagName)
+}
+
+func fetchNpmRelease(client *http.Client) string {
+	req, err := http.NewRequest("GET", "https://registry.npmjs.org/git-userhub/latest", nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("User-Agent", "git-user-tui")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+
+	var pkg struct {
+		Version string `json:"version"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&pkg); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(pkg.Version)
+}
+
+// CheckVersionCmd checks GitHub releases and the npm registry asynchronously for a newer version.
 // It fails silently if the network is unreachable or offline.
 func CheckVersionCmd(currentVersion string) tea.Cmd {
 	return func() tea.Msg {
 		client := &http.Client{
 			Timeout: 3 * time.Second,
 		}
-		req, err := http.NewRequest("GET", "https://api.github.com/repos/divyo-argha/git-user/releases/latest", nil)
-		if err != nil {
-			return VersionCheckMsg{CurrentVersion: currentVersion, UpdateAvailable: false}
-		}
-		req.Header.Set("User-Agent", "git-user-tui")
 
-		resp, err := client.Do(req)
-		if err != nil {
-			return VersionCheckMsg{CurrentVersion: currentVersion, UpdateAvailable: false}
-		}
-		defer resp.Body.Close()
+		var ghTag, npmTag string
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			ghTag = fetchGitHubRelease(client)
+		}()
+		go func() {
+			defer wg.Done()
+			npmTag = fetchNpmRelease(client)
+		}()
+		wg.Wait()
 
-		if resp.StatusCode != http.StatusOK {
-			return VersionCheckMsg{CurrentVersion: currentVersion, UpdateAvailable: false}
-		}
-
-		var rel struct {
-			TagName string `json:"tag_name"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil || rel.TagName == "" {
-			return VersionCheckMsg{CurrentVersion: currentVersion, UpdateAvailable: false}
+		bestTag := ghTag
+		if npmTag != "" {
+			if bestTag == "" || version.IsNewerVersion(npmTag, bestTag) {
+				bestTag = npmTag
+			}
 		}
 
-		updateAvailable := version.IsNewerVersion(rel.TagName, currentVersion)
+		if bestTag == "" {
+			return VersionCheckMsg{CurrentVersion: currentVersion, UpdateAvailable: false}
+		}
+
+		displayTag := bestTag
+		if !strings.HasPrefix(strings.ToLower(displayTag), "v") {
+			displayTag = "v" + displayTag
+		}
+
+		updateAvailable := version.IsNewerVersion(bestTag, currentVersion)
 		return VersionCheckMsg{
 			CurrentVersion:  currentVersion,
-			LatestVersion:   rel.TagName,
+			LatestVersion:   displayTag,
 			UpdateAvailable: updateAvailable,
 		}
 	}

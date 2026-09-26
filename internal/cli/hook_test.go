@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -43,7 +44,7 @@ func TestHookInstallUninstall(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm()&0111 == 0 {
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0111 == 0 {
 		t.Error("Hook file is not executable")
 	}
 

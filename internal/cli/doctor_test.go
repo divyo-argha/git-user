@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -186,6 +187,9 @@ func TestRunDoctor_FixResyncsGitConfig(t *testing.T) {
 // auto-correctable class doctor --fix handles: chmod'ing an insecure config
 // file back to 0600.
 func TestRunDoctor_FixCorrectsInsecurePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file-mode bits are unreliable on Windows")
+	}
 	setupTestEnv(t)
 
 	store, _ := config.Load()
@@ -270,6 +274,7 @@ func TestRunDoctor_SuggestsTokenWhenSSHFailsWithHTTPSRemote(t *testing.T) {
 		t.Skip("git not available")
 	}
 	tmpDir := setupTestEnv(t)
+	t.Setenv("SSH_AUTH_SOCK", "")
 
 	sshDir := filepath.Join(tmpDir, ".ssh")
 	_ = os.MkdirAll(sshDir, 0700)
