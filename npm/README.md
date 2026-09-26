@@ -40,6 +40,14 @@
 npm install -g git-userhub
 ```
 
+> 🪟 **Windows Users (PowerShell, Command Prompt, VS Code Terminal):**
+> - Runs natively on Windows (x64 and arm64) without requiring Git Bash, MSYS2, or WSL.
+> - Both `git-user` and the short alias `gu` are immediately available in PowerShell, CMD, and the VS Code terminal.
+> - If Windows PowerShell blocks running scripts (`git-user.ps1 cannot be loaded`), run this one-time command in PowerShell:
+>   ```powershell
+>   Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+>   ```
+
 ### 2. Register Your Identities
 ```bash
 git-user register
@@ -48,11 +56,16 @@ git-user register
 
 ### 3. Switch Instantly
 ```bash
-# Switch active identity globally
+# Switch active identity globally (works across all shells and VS Code immediately)
 git-user switch work
+# Or with the shorthand alias:
+gu switch work
 
-# Or switch for the current repository only
-git-user switch personal --local
+# Switch for the current repository only
+gu switch personal --local
+
+# Switch for the current terminal tab only (PowerShell / VS Code terminal / Bash / Zsh)
+gu switch -s work
 ```
 
 ### 4. Interactive Terminal UI (TUI)
@@ -102,12 +115,13 @@ git-user current                       # Print currently active identity
 git-user list                          # List all registered identities
 
 # Terminal Session Isolation (Multi-Terminal Workflows)
-command -v git-user >/dev/null 2>&1 && eval "$(git-user init 2>/dev/null)" # Enable seamless per-session switching (bash/zsh)
-git-user init cmd > "%USERPROFILE%\gu.cmd" # Enable seamless session switching in Windows cmd.exe
-git-user switch --session <name>       # Lock current terminal tab to an identity
-eval "$(git-user env <name>)"          # Export identity env vars directly
-git-user shell <name>                  # Launch an isolated subshell for an identity (supports cmd/bash/pwsh)
-git-user exec <name> -- <cmd...>       # Run a single command under an identity
+command -v git-user >/dev/null 2>&1 && eval "$(git-user init 2>/dev/null)" # Enable per-session switching (bash/zsh)
+git-user init powershell | Out-String | Invoke-Expression                  # Enable per-session switching in active PowerShell / VS Code tab
+git-user init cmd > "%USERPROFILE%\gu.cmd"                                # Enable seamless session switching in Windows cmd.exe
+git-user switch --session <name>                                          # Lock current terminal tab to an identity (alias: gu switch -s <name>)
+eval "$(git-user env <name>)"                                             # Export identity env vars directly
+git-user shell <name>                                                     # Launch an isolated subshell for an identity (supports cmd/bash/pwsh)
+git-user exec <name> -- <cmd...>                                          # Run a single command under an identity
 
 # Directory & Auto-Switching
 git-user bind-path <name> <dir>        # Bind directory to auto-switch identity

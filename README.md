@@ -141,7 +141,8 @@ npm install -g git-userhub
 ```
 > Published as `git-userhub` on npm.
 > After install, run `git-user` (or the shorthand alias `gu`).
-> Windows (x64/arm64) is supported through this route.
+> Runs natively on Windows in **PowerShell**, **Command Prompt (CMD)**, and the **VS Code terminal** without requiring Git Bash or WSL.
+> If Windows PowerShell restricts script execution, run once: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 > Keep it current with `git-user --update` (npm-managed installs update via npm).
 
 </td>
@@ -730,6 +731,7 @@ ssh-keygen missing) are still only reported, never silently fixed.
 | `Permission denied` during install | Expected — installer needs sudo for `/usr/local/bin` |
 | Git asks for credentials on push | Run `git-user fix-remote` to convert HTTPS → SSH |
 | Git is not installed or not found | Run `git-user install-git` (on Windows uses verified Microsoft `winget`; on macOS/Linux suggests official package manager) |
+| Windows PowerShell blocks `git-user.ps1` (`running scripts is disabled`) | Run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once in PowerShell |
 
 ---
 
