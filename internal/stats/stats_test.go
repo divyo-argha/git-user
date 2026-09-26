@@ -334,7 +334,20 @@ func requireGPG(t *testing.T) {
 // which may default gpg.format to "ssh" on some machines.
 func genGPGKey(t *testing.T, email string) (gnupgHome, fingerprint string) {
 	t.Helper()
-	gnupgHome = t.TempDir()
+	if runtime.GOOS == "darwin" {
+		// On macOS, unix domain socket paths have a 104-byte limit (sun_path).
+		// t.TempDir() in /var/folders/... easily exceeds 104 bytes with long test names,
+		// causing gpg to fail with "can't connect to the gpg-agent: File name too long".
+		var err error
+		gnupgHome, err = os.MkdirTemp("/tmp", "gpg-test")
+		if err != nil {
+			t.Fatalf("creating gpg temp dir: %v", err)
+		}
+		t.Cleanup(func() { _ = os.RemoveAll(gnupgHome) })
+	} else {
+		gnupgHome = t.TempDir()
+	}
+	_ = os.Chmod(gnupgHome, 0700)
 	t.Setenv("GNUPGHOME", gnupgHome)
 
 	cmd := exec.Command("gpg", "--batch", "--passphrase", "", "--quick-generate-key", "Test Signer <"+email+">", "ed25519", "sign", "0")
