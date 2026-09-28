@@ -448,6 +448,48 @@ func DefaultPushInsteadOfHosts() []string {
 	return []string{"github.com", "gitlab.com", "bitbucket.org"}
 }
 
+// ConfigureInsteadOf configures Git to transparently route ALL operations
+// (fetch, pull, clone, push) for https://<host>/ over SSH (git@<host>:) using
+// url.<sshBase>.insteadOf — unlike ConfigurePushInsteadOf, which only
+// redirects push. Git resolves this rewrite whenever it reports the remote
+// too (git remote -v / get-url will show the SSH form for that host): there
+// is no git mechanism to redirect fetch/pull over SSH without that. The
+// stored remote.<name>.url itself is never modified — this is reversible via
+// RemoveInsteadOf without touching the remote again.
+func ConfigureInsteadOf(host string, local bool) error {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return fmt.Errorf("host cannot be empty")
+	}
+	sshBase := fmt.Sprintf("git@%s:", host)
+	httpsBase := fmt.Sprintf("https://%s/", host)
+	return setConfig(fmt.Sprintf("url.%s.insteadOf", sshBase), httpsBase, local)
+}
+
+// RemoveInsteadOf removes an insteadOf rewrite for a given host.
+func RemoveInsteadOf(host string, local bool) {
+	sshBase := fmt.Sprintf("git@%s:", host)
+	unsetConfig(fmt.Sprintf("url.%s.insteadOf", sshBase), local)
+}
+
+// HTTPSRemoteHost extracts the host from an https:// remote URL (e.g.
+// "https://github.com/owner/repo.git" -> "github.com"), stripping any
+// embedded credentials. Returns "" if url isn't an https:// URL.
+func HTTPSRemoteHost(httpsURL string) string {
+	if !strings.HasPrefix(httpsURL, "https://") {
+		return ""
+	}
+	rest := strings.TrimPrefix(httpsURL, "https://")
+	host := rest
+	if idx := strings.Index(rest, "/"); idx >= 0 {
+		host = rest[:idx]
+	}
+	if atIdx := strings.LastIndex(host, "@"); atIdx >= 0 {
+		host = host[atIdx+1:]
+	}
+	return host
+}
+
 // HasHTTPSPushRemotes reports whether any remote in the current repository
 // resolves its push URL to HTTPS (meaning pushes are not protected by SSH).
 func HasHTTPSPushRemotes() bool {

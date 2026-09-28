@@ -59,7 +59,7 @@ func (a *App) handleTaskResult(msg core.TaskResultMsg) (tea.Model, tea.Cmd) {
 		}
 		if git.HasHTTPSPushRemotes() {
 			cmds = append(cmds, pushCmd(screens.NewConfirm(
-				"This repo pushes over HTTPS. Route push over SSH for passwordless push?",
+				"This repo uses HTTPS. Route push and pull over SSH automatically (no URL change)?",
 				"switch-https",
 				a.theme,
 			)))

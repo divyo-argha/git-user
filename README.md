@@ -878,7 +878,7 @@ actual fix instead of only ever repeating "convert to SSH."
 ~/.ssh/git_<name>.pub      ← public key (what you add to GitHub/GitLab)
 ```
 
-Your repositories are never touched. Only global git config changes.
+Identity switching itself only touches global git config — your repositories are untouched by `switch`/`logout`. The one exception is `fix-remote` (and the TUI's matching "Route push and pull over SSH?" prompt): by default it writes a repo-local `url.<ssh>.insteadOf <https>` rule to that one repo's `.git/config` so push/pull/fetch route over SSH without changing the remote URL itself (`git remote -v` will then show the SSH form for that host, though the stored `remote.<name>.url` value is never modified). `fix-remote --global` instead writes the same kind of rule to `~/.gitconfig`, affecting every repo on the machine.
 
 ---
 

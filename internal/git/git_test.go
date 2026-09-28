@@ -76,6 +76,74 @@ func TestConvertHTTPSToSSH(t *testing.T) {
 	}
 }
 
+func TestHTTPSRemoteHost(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{"https://github.com/user/repo.git", "github.com"},
+		{"https://gitlab.com/org/project.git", "gitlab.com"},
+		{"https://user:token@github.com/foo/bar.git", "github.com"},
+		{"https://github.com/", "github.com"},
+		// not an https URL — no host
+		{"git@github.com:user/repo.git", ""},
+		{"", ""},
+	}
+	for _, c := range cases {
+		if got := git.HTTPSRemoteHost(c.input); got != c.want {
+			t.Errorf("HTTPSRemoteHost(%q) = %q, want %q", c.input, got, c.want)
+		}
+	}
+}
+
+// TestConfigureInsteadOf_LocalScope guards against ConfigureInsteadOf
+// accidentally writing to global config when asked for local (repo) scope —
+// a regression here would mean the TUI's per-repo "fix remote" leaks into
+// every other repo on the machine.
+func TestConfigureInsteadOf_LocalScope(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	dir := testutil.Sandbox(t)
+	_ = exec.Command("git", "config", "--global", "--add", "safe.directory", "*").Run()
+
+	repoDir := filepath.Join(dir, "repo")
+	if err := os.MkdirAll(repoDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(repoDir); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(oldWd)
+	if err := exec.Command("git", "init", "-q").Run(); err != nil {
+		t.Fatalf("git init: %v", err)
+	}
+
+	if err := git.ConfigureInsteadOf("github.com", true); err != nil {
+		t.Fatalf("ConfigureInsteadOf: %v", err)
+	}
+
+	// Must be present in the repo's local config...
+	out, err := exec.Command("git", "config", "--local", "--get", "url.git@github.com:.insteadOf").Output()
+	if err != nil || strings.TrimSpace(string(out)) != "https://github.com/" {
+		t.Errorf("expected local insteadOf rule, got %q (err: %v)", strings.TrimSpace(string(out)), err)
+	}
+
+	// ...and absent from global config.
+	if err := exec.Command("git", "config", "--global", "--get", "url.git@github.com:.insteadOf").Run(); err == nil {
+		t.Error("expected no global insteadOf rule when local scope was requested")
+	}
+
+	git.RemoveInsteadOf("github.com", true)
+	if err := exec.Command("git", "config", "--local", "--get", "url.git@github.com:.insteadOf").Run(); err == nil {
+		t.Error("expected RemoveInsteadOf to clear the local rule")
+	}
+}
+
 func TestCurrentBranchAndRepo(t *testing.T) {
 	if !git.IsInstalled() {
 		t.Skip("git not installed")

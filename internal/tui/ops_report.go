@@ -261,7 +261,14 @@ func opLog() (opResult, error) {
 	return opResult{detail: report.String(), showReport: true}, nil
 }
 
-// opFixRemote converts HTTPS remotes to SSH.
+// opFixRemote routes this repo's HTTPS remotes over SSH for every
+// operation (push, pull, fetch, clone) without rewriting the remote URL
+// itself — it sets a local (repo-scoped) `url.<ssh>.insteadOf <https>` rule
+// per host instead of running `git remote set-url`. The rule is reversible
+// (RemoveInsteadOf) and only affects this one repository. Note: because git
+// resolves insteadOf rewrites when reporting a remote too, `git remote -v`
+// will show the SSH form for these hosts afterward even though
+// remote.<name>.url in .git/config is never touched.
 func opFixRemote() (opResult, error) {
 	if !git.IsInstalled() {
 		return opResult{}, fmt.Errorf("git is not installed")
@@ -273,32 +280,31 @@ func opFixRemote() (opResult, error) {
 	if err != nil || len(remotes) == 0 {
 		return opResult{}, fmt.Errorf("no remotes found")
 	}
-	converted := 0
+	fixed := 0
+	seenHosts := map[string]bool{}
 	report := ""
 	for _, remote := range remotes {
 		url, err := git.GetRemoteURL(remote)
-		if err != nil {
+		if err != nil || !strings.HasPrefix(url, "https://") {
 			continue
 		}
-		if !strings.HasPrefix(url, "https://") {
+		host := git.HTTPSRemoteHost(url)
+		if host == "" || seenHosts[host] {
 			continue
 		}
-		sshURL, ok := git.ConvertHTTPSToSSH(url)
-		if !ok {
-			report += fmt.Sprintf("%s: could not convert %s\n", remote, url)
+		seenHosts[host] = true
+		if err := git.ConfigureInsteadOf(host, true); err != nil {
+			report += fmt.Sprintf("%s: failed to configure SSH routing for %s\n", remote, host)
 			continue
 		}
-		if err := git.SetRemoteURL(remote, sshURL); err != nil {
-			report += fmt.Sprintf("%s: failed to update\n", remote)
-			continue
-		}
-		report += fmt.Sprintf("%s: %s → %s\n", remote, url, sshURL)
-		converted++
+		report += fmt.Sprintf("%s (%s): now routed over SSH for push, pull, and fetch\n", remote, host)
+		fixed++
 	}
-	if converted == 0 {
+	if fixed == 0 {
 		report = "All remotes already use SSH.\n"
 	} else {
-		report = fmt.Sprintf("Converted %d remote(s) to SSH.\n", converted) + report
+		report = fmt.Sprintf("Configured %d host(s) in this repo to route over SSH.\n", fixed) + report +
+			"\nThe stored remote URL is unchanged, but `git remote -v` will now show the SSH form for these hosts.\n"
 	}
 	return opResult{detail: report, showReport: true}, nil
 }
