@@ -57,6 +57,39 @@ func TestPowerShellScript_CommandResolution(t *testing.T) {
 	}
 }
 
+func TestPowerShellScript_ExeLookupUsesAll(t *testing.T) {
+	// Without -All, Get-Command collapses to the single highest-precedence
+	// match for a name before any Where-Object filter runs — and since
+	// function git-user/git is itself defined in this same script, that
+	// highest-precedence match is always the function. Where-Object then
+	// filters it out, so $exe/$gitExe would always be empty and every
+	// invocation would fail with "command not found", regardless of the
+	// gu/Get-Unique alias issue. -All is required so the filter has the
+	// real Application/ExternalScript entries to choose from.
+	script := Script(PowerShell)
+	if !strings.Contains(script, "Get-Command git-user -All") {
+		t.Errorf("powerShellInitScript's git-user function must resolve the real binary with Get-Command -All: %s", script)
+	}
+	if !strings.Contains(script, "Get-Command git -All") {
+		t.Errorf("powerShellInitScript's git function must resolve the real git binary with Get-Command -All: %s", script)
+	}
+}
+
+func TestPowerShellScript_ClearsBuiltinGuAlias(t *testing.T) {
+	script := Script(PowerShell)
+	removeIdx := strings.Index(script, "Remove-Item -Path Alias:gu")
+	if removeIdx == -1 {
+		t.Fatalf("powerShellInitScript should clear the built-in gu alias before defining function gu: %s", script)
+	}
+	funcIdx := strings.Index(script, "function gu {")
+	if funcIdx == -1 {
+		t.Fatalf("powerShellInitScript should define function gu: %s", script)
+	}
+	if removeIdx > funcIdx {
+		t.Errorf("Remove-Item Alias:gu must appear before function gu is defined, else the built-in alias still shadows it: %s", script)
+	}
+}
+
 func TestResolveShellPath(t *testing.T) {
 	sh := ResolveShellPath()
 	if sh == "" {
