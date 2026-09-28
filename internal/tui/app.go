@@ -112,6 +112,7 @@ func (a *App) runTaskCmd(kind, name string, fn func() (opResult, error)) tea.Cmd
 			Success:    err == nil,
 			Detail:     res.detail,
 			ShowReport: res.showReport,
+			CopyText:   res.copyText,
 			Err:        err,
 		}
 	}

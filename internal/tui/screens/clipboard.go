@@ -8,6 +8,11 @@ import (
 	"github.com/atotto/clipboard"
 )
 
+// clipboardWriteFn is the seam copyToClipboardCmd calls through — swapped in
+// tests to assert on exactly what text was copied without touching a real
+// clipboard.
+var clipboardWriteFn = ClipboardWrite
+
 // ClipboardWrite writes text to the system clipboard.
 // It uses native clipboard APIs via github.com/atotto/clipboard (direct Win32 API on Windows,
 // pbcopy on macOS, wl-copy/xclip/xsel on Linux), with fallbacks to CLI tools.

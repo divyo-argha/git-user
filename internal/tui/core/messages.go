@@ -131,6 +131,7 @@ type TaskResultMsg struct {
 	Success    bool
 	Detail     string // report text (shown on a Report screen when ShowReport)
 	ShowReport bool   // push a Report screen with Detail
+	CopyText   string // if set, what the Report screen's 'c' key copies instead of the full Detail text
 	Err        error
 }
 

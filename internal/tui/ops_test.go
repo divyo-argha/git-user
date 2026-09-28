@@ -398,6 +398,43 @@ func TestOpAttachKeyGenerateUsesProvidedKeyPath(t *testing.T) {
 	}
 }
 
+// TestOpAttachKeyGenerateCopyTextIsJustThePublicKey guards against the 'c'
+// key on the resulting Report screen copying the whole multi-section report
+// (identity name, key path, activation notes, warnings) instead of exactly
+// the line a user pastes into GitHub/GitLab/Bitbucket's "add SSH key" field.
+func TestOpAttachKeyGenerateCopyTextIsJustThePublicKey(t *testing.T) {
+	if _, err := exec.LookPath("ssh-keygen"); err != nil {
+		t.Skip("ssh-keygen not available")
+	}
+	withTempConfig(t)
+
+	store, _ := config.Load()
+	res, err := opAttachKey(store, "dev", "dev@example.com", "register", "generate", "", "", false)
+	if err != nil {
+		t.Fatalf("opAttachKey failed: %v", err)
+	}
+
+	keyPath, err := config.DefaultSSHKeyPath("dev")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantPub, err := os.ReadFile(keyPath + ".pub")
+	if err != nil {
+		t.Fatalf("reading generated public key: %v", err)
+	}
+	wantKey := strings.TrimSpace(string(wantPub))
+
+	if res.copyText != wantKey {
+		t.Errorf("copyText = %q, want exactly the public key %q", res.copyText, wantKey)
+	}
+	if strings.Contains(res.copyText, "Identity created") || strings.Contains(res.copyText, "SSH key:") {
+		t.Errorf("copyText should contain only the key, not report prose: %q", res.copyText)
+	}
+	if !strings.HasPrefix(res.copyText, "ssh-ed25519 ") {
+		t.Errorf("expected copyText to be a single ssh-ed25519 public key line, got %q", res.copyText)
+	}
+}
+
 // TestOpRekeyRotatesActuallyBoundKey guards against opRekey assuming
 // git_<name> is always the identity's key. An identity bound to a
 // custom-named key (via "use existing key") must have THAT file rotated —
@@ -456,6 +493,12 @@ func TestOpRekeyRotatesActuallyBoundKey(t *testing.T) {
 	defaultPath, _ := config.DefaultSSHKeyPath("dev")
 	if _, err := os.Stat(defaultPath); err == nil {
 		t.Errorf("expected no file at the unrelated default path %s, but one was created", defaultPath)
+	}
+
+	// copyText must be exactly the new public key, not the whole rotation
+	// report (rotation notes, agent status, platform instructions).
+	if res.copyText != strings.TrimSpace(string(newPub)) {
+		t.Errorf("copyText = %q, want exactly the new public key %q", res.copyText, strings.TrimSpace(string(newPub)))
 	}
 }
 
@@ -531,6 +574,50 @@ func TestOpSwitchWarnsWhenAgentUnreachable(t *testing.T) {
 	}
 	if !strings.Contains(res.detail, "NOT loaded into any ssh-agent") {
 		t.Errorf("expected an explicit warning that the key was not loaded into any ssh-agent, got detail:\n%s", res.detail)
+	}
+}
+
+// TestOpPubkeyCopyTextIsJustThePublicKey guards against the "Show public
+// key" report's 'c' key copying the whole formatted report (header,
+// fingerprint, platform instructions) instead of exactly the pasteable key
+// line.
+func TestOpPubkeyCopyTextIsJustThePublicKey(t *testing.T) {
+	if _, err := exec.LookPath("ssh-keygen"); err != nil {
+		t.Skip("ssh-keygen not available")
+	}
+	withTempConfig(t)
+
+	keyPath, err := config.DefaultSSHKeyPath("dev")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(keyPath), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := exec.Command("ssh-keygen", "-t", "ed25519", "-C", "dev@example.com", "-f", keyPath, "-N", "").Run(); err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	wantPub, err := os.ReadFile(keyPath + ".pub")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantKey := strings.TrimSpace(string(wantPub))
+
+	store, _ := config.Load()
+	_ = store.AddUser("dev", "dev@example.com")
+	_ = store.BindSSHKey("dev", keyPath)
+	_ = store.SetCurrent("dev")
+	_ = config.Save(store)
+
+	res, err := opPubkey(store, "dev")
+	if err != nil {
+		t.Fatalf("opPubkey failed: %v", err)
+	}
+	if res.copyText != wantKey {
+		t.Errorf("copyText = %q, want exactly the public key %q", res.copyText, wantKey)
+	}
+	if strings.Contains(res.copyText, "PUBLIC KEY") || strings.Contains(res.copyText, "Fingerprint") {
+		t.Errorf("copyText should contain only the key, not report prose: %q", res.copyText)
 	}
 }
 

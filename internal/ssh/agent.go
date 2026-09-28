@@ -90,6 +90,16 @@ func SSHKeyFingerprint(keyPath string) (string, error) {
 	return ssh.FingerprintSHA256(pubKey), nil
 }
 
+// ReadPublicKey returns the trimmed content of keyPath+".pub" — the exact
+// line to paste into a GitHub/GitLab/Bitbucket "add SSH key" field.
+func ReadPublicKey(keyPath string) (string, error) {
+	data, err := os.ReadFile(keyPath + ".pub")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(data)), nil
+}
+
 func LoadedSSHKeyFingerprints() ([]string, error) {
 	EnsureSSHBinariesOnPath()
 	client, conn, err := GetAgentClient()

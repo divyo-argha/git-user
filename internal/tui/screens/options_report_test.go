@@ -113,3 +113,50 @@ func TestReportRenderAndScroll(t *testing.T) {
 	}
 }
 
+func TestReportCopy_WholeReportByDefault(t *testing.T) {
+	th := theme.DefaultTheme()
+	r := NewReport("Report", "line one\nline two\nline three", th)
+
+	var copied string
+	orig := clipboardWriteFn
+	clipboardWriteFn = func(text string) error { copied = text; return nil }
+	defer func() { clipboardWriteFn = orig }()
+
+	_, cmd := r.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	if cmd == nil {
+		t.Fatal("expected cmd on 'c'")
+	}
+	cmd()
+
+	want := "line one\nline two\nline three"
+	if copied != want {
+		t.Errorf("expected whole report copied without WithCopyText, got %q, want %q", copied, want)
+	}
+}
+
+func TestReportCopy_ScopedToCopyTextWhenSet(t *testing.T) {
+	th := theme.DefaultTheme()
+	r := NewReport("Public Key", "PUBLIC KEY — dev (dev@example.com)\n\nssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIexample dev@example.com\n\nFingerprint: SHA256:abc", th).
+		WithCopyText("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIexample dev@example.com")
+
+	var copied string
+	orig := clipboardWriteFn
+	clipboardWriteFn = func(text string) error { copied = text; return nil }
+	defer func() { clipboardWriteFn = orig }()
+
+	_, cmd := r.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	if cmd == nil {
+		t.Fatal("expected cmd on 'c'")
+	}
+	cmd()
+
+	want := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIexample dev@example.com"
+	if copied != want {
+		t.Errorf("expected only the public key copied, got %q, want %q", copied, want)
+	}
+
+	if !strings.Contains(r.ShortHelp(), "copy key") {
+		t.Errorf("expected ShortHelp to mention copying the key when WithCopyText is set, got %q", r.ShortHelp())
+	}
+}
+

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
@@ -94,10 +93,12 @@ func opRegisterFinish(store *config.Store, name, email string, isTemp bool, keyP
 	}
 
 	report := fmt.Sprintf("Identity created: %s (%s)\n", name, email)
+	var pubKey string
 	if keyPath != "" {
 		report += fmt.Sprintf("SSH key: %s\n", keyPath)
-		if pub, err := os.ReadFile(keyPath + ".pub"); err == nil {
-			report += "\nPublic key:\n" + strings.TrimSpace(string(pub)) + "\n"
+		if pub, err := ssh.ReadPublicKey(keyPath); err == nil {
+			pubKey = pub
+			report += "\nPublic key (press c to copy):\n" + pubKey + "\n"
 		}
 	} else {
 		report += "No SSH key set — bind one later from the profile detail view.\n"
@@ -110,7 +111,7 @@ func opRegisterFinish(store *config.Store, name, email string, isTemp bool, keyP
 	for _, w := range activateWarnings {
 		report += "⚠ " + w + "\n"
 	}
-	return opResult{detail: report, showReport: true}, nil
+	return opResult{detail: report, showReport: true, copyText: pubKey}, nil
 }
 
 // opBind associates an existing SSH key with an identity.
@@ -312,14 +313,16 @@ func opRekey(store *config.Store, name, keyPath, passphrase string) (opResult, e
 	}
 
 	report := fmt.Sprintf("SSH key rotated successfully for %s\nOld key backed up with .backup extension\n\n", name) + agentNote + signKeyNote
-	if pub, err := os.ReadFile(newKeyPath + ".pub"); err == nil {
-		report += "REPLACE YOUR OLD KEY WITH THIS NEW PUBLIC KEY\n"
-		report += strings.TrimSpace(string(pub)) + "\n\n"
+	var pubKey string
+	if pub, err := ssh.ReadPublicKey(newKeyPath); err == nil {
+		pubKey = pub
+		report += "REPLACE YOUR OLD KEY WITH THIS NEW PUBLIC KEY (press c to copy)\n"
+		report += pubKey + "\n\n"
 	}
 	report += "• GitHub: Settings → SSH and GPG keys → Delete old key → Add new key\n"
 	report += "• GitLab: Preferences → SSH Keys → Remove old key → Add new key\n"
 	report += "• Bitbucket: Personal settings → SSH keys → Delete old → Add new\n"
-	return opResult{detail: report, showReport: true}, nil
+	return opResult{detail: report, showReport: true, copyText: pubKey}, nil
 }
 
 // opDeleteBackupKey securely deletes the pre-rotation ".backup" key pair left

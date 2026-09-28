@@ -17,9 +17,13 @@ import (
 
 // opResult carries the outcome of an in-TUI operation. Detail is rendered on a
 // Report screen when ShowReport is true; otherwise it is shown as a toast.
+// copyText, when non-empty, is what the Report screen's 'c' key copies
+// instead of its full displayed text (e.g. just the public key line rather
+// than the whole report).
 type opResult struct {
 	detail     string
 	showReport bool
+	copyText   string
 }
 
 // Sentinel errors used to signal that the UI must prompt for more input.

@@ -55,7 +55,7 @@ func (a *App) handleTaskResult(msg core.TaskResultMsg) (tea.Model, tea.Cmd) {
 		}
 		cmds = append(cmds, core.ShowToastCmd(first, theme.ToastStyleSuccess, 3*time.Second))
 		if msg.ShowReport {
-			cmds = append(cmds, pushCmd(screens.NewReport(titleForKind(msg.Kind), msg.Detail, a.theme)))
+			cmds = append(cmds, pushCmd(screens.NewReport(titleForKind(msg.Kind), msg.Detail, a.theme).WithCopyText(msg.CopyText)))
 		}
 		if git.HasHTTPSPushRemotes() {
 			cmds = append(cmds, pushCmd(screens.NewConfirm(
@@ -83,13 +83,13 @@ func (a *App) handleTaskResult(msg core.TaskResultMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		if msg.ShowReport {
-			cmds = append(cmds, pushCmd(screens.NewReport(titleForKind(msg.Kind), msg.Detail, a.theme)))
+			cmds = append(cmds, pushCmd(screens.NewReport(titleForKind(msg.Kind), msg.Detail, a.theme).WithCopyText(msg.CopyText)))
 		} else {
 			cmds = append(cmds, core.ShowToastCmd(firstLine(msg.Detail), theme.ToastStyleSuccess, 3*time.Second))
 		}
 	default:
 		if msg.ShowReport {
-			cmds = append(cmds, pushCmd(screens.NewReport(titleForKind(msg.Kind), msg.Detail, a.theme)))
+			cmds = append(cmds, pushCmd(screens.NewReport(titleForKind(msg.Kind), msg.Detail, a.theme).WithCopyText(msg.CopyText)))
 		} else {
 			cmds = append(cmds, core.ShowToastCmd(firstLine(msg.Detail), theme.ToastStyleSuccess, 3*time.Second))
 		}

@@ -14,6 +14,7 @@ import (
 type Report struct {
 	title    string
 	lines    []string
+	copyText string // if set, what 'c' copies instead of the full displayed text
 	offset   int
 	maxLines int // updated each render, used to clamp scroll in Update
 	theme    theme.Theme
@@ -29,12 +30,23 @@ func NewReport(title string, text string, th theme.Theme) *Report {
 	}
 }
 
+// WithCopyText restricts what the 'c' key copies to just this text (e.g. a
+// public key line) instead of the screen's full displayed content.
+func (r *Report) WithCopyText(text string) *Report {
+	r.copyText = text
+	return r
+}
+
 func (r *Report) Init() tea.Cmd { return nil }
 
 func (r *Report) Title() string { return r.title }
 
 func (r *Report) ShortHelp() string {
-	return "↑/↓/j/k•scroll  ctrl+d/u•page  c•copy  Enter/Esc•back  q•quit"
+	copyHint := "c•copy"
+	if r.copyText != "" {
+		copyHint = "c•copy key"
+	}
+	return "↑/↓/j/k•scroll  ctrl+d/u•page  " + copyHint + "  Enter/Esc•back  q•quit"
 }
 
 // maxScrollOffset returns the highest valid offset for the current maxLines.
@@ -91,8 +103,12 @@ func (r *Report) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 				r.offset = 0
 			}
 
-		// Copy report content to clipboard.
+		// Copy report content to clipboard — just copyText when set (e.g. a
+		// public key line), otherwise the whole displayed report.
 		case "c", "C":
+			if r.copyText != "" {
+				return r, copyToClipboardCmd([]string{r.copyText})
+			}
 			return r, copyToClipboardCmd(r.lines)
 		}
 	}
@@ -166,7 +182,7 @@ func (r *Report) View(width, height int) string {
 func copyToClipboardCmd(lines []string) tea.Cmd {
 	return func() tea.Msg {
 		text := strings.Join(lines, "\n")
-		if err := ClipboardWrite(text); err != nil {
+		if err := clipboardWriteFn(text); err != nil {
 			return core.ToastMsg{
 				Text:     "Copy failed: " + err.Error(),
 				Style:    theme.ToastStyleError,
