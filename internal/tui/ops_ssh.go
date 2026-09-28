@@ -93,12 +93,12 @@ func opRegisterFinish(store *config.Store, name, email string, isTemp bool, keyP
 	}
 
 	report := fmt.Sprintf("Identity created: %s (%s)\n", name, email)
-	var pubKey string
+	var copyKey string
 	if keyPath != "" {
 		report += fmt.Sprintf("SSH key: %s\n", keyPath)
 		if pub, err := ssh.ReadPublicKey(keyPath); err == nil {
-			pubKey = pub
-			report += "\nPublic key (press c to copy):\n" + pubKey + "\n"
+			copyKey = ssh.PublicKeyAuthPart(pub)
+			report += "\nPublic key (press c to copy, without the email comment):\n" + pub + "\n"
 		}
 	} else {
 		report += "No SSH key set — bind one later from the profile detail view.\n"
@@ -111,7 +111,7 @@ func opRegisterFinish(store *config.Store, name, email string, isTemp bool, keyP
 	for _, w := range activateWarnings {
 		report += "⚠ " + w + "\n"
 	}
-	return opResult{detail: report, showReport: true, copyText: pubKey}, nil
+	return opResult{detail: report, showReport: true, copyText: copyKey}, nil
 }
 
 // opBind associates an existing SSH key with an identity.
@@ -313,16 +313,16 @@ func opRekey(store *config.Store, name, keyPath, passphrase string) (opResult, e
 	}
 
 	report := fmt.Sprintf("SSH key rotated successfully for %s\nOld key backed up with .backup extension\n\n", name) + agentNote + signKeyNote
-	var pubKey string
+	var copyKey string
 	if pub, err := ssh.ReadPublicKey(newKeyPath); err == nil {
-		pubKey = pub
-		report += "REPLACE YOUR OLD KEY WITH THIS NEW PUBLIC KEY (press c to copy)\n"
-		report += pubKey + "\n\n"
+		copyKey = ssh.PublicKeyAuthPart(pub)
+		report += "REPLACE YOUR OLD KEY WITH THIS NEW PUBLIC KEY (press c to copy, without the email comment)\n"
+		report += pub + "\n\n"
 	}
 	report += "• GitHub: Settings → SSH and GPG keys → Delete old key → Add new key\n"
 	report += "• GitLab: Preferences → SSH Keys → Remove old key → Add new key\n"
 	report += "• Bitbucket: Personal settings → SSH keys → Delete old → Add new\n"
-	return opResult{detail: report, showReport: true, copyText: pubKey}, nil
+	return opResult{detail: report, showReport: true, copyText: copyKey}, nil
 }
 
 // opDeleteBackupKey securely deletes the pre-rotation ".backup" key pair left

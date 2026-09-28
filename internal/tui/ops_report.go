@@ -30,7 +30,7 @@ func opPubkey(store *config.Store, name string) (opResult, error) {
 		return opResult{}, fmt.Errorf("public key not found at %s", pubKeyPath)
 	}
 	report := fmt.Sprintf("PUBLIC KEY — %s (%s)\n\n", user.Name, user.Email)
-	report += "Press c to copy just the key below.\n\n"
+	report += "Press c to copy just the key below (without the email comment).\n\n"
 	report += pubKey + "\n"
 	if fp, err := runCaptured("", "ssh-keygen", "-lf", pubKeyPath); err == nil {
 		report += "\nFingerprint: " + strings.TrimSpace(fp) + "\n"
@@ -41,7 +41,7 @@ func opPubkey(store *config.Store, name string) (opResult, error) {
 	report += "  Bitbucket: Personal settings → SSH keys → Add key\n"
 	report += "\nThe same public key can be added to multiple platforms.\n"
 	report += "The private key stays on your machine and is never shared.\n"
-	return opResult{detail: report, showReport: true, copyText: pubKey}, nil
+	return opResult{detail: report, showReport: true, copyText: ssh.PublicKeyAuthPart(pubKey)}, nil
 }
 
 // opCheckSSH tests the SSH connection for an identity. The passphrase is

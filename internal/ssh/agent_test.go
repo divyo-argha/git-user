@@ -172,3 +172,71 @@ func TestSSHAddArgsAppleKeychain(t *testing.T) {
 		t.Errorf("sshAddArgs with useAppleKeychain=true: --apple-use-keychain present=%v, want %v (GOOS-dependent)", hasFlag, wantFlag)
 	}
 }
+
+func TestReadPublicKey(t *testing.T) {
+	dir := t.TempDir()
+	keyPath := filepath.Join(dir, "id_ed25519")
+	content := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFucYcrm8qqWWHETpz4Sp7jlFD7RZ15clPQG4hVv7fiY dev@example.com\n"
+	if err := os.WriteFile(keyPath+".pub", []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := ReadPublicKey(keyPath)
+	if err != nil {
+		t.Fatalf("ReadPublicKey: %v", err)
+	}
+	want := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFucYcrm8qqWWHETpz4Sp7jlFD7RZ15clPQG4hVv7fiY dev@example.com"
+	if got != want {
+		t.Errorf("ReadPublicKey() = %q, want %q", got, want)
+	}
+
+	if _, err := ReadPublicKey(filepath.Join(dir, "missing")); err == nil {
+		t.Error("expected an error reading a nonexistent public key")
+	}
+}
+
+// TestPublicKeyAuthPart guards against the "add SSH key" copy action
+// including the trailing comment (this tool sets it to the identity's
+// email) — the comment plays no part in SSH authentication, and some
+// platforms expose added keys verbatim via a public API, so pasting the
+// comment along with the key would leak the email unnecessarily.
+func TestPublicKeyAuthPart(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "type, blob, and email comment",
+			input: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFucYcrm8qqWWHETpz4Sp7jlFD7RZ15clPQG4hVv7fiY dev@example.com",
+			want:  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFucYcrm8qqWWHETpz4Sp7jlFD7RZ15clPQG4hVv7fiY",
+		},
+		{
+			name:  "type, blob, and multi-word comment",
+			input: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFucYcrm8qqWWHETpz4Sp7jlFD7RZ15clPQG4hVv7fiY dev laptop key",
+			want:  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFucYcrm8qqWWHETpz4Sp7jlFD7RZ15clPQG4hVv7fiY",
+		},
+		{
+			name:  "no comment at all",
+			input: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFucYcrm8qqWWHETpz4Sp7jlFD7RZ15clPQG4hVv7fiY",
+			want:  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFucYcrm8qqWWHETpz4Sp7jlFD7RZ15clPQG4hVv7fiY",
+		},
+		{
+			name:  "trailing whitespace and newline",
+			input: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFucYcrm8qqWWHETpz4Sp7jlFD7RZ15clPQG4hVv7fiY dev@example.com\n",
+			want:  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFucYcrm8qqWWHETpz4Sp7jlFD7RZ15clPQG4hVv7fiY",
+		},
+		{
+			name:  "empty input",
+			input: "",
+			want:  "",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := PublicKeyAuthPart(c.input); got != c.want {
+				t.Errorf("PublicKeyAuthPart(%q) = %q, want %q", c.input, got, c.want)
+			}
+		})
+	}
+}

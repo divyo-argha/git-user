@@ -398,10 +398,6 @@ func TestOpAttachKeyGenerateUsesProvidedKeyPath(t *testing.T) {
 	}
 }
 
-// TestOpAttachKeyGenerateCopyTextIsJustThePublicKey guards against the 'c'
-// key on the resulting Report screen copying the whole multi-section report
-// (identity name, key path, activation notes, warnings) instead of exactly
-// the line a user pastes into GitHub/GitLab/Bitbucket's "add SSH key" field.
 func TestOpAttachKeyGenerateCopyTextIsJustThePublicKey(t *testing.T) {
 	if _, err := exec.LookPath("ssh-keygen"); err != nil {
 		t.Skip("ssh-keygen not available")
@@ -422,16 +418,26 @@ func TestOpAttachKeyGenerateCopyTextIsJustThePublicKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading generated public key: %v", err)
 	}
-	wantKey := strings.TrimSpace(string(wantPub))
+	fields := strings.Fields(string(wantPub))
+	if len(fields) < 3 {
+		t.Fatalf("expected generated key to have a type, blob, and comment, got %q", string(wantPub))
+	}
+	wantKey := fields[0] + " " + fields[1]
 
 	if res.copyText != wantKey {
-		t.Errorf("copyText = %q, want exactly the public key %q", res.copyText, wantKey)
+		t.Errorf("copyText = %q, want exactly the public key without comment %q", res.copyText, wantKey)
+	}
+	if strings.Contains(res.copyText, "dev@example.com") {
+		t.Errorf("copyText should not contain the email comment: %q", res.copyText)
 	}
 	if strings.Contains(res.copyText, "Identity created") || strings.Contains(res.copyText, "SSH key:") {
 		t.Errorf("copyText should contain only the key, not report prose: %q", res.copyText)
 	}
 	if !strings.HasPrefix(res.copyText, "ssh-ed25519 ") {
 		t.Errorf("expected copyText to be a single ssh-ed25519 public key line, got %q", res.copyText)
+	}
+	if !strings.Contains(res.detail, "dev@example.com") {
+		t.Errorf("expected the displayed report to still include the full key with comment, got:\n%s", res.detail)
 	}
 }
 
@@ -495,16 +501,19 @@ func TestOpRekeyRotatesActuallyBoundKey(t *testing.T) {
 		t.Errorf("expected no file at the unrelated default path %s, but one was created", defaultPath)
 	}
 
-	// copyText must be exactly the new public key, not the whole rotation
-	// report (rotation notes, agent status, platform instructions).
-	if res.copyText != strings.TrimSpace(string(newPub)) {
-		t.Errorf("copyText = %q, want exactly the new public key %q", res.copyText, strings.TrimSpace(string(newPub)))
+	newPubFields := strings.Fields(string(newPub))
+	if len(newPubFields) < 2 {
+		t.Fatalf("expected rotated key to have at least a type and blob, got %q", string(newPub))
+	}
+	wantCopyText := newPubFields[0] + " " + newPubFields[1]
+	if res.copyText != wantCopyText {
+		t.Errorf("copyText = %q, want exactly the new public key without comment %q", res.copyText, wantCopyText)
+	}
+	if strings.Contains(res.copyText, "dev@example.com") {
+		t.Errorf("copyText should not contain the email comment: %q", res.copyText)
 	}
 }
 
-// TestOpRekeyRefusesToOverwriteUnrelatedFile guards against opRekey silently
-// reusing or overwriting an unrelated file when rotating into a
-// user-chosen, differently-named key.
 func TestOpRekeyRefusesToOverwriteUnrelatedFile(t *testing.T) {
 	withTempConfig(t)
 
@@ -601,7 +610,11 @@ func TestOpPubkeyCopyTextIsJustThePublicKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantKey := strings.TrimSpace(string(wantPub))
+	wantFields := strings.Fields(string(wantPub))
+	if len(wantFields) < 3 {
+		t.Fatalf("expected generated key to have a type, blob, and comment, got %q", string(wantPub))
+	}
+	wantKey := wantFields[0] + " " + wantFields[1]
 
 	store, _ := config.Load()
 	_ = store.AddUser("dev", "dev@example.com")
@@ -614,10 +627,17 @@ func TestOpPubkeyCopyTextIsJustThePublicKey(t *testing.T) {
 		t.Fatalf("opPubkey failed: %v", err)
 	}
 	if res.copyText != wantKey {
-		t.Errorf("copyText = %q, want exactly the public key %q", res.copyText, wantKey)
+		t.Errorf("copyText = %q, want exactly the public key without comment %q", res.copyText, wantKey)
+	}
+	if strings.Contains(res.copyText, "dev@example.com") {
+		t.Errorf("copyText should not contain the email comment: %q", res.copyText)
 	}
 	if strings.Contains(res.copyText, "PUBLIC KEY") || strings.Contains(res.copyText, "Fingerprint") {
 		t.Errorf("copyText should contain only the key, not report prose: %q", res.copyText)
+	}
+	// The full report (for display) must still include the email comment.
+	if !strings.Contains(res.detail, "dev@example.com") {
+		t.Errorf("expected the displayed report to still include the full key with comment, got:\n%s", res.detail)
 	}
 }
 

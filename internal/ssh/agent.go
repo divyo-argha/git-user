@@ -90,14 +90,32 @@ func SSHKeyFingerprint(keyPath string) (string, error) {
 	return ssh.FingerprintSHA256(pubKey), nil
 }
 
-// ReadPublicKey returns the trimmed content of keyPath+".pub" — the exact
-// line to paste into a GitHub/GitLab/Bitbucket "add SSH key" field.
+// ReadPublicKey returns the trimmed content of keyPath+".pub", including its
+// trailing comment (by convention the identity's email, for keys this tool
+// generates) — for display, not for pasting; see PublicKeyAuthPart for that.
 func ReadPublicKey(keyPath string) (string, error) {
 	data, err := os.ReadFile(keyPath + ".pub")
 	if err != nil {
 		return "", err
 	}
 	return strings.TrimSpace(string(data)), nil
+}
+
+// PublicKeyAuthPart returns just the "<type> <base64-key>" portion of a
+// public key line, dropping the trailing comment field. The comment is
+// cosmetic — it plays no part in SSH authentication (the fingerprint is
+// identical with or without it) — so it's safe to omit from what actually
+// gets pasted into a "add SSH key" field. Worth omitting deliberately too:
+// GitHub (and similar platforms) expose a user's added public keys verbatim
+// via a public API (github.com/<user>.keys), so a comment set to the
+// identity's email — as this tool's generated keys are — would otherwise
+// leak that email publicly.
+func PublicKeyAuthPart(pubKey string) string {
+	fields := strings.Fields(pubKey)
+	if len(fields) < 2 {
+		return strings.TrimSpace(pubKey)
+	}
+	return fields[0] + " " + fields[1]
 }
 
 func LoadedSSHKeyFingerprints() ([]string, error) {
