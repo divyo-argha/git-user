@@ -52,11 +52,13 @@ func TestSystemActions(t *testing.T) {
 	th := theme.DefaultTheme()
 
 	// Without fix-remote
-	m := SystemActions(th, false, false)
+	m := SystemActions(th, false)
 
 	foundFixRemote := false
 	foundImportOriginal := false
 	foundPromptIntegration := false
+	foundPolicy := false
+	foundVerify := false
 	for _, item := range m.items {
 		if item.Key == "fix-remote" {
 			foundFixRemote = true
@@ -66,6 +68,12 @@ func TestSystemActions(t *testing.T) {
 		}
 		if item.Key == "prompt-integration" {
 			foundPromptIntegration = true
+		}
+		if item.Key == "policy" {
+			foundPolicy = true
+		}
+		if item.Key == "verify" {
+			foundVerify = true
 		}
 	}
 	if foundFixRemote {
@@ -77,9 +85,17 @@ func TestSystemActions(t *testing.T) {
 	if !foundPromptIntegration {
 		t.Errorf("SystemActions should include the prompt-integration action")
 	}
+	// Team/org governance features, not relevant to personal multi-account
+	// use — removed from the TUI menu (still available as CLI commands).
+	if foundPolicy {
+		t.Error("SystemActions should NOT include the policy action — it was removed from the TUI menu")
+	}
+	if foundVerify {
+		t.Error("SystemActions should NOT include the verify action — it was removed from the TUI menu")
+	}
 
 	// With fix-remote
-	m2 := SystemActions(th, true, false)
+	m2 := SystemActions(th, true)
 	foundFixRemote2 := false
 	for _, item := range m2.items {
 		if item.Key == "fix-remote" {
@@ -93,7 +109,7 @@ func TestSystemActions(t *testing.T) {
 
 func TestSystemActions_UpdateStatus(t *testing.T) {
 	th := theme.DefaultTheme()
-	m := SystemActions(th, false, false)
+	m := SystemActions(th, false)
 
 	// By default update item should be disabled and show "up to date"
 	var updateItem *ActionItem
@@ -128,7 +144,7 @@ func TestSystemActions_UpdateStatus(t *testing.T) {
 
 func TestActionMenu_ViewFitsHeight(t *testing.T) {
 	th := theme.DefaultTheme()
-	m := SystemActions(th, true, false)
+	m := SystemActions(th, true)
 
 	const height = 8
 	out := m.View(40, height, true)

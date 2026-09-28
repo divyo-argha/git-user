@@ -622,62 +622,6 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 	case "doctor", "security":
 		return a, pushCmd(screens.NewHealth(a.store, a.theme))
 
-	case "policy":
-		if !git.IsInRepo() {
-			return a, core.ShowToastCmd("not in a git repository — repository policy applies inside a repo", theme.ToastStyleError, 4*time.Second)
-		}
-		return a, pushCmd(screens.NewPolicyScreen(a.store, a.theme))
-
-	case "signers":
-		if !git.IsInRepo() {
-			return a, core.ShowToastCmd("not in a git repository", theme.ToastStyleError, 4*time.Second)
-		}
-		return a, pushCmd(screens.NewSignersScreen(a.store, a.theme))
-
-	case "verify":
-		if !git.IsInRepo() {
-			return a, core.ShowToastCmd("not in a git repository — run Verify inside a repository", theme.ToastStyleError, 4*time.Second)
-		}
-		return a, pushCmd(screens.NewVerifyScreen(a.store, a.theme))
-
-	case "verify-set-range":
-		return a, pushCmd(screens.NewForm("Verify Range", "Commit range to check (blank = last 50 commits)", "verify-range", []screens.FormInput{
-			{Label: "Range:", Placeholder: "e.g. origin/main..HEAD"},
-		}, a.theme).Skippable())
-
-	case "policy-edit":
-		return a, pushCmd(screens.NewConfirm(
-			"Require commits to be signed in this repository?",
-			"policy-require-signing",
-			a.theme,
-		))
-
-	case "policy-hook-install":
-		return a, a.runTaskCmd("hook", "install", func() (opResult, error) {
-			return opHook("install")
-		})
-
-	case "signers-add-identity":
-		var opts []screens.Option
-		opts = append(opts, screens.Option{Label: fmt.Sprintf("(active identity: %s)", a.store.Current), Key: "__active__"})
-		for _, u := range a.store.Users {
-			opts = append(opts, screens.Option{Label: u.Name, Key: u.Name})
-		}
-		opts = append(opts, screens.Option{Label: "Cancel", Key: ""})
-		return a, pushCmd(screens.NewOptions(
-			"Add Signer From Identity",
-			core.OptionsHelp(),
-			"policy-signer-identity",
-			opts,
-			a.theme,
-		))
-
-	case "signers-add-email":
-		return a, pushCmd(screens.NewForm("Add Signer", "Add a contributor who isn't a local git-user identity", "policy-signer-email", []screens.FormInput{
-			{Label: "Email:"},
-			{Label: "Public key file path:", Placeholder: "e.g. ~/.ssh/id_ed25519.pub"},
-		}, a.theme))
-
 	case "refresh":
 		return a, a.runTaskCmd("refresh", "", func() (opResult, error) {
 			return opRefresh(a.store)
