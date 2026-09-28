@@ -51,8 +51,8 @@ func TestActionMenu(t *testing.T) {
 func TestSystemActions(t *testing.T) {
 	th := theme.DefaultTheme()
 
-	// Without fix-remote
-	m := SystemActions(th, false)
+	// Without fix-remote, with an unimported original identity
+	m := SystemActions(th, false, true)
 
 	foundFixRemote := false
 	foundImportOriginal := false
@@ -80,7 +80,7 @@ func TestSystemActions(t *testing.T) {
 		t.Errorf("SystemActions should NOT include fix-remote when showFixRemote=false")
 	}
 	if !foundImportOriginal {
-		t.Errorf("SystemActions should include the import-original action")
+		t.Errorf("SystemActions should include import-original when showImportOriginal=true")
 	}
 	if !foundPromptIntegration {
 		t.Errorf("SystemActions should include the prompt-integration action")
@@ -95,7 +95,7 @@ func TestSystemActions(t *testing.T) {
 	}
 
 	// With fix-remote
-	m2 := SystemActions(th, true)
+	m2 := SystemActions(th, true, true)
 	foundFixRemote2 := false
 	for _, item := range m2.items {
 		if item.Key == "fix-remote" {
@@ -105,11 +105,20 @@ func TestSystemActions(t *testing.T) {
 	if !foundFixRemote2 {
 		t.Errorf("SystemActions should include fix-remote when showFixRemote=true")
 	}
+
+	// Without an unimported original identity — nothing left to import, so
+	// the entry must not appear (this is the actual gating this test guards).
+	m3 := SystemActions(th, false, false)
+	for _, item := range m3.items {
+		if item.Key == "import-original" {
+			t.Error("SystemActions should NOT include import-original when showImportOriginal=false")
+		}
+	}
 }
 
 func TestSystemActions_UpdateStatus(t *testing.T) {
 	th := theme.DefaultTheme()
-	m := SystemActions(th, false)
+	m := SystemActions(th, false, false)
 
 	// By default update item should be disabled and show "up to date"
 	var updateItem *ActionItem
@@ -144,7 +153,7 @@ func TestSystemActions_UpdateStatus(t *testing.T) {
 
 func TestActionMenu_ViewFitsHeight(t *testing.T) {
 	th := theme.DefaultTheme()
-	m := SystemActions(th, true)
+	m := SystemActions(th, true, true)
 
 	const height = 8
 	out := m.View(40, height, true)

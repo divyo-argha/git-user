@@ -440,3 +440,33 @@ func TestGetAgentTTL(t *testing.T) {
 		})
 	}
 }
+
+func TestHasUserWithNameEmail(t *testing.T) {
+	s := &config.Store{
+		Users: []config.User{
+			{Name: "Dev", Email: "dev@example.com"},
+			{Name: "Work", Email: "WORK@Example.com"}, // mixed case, for case-insensitive email match
+		},
+	}
+
+	cases := []struct {
+		name  string
+		email string
+		want  bool
+	}{
+		{"Dev", "dev@example.com", true},
+		{"Work", "work@example.com", true},         // email match is case-insensitive
+		{"Work", " work@example.com ", true},       // trimmed
+		{"Dev", "someone-else@example.com", false}, // name matches, email doesn't — not the same identity
+		{"Someone Else", "dev@example.com", false}, // email matches, name doesn't — not the same identity
+		{"Nobody", "nobody@example.com", false},
+		{"", "", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name+"/"+c.email, func(t *testing.T) {
+			if got := s.HasUserWithNameEmail(c.name, c.email); got != c.want {
+				t.Errorf("HasUserWithNameEmail(%q, %q) = %v, want %v", c.name, c.email, got, c.want)
+			}
+		})
+	}
+}

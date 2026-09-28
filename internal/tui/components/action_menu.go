@@ -35,8 +35,11 @@ func NewActionMenu(title string, items []ActionItem, th theme.Theme) ActionMenu 
 // SystemActions returns the default system utilities action list.
 // showFixRemote controls whether the "Fix remotes (HTTPS → SSH)" entry is
 // included; pass true only when the current repo has HTTPS remotes that need
-// converting.
-func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
+// converting. showImportOriginal controls whether "Import existing git
+// identity" is included; pass true only when the machine's global git config
+// holds a name+email that isn't already one of git-user's registered
+// profiles — there's nothing to import otherwise.
+func SystemActions(th theme.Theme, showFixRemote, showImportOriginal bool) ActionMenu {
 	items := []ActionItem{
 		{IsSection: true, Label: "Quick Actions"},
 		{Label: "→ Sign out", Key: "logout"},
@@ -53,7 +56,11 @@ func SystemActions(th theme.Theme, showFixRemote bool) ActionMenu {
 	items = append(items,
 		ActionItem{Label: "⟳ Refresh", Key: "refresh"},
 		ActionItem{Label: "≡ Identity switch log", Key: "log"},
-		ActionItem{Label: "↓ Import existing git identity", Key: "import-original"},
+	)
+	if showImportOriginal {
+		items = append(items, ActionItem{Label: "↓ Import existing git identity", Key: "import-original"})
+	}
+	items = append(items,
 		ActionItem{Label: "⇪ Import/Export bundles", Key: "import-export"},
 		ActionItem{IsSection: true, Label: "Profiles & System"},
 		ActionItem{Label: "~ Create temporary profile", Key: "register-temp"},

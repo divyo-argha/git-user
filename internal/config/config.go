@@ -452,6 +452,21 @@ func (s *Store) IsEmailTaken(email string) bool {
 	return s.FindUserByEmail(email) != nil
 }
 
+// HasUserWithNameEmail reports whether a registered profile already has
+// exactly this name and email pair (case-insensitive on email, exact on
+// name). Used to decide whether a not-yet-registered identity (e.g. the
+// machine's global git config) actually has something new to offer, versus
+// already matching a profile that exists here under any Source.
+func (s *Store) HasUserWithNameEmail(name, email string) bool {
+	normEmail := strings.ToLower(strings.TrimSpace(email))
+	for i := range s.Users {
+		if s.Users[i].Name == name && strings.ToLower(strings.TrimSpace(s.Users[i].Email)) == normEmail {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Store) AddAliasToUser(name, aliasEmail string) error {
 	u := s.FindUser(name)
 	if u == nil {
