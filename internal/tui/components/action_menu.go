@@ -54,7 +54,6 @@ func SystemActions(th theme.Theme, showFixRemote, showImportOriginal bool) Actio
 		ActionItem{Label: "✦ Doctor", Key: "doctor"},
 	)
 	items = append(items,
-		ActionItem{Label: "⟳ Refresh", Key: "refresh"},
 		ActionItem{Label: "≡ Identity switch log", Key: "log"},
 	)
 	if showImportOriginal {
@@ -69,7 +68,7 @@ func SystemActions(th theme.Theme, showFixRemote, showImportOriginal bool) Actio
 		ActionItem{Label: "⚓ Git hooks", Key: "hook"},
 		ActionItem{Label: "↻ Sync identities", Key: "sync"},
 		ActionItem{Label: "❯ Terminal prompt indicator", Key: "prompt-integration"},
-		ActionItem{Label: "⌘ Multiple accounts & shell integration", Key: "shell-integration"},
+		ActionItem{Label: "⌘ Shell integration", Key: "shell-integration"},
 		ActionItem{Label: "▲ Up to date", Key: "update", Disabled: true},
 		ActionItem{IsSection: true, Label: "Danger Zone"},
 		ActionItem{Label: "✖ Uninstall", Key: "uninstall", IsDanger: true},

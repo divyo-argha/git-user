@@ -158,19 +158,9 @@ func (a *App) handleOptionResult(msg core.OptionResultMsg) (tea.Model, tea.Cmd) 
 			return opHook(msg.Choice)
 		})
 
-	case "multi-account":
-		switch {
-		case strings.HasPrefix(msg.Choice, "open:"):
-			name := strings.TrimPrefix(msg.Choice, "open:")
-			if err := openNewTerminalWindow(name); err != nil {
-				return a, pushCmd(screens.NewReport("Open Side-by-Side Terminal", manualShellWindowInstructions(name, err), a.theme))
-			}
-			return a, core.ShowToastCmd(fmt.Sprintf("Opened a new terminal window for %q — safe to use alongside this one", name), theme.ToastStyleSuccess, 3*time.Second)
-
-		case msg.Choice == "prompt-menu":
-			return a, a.promptIntegrationMenuCmd()
-
-		case msg.Choice == "install":
+	case "shell-integration-menu":
+		switch msg.Choice {
+		case "install":
 			sh := shellinit.Detect("")
 			return a, pushCmd(screens.NewConfirm(
 				installConfirmQuestion(sh),
@@ -178,8 +168,8 @@ func (a *App) handleOptionResult(msg core.OptionResultMsg) (tea.Model, tea.Cmd) 
 				a.theme,
 			))
 
-		case msg.Choice == "info":
-			return a, pushCmd(screens.NewReport("Multiple Accounts & Shell Integration", shellIntegrationSnippet, a.theme))
+		case "info":
+			return a, pushCmd(screens.NewReport("Shell Integration", shellIntegrationSnippet, a.theme))
 		}
 
 	case "prompt-menu":

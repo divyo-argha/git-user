@@ -156,3 +156,38 @@ func TestNewDashboardNilStoreAndRefresh(t *testing.T) {
 	}
 }
 
+// TestDashboardRefreshKeyBinding guards the replacement for the removed
+// "⟳ Refresh" menu item: 'r'/'R' must dispatch the same refresh action
+// directly, and the help bar must advertise it.
+func TestDashboardRefreshKeyBinding(t *testing.T) {
+	th := theme.DefaultTheme()
+	store := &config.Store{
+		Current: "eng",
+		Users:   []config.User{{Name: "eng", Email: "eng@company.com"}},
+	}
+	dash := NewDashboard(store, th)
+
+	if !strings.Contains(dash.ShortHelp(), "r•refresh") {
+		t.Errorf("ShortHelp should advertise the refresh key, got: %q", dash.ShortHelp())
+	}
+
+	for _, key := range []rune{'r', 'R'} {
+		_, cmd := dash.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{key}})
+		if cmd == nil {
+			t.Fatalf("expected cmd for %q", string(key))
+		}
+		msg := cmd()
+		action, ok := msg.(core.ActionResultMsg)
+		if !ok || action.Kind != "refresh" {
+			t.Errorf("expected ActionResultMsg{Kind: refresh} for %q, got %#v", string(key), msg)
+		}
+	}
+
+	// No 'r'-keyed item left in the action menu — it's a direct keybinding now.
+	for _, item := range dash.actions.Items() {
+		if item.Key == "refresh" {
+			t.Error("expected no 'refresh' item in the action menu — it's now the 'r' key")
+		}
+	}
+}
+

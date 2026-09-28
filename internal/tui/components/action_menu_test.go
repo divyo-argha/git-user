@@ -59,7 +59,9 @@ func TestSystemActions(t *testing.T) {
 	foundPromptIntegration := false
 	foundPolicy := false
 	foundVerify := false
-	for _, item := range m.items {
+	foundRefresh := false
+	var shellIntegrationItem *ActionItem
+	for i, item := range m.items {
 		if item.Key == "fix-remote" {
 			foundFixRemote = true
 		}
@@ -74,6 +76,12 @@ func TestSystemActions(t *testing.T) {
 		}
 		if item.Key == "verify" {
 			foundVerify = true
+		}
+		if item.Key == "refresh" {
+			foundRefresh = true
+		}
+		if item.Key == "shell-integration" {
+			shellIntegrationItem = &m.items[i]
 		}
 	}
 	if foundFixRemote {
@@ -92,6 +100,19 @@ func TestSystemActions(t *testing.T) {
 	}
 	if foundVerify {
 		t.Error("SystemActions should NOT include the verify action — it was removed from the TUI menu")
+	}
+	// Refresh is now a direct 'r' keybinding on the dashboard, not a menu item.
+	if foundRefresh {
+		t.Error("SystemActions should NOT include the refresh action — it's now the 'r' key, not a menu item")
+	}
+	// Shell integration is now its own item, decluttered from the
+	// per-identity "open in new terminal" picker (that lives on the
+	// identity's own detail screen instead).
+	if shellIntegrationItem == nil {
+		t.Fatal("SystemActions should include the shell-integration action")
+	}
+	if shellIntegrationItem.Label != "⌘ Shell integration" {
+		t.Errorf("expected shell-integration label %q, got %q", "⌘ Shell integration", shellIntegrationItem.Label)
 	}
 
 	// With fix-remote

@@ -209,6 +209,10 @@ func (d *Dashboard) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 				return core.ActionResultMsg{Kind: "fix-sync"}
 			}
 		}
+	case "r", "R":
+		return d, func() tea.Msg {
+			return core.ActionResultMsg{Kind: "refresh"}
+		}
 	case core.KeyLeft, core.KeyH:
 		d.activePane = PaneIdentities
 	case core.KeyRight, core.KeyL:

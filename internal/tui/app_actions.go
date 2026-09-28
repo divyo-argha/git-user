@@ -25,30 +25,34 @@ const sshKeyPickManual = "__manual__"
 
 // shellIntegrationSnippet is background reading shown on a Report screen
 // (which has clipboard-copy built in) behind the "How this works" entry of
-// the multi-account picker — the picker itself (multiAccountMenuCmd) is the
-// primary, actionable flow; this is just the explanation for anyone who
-// wants it.
-const shellIntegrationSnippet = `WORKING WITH TWO (OR MORE) ACCOUNTS AT ONCE
+// the shell-integration menu — the menu's "Install shell shortcut" entry is
+// the primary, actionable flow; this is just the explanation for anyone who
+// wants it. Opening a new terminal window scoped to a specific identity
+// lives on that identity's own detail screen (the "Work Side-by-Side"
+// section), not here.
+const shellIntegrationSnippet = `SHELL INTEGRATION
 
-Pick "Open <name> in a new terminal window" from this menu (or from an
-identity's own screen) to spawn a separate, detached terminal window running
-an isolated shell for that identity — its own commit author/committer
-name+email and its own SSH key, set only as environment variables for that
-one shell process. It never edits ~/.gitconfig, so a second window opened
-the same way for a different identity works completely independently, at
-the same time. Type 'exit' in a window to leave it.
-
-Prefer the command line? The same thing, done by hand, in any terminal:
-  git-user shell <name>
+"Install shell shortcut" adds one line to your shell config so
+'git-user switch --session <name>' / 'git-user env <name>' can activate an
+identity in your CURRENT shell — no new window — with a single command,
+instead of needing 'eval "$(git-user env <name>)"' by hand. It only ever
+appends that one line to your rc file; installing it again is a no-op if
+it's already there.
 
 ────────────────────────────────────────────────────────────────────────
 
-OPTIONAL: "Install shell shortcut" (also in this menu) adds one line to your
-shell config so 'git-user switch --session <name>' / 'git-user env <name>'
-can activate an identity in your CURRENT shell — no new window — with a
-single command, instead of needing 'eval "$(git-user env <name>)"' by hand.
-It only ever appends that one line to your rc file; installing it again is a
-no-op if it's already there.`
+WORKING WITH TWO (OR MORE) ACCOUNTS AT ONCE
+
+Open an identity's own screen and pick "Open in a new terminal window" to
+spawn a separate, detached terminal window running an isolated shell for
+that identity — its own commit author/committer name+email and its own SSH
+key, set only as environment variables for that one shell process. It never
+edits ~/.gitconfig, so a second window opened the same way for a different
+identity works completely independently, at the same time. Type 'exit' in a
+window to leave it.
+
+Prefer the command line? The same thing, done by hand, in any terminal:
+  git-user shell <name>`
 
 // manualShellWindowInstructions is shown when openNewTerminalWindow could not
 // find a way to spawn a new terminal window automatically (headless session,
@@ -69,33 +73,22 @@ different identity's isolated shell (or the globally-active one) running in
 another window at the same time. Type 'exit' to leave it.`, cause, name, name)
 }
 
-// multiAccountMenuCmd builds the interactive "work with multiple accounts"
-// picker: one entry per registered identity to open it in a brand-new
-// terminal window right now (the actual answer to "how do I use two
-// accounts at once"), plus the optional current-shell install and a
-// read-only explanation for anyone who wants the details.
-func (a *App) multiAccountMenuCmd() tea.Cmd {
-	var opts []screens.Option
-	for _, u := range a.store.Users {
-		opts = append(opts, screens.Option{
-			Label: fmt.Sprintf("%s Open %q in a new terminal window", theme.IconWindow, u.Name),
-			Key:   "open:" + u.Name,
-		})
-	}
-	if len(a.store.Users) == 0 {
-		opts = append(opts, screens.Option{Label: "(no identities registered yet)", Key: ""})
-	}
+// shellIntegrationMenuCmd builds the "Shell integration" picker: install the
+// optional current-shell shortcut, or read a plain-text explanation.
+// Opening a new terminal window scoped to a specific identity lives on that
+// identity's own detail screen instead (the "Work Side-by-Side" section,
+// key "shell-window") — not duplicated here.
+func (a *App) shellIntegrationMenuCmd() tea.Cmd {
 	sh := shellinit.Detect("")
-	opts = append(opts,
-		screens.Option{Label: "❯ Terminal prompt indicator (Fish, Zsh, Bash, etc.)", Key: "prompt-menu"},
-		screens.Option{Label: fmt.Sprintf("⌘ Install optional shell shortcut (%s)", shellLabel(sh)), Key: "install"},
-		screens.Option{Label: "ℹ How this works", Key: "info"},
-		screens.Option{Label: "Cancel", Key: ""},
-	)
+	opts := []screens.Option{
+		{Label: fmt.Sprintf("⌘ Install shell shortcut (%s)", shellLabel(sh)), Key: "install"},
+		{Label: "ℹ How this works", Key: "info"},
+		{Label: "Cancel", Key: ""},
+	}
 	return pushCmd(screens.NewOptions(
-		"Work With Multiple Accounts",
+		"Shell Integration",
 		core.OptionsHelp(),
-		"multi-account",
+		"shell-integration-menu",
 		opts,
 		a.theme,
 	))
@@ -399,7 +392,7 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		return a, a.promptIntegrationMenuCmd()
 
 	case "shell-integration":
-		return a, a.multiAccountMenuCmd()
+		return a, a.shellIntegrationMenuCmd()
 
 	case "fix-sync":
 		// Re-apply the active identity when the git config drifted (e.g. a
