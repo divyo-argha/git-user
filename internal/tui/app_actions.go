@@ -23,37 +23,6 @@ import (
 // picker's "enter a path manually" fallback entry.
 const sshKeyPickManual = "__manual__"
 
-// shellIntegrationSnippet is background reading shown on a Report screen
-// (which has clipboard-copy built in) behind the "How this works" entry of
-// the shell-integration menu — the menu's "Install shell shortcut" entry is
-// the primary, actionable flow; this is just the explanation for anyone who
-// wants it. Opening a new terminal window scoped to a specific identity
-// lives on that identity's own detail screen (the "Work Side-by-Side"
-// section), not here.
-const shellIntegrationSnippet = `SHELL INTEGRATION
-
-"Install shell shortcut" adds one line to your shell config so
-'git-user switch --session <name>' / 'git-user env <name>' can activate an
-identity in your CURRENT shell — no new window — with a single command,
-instead of needing 'eval "$(git-user env <name>)"' by hand. It only ever
-appends that one line to your rc file; installing it again is a no-op if
-it's already there.
-
-────────────────────────────────────────────────────────────────────────
-
-WORKING WITH TWO (OR MORE) ACCOUNTS AT ONCE
-
-Open an identity's own screen and pick "Open in a new terminal window" to
-spawn a separate, detached terminal window running an isolated shell for
-that identity — its own commit author/committer name+email and its own SSH
-key, set only as environment variables for that one shell process. It never
-edits ~/.gitconfig, so a second window opened the same way for a different
-identity works completely independently, at the same time. Type 'exit' in a
-window to leave it.
-
-Prefer the command line? The same thing, done by hand, in any terminal:
-  git-user shell <name>`
-
 // manualShellWindowInstructions is shown when openNewTerminalWindow could not
 // find a way to spawn a new terminal window automatically (headless session,
 // unrecognized terminal emulator, unsupported OS, etc.) — it falls back to
@@ -73,28 +42,15 @@ different identity's isolated shell (or the globally-active one) running in
 another window at the same time. Type 'exit' to leave it.`, cause, name, name)
 }
 
-// shellIntegrationMenuCmd builds the "Shell integration" picker: install the
-// optional current-shell shortcut, or read a plain-text explanation.
-// Opening a new terminal window scoped to a specific identity lives on that
-// identity's own detail screen instead (the "Work Side-by-Side" section,
-// key "shell-window") — not duplicated here.
-func (a *App) shellIntegrationMenuCmd() tea.Cmd {
-	sh := shellinit.Detect("")
-	opts := []screens.Option{
-		{Label: fmt.Sprintf("⌘ Install shell shortcut (%s)", shellLabel(sh)), Key: "install"},
-		{Label: "ℹ How this works", Key: "info"},
-		{Label: "Cancel", Key: ""},
-	}
-	return pushCmd(screens.NewOptions(
-		"Shell Integration",
-		core.OptionsHelp(),
-		"shell-integration-menu",
-		opts,
-		a.theme,
-	))
-}
+// terminalIntegrationGuideText is background reading behind the
+// "Integration Guide & Tips" entry of promptIntegrationMenuCmd — covers both
+// the prompt indicator and the shell shortcut, since they're both installed
+// from that same single menu. Opening a new terminal window scoped to a
+// specific identity lives on that identity's own detail screen instead (the
+// "Work Side-by-Side" section, key "shell-window") — not covered here.
+const terminalIntegrationGuideText = `TERMINAL & SHELL INTEGRATION GUIDE
 
-const terminalIntegrationGuideText = `TERMINAL PROMPT INTEGRATION GUIDE
+── PROMPT INDICATOR ──────────────────────────────────────────────────────
 
 Display your active Git profile name and status indicator directly inside your
 terminal shell prompt across Fish, Zsh, Bash, PowerShell, Nushell, and Starship!
@@ -162,6 +118,26 @@ COMMAND-LINE UTILITIES:
       git-user prompt install
   • Temporary session switch in current terminal:
       gu switch -s <name>
+
+── SHELL SHORTCUT ────────────────────────────────────────────────────────
+
+"Install Shell Shortcut" (also in this menu) adds one line to your shell
+config so 'git-user switch --session <name>' / 'git-user env <name>' can
+activate an identity in your CURRENT shell — no new window — with a single
+command, instead of needing 'eval "$(git-user env <name>)"' by hand. It only
+ever appends that one line to your rc file; installing it again is a no-op
+if it's already there.
+
+Working with two (or more) accounts at once? Open an identity's own screen
+and pick "Open in a new terminal window" to spawn a separate, detached
+terminal window running an isolated shell for that identity — its own
+commit author/committer name+email and its own SSH key, set only as
+environment variables for that one shell process. It never edits
+~/.gitconfig, so a second window opened the same way for a different
+identity works completely independently, at the same time. Type 'exit' in a
+window to leave it. Prefer the command line? The same thing, done by hand,
+in any terminal:
+  git-user shell <name>
 `
 
 func (a *App) promptIntegrationMenuCmd() tea.Cmd {
@@ -173,18 +149,20 @@ func (a *App) promptIntegrationMenuCmd() tea.Cmd {
 		installedStatus = " [Installed]"
 	}
 
+	sh := shellinit.Detect("")
 	opts := []screens.Option{
 		{Label: "✦ View Status & Live Preview", Key: "status"},
 		{Label: fmt.Sprintf("▶ Install for Active Shell (%s)%s", activeInfo.Name, installedStatus), Key: "install-active:" + string(activeTarget)},
 		{Label: "↓ Choose Shell to Install...", Key: "install-pick"},
 		{Label: "⚙ Configure Icon & Appearance", Key: "config-appearance"},
 		{Label: "✖ Uninstall from Shell...", Key: "uninstall-pick"},
+		{Label: fmt.Sprintf("⌘ Install Shell Shortcut (%s)", shellLabel(sh)), Key: "install-shell-shortcut"},
 		{Label: "ℹ Integration Guide & Tips", Key: "help"},
 		{Label: "Cancel", Key: ""},
 	}
 
 	return pushCmd(screens.NewOptions(
-		"Terminal Prompt Indicator",
+		"Terminal & Shell Integration",
 		core.OptionsHelp(),
 		"prompt-menu",
 		opts,
@@ -390,9 +368,6 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 
 	case "prompt-integration":
 		return a, a.promptIntegrationMenuCmd()
-
-	case "shell-integration":
-		return a, a.shellIntegrationMenuCmd()
 
 	case "fix-sync":
 		// Re-apply the active identity when the git config drifted (e.g. a

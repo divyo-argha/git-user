@@ -158,20 +158,6 @@ func (a *App) handleOptionResult(msg core.OptionResultMsg) (tea.Model, tea.Cmd) 
 			return opHook(msg.Choice)
 		})
 
-	case "shell-integration-menu":
-		switch msg.Choice {
-		case "install":
-			sh := shellinit.Detect("")
-			return a, pushCmd(screens.NewConfirm(
-				installConfirmQuestion(sh),
-				"install-shell:"+string(sh),
-				a.theme,
-			))
-
-		case "info":
-			return a, pushCmd(screens.NewReport("Shell Integration", shellIntegrationSnippet, a.theme))
-		}
-
 	case "prompt-menu":
 		switch {
 		case msg.Choice == "status":
@@ -189,8 +175,15 @@ func (a *App) handleOptionResult(msg core.OptionResultMsg) (tea.Model, tea.Cmd) 
 			return a, a.promptConfigPickCmd()
 		case msg.Choice == "uninstall-pick":
 			return a, a.promptUninstallPickCmd()
+		case msg.Choice == "install-shell-shortcut":
+			sh := shellinit.Detect("")
+			return a, pushCmd(screens.NewConfirm(
+				installConfirmQuestion(sh),
+				"install-shell:"+string(sh),
+				a.theme,
+			))
 		case msg.Choice == "help":
-			return a, pushCmd(screens.NewReport("Terminal Prompt Integration Guide", terminalIntegrationGuideText, a.theme))
+			return a, pushCmd(screens.NewReport("Terminal & Shell Integration Guide", terminalIntegrationGuideText, a.theme))
 		}
 
 	case "prompt-install-pick":

@@ -448,7 +448,7 @@ func TestAppDetailedHandlers(t *testing.T) {
 		{"passphrase", "eng"},
 		{"import-export", ""},
 		{"remove", "eng"},
-		{"shell-integration", ""},
+		{"prompt-integration", ""},
 	}
 	for _, tc := range testCmds {
 		_, cmd := app.Update(core.ActionResultMsg{Kind: tc.kind, Name: tc.name})
@@ -585,37 +585,62 @@ func TestAppDetailedHandlers(t *testing.T) {
 // The per-identity "open in new terminal" list and the duplicate "Terminal
 // prompt indicator" entry that used to live inside this same picker were
 // removed — they aren't dispatched from here anymore.
-func TestShellIntegrationMenuOptions(t *testing.T) {
+// TestPromptIntegrationMenuIncludesShellShortcut guards the merge: there is
+// now exactly one Dashboard item ("prompt-integration") covering both the
+// terminal prompt indicator and the shell shortcut — a standalone
+// "shell-integration" item/context no longer exists.
+func TestPromptIntegrationMenuIncludesShellShortcut(t *testing.T) {
 	withTempConfig(t)
 	store := &config.Store{Current: "eng", Users: []config.User{{Name: "eng", Email: "eng@corp.com"}}}
 	th := theme.DefaultTheme()
 	app := NewApp(store, screens.NewDashboard(store, th))
 	_, _ = app.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
 
-	_, cmd := app.Update(core.OptionResultMsg{Context: "shell-integration-menu", Choice: "install"})
+	// Opening the single merged menu must offer the shell shortcut alongside
+	// the existing prompt-indicator choices.
+	_, cmd := app.Update(core.ActionResultMsg{Kind: "prompt-integration"})
 	if cmd == nil {
-		t.Fatal("expected a cmd for the 'install' choice")
+		t.Fatal("expected a cmd for prompt-integration")
 	}
-	msg := cmd()
-	push, ok := msg.(core.ScreenPushMsg)
+	push, ok := cmd().(core.ScreenPushMsg)
 	if !ok {
-		t.Fatalf("expected ScreenPushMsg for 'install', got %#v", msg)
+		t.Fatalf("expected ScreenPushMsg for prompt-integration")
 	}
-	if _, ok := push.Screen.(*screens.Confirm); !ok {
-		t.Errorf("expected 'install' to push a Confirm screen, got %T", push.Screen)
+	opts, ok := push.Screen.(*screens.Options)
+	if !ok {
+		t.Fatalf("expected an Options screen, got %T", push.Screen)
+	}
+	if v := opts.View(80, 24); !strings.Contains(v, "Install Shell Shortcut") {
+		t.Errorf("expected the merged menu to include the shell shortcut option, view:\n%s", v)
 	}
 
-	_, cmd = app.Update(core.OptionResultMsg{Context: "shell-integration-menu", Choice: "info"})
+	// Choosing it pushes the same install-confirm flow the old standalone
+	// "shell-integration" item used to.
+	_, cmd = app.Update(core.OptionResultMsg{Context: "prompt-menu", Choice: "install-shell-shortcut"})
 	if cmd == nil {
-		t.Fatal("expected a cmd for the 'info' choice")
+		t.Fatal("expected a cmd for the 'install-shell-shortcut' choice")
+	}
+	msg := cmd()
+	push, ok = msg.(core.ScreenPushMsg)
+	if !ok {
+		t.Fatalf("expected ScreenPushMsg for 'install-shell-shortcut', got %#v", msg)
+	}
+	if _, ok := push.Screen.(*screens.Confirm); !ok {
+		t.Errorf("expected 'install-shell-shortcut' to push a Confirm screen, got %T", push.Screen)
+	}
+
+	// The guide text ("help") now covers both topics under one screen.
+	_, cmd = app.Update(core.OptionResultMsg{Context: "prompt-menu", Choice: "help"})
+	if cmd == nil {
+		t.Fatal("expected a cmd for the 'help' choice")
 	}
 	msg = cmd()
 	push, ok = msg.(core.ScreenPushMsg)
 	if !ok {
-		t.Fatalf("expected ScreenPushMsg for 'info', got %#v", msg)
+		t.Fatalf("expected ScreenPushMsg for 'help', got %#v", msg)
 	}
 	if _, ok := push.Screen.(*screens.Report); !ok {
-		t.Errorf("expected 'info' to push a Report screen, got %T", push.Screen)
+		t.Errorf("expected 'help' to push a Report screen, got %T", push.Screen)
 	}
 }
 

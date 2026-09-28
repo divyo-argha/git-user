@@ -60,7 +60,8 @@ func TestSystemActions(t *testing.T) {
 	foundPolicy := false
 	foundVerify := false
 	foundRefresh := false
-	var shellIntegrationItem *ActionItem
+	foundShellIntegration := false
+	var promptIntegrationItem *ActionItem
 	for i, item := range m.items {
 		if item.Key == "fix-remote" {
 			foundFixRemote = true
@@ -70,6 +71,7 @@ func TestSystemActions(t *testing.T) {
 		}
 		if item.Key == "prompt-integration" {
 			foundPromptIntegration = true
+			promptIntegrationItem = &m.items[i]
 		}
 		if item.Key == "policy" {
 			foundPolicy = true
@@ -81,7 +83,7 @@ func TestSystemActions(t *testing.T) {
 			foundRefresh = true
 		}
 		if item.Key == "shell-integration" {
-			shellIntegrationItem = &m.items[i]
+			foundShellIntegration = true
 		}
 	}
 	if foundFixRemote {
@@ -105,14 +107,14 @@ func TestSystemActions(t *testing.T) {
 	if foundRefresh {
 		t.Error("SystemActions should NOT include the refresh action — it's now the 'r' key, not a menu item")
 	}
-	// Shell integration is now its own item, decluttered from the
-	// per-identity "open in new terminal" picker (that lives on the
-	// identity's own detail screen instead).
-	if shellIntegrationItem == nil {
-		t.Fatal("SystemActions should include the shell-integration action")
+	// Shell integration was merged into the terminal prompt indicator item —
+	// there is no longer a separate "shell-integration" menu entry, and the
+	// merged item's label reflects both.
+	if foundShellIntegration {
+		t.Error("SystemActions should NOT include a separate shell-integration action — it was merged into prompt-integration")
 	}
-	if shellIntegrationItem.Label != "⌘ Shell integration" {
-		t.Errorf("expected shell-integration label %q, got %q", "⌘ Shell integration", shellIntegrationItem.Label)
+	if promptIntegrationItem.Label != "❯ Terminal & shell integration" {
+		t.Errorf("expected prompt-integration label %q, got %q", "❯ Terminal & shell integration", promptIntegrationItem.Label)
 	}
 
 	// With fix-remote
