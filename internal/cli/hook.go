@@ -43,7 +43,7 @@ func cliConfirmOverwriteHook(spec hookops.HookSpec, existing string) bool {
 	ui.Info("Current hook content:")
 	fmt.Println(existing)
 	fmt.Println()
-	return ui.Confirm(fmt.Sprintf("Overwrite %s?", spec.Name), false)
+	return ui.Confirm(fmt.Sprintf("Preserve as %s.old and install git-user %s hook?", spec.Name, spec.Name), true)
 }
 
 func installHook() error {
@@ -65,8 +65,11 @@ func installHook() error {
 			ui.Info(fmt.Sprintf("%s hook already installed by git-user — skipping", r.Spec.Name))
 		case hookops.OutcomeSkippedExisting:
 			ui.Info(fmt.Sprintf("Skipped %s", r.Spec.Name))
-		case hookops.OutcomeInstalled, hookops.OutcomeOverwritten:
+		case hookops.OutcomeInstalled:
 			ui.Success(fmt.Sprintf("%s hook installed — verifies your identity %s", r.Spec.Name, r.Spec.Comment))
+			installed++
+		case hookops.OutcomeOverwritten:
+			ui.Success(fmt.Sprintf("%s hook installed (previous hook preserved as %s.old) — verifies your identity %s", r.Spec.Name, r.Spec.Name, r.Spec.Comment))
 			installed++
 		}
 	}
@@ -100,7 +103,11 @@ func uninstallHook() error {
 	for _, r := range results {
 		switch r.Outcome {
 		case hookops.OutcomeRemoved:
-			ui.Success(fmt.Sprintf("%s hook removed", r.Spec.Name))
+			if r.Restored {
+				ui.Success(fmt.Sprintf("%s hook removed (original hook restored from %s.old)", r.Spec.Name, r.Spec.Name))
+			} else {
+				ui.Success(fmt.Sprintf("%s hook removed", r.Spec.Name))
+			}
 			removed++
 		case hookops.OutcomeForeign:
 			ui.Warn(fmt.Sprintf("%s hook exists but wasn't created by git-user", r.Spec.Name))
@@ -135,19 +142,21 @@ func checkIdentity(hookArgs []string) error {
 		return nil
 	}
 
-	if store.Current == "" {
-		fmt.Fprintf(os.Stderr, "✖ No active git-user identity\n")
-		fmt.Fprintf(os.Stderr, "  Run: git-user switch <name>\n")
-		return fmt.Errorf("no active identity")
+	if hookName == "pre-push" {
+		if err := hookops.CheckPush(store, hookArgs[1:], os.Stdin); err != nil {
+			return formatHookError(err)
+		}
+		return nil
 	}
 
-	user := store.FindUser(store.Current)
-	if user == nil {
-		fmt.Fprintf(os.Stderr, "✖ Active identity %q not found\n", store.Current)
-		return fmt.Errorf("identity not found")
+	if err := hookops.CheckIdentity(store); err != nil {
+		return formatHookError(err)
 	}
 
-	err = hookops.CheckIdentity(store)
+	return nil
+}
+
+func formatHookError(err error) error {
 	if err == nil {
 		return nil
 	}
@@ -163,7 +172,18 @@ func checkIdentity(hookArgs []string) error {
 		fmt.Fprintf(os.Stderr, "✖ %s\n", e.Message)
 		fmt.Fprintf(os.Stderr, "  %s\n", e.FixHint)
 		return err
+	case *hookops.PushViolationsError:
+		fmt.Fprintf(os.Stderr, "✖ Push rejected — commits violate identity or repository policy:\n")
+		for _, v := range e.Violations {
+			fmt.Fprintf(os.Stderr, "  • %s\n", v.Message)
+		}
+		return err
 	default:
+		if err.Error() == "no active identity" {
+			fmt.Fprintf(os.Stderr, "✖ No active git-user identity\n")
+			fmt.Fprintf(os.Stderr, "  Run: git-user switch <name>\n")
+			return err
+		}
 		fmt.Fprintf(os.Stderr, "✖ %v\n", err)
 		return err
 	}
