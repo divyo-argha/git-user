@@ -63,6 +63,6 @@ exit 1`
 
 // scheduleNpmUpdateWindows is only used on Windows (the running executable is
 // locked there); npm updates run directly on macOS and Linux.
-func scheduleNpmUpdateWindows() error {
+func scheduleNpmUpdateWindows(version string) error {
 	return fmt.Errorf("unsupported on this platform")
 }

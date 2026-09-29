@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -357,6 +358,20 @@ func extractBinary(archivePath, binaryName string) (string, error) {
 // Implementations are platform-specific (update_unix.go / update_windows.go),
 // where a non-empty message is printed instead of the default "updated"
 // banner (used when the swap completes after this process exits).
+// npmVersionPattern matches a plain semver string (optionally with a
+// pre-release/build suffix made only of alphanumerics, dots and hyphens).
+var npmVersionPattern = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?(\+[0-9A-Za-z.]+)?$`)
+
+// isSafeNpmVersion reports whether v is safe to embed in an npm package spec
+// and, on Windows, directly into a generated batch script. The version comes
+// from the npm registry response — external input — so without this check a
+// compromised registry or a MITM on that request could smuggle shell/batch
+// metacharacters into the update flow and get arbitrary commands run instead
+// of (or in addition to) the intended `npm install`.
+func isSafeNpmVersion(v string) bool {
+	return npmVersionPattern.MatchString(v)
+}
+
 func handleNpmUpdate() error {
 	ui.Info("Detected npm installation. Checking registry for updates...")
 
@@ -378,29 +393,40 @@ func handleNpmUpdate() error {
 		}
 	}
 
+	// Pin to the exact version resolved above rather than re-resolving the
+	// "latest" dist-tag at install time: on Windows the actual `npm install`
+	// runs later, in a detached background script, after this process exits.
+	// Re-resolving "latest" at that point would install whatever the
+	// registry serves then — not what was checked and reported to the user
+	// now — widening the window for a registry-side tag change to swap in a
+	// different (or malicious) release.
+	if targetVersion != "latest" && !isSafeNpmVersion(targetVersion) {
+		return fmt.Errorf("npm registry returned an unexpected version string %q — refusing to install", targetVersion)
+	}
+
 	ui.Info(fmt.Sprintf("Updating git-userhub: %s → %s via npm...", version.GetVersion(), targetVersion))
 
 	// On Windows the running executable is locked by the OS, so npm cannot
 	// replace it in place. Hand the update to a background process that runs
 	// npm once this process has exited.
 	if runtime.GOOS == "windows" {
-		if err := scheduleNpmUpdateWindows(); err != nil {
+		if err := scheduleNpmUpdateWindows(targetVersion); err != nil {
 			return fmt.Errorf("scheduling npm update: %w", err)
 		}
 		ui.Success("✨ git-userhub update scheduled — it will finish in the background after this command exits")
 		return nil
 	}
 
-	npmCmd := exec.Command("npm", "install", "-g", "git-userhub@latest")
+	npmCmd := exec.Command("npm", "install", "-g", "git-userhub@"+targetVersion)
 	if out, err := npmCmd.CombinedOutput(); err != nil {
 		outStr := strings.TrimSpace(string(out))
 		if strings.Contains(strings.ToLower(outStr), "eacces") || strings.Contains(strings.ToLower(outStr), "permission") {
 			ui.Warn("npm update requires elevated permissions.")
-			ui.Info("Please run: sudo npm install -g git-userhub@latest")
+			ui.Info(fmt.Sprintf("Please run: sudo npm install -g git-userhub@%s", targetVersion))
 			return nil
 		}
 		ui.Warn("Automatic npm update could not be completed.")
-		ui.Info("To update manually, run: npm install -g git-userhub@latest")
+		ui.Info(fmt.Sprintf("To update manually, run: npm install -g git-userhub@%s", targetVersion))
 		return nil
 	}
 
