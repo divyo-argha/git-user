@@ -50,3 +50,33 @@ func TestUpdateCache_RejectsBadData(t *testing.T) {
 		t.Error("corrupt file should be a miss")
 	}
 }
+
+func TestUpdateCache_ConcurrentWritesLeaveOneValidFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "latest.json")
+	now := time.Now()
+
+	done := make(chan struct{})
+	for i := 0; i < 8; i++ {
+		go func() {
+			for j := 0; j < 50; j++ {
+				saveCachedLatest(path, "v4.19.0", now)
+			}
+			done <- struct{}{}
+		}()
+	}
+	for i := 0; i < 8; i++ {
+		<-done
+	}
+
+	if got, ok := loadCachedLatest(path, now); !ok || got != "v4.19.0" {
+		t.Errorf("cache should be valid after concurrent writes, got %q, %v", got, ok)
+	}
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 1 {
+		t.Errorf("no temp files should be left behind, found %d entries", len(entries))
+	}
+	if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0o600 {
+		t.Errorf("cache should be private (0600), got %v %v", info, err)
+	}
+}

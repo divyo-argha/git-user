@@ -285,7 +285,7 @@ func (m ActionMenu) View(width, height int, isActive bool) string {
 		// resting is how the row looks when it is not under the cursor.
 		resting := label
 		switch {
-		case item.Key == "update" && !item.Disabled:
+		case item.Key == "update":
 			resting = m.theme.WarningStyle().Bold(true).Render(label)
 		case item.Featured && !item.Disabled:
 			resting = m.theme.Featured().Render(label)
@@ -297,14 +297,14 @@ func (m ActionMenu) View(width, height int, isActive bool) string {
 			switch {
 			case item.IsDanger:
 				lines = append(lines, m.theme.DangerText().Render("▶ "+raw))
-			case item.Key == "update" && !item.Disabled:
+			case item.Key == "update":
 				lines = append(lines, m.theme.WarningStyle().Bold(true).Render("▶ "+raw))
 			default:
 				lines = append(lines, m.theme.Selected().Render("▶ "+raw))
 			}
 		case isCursor:
 			raw := stripAnsi(label)
-			if item.Key == "update" && !item.Disabled {
+			if item.Key == "update" {
 				lines = append(lines, m.theme.WarningStyle().Render("▶ "+raw))
 			} else {
 				lines = append(lines, m.theme.Dim().Render("▶ "+raw))

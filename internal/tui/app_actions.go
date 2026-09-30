@@ -286,10 +286,10 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		))
 
 	case "help":
-		return a, pushCmd(screens.NewReport(core.HelpTitleDashboard, core.DashboardHelpText(), a.theme))
+		return a, pushCmd(screens.NewReport(core.HelpTitleDashboard, core.DashboardHelpText(), a.theme).WithoutCopy())
 
 	case "help-detail":
-		return a, pushCmd(screens.NewReport(core.HelpTitleDetail, core.DetailHelpText(), a.theme))
+		return a, pushCmd(screens.NewReport(core.HelpTitleDetail, core.DetailHelpText(), a.theme).WithoutCopy())
 
 	case "quit":
 		a.quit = true
@@ -326,10 +326,7 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			email = name
 			name = ""
 		}
-		return a, pushCmd(screens.NewForm("Import Original Identity", "Import your existing ~/.gitconfig identity (you pick the name)", "import-original", []screens.FormInput{
-			{Label: "Profile Name:", Value: name, Placeholder: "e.g. original", Validate: validate.IdentityName},
-			{Label: "Email Address:", Value: email, Placeholder: "e.g. you@example.com", Validate: validate.Email},
-		}, a.theme))
+		return a, a.importOriginalFormCmd(name, email)
 
 	case "register", "register-temp":
 		return a, a.registerFormCmd(msg.Kind, "", "")
@@ -562,10 +559,7 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 				email = a.store.Original.Email
 			}
 		}
-		return a, pushCmd(screens.NewForm("Import Original Identity", "Import your existing ~/.gitconfig identity (you pick the name)", "import-original", []screens.FormInput{
-			{Label: "Profile Name:", Value: name, Placeholder: "e.g. original", Validate: validate.IdentityName},
-			{Label: "Email Address:", Value: email, Placeholder: "e.g. you@example.com", Validate: validate.Email},
-		}, a.theme))
+		return a, a.importOriginalFormCmd(name, email)
 
 	case "remove":
 		return a, pushCmd(screens.NewConfirm(
@@ -1022,4 +1016,13 @@ func (a *App) handleToggleSign(name string) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, core.ShowToastCmd(fmt.Sprintf("Commit signing %s for %q", status, name), theme.ToastStyleSuccess, 3*time.Second))
 	}
 	return a, tea.Batch(cmds...)
+}
+
+// importOriginalFormCmd opens the name + email form used to import the
+// identity from ~/.gitconfig, prefilled with the detected values.
+func (a *App) importOriginalFormCmd(name, email string) tea.Cmd {
+	return pushCmd(screens.NewForm("Import Original Identity", "Import your existing ~/.gitconfig identity (you pick the name)", "import-original", []screens.FormInput{
+		{Label: "Profile Name:", Value: name, Placeholder: "e.g. original", Validate: validate.IdentityName},
+		{Label: "Email Address:", Value: email, Placeholder: "e.g. you@example.com", Validate: validate.Email},
+	}, a.theme))
 }

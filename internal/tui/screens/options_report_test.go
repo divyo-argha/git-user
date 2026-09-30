@@ -160,3 +160,23 @@ func TestReportCopy_ScopedToCopyTextWhenSet(t *testing.T) {
 	}
 }
 
+
+func TestReport_WithoutCopyHidesHintAndIgnoresKey(t *testing.T) {
+	th := theme.DefaultTheme()
+
+	normal := NewReport("T", "body", th)
+	if !strings.Contains(normal.ShortHelp(), "copy") {
+		t.Errorf("normal report should advertise copy, got %q", normal.ShortHelp())
+	}
+
+	ref := NewReport("Keys", "body", th).WithoutCopy()
+	if strings.Contains(ref.ShortHelp(), "copy") {
+		t.Errorf("reference screen must not advertise copy, got %q", ref.ShortHelp())
+	}
+	if !strings.Contains(ref.ShortHelp(), "?") {
+		t.Errorf("reference screen should say '?' closes it, got %q", ref.ShortHelp())
+	}
+	if _, cmd := ref.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}}); cmd != nil {
+		t.Error("'c' must do nothing on a reference screen")
+	}
+}

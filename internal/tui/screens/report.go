@@ -14,6 +14,7 @@ import (
 type Report struct {
 	title    string
 	lines    []string
+	noCopy   bool   // reference screens have nothing worth copying
 	copyText string // if set, what 'c' copies instead of the full displayed text
 	offset   int
 	maxLines int // updated each render, used to clamp scroll in Update
@@ -30,6 +31,13 @@ func NewReport(title string, text string, th theme.Theme) *Report {
 	}
 }
 
+// WithoutCopy hides the 'c•copy' hint and disables the key, for static
+// reference screens (keyboard help) where copying makes no sense.
+func (r *Report) WithoutCopy() *Report {
+	r.noCopy = true
+	return r
+}
+
 // WithCopyText restricts what the 'c' key copies to just this text (e.g. a
 // public key line) instead of the screen's full displayed content.
 func (r *Report) WithCopyText(text string) *Report {
@@ -42,6 +50,9 @@ func (r *Report) Init() tea.Cmd { return nil }
 func (r *Report) Title() string { return r.title }
 
 func (r *Report) ShortHelp() string {
+	if r.noCopy {
+		return "↑/↓/j/k•scroll  ctrl+d/u•page  Enter/Esc/?•back  q•quit"
+	}
 	copyHint := "c•copy"
 	if r.copyText != "" {
 		copyHint = "c•copy key"
@@ -106,6 +117,9 @@ func (r *Report) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		// Copy report content to clipboard — just copyText when set (e.g. a
 		// public key line), otherwise the whole displayed report.
 		case "c", "C":
+			if r.noCopy {
+				return r, nil
+			}
 			if r.copyText != "" {
 				return r, copyToClipboardCmd([]string{r.copyText})
 			}

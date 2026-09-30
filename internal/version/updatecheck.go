@@ -85,11 +85,15 @@ func saveCachedLatest(path, latest string, now time.Time) {
 	if os.MkdirAll(filepath.Dir(path), 0o700) != nil {
 		return
 	}
-	tmp := path + ".tmp"
-	if os.WriteFile(tmp, data, 0o600) != nil {
+	// A unique temp file keeps two git-user processes from clobbering each
+	// other's half-written cache before the atomic rename.
+	f, err := os.CreateTemp(filepath.Dir(path), "latest-version-*.tmp")
+	if err != nil {
 		return
 	}
-	if os.Rename(tmp, path) != nil {
+	tmp := f.Name()
+	_, werr := f.Write(data)
+	if cerr := f.Close(); werr != nil || cerr != nil || os.Rename(tmp, path) != nil {
 		_ = os.Remove(tmp)
 	}
 }
