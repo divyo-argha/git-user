@@ -75,7 +75,7 @@ func ensureKeyUnlocked(keyPath string) error {
 		}
 	}
 
-	if !term.IsTerminal(int(os.Stdin.Fd())) {
+	if !ui.StdinIsTTY() {
 		return fmt.Errorf("SSH key %q requires a passphrase — run in a terminal to unlock it", keyPath)
 	}
 	pass, err := readPassphrase(PassphrasePrompt)

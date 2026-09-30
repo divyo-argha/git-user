@@ -107,6 +107,13 @@ func IsTTY() bool {
 	return (fi.Mode() & os.ModeCharDevice) != 0
 }
 
+// StdinIsTTY returns true if stdin is attached to an interactive terminal.
+// Unlike IsTTY it does not treat any character device as a terminal, so
+// `< /dev/null` correctly counts as non-interactive.
+func StdinIsTTY() bool {
+	return isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd())
+}
+
 // IsPlainOutput reports whether styled/banner output should be suppressed.
 // It returns true when stdout is not a terminal (pipes, CI) or the caller
 // passes an explicit --plain flag. IsTTY (and therefore this) honors IsTTYFn

@@ -82,7 +82,7 @@ func (d *Detail) refreshActions() {
 	if !isActive {
 		items = append(items, components.ActionItem{Label: "Primary Action", IsSection: true})
 		items = append(items, components.ActionItem{Label: "→ Switch to this identity", Key: "switch"})
-		items = append(items, components.ActionItem{Label: "⚡ Switch (this terminal only) — copies activation command", Key: "switch-session"})
+		items = append(items, components.ActionItem{Label: "⚡ Switch in this terminal only", Key: "switch-session"})
 	}
 
 	// Always offered, regardless of which identity is globally active: these
@@ -90,9 +90,9 @@ func (d *Detail) refreshActions() {
 	// changing any shared state, which is what lets two identities be used
 	// at once — e.g. this one and the globally-active one — in separate
 	// terminals simultaneously.
-	items = append(items, components.ActionItem{Label: "Work Side-by-Side (2+ accounts at once)", IsSection: true})
-	items = append(items, components.ActionItem{Label: theme.IconWindow + " Open in a new terminal window as this identity", Key: "shell-window"})
-	items = append(items, components.ActionItem{Label: "▶ Open isolated shell here (takes over this window)", Key: "shell-session"})
+	items = append(items, components.ActionItem{Label: "Side-by-Side Accounts", IsSection: true})
+	items = append(items, components.ActionItem{Label: theme.IconWindow + " Open new terminal window", Key: "shell-window"})
+	items = append(items, components.ActionItem{Label: "▶ Open isolated shell here", Key: "shell-session"})
 
 	items = append(items, components.ActionItem{Label: "Profile & Git Config", IsSection: true})
 	items = append(items, components.ActionItem{Label: "✎ Rename profile", Key: "rename"})
@@ -439,6 +439,8 @@ func (d *Detail) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		return d, tea.Quit
 	case core.KeyQuit:
 		return d, func() tea.Msg { return core.ActionResultMsg{Kind: "quit-confirm"} }
+	case core.KeyHelp:
+		return d, func() tea.Msg { return core.ActionResultMsg{Kind: "help-detail"} }
 	case "s", "S":
 		user := d.store.FindUser(d.name)
 		if user != nil && user.Name != d.store.Current {

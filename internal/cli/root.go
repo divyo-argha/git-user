@@ -6,7 +6,6 @@ import (
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/ui"
-	"github.com/divyo-argha/git-user/internal/version"
 )
 
 const usage = `git-user — manage multiple Git identities
@@ -67,6 +66,8 @@ COMMANDS
     audit                      Run security audit
     stats                      Audit and show commit author identity stats
     sign <name>                Manage commit signing for an identity
+    verify [--range <revs>]    Verify commit signatures (exit non-zero on unsigned/invalid; CI-friendly)
+    policy <init|show|signers> Manage the repo .git-user-policy and .allowed-signers files
     config <list|set|unset>    Manage custom git configurations for an identity
     hook <install|uninstall>   Manage git pre-commit & pre-push identity hooks
     log [-n <count>|--all]     Show the identity-switch audit log
@@ -153,14 +154,7 @@ func Execute() error {
 		return nil
 	}
 
-	if normSub == "update" {
-		return RunUpdate()
-	}
-
-	if normSub == "version" {
-		fmt.Printf("git-user %s\n", version.GetVersion())
-		return nil
-	}
+	// --version and --update are handled in cmd/git-user/main.go before Execute runs.
 
 	rest := args[1:]
 

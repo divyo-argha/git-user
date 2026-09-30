@@ -176,6 +176,8 @@ func (d *Dashboard) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 	case core.KeyEsc:
 		// Root screen: nothing to go back to.
 		return d, core.ShowToastCmd("At the main menu — press q to quit", theme.ToastStyleInfo, 2*time.Second)
+	case core.KeyHelp:
+		return d, func() tea.Msg { return core.ActionResultMsg{Kind: "help"} }
 	case core.KeyFilter:
 		// '/' enters filter mode on the identities pane.
 		d.filterMode = true

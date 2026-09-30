@@ -47,7 +47,7 @@ another window at the same time. Type 'exit' to leave it.`, cause, name, name)
 // the prompt indicator and the shell shortcut, since they're both installed
 // from that same single menu. Opening a new terminal window scoped to a
 // specific identity lives on that identity's own detail screen instead (the
-// "Work Side-by-Side" section, key "shell-window") — not covered here.
+// "Side-by-Side Accounts" section, key "shell-window") — not covered here.
 const terminalIntegrationGuideText = `TERMINAL & SHELL INTEGRATION GUIDE
 
 ── PROMPT INDICATOR ──────────────────────────────────────────────────────
@@ -276,15 +276,6 @@ func installConfirmQuestion(sh shellinit.Shell) string {
 // ── Action Handling ───────────────────────────────────────────────────────────
 
 func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
-	if strings.HasPrefix(msg.Kind, "signer-remove:") {
-		principal := strings.TrimPrefix(msg.Kind, "signer-remove:")
-		return a, pushCmd(screens.NewConfirm(
-			fmt.Sprintf("Remove %q from .allowed-signers?", principal),
-			"policy-signer-remove:"+principal,
-			a.theme,
-		))
-	}
-
 	switch msg.Kind {
 	case "quit-confirm":
 		// 'q' from the dashboard: show a confirmation dialog before quitting.
@@ -293,6 +284,12 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 			"quit-confirmed",
 			a.theme,
 		))
+
+	case "help":
+		return a, pushCmd(screens.NewReport(core.HelpTitleDashboard, core.DashboardHelpText(), a.theme))
+
+	case "help-detail":
+		return a, pushCmd(screens.NewReport(core.HelpTitleDetail, core.DetailHelpText(), a.theme))
 
 	case "quit":
 		a.quit = true

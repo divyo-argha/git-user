@@ -56,6 +56,7 @@ func TestSystemActions(t *testing.T) {
 
 	foundFixRemote := false
 	foundImportOriginal := false
+	importExportLabel := ""
 	foundPromptIntegration := false
 	foundPolicy := false
 	foundVerify := false
@@ -68,6 +69,9 @@ func TestSystemActions(t *testing.T) {
 		}
 		if item.Key == "import-original" {
 			foundImportOriginal = true
+		}
+		if item.Key == "import-export" {
+			importExportLabel = item.Label
 		}
 		if item.Key == "prompt-integration" {
 			foundPromptIntegration = true
@@ -89,14 +93,17 @@ func TestSystemActions(t *testing.T) {
 	if foundFixRemote {
 		t.Errorf("SystemActions should NOT include fix-remote when showFixRemote=false")
 	}
-	if !foundImportOriginal {
-		t.Errorf("SystemActions should include import-original when showImportOriginal=true")
+	if foundImportOriginal {
+		t.Errorf("SystemActions should NOT include a separate import-original row — the Import / Export screen offers it")
+	}
+	if !strings.Contains(importExportLabel, "existing git identity found") {
+		t.Errorf("Import / Export label should flag an importable identity, got %q", importExportLabel)
 	}
 	if !foundPromptIntegration {
 		t.Errorf("SystemActions should include the prompt-integration action")
 	}
 	// Team/org governance features, not relevant to personal multi-account
-	// use — removed from the TUI menu (still available as CLI commands).
+	// use — kept out of the TUI menu (available as CLI commands).
 	if foundPolicy {
 		t.Error("SystemActions should NOT include the policy action — it was removed from the TUI menu")
 	}
@@ -129,48 +136,94 @@ func TestSystemActions(t *testing.T) {
 		t.Errorf("SystemActions should include fix-remote when showFixRemote=true")
 	}
 
-	// Without an unimported original identity — nothing left to import, so
-	// the entry must not appear (this is the actual gating this test guards).
+	// Without an unimported original identity the label stays plain.
 	m3 := SystemActions(th, false, false)
 	for _, item := range m3.items {
-		if item.Key == "import-original" {
-			t.Error("SystemActions should NOT include import-original when showImportOriginal=false")
+		if item.Key == "import-export" && item.Label != "⇪ Import / Export" {
+			t.Errorf("import-export label should be plain when nothing to import, got %q", item.Label)
 		}
 	}
+}
+
+func menuKeys(m ActionMenu) []string {
+	var keys []string
+	for _, it := range m.items {
+		if !it.IsSection {
+			keys = append(keys, it.Key)
+		}
+	}
+	return keys
+}
+
+func hasKey(m ActionMenu, key string) bool {
+	for _, k := range menuKeys(m) {
+		if k == key {
+			return true
+		}
+	}
+	return false
 }
 
 func TestSystemActions_UpdateStatus(t *testing.T) {
 	th := theme.DefaultTheme()
 	m := SystemActions(th, false, false)
 
-	// By default update item should be disabled and show "up to date"
-	var updateItem *ActionItem
-	for i := range m.items {
-		if m.items[i].Key == "update" {
-			updateItem = &m.items[i]
-			break
+	// No permanent "up to date" row: nothing to act on.
+	if hasKey(m, "update") {
+		t.Fatal("update row should be absent by default")
+	}
+
+	// Appears when an update is available, above the Danger Zone.
+	m.SetUpdateStatus("v5.0.0", true)
+	if !hasKey(m, "update") {
+		t.Fatal("expected update row when update is available")
+	}
+	for i, it := range m.items {
+		if it.Key == "update" {
+			if it.Label != "▲ Update available (v5.0.0)" || it.Disabled {
+				t.Errorf("unexpected update item: %+v", it)
+			}
+			if next := m.items[i+1]; !(next.IsSection && next.Label == "Danger Zone") {
+				t.Errorf("update row should sit just above Danger Zone, next item is %+v", next)
+			}
 		}
 	}
-	if updateItem == nil {
-		t.Fatalf("Update action item not found in SystemActions")
+
+	// Label refreshes in place without duplicating the row.
+	m.SetUpdateStatus("v5.1.0", true)
+	n := 0
+	for _, k := range menuKeys(m) {
+		if k == "update" {
+			n++
+		}
 	}
-	if !updateItem.Disabled {
-		t.Errorf("Expected update item to be disabled by default")
+	if n != 1 {
+		t.Errorf("expected exactly one update row, got %d", n)
 	}
 
-	// Enable when update is available
-	m.SetUpdateStatus("v5.0.0", true)
-	if updateItem.Disabled {
-		t.Errorf("Expected update item to be enabled when update is available")
-	}
-	if updateItem.Label != "▲ Update available (v5.0.0)" {
-		t.Errorf("Unexpected label: %s", updateItem.Label)
-	}
-
-	// Disable again when up to date
+	// Disappears again when up to date.
 	m.SetUpdateStatus("v4.8.0", false)
-	if !updateItem.Disabled {
-		t.Errorf("Expected update item to be disabled when up to date")
+	if hasKey(m, "update") {
+		t.Error("update row should be removed when up to date")
+	}
+}
+
+func TestSystemActions_UpdateStatusKeepsCursor(t *testing.T) {
+	th := theme.DefaultTheme()
+	m := SystemActions(th, false, false)
+	m.FindAndSetCursorByKey("stats")
+
+	m.SetUpdateStatus("v5.0.0", true)
+	if sel := m.Selected(); sel == nil || sel.Key != "stats" {
+		t.Errorf("cursor should stay on stats after the update row is inserted, got %+v", sel)
+	}
+
+	// Cursor on the update row, then it is removed: fall back to a selectable item.
+	m.FindAndSetCursorByKey("update")
+	m.SetUpdateStatus("", false)
+	sel := m.Selected()
+	if sel == nil || sel.IsSection || sel.Key == "" || sel.Disabled {
+		t.Errorf("cursor should land on a selectable item after removal, got %+v", sel)
 	}
 }
 
@@ -186,4 +239,3 @@ func TestActionMenu_ViewFitsHeight(t *testing.T) {
 		t.Errorf("ActionMenu.View rendered %d lines, want <= %d (height)", lineCount, height)
 	}
 }
-

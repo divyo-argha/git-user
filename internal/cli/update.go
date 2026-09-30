@@ -147,7 +147,7 @@ func RunUpdate() error {
 	}
 
 	// Compare remote version against currently installed version
-	if !isNewerVersion(release.TagName, version.GetVersion()) {
+	if !version.IsNewerVersion(release.TagName, version.GetVersion()) {
 		ui.PrintUpdateCurrent(version.GetVersion())
 		return nil
 	}
@@ -386,7 +386,7 @@ func handleNpmUpdate() error {
 		}
 		if err := json.NewDecoder(resp.Body).Decode(&npmPkg); err == nil && npmPkg.Version != "" {
 			targetVersion = npmPkg.Version
-			if !isNewerVersion(npmPkg.Version, version.GetVersion()) {
+			if !version.IsNewerVersion(npmPkg.Version, version.GetVersion()) {
 				ui.PrintUpdateCurrent(version.GetVersion())
 				return nil
 			}
@@ -440,12 +440,4 @@ func isNpmInstall(execPath string) bool {
 		strings.Contains(lower, "git-userhub") ||
 		strings.Contains(lower, ".npm") ||
 		strings.Contains(lower, "nvm")
-}
-
-func parseVersion(v string) (int, int, int) {
-	return version.ParseVersion(v)
-}
-
-func isNewerVersion(remoteTag, currentVersion string) bool {
-	return version.IsNewerVersion(remoteTag, currentVersion)
 }

@@ -61,7 +61,7 @@ func (r *Report) maxScrollOffset() int {
 func (r *Report) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if core.IsEscKey(msg) || msg.String() == "b" || msg.String() == "B" || msg.String() == core.KeyEnter {
+		if core.IsEscKey(msg) || msg.String() == "b" || msg.String() == "B" || msg.String() == core.KeyEnter || msg.String() == core.KeyHelp {
 			return r, func() tea.Msg { return core.ScreenPopMsg{} }
 		}
 		switch msg.String() {

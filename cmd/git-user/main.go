@@ -9,7 +9,6 @@ import (
 	"github.com/divyo-argha/git-user/internal/identity"
 	"github.com/divyo-argha/git-user/internal/ui"
 	"github.com/divyo-argha/git-user/internal/version"
-	"github.com/mattn/go-isatty"
 )
 
 var (
@@ -71,24 +70,12 @@ func printVersion() {
 	fmt.Printf("git-user %s\n", version.GetVersion())
 }
 
-// stdinIsTTY reports whether stdin is attached to a terminal.
-func stdinIsTTY() bool {
-	if isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd()) {
-		return true
-	}
-	fi, err := os.Stdin.Stat()
-	if err != nil {
-		return false
-	}
-	return (fi.Mode() & os.ModeCharDevice) != 0
-}
-
 func checkOrphanedKeys() {
 	// The orphan-cleanup prompt is interactive: only run it when both stdin and
 	// stdout are terminals. Otherwise warnings could corrupt programmatically
 	// consumed output (e.g. `git-user list | grep x`, `git-user pubkey | xclip`,
 	// `git-user export --all > bundle.bundle`) or hang waiting for input in CI.
-	if !ui.IsTTY() || !stdinIsTTY() {
+	if !ui.IsTTY() || !ui.StdinIsTTY() {
 		return
 	}
 

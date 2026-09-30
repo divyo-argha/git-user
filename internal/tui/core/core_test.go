@@ -513,3 +513,31 @@ func TestCheckVersionCmd_Resolves(t *testing.T) {
 		t.Errorf("expected update available for v1.0.0 against remote %s", vMsg.LatestVersion)
 	}
 }
+
+func TestHelpTexts_AdvertiseHelpKeyAndFitOneLine(t *testing.T) {
+	for name, fn := range map[string]func() string{"DashboardHelp": DashboardHelp, "DetailHelp": DetailHelp} {
+		got := fn()
+		if !strings.Contains(got, "?•keys") {
+			t.Errorf("%s should advertise the '?' key, got %q", name, got)
+		}
+		// The hint bar must fit an 80-column terminal.
+		if n := len([]rune(got)); n > 78 {
+			t.Errorf("%s is %d columns wide, want <= 78: %q", name, n, got)
+		}
+	}
+}
+
+func TestFullHelpTexts_DocumentEveryShortcut(t *testing.T) {
+	dash := DashboardHelpText()
+	for _, want := range []string{"Switch to the highlighted identity", "Refresh", "update", "Re-apply", "Filter identities", "Quit"} {
+		if !strings.Contains(dash, want) {
+			t.Errorf("DashboardHelpText missing %q", want)
+		}
+	}
+	detail := DetailHelpText()
+	for _, want := range []string{"Switch to this identity", "Back to the dashboard", "Quit"} {
+		if !strings.Contains(detail, want) {
+			t.Errorf("DetailHelpText missing %q", want)
+		}
+	}
+}

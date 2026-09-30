@@ -386,6 +386,7 @@ Everything in `git-user` is keyboard-driven for maximum speed:
 | <kbd>Tab ⇥</kbd> / <kbd>←</kbd> / <kbd>→</kbd> | Switch active pane (Identities ↔ Utilities) | Dashboard |
 | <kbd>s</kbd> | Instantly switch to highlighted identity | Dashboard / Detail |
 | <kbd>/</kbd> | Open live real-time filter search | Dashboard |
+| <kbd>?</kbd> | Show the full keyboard reference (including `r` refresh, `u` update, `f` re-apply) | Dashboard / Detail |
 | <kbd>Esc</kbd> | Go back / Dismiss dialog / Clear search filter | Everywhere |
 | <kbd>q</kbd> | Quit application | Everywhere |
 

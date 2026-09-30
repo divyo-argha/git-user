@@ -35,11 +35,12 @@ func NewActionMenu(title string, items []ActionItem, th theme.Theme) ActionMenu 
 // SystemActions returns the default system utilities action list.
 // showFixRemote controls whether the "Fix remotes (HTTPS → SSH)" entry is
 // included; pass true only when the current repo has HTTPS remotes that need
-// converting. showImportOriginal controls whether "Import existing git
-// identity" is included; pass true only when the machine's global git config
-// holds a name+email that isn't already one of git-user's registered
-// profiles — there's nothing to import otherwise.
-func SystemActions(th theme.Theme, showFixRemote, showImportOriginal bool) ActionMenu {
+// converting. hasOriginalIdentity flags the "Import / Export" entry when the
+// machine's global git config holds a name+email that isn't already one of
+// git-user's registered profiles, so the import path stays discoverable
+// without a separate, near-duplicate menu row (that screen offers the
+// "import original gitconfig" option itself).
+func SystemActions(th theme.Theme, showFixRemote, hasOriginalIdentity bool) ActionMenu {
 	items := []ActionItem{
 		{IsSection: true, Label: "Quick Actions"},
 		{Label: "→ Sign out", Key: "logout"},
@@ -49,48 +50,75 @@ func SystemActions(th theme.Theme, showFixRemote, showImportOriginal bool) Actio
 		items = append(items, ActionItem{Label: "⇄ Fix remote → SSH", Key: "fix-remote"})
 	}
 
+	importLabel := "⇪ Import / Export"
+	if hasOriginalIdentity {
+		importLabel += " (existing git identity found)"
+	}
+
 	items = append(items,
 		ActionItem{IsSection: true, Label: "Health & Security"},
 		ActionItem{Label: "✦ Doctor", Key: "doctor"},
-	)
-	items = append(items,
 		ActionItem{Label: "≡ Identity switch log", Key: "log"},
-	)
-	if showImportOriginal {
-		items = append(items, ActionItem{Label: "↓ Import existing git identity", Key: "import-original"})
-	}
-	items = append(items,
-		ActionItem{Label: "⇪ Import/Export bundles", Key: "import-export"},
 		ActionItem{IsSection: true, Label: "Profiles & System"},
+		ActionItem{Label: importLabel, Key: "import-export"},
 		ActionItem{Label: "~ Create temporary profile", Key: "register-temp"},
 		ActionItem{Label: "↓ Clone repository", Key: "clone"},
 		ActionItem{Label: "◈ Commit identity stats", Key: "stats"},
 		ActionItem{Label: "⚓ Git hooks", Key: "hook"},
 		ActionItem{Label: "↻ Sync identities", Key: "sync"},
 		ActionItem{Label: "❯ Terminal & shell integration", Key: "prompt-integration"},
-		ActionItem{Label: "▲ Up to date", Key: "update", Disabled: true},
 		ActionItem{IsSection: true, Label: "Danger Zone"},
 		ActionItem{Label: "✖ Uninstall", Key: "uninstall", IsDanger: true},
 	)
 	return NewActionMenu("System Utilities", items, th)
 }
 
-// SetUpdateStatus dynamically enables or disables the update action item.
+// SetUpdateStatus shows an "Update available" entry when a newer release
+// exists and removes it otherwise. The menu carries no permanent "up to date"
+// row: there is nothing to act on then, and the status bar already shows the
+// version.
 func (m *ActionMenu) SetUpdateStatus(latestVersion string, updateAvailable bool) {
+	selectedKey := ""
+	if sel := m.Selected(); sel != nil {
+		selectedKey = sel.Key
+	}
+
+	idx := -1
 	for i := range m.items {
 		if m.items[i].Key == "update" {
-			if updateAvailable && latestVersion != "" {
-				m.items[i].Label = "▲ Update available (" + latestVersion + ")"
-				m.items[i].Disabled = false
-			} else {
-				m.items[i].Label = "▲ Up to date"
-				m.items[i].Disabled = true
-			}
-			if m.items[m.cursor].Disabled {
-				m.cursor = m.nextSelectable(-1)
-			}
+			idx = i
+			break
+		}
+	}
+
+	switch {
+	case updateAvailable && latestVersion != "":
+		label := "▲ Update available (" + latestVersion + ")"
+		if idx >= 0 {
+			m.items[idx].Label = label
 			return
 		}
+		// Insert at the end of "Profiles & System", just above the Danger Zone.
+		at := len(m.items)
+		for i, it := range m.items {
+			if it.IsSection && it.Label == "Danger Zone" {
+				at = i
+				break
+			}
+		}
+		m.items = append(m.items, ActionItem{})
+		copy(m.items[at+1:], m.items[at:])
+		m.items[at] = ActionItem{Label: label, Key: "update"}
+	case idx >= 0:
+		m.items = append(m.items[:idx], m.items[idx+1:]...)
+	default:
+		return
+	}
+
+	if selectedKey != "" && selectedKey != "update" {
+		m.FindAndSetCursorByKey(selectedKey)
+	} else if m.cursor >= len(m.items) || m.items[m.cursor].IsSection || m.items[m.cursor].Key == "" {
+		m.cursor = m.nextSelectable(-1)
 	}
 }
 

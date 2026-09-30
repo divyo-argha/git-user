@@ -901,3 +901,60 @@ func TestNonReportScreensDoNotToggleMouseCapture(t *testing.T) {
 		}
 	}
 }
+
+// Pressing '?' on the dashboard and on a profile screen opens a scrollable
+// keyboard reference, and '?' (or Esc) closes it again.
+func TestHelpOverlay_OpensAndCloses(t *testing.T) {
+	withTempConfig(t)
+	th := theme.DefaultTheme()
+	store := &config.Store{Current: "eng", Users: []config.User{{Name: "eng", Email: "eng@company.com"}}}
+	app := NewApp(store, screens.NewDashboard(store, th))
+	app.Update(tea.WindowSizeMsg{Width: 100, Height: 40})
+
+	press := func(a *App, msg tea.Msg) *App {
+		t.Helper()
+		model, cmd := a.Update(msg)
+		a = model.(*App)
+		// Drain the resulting command chain (action -> push/pop messages).
+		for cmd != nil {
+			next := cmd()
+			if next == nil {
+				break
+			}
+			if _, isBatch := next.(tea.BatchMsg); isBatch {
+				break
+			}
+			model, cmd = a.Update(next)
+			a = model.(*App)
+		}
+		return a
+	}
+	key := func(r rune) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}} }
+
+	app = press(app, key('?'))
+	if len(app.screenStack) != 2 {
+		t.Fatalf("expected help screen pushed, stack=%d", len(app.screenStack))
+	}
+	if got := app.activeScreen().Title(); got != core.HelpTitleDashboard {
+		t.Errorf("help title = %q, want %q", got, core.HelpTitleDashboard)
+	}
+	if view := app.View(); !strings.Contains(view, "Re-apply the active identity") {
+		t.Errorf("help overlay should document the situational shortcuts, got:\n%s", view)
+	}
+
+	app = press(app, key('?'))
+	if len(app.screenStack) != 1 {
+		t.Errorf("'?' should close the help screen, stack=%d", len(app.screenStack))
+	}
+
+	// Profile screen gets its own reference.
+	app = press(app, core.ScreenPushMsg{Screen: screens.NewDetail(store, "eng", th)})
+	app = press(app, key('?'))
+	if got := app.activeScreen().Title(); got != core.HelpTitleDetail {
+		t.Errorf("detail help title = %q, want %q", got, core.HelpTitleDetail)
+	}
+	app = press(app, tea.KeyMsg{Type: tea.KeyEsc})
+	if _, ok := app.activeScreen().(*screens.Detail); !ok {
+		t.Errorf("Esc should return to the profile screen, got %T", app.activeScreen())
+	}
+}
