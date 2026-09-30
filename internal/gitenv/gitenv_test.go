@@ -86,4 +86,3 @@ func TestVarsWiresPushInsteadOfWithSSH(t *testing.T) {
 		t.Errorf("expected bitbucket.org pushInsteadOf in GIT_CONFIG_PARAMETERS, got: %s", params)
 	}
 }
-

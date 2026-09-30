@@ -229,4 +229,3 @@ func TestPromptInstall_PowerShell(t *testing.T) {
 		t.Errorf("expected powershell profile to contain git-user prompt")
 	}
 }
-

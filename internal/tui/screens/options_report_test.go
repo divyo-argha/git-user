@@ -160,7 +160,6 @@ func TestReportCopy_ScopedToCopyTextWhenSet(t *testing.T) {
 	}
 }
 
-
 func TestReport_WithoutCopyHidesHintAndIgnoresKey(t *testing.T) {
 	th := theme.DefaultTheme()
 

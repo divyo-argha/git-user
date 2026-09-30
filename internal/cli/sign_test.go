@@ -9,8 +9,8 @@ import (
 )
 
 func TestRunSignEnable(t *testing.T) {
-testutil.Sandbox(t)
-		dir := t.TempDir()
+	testutil.Sandbox(t)
+	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
 	t.Setenv("GIT_USER_CONFIG", path)
 
@@ -33,8 +33,8 @@ testutil.Sandbox(t)
 }
 
 func TestRunSignDisable(t *testing.T) {
-testutil.Sandbox(t)
-		dir := t.TempDir()
+	testutil.Sandbox(t)
+	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
 	t.Setenv("GIT_USER_CONFIG", path)
 
@@ -56,8 +56,8 @@ testutil.Sandbox(t)
 }
 
 func TestRunSignExplicitKey(t *testing.T) {
-testutil.Sandbox(t)
-		dir := t.TempDir()
+	testutil.Sandbox(t)
+	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
 	t.Setenv("GIT_USER_CONFIG", path)
 

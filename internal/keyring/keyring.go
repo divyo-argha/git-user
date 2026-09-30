@@ -127,4 +127,3 @@ func MockForTest(t MockTestingTB) map[string]string {
 	})
 	return mock
 }
-

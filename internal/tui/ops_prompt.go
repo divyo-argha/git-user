@@ -201,4 +201,3 @@ func opTogglePromptPlain(store *config.Store) (opResult, error) {
 	}
 	return opResult{detail: fmt.Sprintf("Prompt indicator plain format is now %s", state)}, nil
 }
-

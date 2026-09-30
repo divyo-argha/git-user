@@ -91,7 +91,6 @@ func (od *OrphanDetector) CleanupOrphans(orphans []OrphanedKey) error {
 	return nil
 }
 
-
 // CleanupOrphanedStateEntries removes state entries for keys that no longer exist
 func (od *OrphanDetector) CleanupOrphanedStateEntries() error {
 	state, err := LoadTempState(od.stateFile)

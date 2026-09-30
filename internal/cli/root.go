@@ -260,8 +260,26 @@ func Execute() error {
 			return nil
 		}
 		ui.Errorf("unknown command %q — run 'git-user --help' for usage", sub)
+		if hint, ok := removedAliasHints[sub]; ok {
+			ui.Info(hint)
+		}
 		return fmt.Errorf("unknown command")
 	}
+}
+
+// removedAliasHints points people at the replacement for shorthands that were
+// dropped because they were easy to hit by accident (especially on a
+// destructive command) or ambiguous. They fail as unknown commands, with this
+// hint, rather than silently doing something else.
+var removedAliasHints = map[string]string{
+	"-d":    "'-d' was removed — use 'git-user remove <name>' (or 'rm').",
+	"del":   "'del' was removed — use 'git-user remove <name>' (or 'rm').",
+	"--del": "'--del' was removed — use 'git-user remove <name>' (or 'rm').",
+	"-rm":   "'-rm' was removed — use 'git-user remove <name>' (or 'rm').",
+	"run":   "'run' was removed — use 'git-user exec <name> -- <command>'.",
+	"--run": "'--run' was removed — use 'git-user exec <name> -- <command>'.",
+	"fix":   "'fix' was removed because it was ambiguous — use 'git-user doctor --fix' to repair issues, or 'git-user refresh' to re-sync git config.",
+	"--fix": "'--fix' on its own was removed because it was ambiguous — use 'git-user doctor --fix' to repair issues, or 'git-user refresh' to re-sync git config.",
 }
 
 // normalizeSubcommand normalizes flag aliases and command variations to canonical command names.
@@ -284,7 +302,7 @@ func normalizeSubcommand(sub string) string {
 		return "switch"
 	case "register", "--register", "-r", "reg", "--reg", "add", "--add", "-a":
 		return "register"
-	case "remove", "--remove", "rm", "--rm", "-rm", "delete", "--delete", "-d", "del", "--del":
+	case "remove", "--remove", "rm", "--rm", "delete", "--delete":
 		return "remove"
 	case "edit", "--edit":
 		return "edit"
@@ -298,7 +316,7 @@ func normalizeSubcommand(sub string) string {
 		return "env"
 	case "shell", "--shell":
 		return "shell"
-	case "exec", "--exec", "run", "--run":
+	case "exec", "--exec":
 		return "exec"
 	case "init", "--init":
 		return "init"
@@ -326,7 +344,7 @@ func normalizeSubcommand(sub string) string {
 		return "connections"
 	case "doctor", "--doctor":
 		return "doctor"
-	case "refresh", "--refresh", "repair", "--repair", "fix", "--fix":
+	case "refresh", "--refresh", "repair", "--repair":
 		return "refresh"
 	case "uninstall", "--uninstall", "purge", "--purge":
 		return "uninstall"

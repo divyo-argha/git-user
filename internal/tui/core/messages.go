@@ -153,4 +153,3 @@ type VersionCheckMsg struct {
 	LatestVersion   string
 	UpdateAvailable bool
 }
-

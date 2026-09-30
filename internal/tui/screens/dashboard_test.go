@@ -190,4 +190,3 @@ func TestDashboardRefreshKeyBinding(t *testing.T) {
 		}
 	}
 }
-

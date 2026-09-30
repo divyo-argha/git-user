@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"github.com/divyo-argha/git-user/internal/keyring"
 	"fmt"
+	"github.com/divyo-argha/git-user/internal/keyring"
 	"os"
 	"os/exec"
 	"path/filepath"

@@ -231,4 +231,3 @@ func TestInstall_PowerShell(t *testing.T) {
 		}
 	}
 }
-

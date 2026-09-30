@@ -24,6 +24,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Verify tag matches the version in the code
+        run: |
+          code_version="$(sed -n 's/^var Version = "\(.*\)"$/\1/p' internal/version/version.go)"
+          if [ "$code_version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match Version $code_version in internal/version/version.go. Bump it (and npm/package.json), then re-tag."
+            exit 1
+          fi
+
       - name: Verify NPM_TOKEN secret
         run: |
           if [ -z "${{ secrets.NPM_TOKEN }}" ]; then

@@ -20,15 +20,15 @@ const (
 )
 
 type Dashboard struct {
-	store       *config.Store
-	identities  components.IdentityList
-	actions     components.ActionMenu
-	activePane  Pane
-	animFrame   uint64
-	theme       theme.Theme
-	filterMode  bool   // true when '/' has been pressed and user is typing
-	filterQuery string // current filter text
-	leftWidth   int    // updated each View(); used for mouse pane detection
+	store           *config.Store
+	identities      components.IdentityList
+	actions         components.ActionMenu
+	activePane      Pane
+	animFrame       uint64
+	theme           theme.Theme
+	filterMode      bool   // true when '/' has been pressed and user is typing
+	filterQuery     string // current filter text
+	leftWidth       int    // updated each View(); used for mouse pane detection
 	syncOut         bool   // git config does not match the active identity
 	latestVersion   string // cached for action menu rebuilds
 	updateAvailable bool   // cached for action menu rebuilds
@@ -378,4 +378,3 @@ func (d *Dashboard) SelectedActionKey() string {
 	}
 	return ""
 }
-

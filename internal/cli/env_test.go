@@ -199,4 +199,3 @@ func TestRunEnv_CmdUnset(t *testing.T) {
 		t.Errorf("expected set PROMPT=$P$G in output, got:\n%s", output)
 	}
 }
-

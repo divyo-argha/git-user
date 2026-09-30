@@ -153,5 +153,3 @@ func TestRunInit_Cmd(t *testing.T) {
 		t.Errorf("expected git-user env in cmd init script, got:\n%s", output)
 	}
 }
-
-

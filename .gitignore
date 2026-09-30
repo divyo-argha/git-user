@@ -1,5 +1,6 @@
 # Binaries
 /git-user
+/bin/
 /dist/
 
 # IDE files

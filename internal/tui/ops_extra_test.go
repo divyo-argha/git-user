@@ -276,7 +276,6 @@ func TestOpSwitchSession_ShellFormatting(t *testing.T) {
 	}
 }
 
-
 // fakeSSH puts an `ssh` stub first on PATH that records its arguments and
 // fails, so a test can see which key a clone tried to authenticate with
 // without any network access. Returns the log file path.

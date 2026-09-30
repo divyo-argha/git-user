@@ -621,6 +621,8 @@ Explicit `git-user --update` is unaffected.
 
 **Aliases:** `ls` → `list` · `sw` → `switch` · `rm` → `remove` · `reg` → `register` · `whoami` → `current` · `lo` / `signout` → `logout` · `bind` → `bind-key` · `pubkey push` → `pubkey publish` · `security` → `audit` · `import-original` → `switch --original` · `tui` / `-i` / `--interactive` → interactive menu
 
+> **Removed shorthands (v4.19):** `-d`, `del`, `--del` and `-rm` (for `remove` — use `remove` or `rm`), `run`/`--run` (use `exec`), and `fix`/`--fix` on their own (use `doctor --fix` to repair, or `refresh` to re-sync git config). They now fail with a hint instead of acting on the wrong thing.
+
 > **Dual Flag/Subcommand Convention:** All commands can be run either as subcommands (`git-user current`, `git-user list`) or as standard flags (`git-user --current`, `git-user -c`, `git-user --list`, `git-user -l`, `git-user --switch <name>`, `git-user -s <name>`).
 
 > **Machine-readable output:** `list` and `current` print `name <email>` (plus a

@@ -53,4 +53,3 @@ func TestStatusBar(t *testing.T) {
 		t.Errorf("Compact StatusBar view does not reflect update pill")
 	}
 }
-

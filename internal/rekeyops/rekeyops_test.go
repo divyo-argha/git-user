@@ -48,10 +48,10 @@ func TestRotateSuccessAndRollback(t *testing.T) {
 	store := &config.Store{
 		Users: []config.User{
 			{
-				Name:        "alice",
-				SSHKey:      oldKey,
-				SignKey:     oldKey,
-				SignFormat:  "ssh",
+				Name:         "alice",
+				SSHKey:       oldKey,
+				SignKey:      oldKey,
+				SignFormat:   "ssh",
 				SignDisabled: false,
 			},
 		},
