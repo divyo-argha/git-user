@@ -102,7 +102,9 @@ func TestAddSSHKeyWithOptions_Lifetime(t *testing.T) {
 // ConfirmBeforeUse (it only ever reads LifetimeSecs), so it can't itself
 // prove the constraint was set. Serving this behind the same real
 // agent.ServeAgent socket harness as the other tests still exercises the
-// real wire-protocol encode/decode of ConfirmBeforeUse.
+// real wire-protocol encode/decode of ConfirmBeforeUse. (Newer x/crypto
+// versions make the stock keyring reject that constraint outright, which is
+// why Add() below accepts it itself.)
 type fakeAgent struct {
 	agent.Agent
 	lastAdded agent.AddedKey
@@ -110,6 +112,13 @@ type fakeAgent struct {
 
 func (f *fakeAgent) Add(key agent.AddedKey) error {
 	f.lastAdded = key
+	if key.ConfirmBeforeUse {
+		// Since golang.org/x/crypto v0.52 (GO-2026-5006) the stock keyring
+		// rejects a constraint it cannot enforce instead of silently dropping
+		// it. A real OpenSSH agent does enforce confirm-before-use, so this
+		// fake stands in for one: it records the request and accepts it.
+		return nil
+	}
 	return f.Agent.Add(key)
 }
 

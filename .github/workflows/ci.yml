@@ -52,3 +52,18 @@ jobs:
           node-version: 'lts/*'
       - name: Verify build-packages script runs successfully
         run: node npm/scripts/build-packages.js
+
+  # Known-vulnerability scan of the Go dependency graph and standard library,
+  # reporting only vulnerabilities whose code is actually reachable from
+  # git-user. The tool version is pinned like everything else here.
+  vulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure Git safe directory
+        run: git config --global --add safe.directory '*'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...

@@ -9,6 +9,11 @@ before:
 builds:
   - env:
       - CGO_ENABLED=0
+    # Reproducible builds: no local paths in the binary and every embedded
+    # timestamp comes from the commit, so anyone can rebuild a tag and compare.
+    flags:
+      - -trimpath
+    mod_timestamp: '{{ .CommitTimestamp }}'
     goos:
       - linux
       - windows
@@ -20,7 +25,7 @@ builds:
       - -s -w
       - -X main.buildVersion={{.Version}}
       - -X main.commit={{.Commit}}
-      - -X main.date={{.Date}}
+      - -X main.date={{.CommitDate}}
     binary: git-user
     main: ./cmd/git-user
 
@@ -36,6 +41,21 @@ archives:
 
 checksum:
   name_template: 'checksums.txt'
+
+# Keyless (Sigstore) signature over checksums.txt. The checksums cover every
+# archive, so verifying this one signature authenticates them all. The bundle
+# carries the certificate and transparency-log proof; it is produced with the
+# workflow's OIDC identity, so there is no signing key to steal.
+signs:
+  - cmd: cosign
+    signature: '${artifact}.sigstore.json'
+    args:
+      - sign-blob
+      - '--yes'
+      - '--bundle=${signature}'
+      - '${artifact}'
+    artifacts: checksum
+    output: true
 
 snapshot:
   version_template: "{{ .Tag }}-next"

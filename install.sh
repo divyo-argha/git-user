@@ -40,9 +40,9 @@ if ! RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/late
     exit 1
 fi
 
-LATEST_URL="$(printf '%s' "$RELEASE_JSON" | grep -i "browser_download_url.*${PLATFORM}_${ARCHITECTURE}.tar.gz" | cut -d '"' -f 4)"
+LATEST_URL="$(printf '%s' "$RELEASE_JSON" | grep -i "browser_download_url.*${PLATFORM}_${ARCHITECTURE}.tar.gz\"" | cut -d '"' -f 4 | head -n 1)"
 LATEST_TAG="$(printf '%s' "$RELEASE_JSON" | grep -i '"tag_name"' | cut -d '"' -f 4)"
-CHECKSUMS_URL="$(printf '%s' "$RELEASE_JSON" | grep -i "browser_download_url.*checksums.txt" | cut -d '"' -f 4)"
+CHECKSUMS_URL="$(printf '%s' "$RELEASE_JSON" | grep -i "browser_download_url.*checksums.txt\"" | cut -d '"' -f 4 | head -n 1)"
 
 if [ -z "$LATEST_URL" ]; then
     echo "Error: Could not find a release for $PLATFORM $ARCHITECTURE"
@@ -98,6 +98,7 @@ curl -fsSL "$LATEST_URL" -o release.tar.gz
 # installed (and, when sudo is required below, run as root) with nothing to
 # catch it.
 curl -fsSL "$CHECKSUMS_URL" -o checksums.txt
+
 ARCHIVE_NAME="$(basename "$LATEST_URL")"
 EXPECTED_SHA256="$(grep " ${ARCHIVE_NAME}\$" checksums.txt | awk '{print $1}')"
 if [ -z "$EXPECTED_SHA256" ]; then

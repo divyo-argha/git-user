@@ -43,6 +43,29 @@ npm audit signatures
 
 Provenance records are also available on the npm package page under the **Provenance** section for each published version: [npmjs.com/package/git-userhub](https://www.npmjs.com/package/git-userhub)
 
+### GitHub release archives (curl installer and `git-user --update`)
+
+- **`checksums.txt`** lists the SHA-256 of every archive. `install.sh` and `git-user --update` always verify the download against it and refuse to install on a mismatch or if it is missing.
+- From the first release after v4.19.0, `checksums.txt` is also signed with keyless [cosign](https://docs.sigstore.dev/cosign/installation/) (`checksums.txt.sigstore.json`) and each archive gets a GitHub build attestation. Neither needs a signing key or a repository secret: the certificate is issued to this repository's `release.yml` workflow on a version tag. Builds use `-trimpath` and commit-derived timestamps so they can be reproduced.
+
+To verify a download by hand:
+
+```bash
+# Signature over the checksums
+cosign verify-blob \
+  --bundle checksums.txt.sigstore.json \
+  --certificate-identity-regexp '^https://github\.com/divyo-argha/git-user/\.github/workflows/release\.yml@refs/tags/v.+$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  checksums.txt
+
+# Build provenance of an archive
+gh attestation verify git-user_linux_x86_64.tar.gz --repo divyo-argha/git-user
+```
+
+### Dependency scanning
+
+CI runs `govulncheck` on every push and pull request (known vulnerabilities reachable from git-user's code), Dependabot keeps Go modules and pinned GitHub Actions current, and every workflow action is pinned to a full commit SHA. A release tag must match the version in the code, or the release workflows stop.
+
 ---
 
 ## Scope
