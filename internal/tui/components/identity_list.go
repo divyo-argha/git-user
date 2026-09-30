@@ -23,6 +23,7 @@ type IdentityItem struct {
 	BindCount   int
 	IsAction    bool
 	ActionKey   string
+	ActionLabel string // text of an action row, e.g. "+ Register new identity"
 
 	// HasToken/TokenExpiring/TokenExpired are derived from HTTPSTokenExpiresAt
 	// metadata alone (same as doctor's per-profile check) — not a real
@@ -77,7 +78,10 @@ func buildIdentityItems(store *config.Store) []IdentityItem {
 			TokenExpired:  expired,
 		})
 	}
-	items = append(items, IdentityItem{IsAction: true, ActionKey: "register"})
+	items = append(items,
+		IdentityItem{IsAction: true, ActionKey: "register", ActionLabel: "+ Register new identity"},
+		IdentityItem{IsAction: true, ActionKey: "register-temp", ActionLabel: "~ Create temporary profile"},
+	)
 	computeActivePolicyStatus(items, store)
 	return items
 }
@@ -201,6 +205,17 @@ func (l *IdentityList) Selected() *IdentityItem {
 
 func (l *IdentityList) Cursor() int { return l.cursor }
 
+// profileCount returns how many real identities (not action rows) exist.
+func (l IdentityList) profileCount() int {
+	n := 0
+	for _, it := range l.items {
+		if !it.IsAction {
+			n++
+		}
+	}
+	return n
+}
+
 // FilterByQuery filters the list to items whose name or email contains q
 // (case-insensitive). An empty query shows all items.
 func (l *IdentityList) FilterByQuery(q string) {
@@ -215,7 +230,7 @@ func (l *IdentityList) filterByQuery(q string) {
 	q = strings.ToLower(q)
 	for i, item := range l.items {
 		if item.IsAction {
-			// Always show the Register action.
+			// Always show the register actions.
 			l.filtered = append(l.filtered, i)
 			continue
 		}
@@ -272,7 +287,7 @@ func (l IdentityList) View(width, height int, isActive bool) string {
 	// Header rows already consumed (title + separator).
 	headerRows := 2
 
-	if len(l.items) <= 1 {
+	if l.profileCount() == 0 {
 		lines = append(lines, "")
 		lines = append(lines, l.theme.InfoStyle().Render("  ✦ Welcome to git-user!"))
 		lines = append(lines, l.theme.Dim().Render("  No custom profiles registered yet."))
@@ -339,20 +354,23 @@ func (l IdentityList) View(width, height int, isActive bool) string {
 			dot := l.theme.Dim().Render("  · ")
 			name := l.theme.Dim().Render(item.Name)
 			if item.IsAction {
-				name = l.theme.Dim().Render("Register new identity")
+				name = l.theme.Dim().Render(strings.TrimLeft(item.ActionLabel, "+~ "))
 			}
 			lines = append(lines, dot+name)
 			continue
 		}
 
 		if item.IsAction {
-			label := l.theme.InfoStyle().Render("+ Register new identity")
-			if isCursor && isActive {
-				lines = append(lines, l.theme.Selected().Render("▶ "+stripAnsi(label)))
-			} else if isCursor && !isActive {
-				lines = append(lines, l.theme.Dim().Render("▶ Register new identity"))
-			} else {
-				lines = append(lines, "  "+label)
+			// Action rows use the Featured style (bold, its own colour) at rest
+			// so they stand apart from identity names; the +/~ glyph and the
+			// wording carry the meaning when colour is unavailable.
+			switch {
+			case isCursor && isActive:
+				lines = append(lines, l.theme.Selected().Render("▶ "+item.ActionLabel))
+			case isCursor:
+				lines = append(lines, l.theme.Dim().Render("▶ "+item.ActionLabel))
+			default:
+				lines = append(lines, "  "+l.theme.Featured().Render(item.ActionLabel))
 			}
 			continue
 		}

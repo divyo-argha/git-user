@@ -63,7 +63,6 @@ func SystemActions(th theme.Theme, showFixRemote, hasOriginalIdentity bool) Acti
 		ActionItem{Label: "≡ Identity switch log", Key: "log"},
 		ActionItem{IsSection: true, Label: "Profiles & System"},
 		ActionItem{Label: importLabel, Key: "import-export"},
-		ActionItem{Label: "~ Create temporary profile", Key: "register-temp"},
 		ActionItem{Label: "↓ Clone repository", Key: "clone"},
 		ActionItem{Label: "⚓ Git hooks", Key: "hook"},
 		ActionItem{Label: "↻ Sync identities", Key: "sync"},
