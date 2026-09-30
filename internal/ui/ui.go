@@ -169,7 +169,8 @@ func PrintUpdateSuccess(oldVer, newVer string, verified bool) {
 	sb.WriteString(lipgloss.NewStyle().Foreground(colPrimary).Bold(true).Render(" ──▶ "))
 	sb.WriteString(lipgloss.NewStyle().Foreground(colSecond).Bold(true).Render(newVer))
 	if verified {
-		sb.WriteString(" " + lipgloss.NewStyle().Foreground(colSecond).Render("(verified)"))
+		sb.WriteString(" ")
+		sb.WriteString(lipgloss.NewStyle().Foreground(colSecond).Render("(verified)"))
 	}
 
 	card := lipgloss.NewStyle().
@@ -193,7 +194,8 @@ func PrintUpdateCurrent(ver string) {
 	sb.WriteString(lipgloss.NewStyle().Foreground(colSecond).Bold(true).Render("✨ git-user is already up to date!"))
 	sb.WriteString("\n\n   ")
 	sb.WriteString(lipgloss.NewStyle().Foreground(colSecond).Bold(true).Render(ver))
-	sb.WriteString(" " + lipgloss.NewStyle().Foreground(colMuted).Render("(latest release)"))
+	sb.WriteString(" ")
+	sb.WriteString(lipgloss.NewStyle().Foreground(colMuted).Render("(latest release)"))
 
 	card := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -361,14 +363,19 @@ func (m SelectModel) View() string {
 	s.WriteString("\n")
 	s.WriteString(styleAccent.Render("? "))
 	s.WriteString(styleText.Bold(true).Render(m.label))
-	s.WriteString("  " + styleDim.Render("↑/↓ navigate · Enter select"))
+	s.WriteString("  ")
+	s.WriteString(styleDim.Render("↑/↓ navigate · Enter select"))
 	s.WriteString("\n\n")
 
 	for i, opt := range m.options {
 		if m.cursor == i {
-			s.WriteString("  " + styleMenuSelected.Render("▶  "+opt) + "\n")
+			s.WriteString("  ")
+			s.WriteString(styleMenuSelected.Render("▶  " + opt))
+			s.WriteString("\n")
 		} else {
-			s.WriteString("     " + styleText.Render(opt) + "\n")
+			s.WriteString("     ")
+			s.WriteString(styleText.Render(opt))
+			s.WriteString("\n")
 		}
 	}
 	s.WriteString("\n")
