@@ -140,18 +140,6 @@ func (a *App) handleOptionResult(msg core.OptionResultMsg) (tea.Model, tea.Cmd) 
 			return opResult{detail: fmt.Sprintf("Unbound directory %q", msg.Choice)}, err
 		})
 
-	case "clone-identity":
-		fields := strings.Split(data, "|")
-		repoURL := fields[0]
-		destDir := ""
-		if len(fields) > 1 {
-			destDir = fields[1]
-		}
-		identity := msg.Choice
-		return a, a.runTaskCmd("clone", "", func() (opResult, error) {
-			return opClone(a.store, repoURL, destDir, identity, false)
-		})
-
 	case "hook":
 		return a, a.runTaskCmd("hook", msg.Choice, func() (opResult, error) {
 			return opHook(msg.Choice)

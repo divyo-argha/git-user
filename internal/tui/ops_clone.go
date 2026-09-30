@@ -31,7 +31,14 @@ func opClone(store *config.Store, repoURL, destDir, identity string, bind bool) 
 	if destDir != "" {
 		args = append(args, destDir)
 	}
-	out, err := runCaptured("", "git", args...)
+	// The clone itself must authenticate as the chosen identity: there is no
+	// repo config yet, so pin the identity's key through GIT_SSH_COMMAND
+	// (otherwise a private repo is fetched with whatever key the agent offers).
+	var env []string
+	if sshCmd := git.IdentitySSHCommand(user.SSHCommand, user.SSHKey); sshCmd != "" {
+		env = append(env, "GIT_SSH_COMMAND="+sshCmd)
+	}
+	out, err := runCapturedEnv("", env, "git", args...)
 	if err != nil {
 		return opResult{}, fmt.Errorf("git clone failed: %v\n%s", err, strings.TrimSpace(out))
 	}
@@ -89,13 +96,7 @@ func configureRepoLocal(repoPath string, u *config.User) error {
 		{"config", "--local", "user.email", u.Email},
 	}
 
-	if u.SSHCommand != "" {
-		commands = append(commands, []string{"config", "--local", "core.sshCommand", u.SSHCommand})
-	} else if u.SSHKey != "" {
-		// core.sshCommand is executed via the shell by git itself, so the key
-		// path must be properly quoted here for the target platform.
-		// Mirrors internal/git.ConfigureSSHScope.
-		sshVal := fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes", git.SSHQuote(u.SSHKey))
+	if sshVal := git.IdentitySSHCommand(u.SSHCommand, u.SSHKey); sshVal != "" {
 		commands = append(commands, []string{"config", "--local", "core.sshCommand", sshVal})
 	}
 

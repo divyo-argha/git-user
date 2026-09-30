@@ -323,3 +323,10 @@ func TestActionMenu_FeaturedAndUpdateRenderBoldAndDistinct(t *testing.T) {
 		t.Errorf("update notice must be readable without colour:\n%s", plainOut)
 	}
 }
+
+func TestSystemActions_CloneMovedToProfileMenu(t *testing.T) {
+	m := SystemActions(theme.DefaultTheme(), true, true)
+	if hasKey(m, "clone") {
+		t.Error("clone is identity-specific and now lives in the profile menu, not System Utilities")
+	}
+}

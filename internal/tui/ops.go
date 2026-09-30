@@ -38,6 +38,12 @@ var (
 // terminal while the TUI is on the alternate screen. Git is forced into
 // non-interactive mode so it never blocks on a credential prompt.
 func runCaptured(dir, name string, args ...string) (string, error) {
+	return runCapturedEnv(dir, nil, name, args...)
+}
+
+// runCapturedEnv is runCaptured with extra KEY=VALUE environment entries,
+// which take precedence over the inherited environment.
+func runCapturedEnv(dir string, extraEnv []string, name string, args ...string) (string, error) {
 	cmd := exec.Command(name, args...)
 	if runtime.GOOS == "windows" {
 		lower := strings.ToLower(name)
@@ -50,6 +56,7 @@ func runCaptured(dir, name string, args ...string) (string, error) {
 		"GIT_TERMINAL_PROMPT=0",
 		fmt.Sprintf("GIT_USER_PARENT_PID=%d", os.Getpid()),
 	)
+	cmd.Env = append(cmd.Env, extraEnv...)
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf

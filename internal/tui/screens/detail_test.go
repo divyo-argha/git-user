@@ -1,6 +1,7 @@
 package screens
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -93,5 +94,35 @@ func TestDetail(t *testing.T) {
 	missingView := detailMissing.View(80, 24)
 	if missingView == "" {
 		t.Errorf("Expected error view for nonexistent user, got empty string")
+	}
+}
+
+// "Clone a repo as this identity" lives in the profile menu and dispatches
+// with the profile's name, so no identity picker is needed afterwards.
+func TestDetail_CloneAsIdentityAction(t *testing.T) {
+	store := &config.Store{Users: []config.User{{Name: "eng", Email: "eng@company.com"}}}
+	detail := NewDetail(store, "eng", theme.DefaultTheme())
+
+	found := false
+	for _, it := range detail.actions.Items() {
+		if it.Key == "clone-as" {
+			found = true
+			if !strings.Contains(it.Label, "Clone a repo as this identity") {
+				t.Errorf("unexpected label %q", it.Label)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("profile menu should offer clone-as")
+	}
+
+	detail.actions.FindAndSetCursorByKey("clone-as")
+	_, cmd := detail.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("Enter on clone-as should produce a command")
+	}
+	msg, ok := cmd().(core.ActionResultMsg)
+	if !ok || msg.Kind != "clone-as" || msg.Name != "eng" {
+		t.Errorf("expected ActionResultMsg{clone-as, eng}, got %#v", msg)
 	}
 }

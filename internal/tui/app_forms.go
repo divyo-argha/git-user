@@ -309,13 +309,15 @@ func (a *App) handleFormResult(msg core.FormResultMsg) (tea.Model, tea.Cmd) {
 			return opCheckSSH(a.store, rest, msg.Values[0])
 		})
 
-	case "clone":
-		if err := validate.RepoURL(msg.Values[0]); err != nil {
-			return a, core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second)
+	case "clone-as":
+		identity := rest
+		repoURL, destDir := strings.TrimSpace(msg.Values[0]), strings.TrimSpace(msg.Values[1])
+		if err := validate.RepoURL(repoURL); err != nil {
+			return a, tea.Batch(core.ShowToastCmd(err.Error(), theme.ToastStyleError, 3*time.Second), a.cloneFormCmd(identity, repoURL, destDir))
 		}
-		repoURL := msg.Values[0]
-		destDir := msg.Values[1]
-		return a.handleCloneIdentity(fmt.Sprintf("%s|%s", repoURL, destDir))
+		return a, a.runTaskCmd("clone", identity, func() (opResult, error) {
+			return opClone(a.store, repoURL, destDir, identity, false)
+		})
 
 	case "sync-setup":
 		if err := validate.RepoURL(msg.Values[0]); err != nil {

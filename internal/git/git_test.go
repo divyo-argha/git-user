@@ -394,3 +394,17 @@ func TestRepoConfigPathAndWorktree(t *testing.T) {
 		t.Errorf("RepoConfigPath in worktree = %q, want %q", wtCfg, expectedWtCfg)
 	}
 }
+
+func TestIdentitySSHCommand(t *testing.T) {
+	if got := git.IdentitySSHCommand("", ""); got != "" {
+		t.Errorf("no key and no command should give empty, got %q", got)
+	}
+	if got := git.IdentitySSHCommand("ssh -F /x -i /k", "/ignored"); got != "ssh -F /x -i /k" {
+		t.Errorf("custom command must win over the key, got %q", got)
+	}
+	got := git.IdentitySSHCommand("", "/home/u/.ssh/work key")
+	want := "ssh -i " + git.SSHQuote("/home/u/.ssh/work key") + " -o IdentitiesOnly=yes"
+	if got != want {
+		t.Errorf("key command = %q, want %q", got, want)
+	}
+}

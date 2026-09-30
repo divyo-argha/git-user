@@ -603,7 +603,7 @@ What happens:
 | `export --all` | Export all identities + SSH keys (AES-256 encrypted) |
 | `export <name> [name...]` | Export specific identities |
 | `import <file>` | Import from an encrypted bundle |
-| `clone <repo-url> [dir]` | Clone repository and auto-configure local identity |
+| `clone <repo-url> [dir]` | Clone repository and auto-configure local identity (the clone authenticates with that identity's SSH key; in the TUI: profile → "Clone a repo as this identity") |
 | `stats` | Audit and show commit author identity stats |
 | `config <list\|set\|unset>`| Manage custom git configurations for an identity |
 | `sync` | Synchronize identities across devices using a private repository |

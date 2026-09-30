@@ -169,8 +169,7 @@ func ConfigureSSHScope(keyPath string, local bool) error {
 	// OpenSSH treats single quotes as literal parts of the filename, so double
 	// quotes and forward slashes are required. On POSIX systems, single quotes
 	// protect against shell metacharacters like $, `, ! inside the key path.
-	val := fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes", SSHQuote(keyPath))
-	return setConfig("core.sshCommand", val, local)
+	return setConfig("core.sshCommand", IdentitySSHCommand("", keyPath), local)
 }
 
 // SSHQuote formats a path for interpolation into an SSH command (e.g. core.sshCommand).
@@ -183,6 +182,22 @@ func SSHQuote(s string) string {
 		return `"` + strings.ReplaceAll(clean, `"`, `\"`) + `"`
 	}
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// IdentitySSHCommand returns the ssh command an identity should use: its
+// preserved custom core.sshCommand when it has one, otherwise one pinned to its
+// key (IdentitiesOnly stops the agent offering other accounts' keys). It
+// returns "" when the identity has neither, meaning "use the default ssh".
+// Used both for core.sshCommand in a repo and for GIT_SSH_COMMAND while
+// cloning, where no repo config exists yet.
+func IdentitySSHCommand(sshCommand, sshKey string) string {
+	if sshCommand != "" {
+		return sshCommand
+	}
+	if sshKey != "" {
+		return fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes", SSHQuote(sshKey))
+	}
+	return ""
 }
 
 func gitBinary() string {

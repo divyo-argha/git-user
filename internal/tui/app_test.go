@@ -1019,3 +1019,58 @@ func TestVersionCheck_AnnouncesUpdateOncePerRelease(t *testing.T) {
 		t.Errorf("no toast when up to date, got %d", n)
 	}
 }
+
+// Clone flows from a profile: the action opens a form for that identity, a bad
+// URL re-opens it prefilled, and a good one starts the clone task.
+func TestCloneAsFlow(t *testing.T) {
+	withTempConfig(t)
+	th := theme.DefaultTheme()
+	store := &config.Store{Users: []config.User{{Name: "work", Email: "work@example.com"}}}
+	app := NewApp(store, screens.NewDashboard(store, th))
+
+	// 1. The action opens a form titled for the identity.
+	model, cmd := app.Update(core.ActionResultMsg{Kind: "clone-as", Name: "work"})
+	app = model.(*App)
+	push, ok := cmd().(core.ScreenPushMsg)
+	if !ok {
+		t.Fatalf("clone-as should push the clone form, got %T", cmd())
+	}
+	if title := push.Screen.Title(); !strings.Contains(title, "work") {
+		t.Errorf("form title should name the identity, got %q", title)
+	}
+
+	// 2. An invalid URL keeps the user on a prefilled form and shows a toast.
+	model, cmd = app.Update(core.FormResultMsg{Context: "clone-as:work", Values: []string{"not a url", "mydir"}})
+	app = model.(*App)
+	if app.taskRunning {
+		t.Error("an invalid URL must not start a clone")
+	}
+	var sawToast, sawForm bool
+	var walk func(tea.Cmd)
+	walk = func(c tea.Cmd) {
+		if c == nil {
+			return
+		}
+		switch m := c().(type) {
+		case tea.BatchMsg:
+			for _, sub := range m {
+				walk(sub)
+			}
+		case core.ToastMsg:
+			sawToast = true
+		case core.ScreenPushMsg:
+			sawForm = true
+		}
+	}
+	walk(cmd)
+	if !sawToast || !sawForm {
+		t.Errorf("invalid URL should toast and re-open the form (toast=%v form=%v)", sawToast, sawForm)
+	}
+
+	// 3. A valid URL starts the task (runs opClone with this identity).
+	model, _ = app.Update(core.FormResultMsg{Context: "clone-as:work", Values: []string{"git@github.com:org/repo.git", ""}})
+	app = model.(*App)
+	if !app.taskRunning {
+		t.Error("a valid URL should start the clone task")
+	}
+}

@@ -135,6 +135,7 @@ func (d *Detail) refreshActions() {
 
 	items = append(items, components.ActionItem{Label: "Directory Bindings", IsSection: true})
 	items = append(items, components.ActionItem{Label: "+ Bind a directory", Key: "bind-path"})
+	items = append(items, components.ActionItem{Label: "↓ Clone a repo as this identity", Key: "clone-as"})
 	if len(user.BindPaths) > 0 {
 		for _, p := range user.BindPaths {
 			items = append(items, components.ActionItem{

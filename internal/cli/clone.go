@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/divyo-argha/git-user/internal/config"
+	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/ui"
 	"github.com/divyo-argha/git-user/internal/validate"
 )
@@ -111,6 +112,11 @@ func runClone(args []string) error {
 	}
 
 	cmd := exec.Command("git", cloneArgs...)
+	// Authenticate the clone itself as the chosen identity (no repo config
+	// exists yet to carry core.sshCommand).
+	if sshCmd := git.IdentitySSHCommand(targetUser.SSHCommand, targetUser.SSHKey); sshCmd != "" {
+		cmd.Env = append(os.Environ(), "GIT_SSH_COMMAND="+sshCmd)
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

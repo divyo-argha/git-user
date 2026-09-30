@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -275,3 +276,92 @@ func TestOpSwitchSession_ShellFormatting(t *testing.T) {
 	}
 }
 
+
+// fakeSSH puts an `ssh` stub first on PATH that records its arguments and
+// fails, so a test can see which key a clone tried to authenticate with
+// without any network access. Returns the log file path.
+func fakeSSH(t *testing.T) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a POSIX shell stub")
+	}
+	dir := t.TempDir()
+	log := filepath.Join(dir, "ssh.log")
+	script := "#!/bin/sh\necho \"$@\" >> " + log + "\nexit 255\n"
+	if err := os.WriteFile(filepath.Join(dir, "ssh"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("GIT_SSH_COMMAND", "") // make sure only git-user's setting is in play
+	t.Setenv("GIT_SSH", "")
+	return log
+}
+
+// The clone itself must authenticate with the chosen identity's key, not
+// whatever key the agent happens to offer.
+func TestOpCloneUsesIdentityKey(t *testing.T) {
+	withTempConfig(t)
+	log := fakeSSH(t)
+
+	workKey := filepath.Join(t.TempDir(), "id_work")
+	store := &config.Store{}
+	for _, n := range []string{"work", "home"} {
+		if err := store.AddUser(n, n+"@example.com"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	store.FindUser("work").SSHKey = workKey
+	store.FindUser("home").SSHKey = filepath.Join(t.TempDir(), "id_home")
+
+	dest := filepath.Join(t.TempDir(), "repo")
+	// The stub ssh fails, so the clone errors — what matters is what it was asked to use.
+	if _, err := opClone(store, "git@example.com:org/repo.git", dest, "work", false); err == nil {
+		t.Fatal("expected the stubbed ssh to make the clone fail")
+	}
+
+	data, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatalf("ssh was never invoked: %v", err)
+	}
+	got := string(data)
+	if !strings.Contains(got, workKey) || !strings.Contains(got, "IdentitiesOnly=yes") {
+		t.Errorf("clone should use the work key with IdentitiesOnly, ssh args were: %s", got)
+	}
+	if strings.Contains(got, "id_home") {
+		t.Errorf("clone must not use another identity's key: %s", got)
+	}
+}
+
+// An identity with a custom ssh command keeps it for the clone too.
+func TestOpCloneHonoursCustomSSHCommand(t *testing.T) {
+	withTempConfig(t)
+	log := fakeSSH(t)
+
+	store := &config.Store{}
+	if err := store.AddUser("work", "work@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	store.FindUser("work").SSHCommand = "ssh -o Marker=custom-cmd"
+
+	_, _ = opClone(store, "git@example.com:org/repo.git", filepath.Join(t.TempDir(), "r"), "work", false)
+	data, _ := os.ReadFile(log)
+	if !strings.Contains(string(data), "Marker=custom-cmd") {
+		t.Errorf("custom ssh command should be used for the clone, got: %s", data)
+	}
+}
+
+// An identity without a key leaves ssh to its defaults rather than pinning one.
+func TestOpCloneWithoutKeyDoesNotPinSSH(t *testing.T) {
+	withTempConfig(t)
+	log := fakeSSH(t)
+
+	store := &config.Store{}
+	if err := store.AddUser("plain", "plain@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = opClone(store, "git@example.com:org/repo.git", filepath.Join(t.TempDir(), "r"), "plain", false)
+	data, _ := os.ReadFile(log)
+	if strings.Contains(string(data), "IdentitiesOnly") {
+		t.Errorf("no key means no pinning, got: %s", data)
+	}
+}

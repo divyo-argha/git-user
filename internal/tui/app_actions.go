@@ -597,14 +597,8 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		}
 		return a, pushCmd(screens.NewStatsScreen(a.store, a.theme))
 
-	case "clone":
-		return a, pushCmd(screens.NewForm("Clone Repository", "Clone a repository and configure the local identity", "clone", []screens.FormInput{
-			{Label: "Repository URL:", Placeholder: "git@github.com:user/repo.git", Validate: validate.RepoURL},
-			{Label: "Destination Dir:", Placeholder: "Optional, defaults to repo name"},
-		}, a.theme))
-
-	case "clone-identity":
-		return a.handleCloneIdentity(msg.Name)
+	case "clone-as":
+		return a, a.cloneFormCmd(msg.Name, "", "")
 
 	case "hook":
 		return a, pushCmd(screens.NewOptions(
@@ -650,29 +644,13 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-// handleCloneIdentity picks which identity to use for a clone.
-func (a *App) handleCloneIdentity(name string) (tea.Model, tea.Cmd) {
-	parts := strings.SplitN(name, "|", 2)
-	repoURL := parts[0]
-	destDir := ""
-	if len(parts) > 1 {
-		destDir = parts[1]
-	}
-	if len(a.store.Users) == 0 {
-		return a, core.ShowToastCmd("No registered identities — register one first", theme.ToastStyleError, 3*time.Second)
-	}
-	var opts []screens.Option
-	for _, u := range a.store.Users {
-		opts = append(opts, screens.Option{Label: fmt.Sprintf("%s (%s)", u.Name, u.Email), Key: u.Name})
-	}
-	opts = append(opts, screens.Option{Label: "Cancel", Key: ""})
-	return a, pushCmd(screens.NewOptions(
-		"Select identity for this repository",
-		core.OptionsHelp(),
-		fmt.Sprintf("clone-identity:%s|%s", repoURL, destDir),
-		opts,
-		a.theme,
-	))
+// cloneFormCmd opens the clone form for an identity. The URL and destination
+// are prefilled on a validation retry so nothing the user typed is lost.
+func (a *App) cloneFormCmd(identity, repoURL, destDir string) tea.Cmd {
+	return pushCmd(screens.NewForm("Clone as "+identity, "Clone a repository and configure it for this identity", "clone-as:"+identity, []screens.FormInput{
+		{Label: "Repository URL:", Value: repoURL, Placeholder: "git@github.com:user/repo.git"},
+		{Label: "Destination Dir:", Value: destDir, Placeholder: "Optional, defaults to repo name"},
+	}, a.theme))
 }
 
 // handleConfigAction shows the custom config management menu for an identity.

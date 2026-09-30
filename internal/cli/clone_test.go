@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -85,5 +86,40 @@ func runGitCmd(t *testing.T, dir string, args ...string) {
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git command failed: %v, output: %s", err, string(out))
+	}
+}
+
+// The CLI clone must authenticate as the chosen identity too.
+func TestRunClone_UsesIdentityKey(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a POSIX shell stub")
+	}
+	tmpDir := setupTestEnv(t)
+
+	keyPath := filepath.Join(tmpDir, "id_eng")
+	store, _ := config.Load()
+	_ = store.AddUser("eng", "eng@example.com")
+	store.FindUser("eng").SSHKey = keyPath
+	_ = config.Save(store)
+
+	binDir := t.TempDir()
+	logPath := filepath.Join(binDir, "ssh.log")
+	script := "#!/bin/sh\necho \"$@\" >> " + logPath + "\nexit 255\n"
+	if err := os.WriteFile(filepath.Join(binDir, "ssh"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("GIT_SSH_COMMAND", "")
+	t.Setenv("GIT_SSH", "")
+
+	if err := runClone([]string{"git@example.com:org/repo.git", filepath.Join(tmpDir, "dest"), "--as", "eng"}); err == nil {
+		t.Fatal("expected the stubbed ssh to make the clone fail")
+	}
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("ssh was never invoked: %v", err)
+	}
+	if !strings.Contains(string(data), keyPath) || !strings.Contains(string(data), "IdentitiesOnly=yes") {
+		t.Errorf("clone should use the identity's key, ssh args were: %s", data)
 	}
 }
