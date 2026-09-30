@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/divyo-argha/git-user/internal/version"
 	"os"
 	"path/filepath"
 	"strings"
@@ -452,13 +453,53 @@ func TestVersionCheckMsg(t *testing.T) {
 }
 
 func TestCheckVersionCmd_Offline(t *testing.T) {
+	isolateCache(t)
 	cmd := CheckVersionCmd("v4.8.0")
 	if cmd == nil {
 		t.Fatal("CheckVersionCmd returned nil")
 	}
 }
 
+// isolateCache points the update-check cache at a throwaway dir so tests never
+// read or write the developer's real cache.
+func isolateCache(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", dir)
+	t.Setenv("HOME", dir)
+	t.Setenv("LocalAppData", dir)
+}
+
+func TestCheckVersionCmd_OptOut(t *testing.T) {
+	isolateCache(t)
+	t.Setenv(version.NoUpdateCheckEnv, "1")
+	// A cached newer release must be ignored too: opt-out means no notice at all.
+	version.SaveCachedLatest("v99.0.0")
+
+	msg := CheckVersionCmd("v1.0.0")().(VersionCheckMsg)
+	if msg.UpdateAvailable || msg.LatestVersion != "" {
+		t.Errorf("opt-out should report nothing, got %+v", msg)
+	}
+}
+
+func TestCheckVersionCmd_UsesCache(t *testing.T) {
+	isolateCache(t)
+	t.Setenv(version.NoUpdateCheckEnv, "")
+	version.SaveCachedLatest("v99.0.0")
+
+	msg := CheckVersionCmd("v1.0.0")().(VersionCheckMsg)
+	if !msg.UpdateAvailable || msg.LatestVersion != "v99.0.0" {
+		t.Errorf("expected cached v99.0.0 update, got %+v", msg)
+	}
+	msg = CheckVersionCmd("v99.0.0")().(VersionCheckMsg)
+	if msg.UpdateAvailable {
+		t.Errorf("no update expected when current == cached latest, got %+v", msg)
+	}
+}
+
 func TestCheckVersionCmd_Resolves(t *testing.T) {
+	isolateCache(t)
+	t.Setenv(version.NoUpdateCheckEnv, "")
 	cmd := CheckVersionCmd("v1.0.0")
 	if cmd == nil {
 		t.Fatal("CheckVersionCmd returned nil")

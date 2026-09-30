@@ -612,6 +612,11 @@ What happens:
 | `hook <install\|uninstall>` | Pre-commit & pre-push hooks to verify identity |
 | `--update` | Update to the latest version (shows version transition + binary verification) |
 | `--version` / `-v` | Show version |
+| `--no-color` | Plain, uncoloured output (also honours `NO_COLOR` and `TERM=dumb`) |
+
+**Environment:** `NO_COLOR=1` disables colour; `GIT_USER_NO_UPDATE_CHECK=1` turns off the
+dashboard's background check for new releases (otherwise it runs at most once every 24 hours).
+Explicit `git-user --update` is unaffected.
 
 **Aliases:** `ls` → `list` · `sw` → `switch` · `rm` → `remove` · `reg` → `register` · `whoami` → `current` · `lo` / `signout` → `logout` · `bind` → `bind-key` · `pubkey push` → `pubkey publish` · `security` → `audit` · `import-original` → `switch --original` · `tui` / `-i` / `--interactive` → interactive menu
 

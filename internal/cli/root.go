@@ -104,6 +104,10 @@ HELP
   git-user --update          Update to latest version
   git-user doctor            Diagnose issues
 
+ENVIRONMENT
+  --no-color, NO_COLOR=1     Disable coloured output (TERM=dumb does the same)
+  GIT_USER_NO_UPDATE_CHECK=1 Disable the background check for new releases
+
 Config: ~/.git-users/config.json
 `
 

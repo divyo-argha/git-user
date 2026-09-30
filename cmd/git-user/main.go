@@ -20,6 +20,7 @@ func main() {
 	if buildVersion != "dev" && buildVersion != "" {
 		version.BuildVersion = buildVersion
 	}
+	os.Args = ui.ApplyColorPreference(os.Args)
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "--version", "-v", "-V", "version":

@@ -229,6 +229,15 @@ func fetchNpmRelease(client *http.Client) string {
 // It fails silently if the network is unreachable or offline.
 func CheckVersionCmd(currentVersion string) tea.Cmd {
 	return func() tea.Msg {
+		if version.UpdateCheckDisabled() {
+			return VersionCheckMsg{CurrentVersion: currentVersion, UpdateAvailable: false}
+		}
+
+		// Reuse a recent lookup instead of hitting the network on every launch.
+		if cached, ok := version.LoadCachedLatest(); ok {
+			return versionCheckResult(currentVersion, cached)
+		}
+
 		client := &http.Client{
 			Timeout: 3 * time.Second,
 		}
@@ -253,20 +262,27 @@ func CheckVersionCmd(currentVersion string) tea.Cmd {
 			}
 		}
 
-		if bestTag == "" {
-			return VersionCheckMsg{CurrentVersion: currentVersion, UpdateAvailable: false}
+		if bestTag != "" {
+			version.SaveCachedLatest(bestTag)
 		}
+		return versionCheckResult(currentVersion, bestTag)
+	}
+}
 
-		displayTag := bestTag
-		if !strings.HasPrefix(strings.ToLower(displayTag), "v") {
-			displayTag = "v" + displayTag
-		}
+// versionCheckResult builds the message for a known latest tag ("" = unknown).
+func versionCheckResult(currentVersion, latestTag string) VersionCheckMsg {
+	if latestTag == "" {
+		return VersionCheckMsg{CurrentVersion: currentVersion, UpdateAvailable: false}
+	}
 
-		updateAvailable := version.IsNewerVersion(bestTag, currentVersion)
-		return VersionCheckMsg{
-			CurrentVersion:  currentVersion,
-			LatestVersion:   displayTag,
-			UpdateAvailable: updateAvailable,
-		}
+	displayTag := latestTag
+	if !strings.HasPrefix(strings.ToLower(displayTag), "v") {
+		displayTag = "v" + displayTag
+	}
+
+	return VersionCheckMsg{
+		CurrentVersion:  currentVersion,
+		LatestVersion:   displayTag,
+		UpdateAvailable: version.IsNewerVersion(latestTag, currentVersion),
 	}
 }
