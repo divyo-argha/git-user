@@ -54,7 +54,7 @@ func TestSystemActions(t *testing.T) {
 	th := theme.DefaultTheme()
 
 	// Without fix-remote, with an unimported original identity
-	m := SystemActions(th, false, true)
+	m := SystemActions(th, false, true, true)
 
 	foundFixRemote := false
 	foundImportOriginal := false
@@ -127,7 +127,7 @@ func TestSystemActions(t *testing.T) {
 	}
 
 	// With fix-remote
-	m2 := SystemActions(th, true, true)
+	m2 := SystemActions(th, true, true, true)
 	foundFixRemote2 := false
 	for _, item := range m2.items {
 		if item.Key == "fix-remote" {
@@ -139,7 +139,7 @@ func TestSystemActions(t *testing.T) {
 	}
 
 	// Without an unimported original identity the label stays plain.
-	m3 := SystemActions(th, false, false)
+	m3 := SystemActions(th, false, false, true)
 	for _, item := range m3.items {
 		if item.Key == "import-export" && item.Label != "⇪ Import / Export" {
 			t.Errorf("import-export label should be plain when nothing to import, got %q", item.Label)
@@ -168,7 +168,7 @@ func hasKey(m ActionMenu, key string) bool {
 
 func TestSystemActions_UpdateStatus(t *testing.T) {
 	th := theme.DefaultTheme()
-	m := SystemActions(th, false, false)
+	m := SystemActions(th, false, false, true)
 
 	// No permanent "up to date" row: nothing to act on.
 	if hasKey(m, "update") {
@@ -220,7 +220,7 @@ func TestSystemActions_UpdateStatus(t *testing.T) {
 
 func TestSystemActions_UpdateStatusKeepsCursor(t *testing.T) {
 	th := theme.DefaultTheme()
-	m := SystemActions(th, false, false)
+	m := SystemActions(th, false, false, true)
 	m.FindAndSetCursorByKey("stats")
 
 	m.SetUpdateStatus("v5.0.0", true)
@@ -239,7 +239,7 @@ func TestSystemActions_UpdateStatusKeepsCursor(t *testing.T) {
 
 func TestActionMenu_ViewFitsHeight(t *testing.T) {
 	th := theme.DefaultTheme()
-	m := SystemActions(th, true, true)
+	m := SystemActions(th, true, true, true)
 
 	const height = 8
 	out := m.View(40, height, true)
@@ -251,7 +251,7 @@ func TestActionMenu_ViewFitsHeight(t *testing.T) {
 }
 
 func TestSystemActions_StatsIsFeaturedNearTop(t *testing.T) {
-	m := SystemActions(theme.DefaultTheme(), false, false)
+	m := SystemActions(theme.DefaultTheme(), false, false, true)
 
 	var statsIdx, logoutIdx = -1, -1
 	for i, it := range m.items {
@@ -289,7 +289,7 @@ func TestActionMenu_FeaturedAndUpdateRenderBoldAndDistinct(t *testing.T) {
 	t.Cleanup(func() { lipgloss.SetColorProfile(prev) })
 
 	th := theme.DefaultTheme()
-	m := SystemActions(th, false, false)
+	m := SystemActions(th, false, false, true)
 	m.SetUpdateStatus("v5.0.0", true)
 	m.FindAndSetCursorByKey("doctor") // cursor elsewhere so stats/update render at rest
 
@@ -325,8 +325,26 @@ func TestActionMenu_FeaturedAndUpdateRenderBoldAndDistinct(t *testing.T) {
 }
 
 func TestSystemActions_CloneMovedToProfileMenu(t *testing.T) {
-	m := SystemActions(theme.DefaultTheme(), true, true)
+	m := SystemActions(theme.DefaultTheme(), true, true, true)
 	if hasKey(m, "clone") {
 		t.Error("clone is identity-specific and now lives in the profile menu, not System Utilities")
+	}
+}
+
+func TestSystemActions_SignOutOnlyWhenSignedIn(t *testing.T) {
+	th := theme.DefaultTheme()
+	if !hasKey(SystemActions(th, false, false, true), "logout") {
+		t.Error("Sign out should be offered while an identity is active")
+	}
+	out := SystemActions(th, false, false, false)
+	if hasKey(out, "logout") {
+		t.Error("Sign out must be hidden when nobody is signed in")
+	}
+	// The rest of Quick Actions is unaffected and the cursor lands on a real item.
+	if !hasKey(out, "stats") {
+		t.Error("stats should still be offered")
+	}
+	if sel := out.Selected(); sel == nil || sel.IsSection || sel.Key == "" {
+		t.Errorf("cursor should start on a selectable item, got %+v", sel)
 	}
 }

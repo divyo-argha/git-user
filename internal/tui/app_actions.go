@@ -569,6 +569,15 @@ func (a *App) handleAction(msg core.ActionResultMsg) (tea.Model, tea.Cmd) {
 		))
 
 	case "logout":
+		// Signing out of a temporary profile permanently deletes it and its
+		// key, so ask first; for any other profile it is cheap to undo.
+		if u := a.store.CurrentUser(); u != nil && u.IsTemporary {
+			return a, pushCmd(screens.NewConfirm(
+				fmt.Sprintf("%q is a temporary profile. Signing out permanently deletes it and its SSH key. Continue?", u.Name),
+				"logout-confirmed",
+				a.theme,
+			))
+		}
 		return a, a.runTaskCmd("logout", "", func() (opResult, error) {
 			return opLogout(a.store)
 		})

@@ -43,7 +43,7 @@ func NewDashboard(store *config.Store, th theme.Theme) *Dashboard {
 	return &Dashboard{
 		store:      store,
 		identities: components.NewIdentityList(store, th),
-		actions:    components.SystemActions(th, hasHTTPS, hasUnimportedOriginalIdentity(store)),
+		actions:    components.SystemActions(th, hasHTTPS, hasUnimportedOriginalIdentity(store), store.CurrentUser() != nil),
 		activePane: PaneIdentities,
 		theme:      th,
 	}
@@ -340,7 +340,7 @@ func (d *Dashboard) refreshActions() {
 	if sel := d.actions.Selected(); sel != nil {
 		prevKey = sel.Key
 	}
-	d.actions = components.SystemActions(d.theme, hasHTTPS, hasUnimportedOriginalIdentity(d.store))
+	d.actions = components.SystemActions(d.theme, hasHTTPS, hasUnimportedOriginalIdentity(d.store), d.store.CurrentUser() != nil)
 	if d.updateAvailable && d.latestVersion != "" {
 		d.actions.SetUpdateStatus(d.latestVersion, true)
 	}

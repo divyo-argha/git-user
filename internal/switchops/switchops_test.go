@@ -2,11 +2,14 @@ package switchops
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
+	"github.com/divyo-argha/git-user/internal/keyring"
 	"github.com/divyo-argha/git-user/internal/testutil"
 )
 
@@ -133,5 +136,141 @@ func TestApplyIdentityGlobalSwitch(t *testing.T) {
 	}
 	if got := git.CurrentEmail(); got != "alice@example.com" {
 		t.Errorf("expected git user.email to be applied, got %q", got)
+	}
+}
+
+func gitGlobal(t *testing.T, args ...string) string {
+	t.Helper()
+	out, _ := exec.Command("git", append([]string{"config", "--global"}, args...)...).Output()
+	return strings.TrimSpace(string(out))
+}
+
+func unsetViaGit(key string, local bool) error {
+	scope := "--global"
+	if local {
+		scope = "--local"
+	}
+	return exec.Command("git", "config", scope, "--unset-all", key).Run()
+}
+
+func TestLogout_NobodySignedIn(t *testing.T) {
+	testutil.Sandbox(t)
+	res, err := Logout(&config.Store{}, unsetViaGit)
+	if res != nil || err != nil {
+		t.Errorf("nobody signed in should be (nil, nil), got %v, %v", res, err)
+	}
+}
+
+// Sign out must undo everything a switch applied — not just name and email.
+func TestLogout_UndoesEverythingASwitchApplies(t *testing.T) {
+	testutil.Sandbox(t)
+	keyring.MockForTest(t)
+
+	store := &config.Store{}
+	if err := store.AddUser("work", "work@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	u := store.FindUser("work")
+	u.SSHKey = filepath.Join(t.TempDir(), "id_work")
+	u.SignKey = u.SSHKey + ".pub"
+	u.SignFormat = "ssh"
+	u.CustomConfig = map[string]string{"init.defaultBranch": "trunk"}
+	if err := keyring.SetKeychainPassphrase("work", "s3cret"); err != nil {
+		t.Fatal(err)
+	}
+	if err := keyring.SetHTTPSToken("work", "tok"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Apply the identity the way a switch would, including the HTTPS wiring.
+	setCustom := func(k, v string, local bool) error {
+		return exec.Command("git", "config", "--global", k, v).Run()
+	}
+	if _, err := ApplyIdentity(store, u, false, setCustom, unsetViaGit); err != nil {
+		t.Fatalf("ApplyIdentity: %v", err)
+	}
+	for key, label := range map[string]string{
+		"user.name": "name", "user.email": "email", "core.sshCommand": "ssh command",
+		"user.signingkey": "signing key", "core.askpass": "askpass (HTTPS token)", "init.defaultBranch": "custom key",
+	} {
+		if gitGlobal(t, "--get", key) == "" {
+			t.Fatalf("precondition: %s (%s) should be set after a switch", label, key)
+		}
+	}
+
+	res, err := Logout(store, unsetViaGit)
+	if err != nil || res == nil || res.Name != "work" || res.WasTemporary {
+		t.Fatalf("Logout = %+v, %v", res, err)
+	}
+
+	for _, key := range []string{"user.name", "user.email", "core.sshCommand", "user.signingkey", "commit.gpgsign", "core.askpass", "init.defaultBranch"} {
+		if got := gitGlobal(t, "--get", key); got != "" {
+			t.Errorf("%s should be cleared after sign out, still %q", key, got)
+		}
+	}
+
+	if store.Current != "" {
+		t.Errorf("active identity should be cleared, got %q", store.Current)
+	}
+	saved, err := config.Load()
+	if err != nil || saved.Current != "" {
+		t.Errorf("sign-out should be persisted, got %v / %v", saved, err)
+	}
+
+	// Signing out is not forgetting credentials.
+	if p, err := keyring.GetKeychainPassphrase("work"); err != nil || p != "s3cret" {
+		t.Errorf("keychain passphrase should be kept, got %q, %v", p, err)
+	}
+	if !keyring.HasHTTPSToken("work") {
+		t.Error("stored HTTPS token should be kept")
+	}
+	if store.FindUser("work") == nil {
+		t.Error("a normal identity must survive sign out")
+	}
+
+	// And it is auditable.
+	entries, _ := config.ReadSwitchLog()
+	if len(entries) == 0 || !strings.Contains(entries[len(entries)-1], "work (signed out)") {
+		t.Errorf("sign-out should be recorded in the switch log, got %v", entries)
+	}
+}
+
+// A temporary identity is deleted on sign out, key material included.
+func TestLogout_TemporaryIdentityIsDeleted(t *testing.T) {
+	testutil.Sandbox(t)
+	keyring.MockForTest(t)
+
+	keyPath := filepath.Join(t.TempDir(), "id_guest")
+	if err := os.WriteFile(keyPath, []byte("private"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(keyPath+".pub", []byte("public"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	store := &config.Store{}
+	if err := store.AddUser("guest", "guest@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	u := store.FindUser("guest")
+	u.IsTemporary = true
+	u.SSHKey = keyPath
+	_ = store.SetCurrent("guest")
+	_ = keyring.SetKeychainPassphrase("guest", "pw")
+
+	res, err := Logout(store, unsetViaGit)
+	if err != nil || res == nil || !res.WasTemporary {
+		t.Fatalf("Logout = %+v, %v", res, err)
+	}
+	if store.FindUser("guest") != nil {
+		t.Error("temporary identity should be removed")
+	}
+	for _, p := range []string{keyPath, keyPath + ".pub"} {
+		if _, err := os.Stat(p); !os.IsNotExist(err) {
+			t.Errorf("%s should be deleted", p)
+		}
+	}
+	if _, err := keyring.GetKeychainPassphrase("guest"); err == nil {
+		t.Error("temporary identity's keychain passphrase should be deleted")
 	}
 }

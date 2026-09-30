@@ -1074,3 +1074,39 @@ func TestCloneAsFlow(t *testing.T) {
 		t.Error("a valid URL should start the clone task")
 	}
 }
+
+// Signing out of a temporary profile deletes it for good, so it asks first;
+// a normal profile signs out immediately.
+func TestLogoutAction_ConfirmsOnlyForTemporaryProfiles(t *testing.T) {
+	withTempConfig(t)
+	th := theme.DefaultTheme()
+
+	temp := &config.Store{Current: "guest", Users: []config.User{{Name: "guest", Email: "g@example.com", IsTemporary: true}}}
+	app := NewApp(temp, screens.NewDashboard(temp, th))
+	model, cmd := app.Update(core.ActionResultMsg{Kind: "logout"})
+	app = model.(*App)
+	if app.taskRunning {
+		t.Error("a temporary profile must not be signed out before confirmation")
+	}
+	if _, ok := cmd().(core.ScreenPushMsg); !ok {
+		t.Errorf("expected a confirmation dialog, got %T", cmd())
+	}
+	// Confirming runs it...
+	model, _ = app.Update(core.ConfirmResultMsg{Context: "logout-confirmed", Confirmed: true})
+	if !model.(*App).taskRunning {
+		t.Error("confirming should start the sign-out")
+	}
+	// ...and declining does nothing.
+	app2 := NewApp(temp, screens.NewDashboard(temp, th))
+	model, _ = app2.Update(core.ConfirmResultMsg{Context: "logout-confirmed", Confirmed: false})
+	if model.(*App).taskRunning {
+		t.Error("declining must not sign out")
+	}
+
+	normal := &config.Store{Current: "eng", Users: []config.User{{Name: "eng", Email: "eng@company.com"}}}
+	app3 := NewApp(normal, screens.NewDashboard(normal, th))
+	model, _ = app3.Update(core.ActionResultMsg{Kind: "logout"})
+	if !model.(*App).taskRunning {
+		t.Error("a normal profile should sign out immediately, without a prompt")
+	}
+}

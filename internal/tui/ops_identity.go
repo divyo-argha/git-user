@@ -162,30 +162,14 @@ func unsetActiveCustomConfig(key string, local bool) error {
 
 // opLogout signs out of the current identity.
 func opLogout(store *config.Store) (opResult, error) {
-	user := store.CurrentUser()
-	if user == nil {
+	res, err := switchops.Logout(store, unsetActiveCustomConfig)
+	if err != nil {
+		return opResult{}, err
+	}
+	if res == nil {
 		return opResult{detail: "Already signed out — no active identity."}, nil
 	}
-	if user.SSHKey != "" && ssh.IsSSHKeyLoaded(user.SSHKey) {
-		_ = ssh.RemoveSSHKey(user.SSHKey)
-	}
-	git.ClearIdentity()
-	if user.IsTemporary {
-		store.RemoveUser(user.Name, true)
-		if user.SSHKey != "" {
-			// SecureDeleteKeyPair (not plain os.Remove) to match the same
-			// temporary-key cleanup in opSwitch above — this is the same
-			// short-lived private key material, deleted for the same reason.
-			_ = identity.SecureDeleteKeyPair(user.SSHKey)
-			_ = identity.ForgetTempKey(user.SSHKey)
-		}
-		_ = keyring.DeleteKeychainPassphrase(user.Name)
-	}
-	store.Current = ""
-	if err := config.Save(store); err != nil {
-		return opResult{}, fmt.Errorf("saving config: %w", err)
-	}
-	return opResult{detail: fmt.Sprintf("Signed out from %q. No active git identity.", user.Name)}, nil
+	return opResult{detail: fmt.Sprintf("Signed out from %q. No active git identity.", res.Name)}, nil
 }
 
 // opRename renames an identity.

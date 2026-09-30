@@ -90,7 +90,7 @@ func TestIdentityList_RegisterActionsOrderedAtBottom(t *testing.T) {
 }
 
 func TestIdentityList_TemporaryNoLongerInSystemMenu(t *testing.T) {
-	m := SystemActions(theme.DefaultTheme(), true, true)
+	m := SystemActions(theme.DefaultTheme(), true, true, true)
 	for _, k := range menuKeys(m) {
 		if k == "register-temp" {
 			t.Error("register-temp moved to the left panel and must not also be in the System menu")

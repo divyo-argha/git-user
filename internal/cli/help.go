@@ -315,9 +315,22 @@ Examples:
 		"history": `Usage: git-user history
 
 Hidden alias for git-user log.`,
-		"logout": `Usage: git-user logout
+		"logout": `Usage: git-user logout [flags]
 
-Sign out and clear the active identity.`,
+Sign out: unload the identity's SSH key from the agent and clear the global
+git name, email, ssh command, signing settings, HTTPS-token wiring and the
+identity's custom git config keys, leaving no active identity. Stored
+passphrases and tokens are kept. The sign-out is recorded in 'git-user log'.
+
+Signing out of a temporary identity permanently deletes it and its SSH key,
+so a terminal asks first.
+
+Flags:
+  -y, --yes                    Do not ask before deleting a temporary identity
+  -h, --help                   Show this help
+
+To end only this terminal's session instead, use the shell integration
+('git-user logout --session') or: eval "$(git-user env --unset)"`,
 		"clone": `Usage: git-user clone <repo-url> [dir] [flags]
 
 Clone a repository and auto-configure the local identity.

@@ -40,12 +40,16 @@ func NewActionMenu(title string, items []ActionItem, th theme.Theme) ActionMenu 
 // machine's global git config holds a name+email that isn't already one of
 // git-user's registered profiles, so the import path stays discoverable
 // without a separate, near-duplicate menu row (that screen offers the
-// "import original gitconfig" option itself).
-func SystemActions(th theme.Theme, showFixRemote, hasOriginalIdentity bool) ActionMenu {
+// "import original gitconfig" option itself). signedIn says whether an
+// identity is active: "Sign out" only makes sense then, so it is left out when
+// nobody is signed in.
+func SystemActions(th theme.Theme, showFixRemote, hasOriginalIdentity, signedIn bool) ActionMenu {
 	items := []ActionItem{
 		{IsSection: true, Label: "Quick Actions"},
 		{Label: "◈ Commit identity stats", Key: "stats", Featured: true},
-		{Label: "→ Sign out", Key: "logout"},
+	}
+	if signedIn {
+		items = append(items, ActionItem{Label: "→ Sign out", Key: "logout"})
 	}
 
 	if showFixRemote {

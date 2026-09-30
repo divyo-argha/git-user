@@ -560,7 +560,9 @@ git-user logout
 What happens:
 - Unloads the active SSH key from `ssh-agent`
 - Clears the global `user.name` and `user.email` from `~/.gitconfig`
-- Clears `core.sshCommand` from `~/.gitconfig`
+- Clears `core.sshCommand`, the signing settings, the HTTPS-token wiring (`core.askpass`) and the identity's custom git config keys
+- Keeps stored passphrases and tokens, and records the sign-out in `git-user log`
+- Signing out of a temporary identity deletes it and its key, so a terminal asks first (`--yes` skips the question)
 - Puts the terminal into a clean "void" state (no git user configured), preventing accidental commits under your identity by other users.
 
 ---

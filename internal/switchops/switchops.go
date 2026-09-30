@@ -187,3 +187,55 @@ func ApplyIdentity(
 
 	return warnings, nil
 }
+
+// LogoutResult describes an identity that Logout signed out.
+type LogoutResult struct {
+	Name         string
+	WasTemporary bool     // the profile and its key material were deleted
+	Notices      []string // human-readable details for the caller to surface
+}
+
+// Logout signs out the active identity and leaves the global git config as if
+// no identity were selected. It is the single implementation behind both
+// `git-user logout` and the TUI's "Sign out", so the two cannot drift apart.
+//
+// It undoes everything a switch applies: the SSH key is unloaded from the
+// agent (and a temporary profile and its keys are deleted, via
+// LogoutPrevious), and the global name, email, ssh command, signing config,
+// HTTPS-token askpass wiring and the identity's custom git config keys are all
+// removed. Stored keychain passphrases and tokens of a normal (non-temporary)
+// identity are kept: signing out is not forgetting credentials. The sign-out is
+// recorded in the switch log. unsetCustomConfig is supplied by the caller for
+// the same reason as in ApplyIdentity (the TUI captures git's output).
+//
+// It returns (nil, nil) when nobody is signed in.
+func Logout(store *config.Store, unsetCustomConfig func(key string, local bool) error) (*LogoutResult, error) {
+	user := store.CurrentUser()
+	if user == nil {
+		return nil, nil
+	}
+	// LogoutPrevious can delete a temporary profile, so take what is needed
+	// from the record before it goes.
+	res := &LogoutResult{Name: user.Name, WasTemporary: user.IsTemporary}
+	customKeys := make([]string, 0, len(user.CustomConfig))
+	for k := range user.CustomConfig {
+		customKeys = append(customKeys, k)
+	}
+
+	res.Notices = LogoutPrevious(store, "")
+
+	git.ClearIdentity()
+	git.RemoveAskpassConfigScope(false)
+	for _, k := range customKeys {
+		_ = unsetCustomConfig(k, false)
+	}
+
+	store.Current = ""
+	if err := config.Save(store); err != nil {
+		return res, fmt.Errorf("saving config: %w", err)
+	}
+
+	wd, _ := os.Getwd()
+	_ = config.AppendSwitchLog(res.Name+" (signed out)", wd)
+	return res, nil
+}

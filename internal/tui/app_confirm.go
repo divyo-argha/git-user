@@ -41,6 +41,11 @@ func (a *App) handleConfirmResult(msg core.ConfirmResultMsg) (tea.Model, tea.Cmd
 	}
 
 	switch action {
+	case "logout-confirmed":
+		return a, a.runTaskCmd("logout", "", func() (opResult, error) {
+			return opLogout(a.store)
+		})
+
 	case "quit-confirmed":
 		// User confirmed quitting from the dashboard.
 		a.quit = true

@@ -190,3 +190,40 @@ func TestDashboardRefreshKeyBinding(t *testing.T) {
 		}
 	}
 }
+
+// "Sign out" follows the active identity: hidden when signed out, shown when
+// signed in, and kept in step when the store refreshes.
+func TestDashboard_SignOutFollowsActiveIdentity(t *testing.T) {
+	th := theme.DefaultTheme()
+	has := func(d *Dashboard) bool {
+		for _, it := range d.actions.Items() {
+			if it.Key == "logout" {
+				return true
+			}
+		}
+		return false
+	}
+
+	signedOut := &config.Store{Users: []config.User{{Name: "eng", Email: "eng@company.com"}}}
+	d := NewDashboard(signedOut, th)
+	if has(d) {
+		t.Error("Sign out should be hidden with no active identity")
+	}
+
+	signedIn := &config.Store{Current: "eng", Users: signedOut.Users}
+	d.Update(core.StoreRefreshedMsg{Store: signedIn})
+	if !has(d) {
+		t.Error("Sign out should appear once an identity becomes active")
+	}
+
+	d.Update(core.StoreRefreshedMsg{Store: signedOut})
+	if has(d) {
+		t.Error("Sign out should disappear again after signing out")
+	}
+
+	// A stale Current that names no identity counts as signed out.
+	ghost := &config.Store{Current: "gone", Users: signedOut.Users}
+	if has(NewDashboard(ghost, th)) {
+		t.Error("a Current pointing at a missing identity is not signed in")
+	}
+}
