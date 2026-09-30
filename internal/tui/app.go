@@ -32,6 +32,7 @@ type App struct {
 	taskRunning   bool   // true while a background task (runTaskCmd) is in flight
 	taskLabel     string // human-readable label shown next to the spinner
 	refreshTick   uint64 // counts animation frames for the periodic store refresh
+	announcedVer  string // latest version already announced by toast, so a re-check never repeats it
 }
 
 func animateTickCmd() tea.Cmd {
@@ -168,12 +169,19 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case core.VersionCheckMsg:
 		a.statusBar.SetVersionStatus(msg.LatestVersion, msg.UpdateAvailable)
+		var announce tea.Cmd
+		if msg.UpdateAvailable && msg.LatestVersion != "" && msg.LatestVersion != a.announcedVer {
+			// Say it in words once per release (toasts are text, so this
+			// reaches users who cannot see the highlighted menu entry).
+			a.announcedVer = msg.LatestVersion
+			announce = core.ShowToastCmd(fmt.Sprintf("Update available: %s — press u, or pick it at the top of the right panel", msg.LatestVersion), theme.ToastStyleInfo, 6*time.Second)
+		}
 		if s := a.activeScreen(); s != nil {
 			newScreen, cmd := s.Update(msg)
 			a.screenStack[len(a.screenStack)-1] = newScreen
-			return a, cmd
+			return a, tea.Batch(cmd, announce)
 		}
-		return a, nil
+		return a, announce
 
 	case core.StoreRefreshedMsg:
 		if msg.Err == nil && msg.Store != nil {

@@ -1,6 +1,8 @@
 package components
 
 import (
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 	"strings"
 	"testing"
 
@@ -173,20 +175,20 @@ func TestSystemActions_UpdateStatus(t *testing.T) {
 		t.Fatal("update row should be absent by default")
 	}
 
-	// Appears when an update is available, above the Danger Zone.
+	// Appears when an update is available, at the very top under its own heading.
 	m.SetUpdateStatus("v5.0.0", true)
 	if !hasKey(m, "update") {
 		t.Fatal("expected update row when update is available")
 	}
-	for i, it := range m.items {
-		if it.Key == "update" {
-			if it.Label != "▲ Update available (v5.0.0)" || it.Disabled {
-				t.Errorf("unexpected update item: %+v", it)
-			}
-			if next := m.items[i+1]; !(next.IsSection && next.Label == "Danger Zone") {
-				t.Errorf("update row should sit just above Danger Zone, next item is %+v", next)
-			}
-		}
+	if !(m.items[0].IsSection && m.items[0].Label == "Update Available") {
+		t.Errorf("first item should be the Update Available heading, got %+v", m.items[0])
+	}
+	if it := m.items[1]; it.Key != "update" || it.Label != "▲ Update available (v5.0.0)" || it.Disabled {
+		t.Errorf("second item should be the enabled update row, got %+v", it)
+	}
+	// Focus is never stolen: the cursor stays on whatever the user had selected.
+	if sel := m.Selected(); sel == nil || sel.Key != "stats" {
+		t.Errorf("cursor should stay on its previous item, got %+v", sel)
 	}
 
 	// Label refreshes in place without duplicating the row.
@@ -201,10 +203,18 @@ func TestSystemActions_UpdateStatus(t *testing.T) {
 		t.Errorf("expected exactly one update row, got %d", n)
 	}
 
-	// Disappears again when up to date.
+	// Disappears again when up to date, heading included.
 	m.SetUpdateStatus("v4.8.0", false)
 	if hasKey(m, "update") {
 		t.Error("update row should be removed when up to date")
+	}
+	for _, it := range m.items {
+		if it.IsSection && it.Label == "Update Available" {
+			t.Error("the Update Available heading should be removed with the row")
+		}
+	}
+	if m.items[0].Label != "Quick Actions" {
+		t.Errorf("menu should start with Quick Actions again, got %+v", m.items[0])
 	}
 }
 
@@ -237,5 +247,79 @@ func TestActionMenu_ViewFitsHeight(t *testing.T) {
 	lineCount := strings.Count(out, "\n") + 1
 	if lineCount > height {
 		t.Errorf("ActionMenu.View rendered %d lines, want <= %d (height)", lineCount, height)
+	}
+}
+
+func TestSystemActions_StatsIsFeaturedNearTop(t *testing.T) {
+	m := SystemActions(theme.DefaultTheme(), false, false)
+
+	var statsIdx, logoutIdx = -1, -1
+	for i, it := range m.items {
+		switch it.Key {
+		case "stats":
+			statsIdx = i
+			if !it.Featured {
+				t.Error("stats should be a featured item")
+			}
+		case "logout":
+			logoutIdx = i
+		default:
+			if it.Featured {
+				t.Errorf("only stats should be featured, got %q", it.Key)
+			}
+		}
+	}
+	if statsIdx != 1 || logoutIdx < statsIdx {
+		t.Errorf("stats should be the first item under Quick Actions (idx 1), got stats=%d logout=%d", statsIdx, logoutIdx)
+	}
+	n := 0
+	for _, k := range menuKeys(m) {
+		if k == "stats" {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Errorf("stats should appear exactly once, got %d", n)
+	}
+}
+
+func TestActionMenu_FeaturedAndUpdateRenderBoldAndDistinct(t *testing.T) {
+	prev := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	t.Cleanup(func() { lipgloss.SetColorProfile(prev) })
+
+	th := theme.DefaultTheme()
+	m := SystemActions(th, false, false)
+	m.SetUpdateStatus("v5.0.0", true)
+	m.FindAndSetCursorByKey("doctor") // cursor elsewhere so stats/update render at rest
+
+	out := m.View(60, 40, true)
+	lineWith := func(text string) string {
+		for _, l := range strings.Split(out, "\n") {
+			if strings.Contains(l, text) {
+				return l
+			}
+		}
+		t.Fatalf("line containing %q not found in:\n%s", text, out)
+		return ""
+	}
+	stats, update, plain := lineWith("Commit identity stats"), lineWith("Update available"), lineWith("Identity switch log")
+
+	for name, l := range map[string]string{"stats": stats, "update": update} {
+		if !strings.Contains(l, "\x1b[1") && !strings.Contains(l, ";1m") {
+			t.Errorf("%s row should be bold at rest, got %q", name, l)
+		}
+	}
+	if !strings.Contains(stats, "\x1b[") || strings.Contains(plain, "\x1b[") {
+		t.Errorf("stats should be styled and ordinary rows plain.\nstats=%q\nplain=%q", stats, plain)
+	}
+	if stats == update || strings.Split(stats, "m")[0] == strings.Split(update, "m")[0] {
+		t.Errorf("stats and update must use different colours.\nstats=%q\nupdate=%q", stats, update)
+	}
+	// Without colour the notice must still be discoverable as text.
+	lipgloss.SetColorProfile(termenv.Ascii)
+	plainOut := m.View(60, 40, true)
+	if !strings.Contains(plainOut, "UPDATE AVAILABLE") || !strings.Contains(plainOut, "Update available (v5.0.0)") {
+		t.Errorf("update notice must be readable without colour:\n%s", plainOut)
 	}
 }

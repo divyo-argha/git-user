@@ -32,6 +32,7 @@ type themeStyles struct {
 	Warning    lipgloss.Style
 	Info       lipgloss.Style
 	DangerText lipgloss.Style
+	Featured   lipgloss.Style
 
 	// Cursor / selection
 	Selected lipgloss.Style
@@ -75,6 +76,7 @@ func (t Theme) buildStyles() themeStyles {
 		Warning:    lipgloss.NewStyle().Foreground(t.Warning),
 		Info:       lipgloss.NewStyle().Foreground(t.Primary),
 		DangerText: lipgloss.NewStyle().Foreground(t.Danger),
+		Featured:   lipgloss.NewStyle().Foreground(t.Primary).Bold(true),
 
 		Selected: lipgloss.NewStyle().Foreground(t.Accent).Bold(true),
 		Active:   lipgloss.NewStyle().Foreground(t.Secondary).Bold(true),
@@ -88,15 +90,20 @@ func (t Theme) buildStyles() themeStyles {
 
 // ── Style Accessors ───────────────────────────────────────────────────────────
 
-func (t Theme) Bold() lipgloss.Style          { return t.styles.Bold }
-func (t Theme) Dim() lipgloss.Style           { return t.styles.Dim }
-func (t Theme) Subtle() lipgloss.Style        { return t.styles.Subtle }
-func (t Theme) ItalicStyle() lipgloss.Style   { return t.styles.Italic }
-func (t Theme) SuccessStyle() lipgloss.Style  { return t.styles.Success }
-func (t Theme) ErrorStyle() lipgloss.Style    { return t.styles.Error }
-func (t Theme) WarningStyle() lipgloss.Style  { return t.styles.Warning }
-func (t Theme) InfoStyle() lipgloss.Style     { return t.styles.Info }
-func (t Theme) DangerText() lipgloss.Style    { return t.styles.DangerText }
+func (t Theme) Bold() lipgloss.Style         { return t.styles.Bold }
+func (t Theme) Dim() lipgloss.Style          { return t.styles.Dim }
+func (t Theme) Subtle() lipgloss.Style       { return t.styles.Subtle }
+func (t Theme) ItalicStyle() lipgloss.Style  { return t.styles.Italic }
+func (t Theme) SuccessStyle() lipgloss.Style { return t.styles.Success }
+func (t Theme) ErrorStyle() lipgloss.Style   { return t.styles.Error }
+func (t Theme) WarningStyle() lipgloss.Style { return t.styles.Warning }
+func (t Theme) InfoStyle() lipgloss.Style    { return t.styles.Info }
+func (t Theme) DangerText() lipgloss.Style   { return t.styles.DangerText }
+
+// Featured is the bold, distinctly coloured style for menu entries that
+// deserve attention at rest. It differs from the cursor (purple), update
+// (amber), danger (red) and success (green) styles.
+func (t Theme) Featured() lipgloss.Style      { return t.styles.Featured }
 func (t Theme) Selected() lipgloss.Style      { return t.styles.Selected }
 func (t Theme) Active() lipgloss.Style        { return t.styles.Active }
 func (t Theme) PaneTitle() lipgloss.Style     { return t.styles.PaneTitle }

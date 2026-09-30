@@ -14,6 +14,7 @@ type ActionItem struct {
 	Key       string
 	IsSection bool
 	IsDanger  bool
+	Featured  bool // bold, distinctly coloured at rest (not colour-only: placement and label carry the meaning too)
 	Disabled  bool
 }
 
@@ -43,6 +44,7 @@ func NewActionMenu(title string, items []ActionItem, th theme.Theme) ActionMenu 
 func SystemActions(th theme.Theme, showFixRemote, hasOriginalIdentity bool) ActionMenu {
 	items := []ActionItem{
 		{IsSection: true, Label: "Quick Actions"},
+		{Label: "◈ Commit identity stats", Key: "stats", Featured: true},
 		{Label: "→ Sign out", Key: "logout"},
 	}
 
@@ -63,7 +65,6 @@ func SystemActions(th theme.Theme, showFixRemote, hasOriginalIdentity bool) Acti
 		ActionItem{Label: importLabel, Key: "import-export"},
 		ActionItem{Label: "~ Create temporary profile", Key: "register-temp"},
 		ActionItem{Label: "↓ Clone repository", Key: "clone"},
-		ActionItem{Label: "◈ Commit identity stats", Key: "stats"},
 		ActionItem{Label: "⚓ Git hooks", Key: "hook"},
 		ActionItem{Label: "↻ Sync identities", Key: "sync"},
 		ActionItem{Label: "❯ Terminal & shell integration", Key: "prompt-integration"},
@@ -73,10 +74,14 @@ func SystemActions(th theme.Theme, showFixRemote, hasOriginalIdentity bool) Acti
 	return NewActionMenu("System Utilities", items, th)
 }
 
-// SetUpdateStatus shows an "Update available" entry when a newer release
-// exists and removes it otherwise. The menu carries no permanent "up to date"
-// row: there is nothing to act on then, and the status bar already shows the
-// version.
+// updateSectionLabel heads the update row. The heading is text, so the
+// notice does not depend on colour to stand out.
+const updateSectionLabel = "Update Available"
+
+// SetUpdateStatus shows an "Update available" entry at the very top of the
+// menu when a newer release exists and removes it otherwise. The menu carries
+// no permanent "up to date" row: there is nothing to act on then, and the
+// status bar already shows the version.
 func (m *ActionMenu) SetUpdateStatus(latestVersion string, updateAvailable bool) {
 	selectedKey := ""
 	if sel := m.Selected(); sel != nil {
@@ -98,26 +103,25 @@ func (m *ActionMenu) SetUpdateStatus(latestVersion string, updateAvailable bool)
 			m.items[idx].Label = label
 			return
 		}
-		// Insert at the end of "Profiles & System", just above the Danger Zone.
-		at := len(m.items)
-		for i, it := range m.items {
-			if it.IsSection && it.Label == "Danger Zone" {
-				at = i
-				break
-			}
+		top := []ActionItem{
+			{IsSection: true, Label: updateSectionLabel},
+			{Label: label, Key: "update"},
 		}
-		m.items = append(m.items, ActionItem{})
-		copy(m.items[at+1:], m.items[at:])
-		m.items[at] = ActionItem{Label: label, Key: "update"}
+		m.items = append(top, m.items...)
 	case idx >= 0:
-		m.items = append(m.items[:idx], m.items[idx+1:]...)
+		// Drop the row and its heading (always the item just above it).
+		start := idx
+		if start > 0 && m.items[start-1].IsSection && m.items[start-1].Label == updateSectionLabel {
+			start--
+		}
+		m.items = append(m.items[:start], m.items[idx+1:]...)
 	default:
 		return
 	}
 
 	if selectedKey != "" && selectedKey != "update" {
 		m.FindAndSetCursorByKey(selectedKey)
-	} else if m.cursor >= len(m.items) || m.items[m.cursor].IsSection || m.items[m.cursor].Key == "" {
+	} else {
 		m.cursor = m.nextSelectable(-1)
 	}
 }
@@ -279,28 +283,35 @@ func (m ActionMenu) View(width, height int, isActive bool) string {
 			label = m.theme.Dim().Render(label)
 		}
 
-		if isCursor && isActive {
+		// resting is how the row looks when it is not under the cursor.
+		resting := label
+		switch {
+		case item.Key == "update" && !item.Disabled:
+			resting = m.theme.WarningStyle().Bold(true).Render(label)
+		case item.Featured && !item.Disabled:
+			resting = m.theme.Featured().Render(label)
+		}
+
+		switch {
+		case isCursor && isActive:
 			raw := stripAnsi(label)
-			if item.IsDanger {
+			switch {
+			case item.IsDanger:
 				lines = append(lines, m.theme.DangerText().Render("▶ "+raw))
-			} else if item.Key == "update" && !item.Disabled {
+			case item.Key == "update" && !item.Disabled:
 				lines = append(lines, m.theme.WarningStyle().Bold(true).Render("▶ "+raw))
-			} else {
+			default:
 				lines = append(lines, m.theme.Selected().Render("▶ "+raw))
 			}
-		} else if isCursor && !isActive {
+		case isCursor:
 			raw := stripAnsi(label)
 			if item.Key == "update" && !item.Disabled {
 				lines = append(lines, m.theme.WarningStyle().Render("▶ "+raw))
 			} else {
 				lines = append(lines, m.theme.Dim().Render("▶ "+raw))
 			}
-		} else {
-			if item.Key == "update" && !item.Disabled {
-				lines = append(lines, "  "+m.theme.WarningStyle().Render(label))
-			} else {
-				lines = append(lines, "  "+label)
-			}
+		default:
+			lines = append(lines, "  "+resting)
 		}
 	}
 

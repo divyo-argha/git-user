@@ -958,3 +958,64 @@ func TestHelpOverlay_OpensAndCloses(t *testing.T) {
 		t.Errorf("Esc should return to the profile screen, got %T", app.activeScreen())
 	}
 }
+
+// An available update is announced in words exactly once per release, so the
+// notice doesn't depend on spotting the highlighted menu entry.
+func TestVersionCheck_AnnouncesUpdateOncePerRelease(t *testing.T) {
+	withTempConfig(t)
+	th := theme.DefaultTheme()
+	store := &config.Store{}
+	app := NewApp(store, screens.NewDashboard(store, th))
+
+	collect := func(cmd tea.Cmd) []tea.Msg {
+		var msgs []tea.Msg
+		var walk func(tea.Cmd)
+		walk = func(c tea.Cmd) {
+			if c == nil {
+				return
+			}
+			m := c()
+			if b, ok := m.(tea.BatchMsg); ok {
+				for _, sub := range b {
+					walk(sub)
+				}
+				return
+			}
+			msgs = append(msgs, m)
+		}
+		walk(cmd)
+		return msgs
+	}
+	toasts := func(msgs []tea.Msg) (n int, text string) {
+		for _, m := range msgs {
+			if tm, ok := m.(core.ToastMsg); ok {
+				n++
+				text = tm.Text
+			}
+		}
+		return
+	}
+
+	model, cmd := app.Update(core.VersionCheckMsg{CurrentVersion: "v1.0.0", LatestVersion: "v2.0.0", UpdateAvailable: true})
+	app = model.(*App)
+	n, text := toasts(collect(cmd))
+	if n != 1 || !strings.Contains(text, "v2.0.0") || !strings.Contains(text, "press u") {
+		t.Errorf("expected one toast naming v2.0.0 and the u key, got %d: %q", n, text)
+	}
+
+	_, cmd = app.Update(core.VersionCheckMsg{CurrentVersion: "v1.0.0", LatestVersion: "v2.0.0", UpdateAvailable: true})
+	if n, _ := toasts(collect(cmd)); n != 0 {
+		t.Errorf("same release must not be announced twice, got %d toasts", n)
+	}
+
+	_, cmd = app.Update(core.VersionCheckMsg{CurrentVersion: "v1.0.0", LatestVersion: "v2.1.0", UpdateAvailable: true})
+	if n, _ := toasts(collect(cmd)); n != 1 {
+		t.Errorf("a newer release should be announced, got %d toasts", n)
+	}
+
+	fresh := NewApp(store, screens.NewDashboard(store, th))
+	_, cmd = fresh.Update(core.VersionCheckMsg{CurrentVersion: "v2.0.0", LatestVersion: "v2.0.0"})
+	if n, _ := toasts(collect(cmd)); n != 0 {
+		t.Errorf("no toast when up to date, got %d", n)
+	}
+}
