@@ -254,9 +254,11 @@ func (h *Health) View(width, height int) string {
 	var sb strings.Builder
 
 	sb.WriteString("\n")
-	sb.WriteString("  " + h.theme.Bold().Render(h.Title()))
+	sb.WriteString("  ")
+	sb.WriteString(h.theme.Bold().Render(h.Title()))
 	if score := h.renderScoreHeader(); score != "" {
-		sb.WriteString("   " + score)
+		sb.WriteString("   ")
+		sb.WriteString(score)
 	}
 	sb.WriteString("\n")
 	if h.report.ScoreTotal > 0 {
@@ -264,7 +266,9 @@ func (h *Health) View(width, height int) string {
 		if h.report.Issues == 1 {
 			issueWord = "issue"
 		}
-		sb.WriteString("  " + h.theme.Dim().Render(fmt.Sprintf("%d %s found", h.report.Issues, issueWord)) + "\n")
+		sb.WriteString("  ")
+		sb.WriteString(h.theme.Dim().Render(fmt.Sprintf("%d %s found", h.report.Issues, issueWord)))
+		sb.WriteString("\n")
 	}
 	sb.WriteString(h.theme.SeparatorLine(width - 4))
 	sb.WriteString("\n\n")
@@ -274,15 +278,23 @@ func (h *Health) View(width, height int) string {
 		if h.fixing {
 			verb = "Fixing what can be fixed"
 		}
-		sb.WriteString("  " + h.spinner.View() + " " + h.theme.Dim().Render(verb+"...") + "\n")
+		sb.WriteString("  ")
+		sb.WriteString(h.spinner.View())
+		sb.WriteString(" ")
+		sb.WriteString(h.theme.Dim().Render(verb + "..."))
+		sb.WriteString("\n")
 		return sb.String()
 	}
 	if h.err != nil {
-		sb.WriteString("  " + h.theme.ErrorStyle().Render("Error: "+h.err.Error()) + "\n")
+		sb.WriteString("  ")
+		sb.WriteString(h.theme.ErrorStyle().Render("Error: " + h.err.Error()))
+		sb.WriteString("\n")
 		return sb.String()
 	}
 	if len(h.rows) == 0 {
-		sb.WriteString("  " + h.theme.Dim().Render("No checks to show.") + "\n")
+		sb.WriteString("  ")
+		sb.WriteString(h.theme.Dim().Render("No checks to show."))
+		sb.WriteString("\n")
 		return sb.String()
 	}
 
@@ -322,9 +334,13 @@ func (h *Health) View(width, height int) string {
 		row := h.rows[i]
 		switch row.kind {
 		case healthRowSection:
-			sb.WriteString("\n  " + h.theme.SectionHeader().Render(row.label) + "\n")
+			sb.WriteString("\n  ")
+			sb.WriteString(h.theme.SectionHeader().Render(row.label))
+			sb.WriteString("\n")
 		case healthRowSubsection:
-			sb.WriteString("    " + h.theme.Dim().Render("Profile: "+row.label) + "\n")
+			sb.WriteString("    ")
+			sb.WriteString(h.theme.Dim().Render("Profile: " + row.label))
+			sb.WriteString("\n")
 		case healthRowCheck:
 			c := row.check
 			indent := "    "
@@ -339,14 +355,21 @@ func (h *Health) View(width, height int) string {
 			if i == curRow {
 				line = h.theme.Bold().Render(line)
 			}
-			sb.WriteString(line + "\n")
+			sb.WriteString(line)
+			sb.WriteString("\n")
 
 			if h.expanded[i] {
 				for _, d := range c.Detail {
-					sb.WriteString(indent + "    " + h.theme.Dim().Render(strings.TrimSpace(d)) + "\n")
+					sb.WriteString(indent)
+					sb.WriteString("    ")
+					sb.WriteString(h.theme.Dim().Render(strings.TrimSpace(d)))
+					sb.WriteString("\n")
 				}
 				if c.FixHint != "" {
-					sb.WriteString(indent + "    " + h.theme.InfoStyle().Render("Fix: "+c.FixHint) + "\n")
+					sb.WriteString(indent)
+					sb.WriteString("    ")
+					sb.WriteString(h.theme.InfoStyle().Render("Fix: " + c.FixHint))
+					sb.WriteString("\n")
 				}
 			}
 		}

@@ -87,12 +87,10 @@ func (r *Report) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			}
 
 		case core.KeyDown, core.KeyJ:
-			// Clamp: never scroll past the last page of content.
 			if r.offset < r.maxScrollOffset() {
 				r.offset++
 			}
 
-		// Page down: ctrl+d or pgdown — move half a screen.
 		case "ctrl+d", "pgdown":
 			half := r.maxLines / 2
 			if half < 1 {
@@ -103,7 +101,6 @@ func (r *Report) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 				r.offset = r.maxScrollOffset()
 			}
 
-		// Page up: ctrl+u or pgup — move half a screen.
 		case "ctrl+u", "pgup":
 			half := r.maxLines / 2
 			if half < 1 {
@@ -114,8 +111,6 @@ func (r *Report) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 				r.offset = 0
 			}
 
-		// Copy report content to clipboard — just copyText when set (e.g. a
-		// public key line), otherwise the whole displayed report.
 		case "c", "C":
 			if r.noCopy {
 				return r, nil
@@ -133,20 +128,18 @@ func (r *Report) View(width, height int) string {
 	var sb strings.Builder
 
 	sb.WriteString("\n")
-	sb.WriteString(r.theme.Bold().Render("  " + r.title))
+	sb.WriteString("  ")
+	sb.WriteString(r.theme.Bold().Render(r.title))
 	sb.WriteString("\n")
 	sb.WriteString(r.theme.SeparatorLine(width - 6))
 	sb.WriteString("\n\n")
 
-	// Reserve lines for header (title + separator + 2 blank = 4) and footer (2).
 	maxLines := height - 8
 	if maxLines < 3 {
 		maxLines = 3
 	}
-	// Store for use in Update's scroll clamp.
 	r.maxLines = maxLines
 
-	// Clamp offset defensively in case window was resized smaller.
 	maxOff := len(r.lines) - maxLines
 	if maxOff < 0 {
 		maxOff = 0
@@ -172,7 +165,6 @@ func (r *Report) View(width, height int) string {
 		sb.WriteString("\n")
 	}
 
-	// Smart scroll indicators: only show directions that are still available.
 	var hints []string
 	if r.offset > 0 {
 		hints = append(hints, "↑ more above")
@@ -182,17 +174,17 @@ func (r *Report) View(width, height int) string {
 	}
 
 	sb.WriteString("\n")
-	sb.WriteString(r.theme.Dim().Render("  Press Enter or Esc to go back"))
+	sb.WriteString("  ")
+	sb.WriteString(r.theme.Dim().Render("Press Enter or Esc to go back"))
 	if len(hints) > 0 {
-		sb.WriteString(r.theme.Dim().Render("   (" + strings.Join(hints, " • ") + ")"))
+		sb.WriteString("   ")
+		sb.WriteString(r.theme.Dim().Render("(" + strings.Join(hints, " • ") + ")"))
 	}
 	sb.WriteString("\n")
 
 	return sb.String()
 }
 
-// copyToClipboardCmd copies the report lines to the system clipboard and
-// shows a toast notification. It tries pbcopy (macOS), xclip, then xsel.
 func copyToClipboardCmd(lines []string) tea.Cmd {
 	return func() tea.Msg {
 		text := strings.Join(lines, "\n")

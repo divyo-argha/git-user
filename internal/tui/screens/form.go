@@ -16,10 +16,6 @@ type FormInput struct {
 	IsPassword  bool
 	Value       string
 	Validate    func(string) error
-	// Hint, when set, is re-evaluated on every render (like Validate) but
-	// rendered as dim informational text rather than an error — for
-	// non-blocking feedback (e.g. a passphrase strength indicator) that
-	// should never look like a validation failure.
 	Hint func(string) string
 }
 
@@ -72,9 +68,6 @@ func NewForm(title, help, context string, fields []FormInput, th theme.Theme) *F
 	}
 }
 
-// Skippable marks the form so Esc submits it with empty values instead of
-// cancelling back to the previous screen — for optional steps (like setting a
-// passphrase) where declining should still complete the flow, not abandon it.
 func (f *Form) Skippable() *Form {
 	f.skippable = true
 	return f
@@ -122,7 +115,6 @@ func (f *Form) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 		case core.KeyCtrlC:
 			return f, tea.Quit
 		case core.KeyEnter:
-			// Check validation before moving or submitting
 			if err := f.validateCurrent(); err != nil {
 				f.errMessage = err.Error()
 				return f, nil
@@ -130,13 +122,11 @@ func (f *Form) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			f.errMessage = ""
 
 			if f.cursor == len(f.inputs)-1 {
-				// Final submit check across all inputs
 				if idx, err := f.validateAll(); err != nil {
 					f.cursor = idx
 					f.errMessage = err.Error()
 					return f, f.focusActive()
 				}
-				// Form complete
 				values := make([]string, len(f.inputs))
 				for i, input := range f.inputs {
 					values[i] = input.Value()
@@ -145,7 +135,6 @@ func (f *Form) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 					return core.FormResultMsg{Context: f.context, Values: values}
 				}
 			}
-			// Move to next input
 			f.cursor++
 			return f, f.focusActive()
 
@@ -219,8 +208,6 @@ func (f *Form) View(width, height int) string {
 		}
 		lines = append(lines, "  "+label)
 		lines = append(lines, f.inputs[i].View(boxWidth))
-
-		// Show field validation message if invalid
 		if f.validators[i] != nil {
 			val := f.inputs[i].Value()
 			if val != "" {

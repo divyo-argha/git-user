@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-var Version = "v4.19.0"
+var Version = "v4.20.0"
 
 var BuildVersion = ""
 

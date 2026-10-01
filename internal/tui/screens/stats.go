@@ -191,7 +191,6 @@ func (s *StatsScreen) View(width, height int) string {
 	sb.WriteString(s.theme.Bold().Render("  " + s.Title()))
 	sb.WriteString("\n")
 
-	// Render mode toggle tab header
 	modeCommits := " [ Sorted by Commits ] "
 	modeLines := " [ Sorted by Code Lines ] "
 	if s.sortMode == stats.SortByCommits {
@@ -202,19 +201,29 @@ func (s *StatsScreen) View(width, height int) string {
 		modeLines = s.theme.Selected().Render("▶" + modeLines)
 	}
 
-	sb.WriteString("  " + modeCommits + "  " + modeLines)
+	sb.WriteString("  ")
+	sb.WriteString(modeCommits)
+	sb.WriteString("  ")
+	sb.WriteString(modeLines)
 	sb.WriteString("\n")
 	sb.WriteString(s.theme.SeparatorLine(width - 6))
 	sb.WriteString("\n\n")
 
 	if s.loading {
-		sb.WriteString("  " + s.spinner.View() + " " + s.theme.Dim().Render("Auditing commit history — this can take a while on large repositories...") + "\n")
+		sb.WriteString("  ")
+		sb.WriteString(s.spinner.View())
+		sb.WriteString(" ")
+		sb.WriteString(s.theme.Dim().Render("Auditing commit history — this can take a while on large repositories..."))
+		sb.WriteString("\n")
 	} else if s.err != nil {
-		sb.WriteString("  " + s.theme.ErrorStyle().Render("Error: "+s.err.Error()) + "\n")
+		sb.WriteString("  ")
+		sb.WriteString(s.theme.ErrorStyle().Render("Error: " + s.err.Error()))
+		sb.WriteString("\n")
 	} else if len(s.items) == 0 {
-		sb.WriteString("  " + s.theme.Dim().Render("No commits found in this repository.") + "\n")
+		sb.WriteString("  ")
+		sb.WriteString(s.theme.Dim().Render("No commits found in this repository."))
+		sb.WriteString("\n")
 	} else {
-		// Reserve room for header (6 lines), footer/help (3 lines), and focused breakdown panel (6 lines)
 		maxLines := height - 15
 		if maxLines < 3 {
 			maxLines = 3
@@ -244,7 +253,6 @@ func (s *StatsScreen) View(width, height int) string {
 				pointer = s.theme.Selected().Render("▶ ")
 			}
 
-			// Clean list rendering: focus on clean metrics without inline status text pollution
 			var lineStr string
 			if s.sortMode == stats.SortByLines {
 				metrics := fmt.Sprintf("+%d / -%d (Net: %+d)", item.CodeLinesAdded, item.CodeLinesDeleted, item.NetCodeLines)
@@ -254,13 +262,13 @@ func (s *StatsScreen) View(width, height int) string {
 			}
 
 			if isFocused {
-				sb.WriteString(s.theme.Bold().Render(lineStr) + "\n")
+				sb.WriteString(s.theme.Bold().Render(lineStr))
 			} else {
-				sb.WriteString(lineStr + "\n")
+				sb.WriteString(lineStr)
 			}
+			sb.WriteString("\n")
 		}
 
-		// Detailed breakdown panel for currently selected author profile
 		if s.selectedIndex >= 0 && s.selectedIndex < len(s.items) {
 			sel := s.items[s.selectedIndex]
 			sb.WriteString("\n")
@@ -268,7 +276,8 @@ func (s *StatsScreen) View(width, height int) string {
 			sb.WriteString("\n")
 
 			headerText := fmt.Sprintf("COMMIT SIGNATURE & IDENTITY AUDIT: %s <%s>", sel.DisplayName, sel.Email)
-			sb.WriteString(s.theme.PaneTitle().Render("  "+headerText) + "\n")
+			sb.WriteString(s.theme.PaneTitle().Render("  " + headerText))
+			sb.WriteString("\n")
 
 			notSigned := sel.UnsignedCommits + sel.RevokedSignatureCommits + sel.BadSignatureCommits + sel.UnverifiableCommits
 
@@ -285,16 +294,23 @@ func (s *StatsScreen) View(width, height int) string {
 					return s.theme.ErrorStyle().Render(fmt.Sprintf("⚠ Not Signed (0/%d cryptographically signed)", sel.Commits))
 				}(),
 			)
-			sb.WriteString(signatureAudit + "\n")
+			sb.WriteString(signatureAudit)
+			sb.WriteString("\n")
 
 			if sel.RevokedSignatureCommits > 0 {
-				sb.WriteString("      " + s.theme.ErrorStyle().Render(fmt.Sprintf("⚠ %d commit(s) signed by a since-revoked key — not trusted", sel.RevokedSignatureCommits)) + "\n")
+				sb.WriteString("      ")
+				sb.WriteString(s.theme.ErrorStyle().Render(fmt.Sprintf("⚠ %d commit(s) signed by a since-revoked key — not trusted", sel.RevokedSignatureCommits)))
+				sb.WriteString("\n")
 			}
 			if sel.BadSignatureCommits > 0 {
-				sb.WriteString("      " + s.theme.ErrorStyle().Render(fmt.Sprintf("⚠ %d commit(s) with an invalid/corrupt signature", sel.BadSignatureCommits)) + "\n")
+				sb.WriteString("      ")
+				sb.WriteString(s.theme.ErrorStyle().Render(fmt.Sprintf("⚠ %d commit(s) with an invalid/corrupt signature", sel.BadSignatureCommits)))
+				sb.WriteString("\n")
 			}
 			if sel.UnverifiableCommits > 0 {
-				sb.WriteString("      " + s.theme.WarningStyle().Render(fmt.Sprintf("⚠ %d commit(s) unverifiable locally (no matching public key / allowedSignersFile configured here)", sel.UnverifiableCommits)) + "\n")
+				sb.WriteString("      ")
+				sb.WriteString(s.theme.WarningStyle().Render(fmt.Sprintf("⚠ %d commit(s) unverifiable locally (no matching public key / allowedSignersFile configured here)", sel.UnverifiableCommits)))
+				sb.WriteString("\n")
 			}
 
 			// Identity registration status — purely local, not a cryptographic
@@ -303,21 +319,24 @@ func (s *StatsScreen) View(width, height int) string {
 			if sel.IsRegisteredIdentity() {
 				identityAudit = "  • Local Identity Match   : " + s.theme.SuccessStyle().Render(fmt.Sprintf("✓ Registered (%s)", sel.VerifiedUser.Name))
 			}
-			sb.WriteString(identityAudit + "\n")
+			sb.WriteString(identityAudit)
+			sb.WriteString("\n")
 
 			commitBreakdown := fmt.Sprintf("  • Commits Breakdown       : Total: %d  |  %s  |  %s",
 				sel.Commits,
 				s.theme.SuccessStyle().Render(fmt.Sprintf("Signed: %d", sel.SignedCommits)),
 				s.theme.ErrorStyle().Render(fmt.Sprintf("Not Signed: %d", notSigned)),
 			)
-			sb.WriteString(commitBreakdown + "\n")
+			sb.WriteString(commitBreakdown)
+			sb.WriteString("\n")
 
 			lineBreakdown := fmt.Sprintf("  • Code Lines Breakdown    : Net: %+d  |  %s  |  %s",
 				sel.NetCodeLines,
 				s.theme.SuccessStyle().Render(fmt.Sprintf("Signed: +%d/-%d", sel.SignedLinesAdded, sel.SignedLinesDeleted)),
 				s.theme.ErrorStyle().Render(fmt.Sprintf("Not Signed: +%d/-%d", sel.UnsignedLinesAdded, sel.UnsignedLinesDeleted)),
 			)
-			sb.WriteString(lineBreakdown + "\n")
+			sb.WriteString(lineBreakdown)
+			sb.WriteString("\n")
 		}
 	}
 

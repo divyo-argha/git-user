@@ -235,7 +235,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return model, tea.Batch(popCmd, cmd)
 
 	case core.TaskResultMsg:
-		// Task completed — clear the loading spinner.
 		a.taskRunning = false
 		a.taskLabel = ""
 		return a.handleTaskResult(msg)
@@ -296,7 +295,6 @@ func (a *App) View() string {
 	sb.WriteString(statusView)
 	sb.WriteString("\n")
 
-	// Show a spinner row while a background task is running.
 	if a.taskRunning {
 		spinView := a.spinner.View() + " " + a.theme.Dim().Render(a.taskLabel+"…")
 		sb.WriteString("  ")

@@ -17,9 +17,9 @@ func opPromptStatus(store *config.Store) (opResult, error) {
 	var b strings.Builder
 
 	b.WriteString("TERMINAL PROMPT INDICATOR STATUS & PREVIEW\n")
-	b.WriteString(strings.Repeat("─", 60) + "\n\n")
+	b.WriteString(strings.Repeat("─", 60))
+	b.WriteString("\n\n")
 
-	// Current Context
 	inRepo := git.IsInRepo()
 	repoStr := "No"
 	if inRepo {
@@ -54,7 +54,6 @@ func opPromptStatus(store *config.Store) (opResult, error) {
 	b.WriteString(fmt.Sprintf("  Local Repo Override:     %s\n", localOverride))
 	b.WriteString(fmt.Sprintf("  Global Active Profile:   %s\n\n", globalCurrent))
 
-	// Live Preview
 	b.WriteString("LIVE PROMPT PREVIEWS:\n")
 	previewDefault := promptops.ResolvePrompt(store, true, false, true)
 	if previewDefault == "" {
@@ -67,7 +66,6 @@ func opPromptStatus(store *config.Store) (opResult, error) {
 	b.WriteString(fmt.Sprintf("  Plain (no badges):       %s\n", previewPlain))
 	b.WriteString(fmt.Sprintf("  Raw name only:           %s\n\n", previewRaw))
 
-	// Shell Integrations
 	b.WriteString("SHELL INTEGRATIONS:\n")
 	all := promptops.CheckAllTargets()
 	for _, info := range all {
@@ -84,7 +82,6 @@ func opPromptStatus(store *config.Store) (opResult, error) {
 	}
 	b.WriteString("\n")
 
-	// Preferences
 	b.WriteString("CONFIGURED PREFERENCES:\n")
 	iconPref := " (default Nerd Font)"
 	alwaysPref := "False (hidden outside Git repositories)"

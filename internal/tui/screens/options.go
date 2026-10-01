@@ -59,19 +59,17 @@ func (o *Options) Update(msg tea.Msg) (core.Screen, tea.Cmd) {
 			if o.cursor > 0 {
 				o.cursor--
 			} else {
-				o.cursor = len(o.options) - 1 // wrap around
+				o.cursor = len(o.options) - 1
 			}
 		case core.KeyDown, core.KeyJ:
 			if o.cursor < len(o.options)-1 {
 				o.cursor++
 			} else {
-				o.cursor = 0 // wrap around
+				o.cursor = 0
 			}
 		case "tab":
-			// Tab: move forward, wrap.
 			o.cursor = (o.cursor + 1) % len(o.options)
 		case "shift+tab":
-			// Shift+Tab: move backward, wrap.
 			o.cursor = (o.cursor - 1 + len(o.options)) % len(o.options)
 		case core.KeyEnter:
 			choice := o.options[o.cursor].Key

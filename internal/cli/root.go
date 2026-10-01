@@ -285,7 +285,6 @@ var removedAliasHints = map[string]string{
 // normalizeSubcommand normalizes flag aliases and command variations to canonical command names.
 func normalizeSubcommand(sub string) string {
 	switch sub {
-	// Help & Version
 	case "--help", "-h", "-?", "help":
 		return "help"
 	case "--version", "-v", "-V", "version":
@@ -293,7 +292,6 @@ func normalizeSubcommand(sub string) string {
 	case "--update", "-u", "update", "--upgrade":
 		return "update"
 
-	// Core Identity Commands
 	case "current", "--current", "-c", "whoami", "--whoami", "active", "--active":
 		return "current"
 	case "list", "--list", "-l", "ls", "--ls":
@@ -311,7 +309,6 @@ func normalizeSubcommand(sub string) string {
 	case "logout", "--logout", "signout", "--signout", "lo", "--lo":
 		return "logout"
 
-	// Terminal Sessions & Execution
 	case "env", "--env":
 		return "env"
 	case "shell", "--shell":
@@ -321,7 +318,6 @@ func normalizeSubcommand(sub string) string {
 	case "init", "--init":
 		return "init"
 
-	// Keys & Signing
 	case "pubkey", "--pubkey", "-k", "key", "--key":
 		return "pubkey"
 	case "bind-key", "--bind-key", "bind", "--bind":
@@ -339,7 +335,6 @@ func normalizeSubcommand(sub string) string {
 	case "sign", "--sign":
 		return "sign"
 
-	// Diagnostics & Security
 	case "connections", "--connections", "check-ssh", "--check-ssh", "check", "--check", "test-ssh", "--test-ssh":
 		return "connections"
 	case "doctor", "--doctor":
@@ -359,7 +354,6 @@ func normalizeSubcommand(sub string) string {
 	case "log", "--log", "history", "--history":
 		return "log"
 
-	// Workflows & Integration
 	case "prompt", "--prompt":
 		return "prompt"
 	case "clone", "--clone":

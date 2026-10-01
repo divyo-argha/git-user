@@ -181,8 +181,6 @@ func (d *Detail) renderOverview(width, height int, user *config.User) string {
 	lines = append(lines, "  "+d.theme.Bold().Render("Profile : ")+statusBadge)
 	lines = append(lines, "  "+d.theme.Bold().Render("Email   : ")+user.Email)
 	lines = append(lines, "")
-
-	// SSH & Security
 	lines = append(lines, d.theme.SectionHeader().Render("SSH & SECURITY"))
 	sshKeyStr := d.theme.Dim().Render("None")
 	if user.SSHKey != "" {
@@ -257,10 +255,6 @@ func (d *Detail) renderOverview(width, height int, user *config.User) string {
 	}
 	lines = append(lines, "")
 
-	// Repository Policy — only when there's something to say: in a repo,
-	// with a policy file, and only for the active identity (an inactive
-	// identity's compliance isn't actionable from here, so it's omitted
-	// rather than shown as N/A, to avoid cluttering every profile's page).
 	if isActive {
 		if repoRoot, err := git.RepoRoot(); err == nil {
 			if policy, err := config.LoadRepoPolicy(repoRoot); err == nil && (policy.RequireSigning || len(policy.AllowedEmailDomains) > 0) {
@@ -292,7 +286,6 @@ func (d *Detail) renderOverview(width, height int, user *config.User) string {
 		}
 	}
 
-	// Platform Reachability
 	lines = append(lines, d.theme.SectionHeader().Render("VERIFIED PLATFORMS"))
 	for _, p := range ssh.DefaultPlatforms {
 		status := d.platformStatuses[p.Name]
@@ -322,7 +315,6 @@ func (d *Detail) renderOverview(width, height int, user *config.User) string {
 	}
 	lines = append(lines, "")
 
-	// Directory Bindings
 	lines = append(lines, d.theme.SectionHeader().Render("DIRECTORY BINDINGS"))
 	if len(user.BindPaths) > 0 {
 		for _, p := range user.BindPaths {
@@ -499,7 +491,6 @@ func (d *Detail) View(width, height int) string {
 		return d.theme.ActionPane(paneWidth, contentH).Render(viewContent)
 	}
 
-	// 2-Column Responsive Layout: both columns are always equal width
 	availWidth := width - theme.PaneGap - 2*theme.PaneBorder
 	leftWidth := availWidth / 2
 	rightWidth := availWidth - leftWidth
@@ -514,7 +505,6 @@ func (d *Detail) View(width, height int) string {
 	leftBox := d.theme.InactivePane(leftWidth, contentH).Render(leftContent)
 	rightBox := d.theme.PulsingActivePane(rightWidth, contentH, d.animFrame).Render(rightContent)
 
-	// Symmetrical height: ensure both rendered panes match height exactly
 	hLeft := lipgloss.Height(leftBox)
 	hRight := lipgloss.Height(rightBox)
 	if hLeft != hRight {

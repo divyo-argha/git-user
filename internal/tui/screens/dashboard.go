@@ -124,19 +124,16 @@ func (d *Dashboard) handleMouse(msg tea.MouseMsg) (core.Screen, tea.Cmd) {
 }
 
 func (d *Dashboard) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
-	// ── Filter mode: characters type into the query ───────────────────────
 	if d.filterMode {
 		switch msg.String() {
 		case core.KeyCtrlC:
 			return d, tea.Quit
 		case core.KeyEsc:
-			// Esc: clear filter and exit filter mode.
 			d.filterMode = false
 			d.filterQuery = ""
 			d.identities.ClearFilter()
 			return d, nil
 		case core.KeyEnter:
-			// Enter: accept current selection and exit filter mode.
 			d.filterMode = false
 			return d.handleEnter()
 		case "backspace", "ctrl+h":
@@ -155,7 +152,6 @@ func (d *Dashboard) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 			d.identities.CursorDown()
 			return d, nil
 		default:
-			// Printable character: append to query.
 			if len(msg.Runes) > 0 {
 				d.filterQuery += string(msg.Runes)
 				d.identities.FilterByQuery(d.filterQuery)
@@ -164,22 +160,18 @@ func (d *Dashboard) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 		}
 	}
 
-	// ── Normal mode ───────────────────────────────────────────────────────
 	switch msg.String() {
 	case core.KeyCtrlC:
 		return d, tea.Quit
 	case core.KeyQuit:
-		// 'q' shows a quit confirmation instead of quitting immediately.
 		return d, func() tea.Msg {
 			return core.ActionResultMsg{Kind: "quit-confirm"}
 		}
 	case core.KeyEsc:
-		// Root screen: nothing to go back to.
 		return d, core.ShowToastCmd("At the main menu — press q to quit", theme.ToastStyleInfo, 2*time.Second)
 	case core.KeyHelp:
 		return d, func() tea.Msg { return core.ActionResultMsg{Kind: "help"} }
 	case core.KeyFilter:
-		// '/' enters filter mode on the identities pane.
 		d.filterMode = true
 		d.activePane = PaneIdentities
 		return d, nil
@@ -205,7 +197,6 @@ func (d *Dashboard) handleKey(msg tea.KeyMsg) (core.Screen, tea.Cmd) {
 			}
 		}
 	case "f", "F":
-		// Re-apply the active identity when the git config drifted out of sync.
 		if d.syncOut {
 			return d, func() tea.Msg {
 				return core.ActionResultMsg{Kind: "fix-sync"}
@@ -276,16 +267,12 @@ func (d *Dashboard) View(width, height int) string {
 		paneWidth := theme.PaneWidth(width)
 		view = d.viewSingleColumn(paneWidth, contentH)
 	} else {
-		// Right pane: sized to fit its own content, not half the terminal.
 		rightWidth := d.actions.PreferredWidth(28, 48)
-		// Left pane: all remaining space minus the gap and the border columns each
-		// pane style adds on top of its requested Width (PaneBorder per pane).
 		leftWidth := width - rightWidth - theme.PaneGap - 2*theme.PaneBorder
 		if leftWidth < 20 {
 			leftWidth = 20
 		}
 
-		// Track leftWidth for mouse click detection.
 		d.leftWidth = leftWidth
 
 		leftContent := d.identities.ViewWithFilter(leftWidth, contentH, d.activePane == PaneIdentities, d.filterMode, d.filterQuery)
@@ -309,8 +296,6 @@ func (d *Dashboard) View(width, height int) string {
 	return view
 }
 
-// syncWarningBanner renders the out-of-sync warning at full terminal width,
-// truncated to fit so the terminal never wraps it mid-phrase.
 func syncWarningBanner(width int, th theme.Theme) string {
 	msg := "⚠ Git config is out of sync with the active identity — press f to re-apply"
 	max := width - 4
@@ -371,7 +356,6 @@ func (d *Dashboard) SetVersionStatus(latestVersion string, updateAvailable bool)
 	d.actions.SetUpdateStatus(latestVersion, updateAvailable)
 }
 
-// SelectedActionKey returns the Key of the currently selected action menu item.
 func (d *Dashboard) SelectedActionKey() string {
 	if item := d.actions.Selected(); item != nil {
 		return item.Key

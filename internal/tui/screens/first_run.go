@@ -118,7 +118,8 @@ func (s *FirstRun) View(width, height int) string {
 
 	sb.WriteString(s.theme.Dim().Render("  git-user found an existing Git identity:"))
 	sb.WriteString("\n")
-	sb.WriteString(s.theme.Bold().Render("    " + detected))
+	sb.WriteString("    ")
+	sb.WriteString(s.theme.Bold().Render(detected))
 	sb.WriteString("\n\n")
 	sb.WriteString(s.theme.Dim().Render("  Import it now (keeps its original username) or skip and add it later."))
 	sb.WriteString("\n\n")
