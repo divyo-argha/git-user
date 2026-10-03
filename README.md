@@ -569,72 +569,43 @@ What happens:
 
 ## 📋 Commands
 
-| Command | Description |
-|---------|-------------|
-| `register` | Create a new identity (guided setup with SSH) |
-| `switch <name> [--local]` | Switch to an identity (globally, or locally in repository config) |
-| `switch <name> --session` | Switch identity for the current terminal session only |
-| `switch -c <name> [-e <email>]` | Create and switch in one command |
-| `switch -c <name> --temp` | Create a temporary identity that is removed on logout |
-| `switch -c <name> --skip-ssh` | Create and switch, skipping SSH key setup (attach later with `bind-key`) |
-| `switch --original` | Import and switch to the original pre-git-user identity |
-| `env <name> [--unset]` | Output shell export/unset statements for terminal session isolation |
-| `shell <name>` | Launch an isolated subshell locked to a Git identity |
-| `exec <name> -- <cmd...>` | Execute a single command using a Git identity's environment |
-| `init [shell]` | Generate shell integration wrapper function (for `eval "$(git-user init 2>/dev/null)"`) |
-| `list` | Show all identities |
-| `current` | Show active identity |
-| `prompt` | Output active identity for terminal integration |
-| `prompt install` | Interactive installer for terminal prompt integration |
-| `remove <name>` | Delete an identity |
-| `rename <old> <new>` | Rename an identity |
-| `edit <name> <email>` | Update email |
-| `bind-key <name> [--ssh-key <path>]` | Link an SSH key to an identity |
-| `bind-path <name> <path>` | Bind a directory path to an identity for auto-switching |
-| `unbind-path <name> <path>` | Unbind a directory path from an identity |
-| `pubkey` | Show the public key of the active identity |
-| `pubkey publish [platform]` | Publish public SSH key directly to GitHub, GitLab, or Bitbucket |
-| `connections [name]` | Check SSH connections to GitHub, GitLab, and Bitbucket |
-| `passphrase` | Add, change, or remove (`--remove`) passphrase for the active, unlocked identity |
-| `token <name> [--set\|--remove\|--expires <date>]` | Manage an HTTPS personal-access-token for an identity, with optional expiry tracking |
-| `sign <name> [--on\|--off]` | Enable/disable automatic Git commit signing for an identity |
-| `verify [--range <revs>]` | Verify commit signatures (CI-friendly) |
-| `policy <init\|show\|signers>` | Manage the repository `.git-user-policy` and `.allowed-signers` files |
-| `rekey <name>` | Rotate SSH key (with rollback safety) |
-| `fix-remote` | Convert HTTPS remotes to SSH |
-| `logout` | Sign out, clearing the active identity and restoring a void state |
-| `audit [--fix]` | Audit all identities for security issues (`--fix` corrects insecure permissions) |
-| `refresh` | Fix config conflicts doctor finds (re-syncs git config to match git-user state) |
-| `log [-n <count>\|--all]` | Show identity-switch audit log |
-| `export --all` | Export all identities + SSH keys (AES-256 encrypted) |
-| `export <name> [name...]` | Export specific identities |
-| `import <file>` | Import from an encrypted bundle |
-| `clone <repo-url> [dir]` | Clone repository and auto-configure local identity (the clone authenticates with that identity's SSH key; in the TUI: profile → "Clone a repo as this identity") |
-| `stats` | Audit and show commit author identity stats |
-| `config <list\|set\|unset>`| Manage custom git configurations for an identity |
-| `sync` | Synchronize identities across devices using a private repository |
-| `doctor [--fix]` | Run a full health check (`--fix` auto-corrects what it can) |
-| `tui` | Interactive menu |
-| `completion <shell>` | Shell completions (bash/zsh/fish/powershell) |
-| `hook <install\|uninstall>` | Pre-commit & pre-push hooks to verify identity |
-| `uninstall [--yes]` | Remove git-user entirely: identities, keys, config, and restore original git identity |
-| `--update` | Update to the latest version (shows version transition + binary verification) |
-| `--version` / `-v` | Show version |
-| `--no-color` | Plain, uncoloured output (also honours `NO_COLOR` and `TERM=dumb`) |
+> 💡 **No need to memorize commands:** Running `git-user` on an interactive terminal opens the full **TUI Dashboard**, where all identity, SSH key, passphrase, signing, and diagnostic operations can be performed interactively.
 
-**Environment:** `NO_COLOR=1` disables colour; `GIT_USER_NO_UPDATE_CHECK=1` turns off the
-dashboard's background check for new releases (otherwise it runs at most once every 24 hours).
-Explicit `git-user --update` is unaffected.
+### 🔄 Identity Switching
 
-**Aliases:** `ls` → `list` · `sw` → `switch` · `rm` → `remove` · `reg` → `register` · `whoami` → `current` · `lo` / `signout` → `logout` · `bind` → `bind-key` · `pubkey push` → `pubkey publish` · `check-ssh` / `check` → `connections` · `repair` → `refresh` · `history` → `log` · `purge` → `uninstall` · `security` → `audit` · `import-original` → `switch --original` · `tui` / `-i` / `--interactive` → interactive menu
+Switching identities is the core everyday operation:
 
-> **Removed shorthands (v4.19):** `-d`, `del`, `--del` and `-rm` (for `remove` — use `remove` or `rm`), `run`/`--run` (use `exec`), and `fix`/`--fix` on their own (use `doctor --fix` to repair, or `refresh` to re-sync git config). They now fail with a hint instead of acting on the wrong thing.
+```bash
+# Switch identity globally (applies to all repositories)
+git-user switch work
+
+# Switch identity only for the current repository
+git-user switch work --local
+
+# Switch identity for the current terminal session only
+git-user switch work --session
+
+# Create a new identity and switch to it in one command
+git-user switch -c work -e me@work.com
+
+# Create a temporary identity (automatically deleted on logout)
+git-user switch -c guest -e guest@corp.com --temp
+
+# Switch without setting up SSH keys (can be attached later)
+git-user switch -c work --skip-ssh
+
+# Switch back to your original pre-git-user ~/.gitconfig identity
+git-user switch --original
+```
+
+---
+
+> 📖 **Full CLI Reference:** For the complete list of all CLI subcommands, flags, options, and examples (including `register`, `keys`, `passphrase`, `token`, `signing`, `doctor`, `audit`, `sync`, and more), see [**COMMANDS.md**](COMMANDS.md).
+
+**Aliases:** `ls` → `list` · `sw` → `switch` · `rm` → `remove` · `reg` → `register` · `whoami` → `current` · `lo` / `signout` → `logout` · `bind` → `bind-key` · `pubkey push` → `pubkey publish` · `check-ssh` / `check` / `test-ssh` → `connections` · `repair` → `refresh` · `history` → `log` · `purge` → `uninstall` · `security` → `audit` · `import-original` → `switch --original` · `tui` / `-i` / `--interactive` → interactive menu
 
 > **Dual Flag/Subcommand Convention:** All commands can be run either as subcommands (`git-user current`, `git-user list`) or as standard flags (`git-user --current`, `git-user -c`, `git-user --list`, `git-user -l`, `git-user --switch <name>`, `git-user -s <name>`).
 
-> **Machine-readable output:** `list` and `current` print `name <email>` (plus a
-> ` # active` marker on `list`) when piped or with `--plain`. Add `--json` for
-> structured output suitable for scripts and `jq`:
 
 ---
 
