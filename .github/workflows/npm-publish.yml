@@ -53,8 +53,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Verify npm authentication
-        run: |
-          echo "Authenticated as: $(npm whoami)"
+        run: npm whoami
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
