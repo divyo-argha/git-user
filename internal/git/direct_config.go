@@ -80,6 +80,9 @@ func getDirectConfig(configFile, fullKey string) (string, error) {
 			}
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
 	return "", fmt.Errorf("key %q not found in %s", fullKey, configFile)
 }
 
@@ -99,6 +102,9 @@ func setDirectConfig(configFile, fullKey, value string) error {
 		scanner := bufio.NewScanner(strings.NewReader(string(data)))
 		for scanner.Scan() {
 			lines = append(lines, scanner.Text())
+		}
+		if err := scanner.Err(); err != nil {
+			return err
 		}
 	}
 
@@ -182,6 +188,9 @@ func unsetDirectConfig(configFile, fullKey string) error {
 			}
 		}
 		lines = append(lines, rawLine)
+	}
+	if err := scanner.Err(); err != nil {
+		return err
 	}
 
 	out := strings.Join(lines, "\n") + "\n"

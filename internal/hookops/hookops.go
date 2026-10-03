@@ -462,6 +462,9 @@ func CheckPush(store *config.Store, args []string, r io.Reader) error {
 			ranges = append(ranges, []string{remoteSHA + ".." + localSHA})
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("failed to read pre-push input: %w", err)
+	}
 
 	if len(ranges) == 0 {
 		return nil
