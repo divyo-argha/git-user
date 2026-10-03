@@ -7,15 +7,12 @@ import (
 	"github.com/muesli/termenv"
 )
 
-// NoColorRequested reports whether colour output should be disabled, following
-// https://no-color.org (any non-empty NO_COLOR) plus TERM=dumb.
+// NoColorRequested reports whether color output should be disabled (via NO_COLOR or TERM=dumb).
 func NoColorRequested() bool {
 	return os.Getenv("NO_COLOR") != "" || os.Getenv("TERM") == "dumb"
 }
 
-// StripNoColorFlag removes a --no-color flag from args and reports whether it
-// was present. Arguments after a literal "--" are left alone so commands like
-// `git-user exec -- tool --no-color` still reach the wrapped tool.
+// StripNoColorFlag removes --no-color from args and reports whether it was present.
 func StripNoColorFlag(args []string) ([]string, bool) {
 	out := make([]string, 0, len(args))
 	found := false
@@ -33,16 +30,13 @@ func StripNoColorFlag(args []string) ([]string, bool) {
 	return out, found
 }
 
-// DisableColor switches all styled output (CLI and TUI) to plain text. It also
-// exports NO_COLOR so child processes spawned by git-user honour it.
+// DisableColor switches all styled output to plain text and sets NO_COLOR=1.
 func DisableColor() {
 	_ = os.Setenv("NO_COLOR", "1")
 	lipgloss.SetColorProfile(termenv.Ascii)
 }
 
-// ApplyColorPreference honours --no-color and the NO_COLOR/TERM=dumb
-// environment, returning args with the flag removed. Call it once at startup,
-// before any output is rendered.
+// ApplyColorPreference applies --no-color or NO_COLOR settings, returning updated args.
 func ApplyColorPreference(args []string) []string {
 	args, flag := StripNoColorFlag(args)
 	if flag || NoColorRequested() {

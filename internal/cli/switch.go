@@ -147,22 +147,12 @@ func runSwitch(args []string) error {
 		return nil
 	}
 
-	// Auto-logout: unload the previous identity's key from ssh-agent, and
-	// clean up a temporary previous identity. This only applies to a global
-	// switch — a `--local` switch never changes the global "current" identity
-	// (store.Current, store.Save are untouched below for localMode), so the
-	// previous global identity is still active everywhere else. Running this
-	// for a local switch would incorrectly unload its key from the agent
-	// and, worse, permanently delete a temporary identity's key files while
-	// it's still the active identity outside this repo.
 	if !localMode {
 		for _, notice := range switchops.LogoutPrevious(store, name) {
 			ui.Info(notice)
 		}
 	}
 
-	// Warn clearly if the bound SSH key file is missing so a switch never
-	// silently produces broken push behavior with the wrong/absent key.
 	if switchops.BoundKeyMissing(user) {
 		ui.Warn(fmt.Sprintf("Bound SSH key not found: %s", user.SSHKey))
 		ui.Info(fmt.Sprintf("Fix it with: git-user bind-key %s --ssh-key <path>", user.Name))
@@ -205,12 +195,6 @@ func runSwitch(args []string) error {
 				}
 			}
 
-			// Load it into agent. EnsureSSHAgent already prints its own
-			// "ssh-agent is not running" guidance when it fails, but that's
-			// easy to miss among the rest of this command's output and gives
-			// no indication afterward that the key never actually got loaded
-			// — call it out explicitly so "Switched to X" never reads as
-			// "and the key is ready to use" when it isn't.
 			if agentErr := ssh.EnsureSSHAgent(); agentErr != nil {
 				ui.Warn(fmt.Sprintf("Key for %q was NOT loaded into any ssh-agent — the next push/pull may hang or fail asking for a passphrase.", user.Name))
 			} else {
@@ -224,9 +208,6 @@ func runSwitch(args []string) error {
 		}
 	}
 
-	// Captured before ApplyIdentity performs the same check internally (as
-	// part of clearing the override), purely so the message below can still
-	// name what happened — see switchops.ApplyIdentity's doc comment.
 	hadLocalOverride := !localMode && git.IsInRepo() && git.HasLocalOverride()
 
 	warnings, err := switchops.ApplyIdentity(store, user, localMode, applyActiveCustomConfig, unsetActiveCustomConfig)
@@ -252,14 +233,6 @@ func runSwitch(args []string) error {
 	}
 
 	if user.SSHKey != "" {
-		// Only an agent-loaded key is required when the key is passphrase
-		// protected — verifySSHConnectionWithKey passes -i explicitly, so an
-		// unprotected key never needs the agent at all. Gating on
-		// IsSSHKeyLoaded unconditionally (regardless of protection) skipped
-		// verification for every unprotected-key identity, silently hiding
-		// real connection problems until the next `git push` failed. Mirrors
-		// the same "protected && not loaded" check used by
-		// needsPassphraseForSwitch (internal/tui/ops.go).
 		protected, _ := isSSHKeyPassphraseProtected(user.SSHKey)
 		if !protected || ssh.IsSSHKeyLoaded(user.SSHKey) {
 			if err := verifySSHConnectionWithKey(user.SSHKey); err != nil {

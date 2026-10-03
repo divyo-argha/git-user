@@ -153,22 +153,11 @@ func IdentityName(name string) error {
 	return nil
 }
 
-// ── Email Validation ──────────────────────────────────────────────────────────
-
 var (
 	emailRegex = regexp.MustCompile(`^[a-zA-Z0-9.!#$%&'*+/=?^_` + "`" + `{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$`)
 )
 
-// Email validates an email address according to RFC 5322 standard conventions.
-//
-// Rules:
-//   - Cannot be empty
-//   - Cannot contain spaces or control characters
-//   - Max length: 254 characters (RFC 5321)
-//   - Must contain exactly one '@'
-//   - Local part cannot start/end with dot, cannot contain consecutive dots
-//   - Domain part must contain at least one dot
-//   - TLD must be at least 2 alphabetic characters
+// Email validates an email address according to RFC 5322 conventions.
 func Email(email string) error {
 	email = strings.TrimSpace(email)
 	if email == "" {
@@ -221,7 +210,6 @@ func Email(email string) error {
 		return errors.New("email domain must include a top-level domain (e.g. .com, .org, .io)")
 	}
 
-	// Check TLD
 	dotIdx := strings.LastIndex(domain, ".")
 	tld := domain[dotIdx+1:]
 	if len(tld) < 2 {
@@ -240,11 +228,7 @@ func Email(email string) error {
 	return nil
 }
 
-// ── SSH Key Path Validation ───────────────────────────────────────────────────
-
 // SSHKeyPath validates an SSH private or public key path.
-//
-// If mustExist is true, the path is expanded and verified to exist as a regular file.
 func SSHKeyPath(path string, mustExist bool) error {
 	path = strings.TrimSpace(path)
 	if path == "" {
@@ -278,11 +262,7 @@ func SSHKeyPath(path string, mustExist bool) error {
 	return nil
 }
 
-// SSHKeyFilename validates a bare filename (no directory components) for a
-// new SSH key the user is about to generate. It always lives inside the
-// managed SSH directory, so the input is a name, not a path — this rejects
-// anything that would try to escape that directory or collide with files
-// ssh-keygen itself manages (.pub siblings, backups, known_hosts, ...).
+// SSHKeyFilename validates a bare filename for a new SSH key.
 func SSHKeyFilename(name string) error {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -294,11 +274,6 @@ func SSHKeyFilename(name string) error {
 	if strings.HasPrefix(name, ".") {
 		return errors.New("key filename cannot start with a dot")
 	}
-	// An allowlist rather than a denylist: this also keeps out characters
-	// like "|" that have no filesystem meaning but are used as a field
-	// separator when the TUI threads a resolved key path through its
-	// multi-step setup forms — a filename containing one would otherwise
-	// silently corrupt that parsing.
 	for _, r := range name {
 		if !isAsciiAlphanumeric(r) && r != '-' && r != '_' && r != '.' {
 			return fmt.Errorf("key filename contains invalid character %q (only ASCII letters, digits, dots, hyphens, and underscores are allowed)", string(r))
@@ -317,11 +292,7 @@ func SSHKeyFilename(name string) error {
 	return nil
 }
 
-// ── Bind Path / Directory Validation ──────────────────────────────────────────
-
 // BindPath validates a directory path for auto-switching bindings.
-//
-// If mustExist is true, the path is expanded and checked to ensure it is an existing directory.
 func BindPath(path string, mustExist bool) error {
 	path = strings.TrimSpace(path)
 	if path == "" {
@@ -355,9 +326,7 @@ func BindPath(path string, mustExist bool) error {
 	return nil
 }
 
-// ── Git Config Key & Value Validation ─────────────────────────────────────────
-
-// GitConfigKey validates a custom git configuration key name (e.g. "user.name", "core.autocrlf", "url.git@github.com:.insteadOf").
+// GitConfigKey validates a custom git configuration key name.
 func GitConfigKey(key string) error {
 	key = strings.TrimSpace(key)
 	if key == "" {
@@ -385,7 +354,6 @@ func GitConfigKey(key string) error {
 		return fmt.Errorf("git config key %q must follow 'section.key' format (e.g. 'core.autocrlf', 'commit.gpgsign')", key)
 	}
 
-	// Section must be alphanumeric + hyphen
 	section := parts[0]
 	if section == "" {
 		return errors.New("git config section cannot be empty")
@@ -396,7 +364,6 @@ func GitConfigKey(key string) error {
 		}
 	}
 
-	// Variable (last part) must be alphanumeric + hyphen
 	variable := parts[len(parts)-1]
 	if variable == "" {
 		return errors.New("git config variable name cannot be empty")
@@ -423,8 +390,6 @@ func GitConfigValue(val string) error {
 	return nil
 }
 
-// ── Repository URL Validation ─────────────────────────────────────────────────
-
 // RepoURL validates a repository URL for cloning and remote operations.
 func RepoURL(rawURL string) error {
 	rawURL = strings.TrimSpace(rawURL)
@@ -432,7 +397,6 @@ func RepoURL(rawURL string) error {
 		return errors.New("repository URL cannot be empty")
 	}
 
-	// Prevent command-line flag injection (e.g. "--upload-pack=...")
 	if strings.HasPrefix(rawURL, "-") {
 		return errors.New("repository URL cannot start with a hyphen ('-')")
 	}
@@ -448,8 +412,6 @@ func RepoURL(rawURL string) error {
 
 	return nil
 }
-
-// ── Passphrase Validation ─────────────────────────────────────────────────────
 
 // Passphrase validates an encryption passphrase.
 func Passphrase(pass string, minLen int) error {
@@ -479,8 +441,6 @@ func Date(s string) error {
 	}
 	return nil
 }
-
-// ── Helper ────────────────────────────────────────────────────────────────────
 
 // ExpandPath expands leading ~ to user's home directory.
 func ExpandPath(path string) string {

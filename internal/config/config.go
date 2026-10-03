@@ -28,20 +28,13 @@ func ValidEmail(email string) bool {
 	return validate.Email(email) == nil
 }
 
-// PermissionCheck classifies a file's mode bits against the 0600 policy this
-// project requires for the config file and SSH private keys.
+// PermissionCheck classifies a file's mode bits against the 0600 security policy.
 type PermissionCheck struct {
-	// Applicable is false on Windows, where file-mode bits are unreliable —
-	// callers should skip reporting anything (neither secure nor insecure)
-	// in that case rather than guessing.
 	Applicable bool
 	Secure     bool
 }
 
-// CheckFilePermissions is the single source of truth for the "skip entirely
-// on Windows" rule applied to permission checks in both the CLI's `doctor`
-// command and the TUI's Doctor screen, so the two can't silently drift on
-// when that guard applies (as they once did).
+// CheckFilePermissions evaluates file mode bits against 0600 on POSIX platforms.
 func CheckFilePermissions(mode os.FileMode) PermissionCheck {
 	if runtime.GOOS == "windows" {
 		return PermissionCheck{}
@@ -49,10 +42,7 @@ func CheckFilePermissions(mode os.FileMode) PermissionCheck {
 	return PermissionCheck{Applicable: true, Secure: mode.Perm() == 0600}
 }
 
-// DefaultSSHKeyPath returns the default SSH private key path git-user
-// generates for an identity: ~/.ssh/git_<name>. It is the only place that
-// turns an identity name into a filesystem path, so name is validated here
-// rather than trusted by each caller.
+// DefaultSSHKeyPath returns the default SSH private key path: ~/.ssh/git_<name>.
 func DefaultSSHKeyPath(name string) (string, error) {
 	if !ValidIdentityName(name) {
 		return "", fmt.Errorf("identity name %q is invalid — use only letters, digits, dots, hyphens, and underscores", name)
@@ -64,7 +54,7 @@ func DefaultSSHKeyPath(name string) (string, error) {
 	return filepath.Join(home, ".ssh", "git_"+name), nil
 }
 
-// SSHDir returns the directory git-user stores its managed SSH keys in.
+// SSHDir returns the directory where git-user stores managed SSH keys.
 func SSHDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -73,10 +63,7 @@ func SSHDir() (string, error) {
 	return filepath.Join(home, ".ssh"), nil
 }
 
-// SSHKeyPathForFilename joins a user-chosen key filename onto the managed SSH
-// directory. Unlike DefaultSSHKeyPath, filename is arbitrary user input (from
-// the "generate new key" filename prompt), not an identity name, so it is
-// validated with validate.SSHKeyFilename rather than ValidIdentityName.
+// SSHKeyPathForFilename joins a key filename onto the managed SSH directory.
 func SSHKeyPathForFilename(filename string) (string, error) {
 	if err := validate.SSHKeyFilename(filename); err != nil {
 		return "", err
@@ -88,10 +75,7 @@ func SSHKeyPathForFilename(filename string) (string, error) {
 	return filepath.Join(dir, filename), nil
 }
 
-// SuggestSSHKeyFilename returns "git_<name>", or "git_<name>_2", "_3", ... if
-// that file already exists — a starting point pre-filled into the
-// key-filename prompt, not a reservation. The caller is always free to type
-// over it, and the actual collision check happens again at submit time.
+// SuggestSSHKeyFilename returns a non-colliding default key filename ("git_<name>").
 func SuggestSSHKeyFilename(name string) (string, error) {
 	base := "git_" + name
 	dir, err := SSHDir()
@@ -108,19 +92,14 @@ func SuggestSSHKeyFilename(name string) (string, error) {
 	return base, nil
 }
 
-// SSHKeyFile describes a private key file discovered in the managed SSH
-// directory, for presenting an arrow-key "use an existing key" picker.
+// SSHKeyFile describes a private key file found in the managed SSH directory.
 type SSHKeyFile struct {
-	Path    string // absolute path to the private key
-	Name    string // base filename
-	Comment string // comment field from the matching .pub file, if any (often an email)
+	Path    string
+	Name    string
+	Comment string
 }
 
-// ListSSHKeyFiles scans the managed SSH directory for private key files.
-// A file counts as a private key if it has a matching "<name>.pub" sibling —
-// exactly how ssh-keygen always lays out a key pair — which is what tells
-// actual keys apart from config, known_hosts, authorized_keys, and similar
-// files that also live in ~/.ssh but were never a key pair to begin with.
+// ListSSHKeyFiles scans the managed SSH directory for private key files with matching .pub files.
 func ListSSHKeyFiles() ([]SSHKeyFile, error) {
 	dir, err := SSHDir()
 	if err != nil {
@@ -190,24 +169,13 @@ func (u *User) GetPassphraseMode() string {
 	return u.PassphraseMode
 }
 
-// DefaultAgentTTL is how long a passphrase-unlocked key stays loaded in the
-// SSH agent when an identity hasn't set its own AgentTTL: long enough to
-// cover a workday without re-prompting mid-session, short enough to bound
-// how long the key stays usable by anyone with access to an
-// already-unlocked session after the legitimate user has stepped away.
+// DefaultAgentTTL is the default lifetime for unlocked SSH keys in the agent (8 hours).
 const DefaultAgentTTL = 8 * time.Hour
 
-// HardenedAgentTTL is the agent lifetime applied by the one-shot "harden for
-// a shared device" action (CLI `passphrase --harden`, the TUI passphrase
-// menu's "Harden" row, and doctor's auto-fix on a machine that looks
-// shared): short enough to matter if someone else is using the same
-// account, long enough not to force re-entry mid-task.
+// HardenedAgentTTL is the lifetime applied when hardening for shared devices (15 minutes).
 const HardenedAgentTTL = "15m"
 
-// GetAgentTTL returns how long this identity's key should stay loaded in
-// the SSH agent before it's automatically forgotten. "0" means no limit
-// (explicit user opt-out); empty or malformed values fail safe toward
-// DefaultAgentTTL rather than toward "no limit".
+// GetAgentTTL returns the configured SSH agent key lifetime.
 func (u *User) GetAgentTTL() time.Duration {
 	if u.AgentTTL == "" {
 		return DefaultAgentTTL
@@ -222,10 +190,7 @@ func (u *User) GetAgentTTL() time.Duration {
 	return d
 }
 
-// GetHTTPSUsername returns the username to pair with this identity's stored
-// HTTPS token. Most hosts (GitHub, GitLab, Bitbucket) accept any non-empty
-// username alongside a PAT, so this only needs to be set explicitly for
-// hosts that check it.
+// GetHTTPSUsername returns the username for the identity's HTTPS token (defaults to "git-user").
 func (u *User) GetHTTPSUsername() string {
 	if u.HTTPSUsername != "" {
 		return u.HTTPSUsername
@@ -378,10 +343,7 @@ func Save(s *Store) error {
 	return syncIncludeIfs(s)
 }
 
-// writeFileAtomic writes data to path via a temp file + rename in dir, so a
-// crash or power loss mid-write can never leave path holding truncated or
-// partially-written JSON — a reader always sees either the old or the new
-// content, never a corrupt mix.
+// writeFileAtomic writes data to path atomically using a temporary file and rename.
 func writeFileAtomic(dir, path string, data []byte) error {
 	tmp, err := os.CreateTemp(dir, filepath.Base(path)+"-*.tmp")
 	if err != nil {

@@ -9,13 +9,7 @@ import (
 	"strings"
 )
 
-// ParseConfigGetRegexpLine parses one line of `git config --get-regexp`
-// output into its key/value pair. It trims a trailing \r that a redirected/
-// console-piped git.exe invocation can leave on each line on Windows —
-// without this, a value like "...gitconfig\r" fails a HasSuffix(".gitconfig")
-// check downstream, silently leaving a stale includeIf entry un-removed.
-// Returns ok=false for a blank line or one that doesn't split into exactly
-// two space-separated fields.
+// ParseConfigGetRegexpLine parses one line of `git config --get-regexp` output into its key/value pair.
 func ParseConfigGetRegexpLine(line string) (key, value string, ok bool) {
 	line = strings.TrimRight(line, "\r")
 	if line == "" {
@@ -28,12 +22,7 @@ func ParseConfigGetRegexpLine(line string) (key, value string, ok bool) {
 	return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), true
 }
 
-// RemoveManagedIncludeIfs strips only the global includeIf entries that
-// point at git-user's own profile-*.gitconfig snippet files, leaving any
-// unrelated includeIf rules the user configured by hand alone. Shared by
-// internal/cli's `uninstall` and internal/tui's uninstall action so the two
-// can't drift apart on what counts as "git-user's own" — they previously
-// each carried an independent copy of this exact logic.
+// RemoveManagedIncludeIfs removes global includeIf entries pointing to git-user snippet files.
 func RemoveManagedIncludeIfs() {
 	out, err := exec.Command("git", "config", "--global", "--get-regexp", `includeif\..*\.path`).Output()
 	if err != nil {
@@ -91,8 +80,7 @@ func CurrentEmail() string {
 	return out
 }
 
-// IsIdentityInSync reports whether the resolved git config identity (including
-// any local repository override) matches the given name and email.
+// IsIdentityInSync reports whether the resolved git config matches the given name and email.
 func IsIdentityInSync(name, email string) bool {
 	if name == "" && email == "" {
 		return false
@@ -105,15 +93,13 @@ func CurrentGlobalEmail() string {
 	return out
 }
 
-// CurrentLocalName returns user.name set at --local scope only (empty if
-// none), unlike CurrentName which resolves global+local together.
+// CurrentLocalName returns user.name set at --local scope only.
 func CurrentLocalName() string {
 	out, _ := getConfig("user.name", true)
 	return out
 }
 
-// CurrentLocalEmail returns user.email set at --local scope only (empty if
-// none), unlike CurrentEmail which resolves global+local together.
+// CurrentLocalEmail returns user.email set at --local scope only.
 func CurrentLocalEmail() string {
 	out, _ := getConfig("user.email", true)
 	return out
@@ -164,18 +150,10 @@ func ConfigureSSH(keyPath string) error {
 }
 
 func ConfigureSSHScope(keyPath string, local bool) error {
-	// core.sshCommand is executed via the shell by git itself (that's how
-	// GIT_SSH_COMMAND/core.sshCommand support flags and quoting). On Windows,
-	// OpenSSH treats single quotes as literal parts of the filename, so double
-	// quotes and forward slashes are required. On POSIX systems, single quotes
-	// protect against shell metacharacters like $, `, ! inside the key path.
 	return setConfig("core.sshCommand", IdentitySSHCommand("", keyPath), local)
 }
 
 // SSHQuote formats a path for interpolation into an SSH command (e.g. core.sshCommand).
-// On Windows, paths are converted to forward slashes and wrapped in double quotes
-// because Windows OpenSSH treats single quotes as literal parts of the filename.
-// On POSIX systems, single quotes protect against shell metacharacters like $, `, ! inside the key path.
 func SSHQuote(s string) string {
 	if runtime.GOOS == "windows" {
 		clean := filepath.ToSlash(s)
@@ -184,12 +162,7 @@ func SSHQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
-// IdentitySSHCommand returns the ssh command an identity should use: its
-// preserved custom core.sshCommand when it has one, otherwise one pinned to its
-// key (IdentitiesOnly stops the agent offering other accounts' keys). It
-// returns "" when the identity has neither, meaning "use the default ssh".
-// Used both for core.sshCommand in a repo and for GIT_SSH_COMMAND while
-// cloning, where no repo config exists yet.
+// IdentitySSHCommand returns the ssh command configured with the identity's key.
 func IdentitySSHCommand(sshCommand, sshKey string) string {
 	if sshCommand != "" {
 		return sshCommand
@@ -204,12 +177,7 @@ func gitBinary() string {
 	return findWindowsGit()
 }
 
-// BinaryPath returns the resolved path to the git executable (just "git" if
-// nothing more specific was found on this system). Exported so other
-// packages needing binaries that travel alongside a Git for Windows install
-// — e.g. internal/ssh, to locate its bundled OpenSSH client under
-// <install>\usr\bin — can reuse this discovery instead of re-implementing
-// their own copy of findWindowsGit's candidate search.
+// BinaryPath returns the resolved path to the git executable.
 func BinaryPath() string {
 	return gitBinary()
 }
@@ -269,9 +237,7 @@ func ConfigureSigningScope(key, format string, local bool) error {
 
 // ConfigureAskpass points core.askpass at cmd (the git-user binary plus
 // arguments identifying which identity to answer for — see
-// internal/cli/askpass_helper.go) so an HTTPS remote gets that identity's
-// stored token without a credential.helper and without ever writing the
-// token itself into git config.
+// ConfigureAskpass configures core.askpass for HTTPS token helper invocation.
 func ConfigureAskpass(cmd string) error {
 	return ConfigureAskpassScope(cmd, false)
 }
@@ -428,8 +394,7 @@ func GetRemoteURL(remote string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// GetPushRemoteURL returns the resolved push URL for a remote, taking into
-// account any url.<base>.pushInsteadOf or url.<base>.insteadOf rewrites.
+// GetPushRemoteURL returns the resolved push URL for a remote.
 func GetPushRemoteURL(remote string) (string, error) {
 	cmd := gitCmd("remote", "get-url", "--push", "--", remote)
 	out, err := cmd.Output()
@@ -439,8 +404,7 @@ func GetPushRemoteURL(remote string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// ConfigurePushInsteadOf configures Git to transparently route pushes to https://<host>/
-// over SSH (git@<host>:) using url.<sshBase>.pushInsteadOf.
+// ConfigurePushInsteadOf configures Git to route pushes to https://<host>/ over SSH (git@<host>:).
 func ConfigurePushInsteadOf(host string, local bool) error {
 	host = strings.TrimSpace(host)
 	if host == "" {
@@ -457,20 +421,12 @@ func RemovePushInsteadOf(host string, local bool) {
 	unsetConfig(fmt.Sprintf("url.%s.pushInsteadOf", sshBase), local)
 }
 
-// DefaultPushInsteadOfHosts returns the standard Git hosting platforms
-// for automatic implicit SSH push rewriting.
+// DefaultPushInsteadOfHosts returns the standard Git hosting platforms.
 func DefaultPushInsteadOfHosts() []string {
 	return []string{"github.com", "gitlab.com", "bitbucket.org"}
 }
 
-// ConfigureInsteadOf configures Git to transparently route ALL operations
-// (fetch, pull, clone, push) for https://<host>/ over SSH (git@<host>:) using
-// url.<sshBase>.insteadOf — unlike ConfigurePushInsteadOf, which only
-// redirects push. Git resolves this rewrite whenever it reports the remote
-// too (git remote -v / get-url will show the SSH form for that host): there
-// is no git mechanism to redirect fetch/pull over SSH without that. The
-// stored remote.<name>.url itself is never modified — this is reversible via
-// RemoveInsteadOf without touching the remote again.
+// ConfigureInsteadOf routes all operations for https://<host>/ over SSH (git@<host>:).
 func ConfigureInsteadOf(host string, local bool) error {
 	host = strings.TrimSpace(host)
 	if host == "" {
@@ -599,9 +555,6 @@ func ListRemotes() ([]string, error) {
 	return remotes, nil
 }
 
-// HasHTTPSRemotes returns true if the current repo has at least one remote
-// whose URL starts with "https://". Returns false when not in a repo, when
-// there are no remotes, or when all remotes already use SSH.
 func HasHTTPSRemotes() bool {
 	if !IsInRepo() {
 		return false

@@ -9,13 +9,6 @@ import (
 	"unicode"
 )
 
-// commonPassphrasesData is a small, self-authored list of well-known common
-// passwords/passphrases (sequences, the word "password" and its leetspeak
-// variants, default/product words, common names and hobby words) — the kind
-// of thing that tops every published "most common passwords" study. It's
-// compiled from general public knowledge, not copied from any third-party
-// list, specifically to avoid any licensing ambiguity in an embedded file.
-//
 //go:embed data/common_passphrases.txt
 var commonPassphrasesData string
 
@@ -33,18 +26,8 @@ func buildCommonPassphraseSet(raw string) map[string]struct{} {
 	return set
 }
 
-// trailingSuffix strips a trailing run of digits/common punctuation so a
-// blocklist check on "password123" or "letmein!" still matches "password"/
-// "letmein" — the most common way people "customize" an otherwise-common
-// passphrase.
 var trailingSuffix = regexp.MustCompile(`[0-9!@#$.]+$`)
 
-// leetSubstitutions reverses the handful of character substitutions used in
-// nearly every real-world password-mangling ruleset (hashcat's best64.rule,
-// John the Ripper's default rules, etc.) — "p4ssw0rd" and "wint3r2023"
-// aren't meaningfully different from "password"/"winter" to an attacker
-// running a dictionary attack with mangling rules, so they shouldn't be to
-// this blocklist check either.
 var leetSubstitutions = strings.NewReplacer(
 	"4", "a", "@", "a",
 	"3", "e",
@@ -59,14 +42,6 @@ func normalizeForBlocklist(pass string) string {
 	return trailingSuffix.ReplaceAllString(s, "")
 }
 
-// isCommonPassphrase checks pass against the blocklist under several cheap
-// normalizations — plain, leetspeak-reversed, singularized, and "is this
-// just a blocklist word repeated twice" — instead of only an exact
-// (suffix-stripped) match. This is still nowhere near a full
-// mangling-rule/dictionary-attack simulation (that's what real cracking
-// tools are for), but it closes the most common gap where a structurally
-// "complex-looking" passphrase is actually one of the most-guessed patterns
-// in real password breaches.
 func isCommonPassphrase(pass string) bool {
 	base := normalizeForBlocklist(pass)
 	leet := leetSubstitutions.Replace(base)
@@ -89,51 +64,16 @@ func isCommonPassphrase(pass string) bool {
 	return false
 }
 
-// keyboardRuns lists common keyboard row sequences. A 3+ character run of a
-// passphrase that also appears (forwards or backwards) in one of these is
-// treated as low-entropy — a keyboard-adjacent pattern, not that many
-// characters of real randomness.
 var keyboardRuns = []string{
 	"qwertyuiop", "asdfghjkl", "zxcvbnm",
 	"1234567890", "!@#$%^&*()",
 }
 
-// assumedOfflineGuessesPerSec is an estimate of how many passphrase guesses
-// per second a well-resourced offline attacker could try against a key
-// encrypted with git-user's hardened KDF rounds (ssh.HardenedKDFRounds —
-// 100), grounded in real published cracking-tool benchmarks rather than a
-// guess:
-//
-//   - Hashcat's module for OpenSSH's bcrypt_pbkdf private-key format (added
-//     in hashcat PR #4767, merged as mode 36800 — before that, hashcat could
-//     only attack the legacy MD5-KDF PEM format, not the openssh-key-v1
-//     format `ssh-keygen` has written by default since OpenSSH 7.8 (2018),
-//     which is what git-user always generates) benchmarks at ~590 H/s at
-//     the default 16 rounds on a modest single GPU (an RTX 4050 laptop GPU,
-//     per benchmark discussion on that PR).
-//   - bcrypt_pbkdf's cost scales ~linearly with rounds (confirmed by
-//     hashcat's own cost-model documentation for this mode), so at
-//     HardenedKDFRounds=100 that same modest GPU is already down to
-//     ~590*16/100 ≈ 94 H/s.
-//   - bcrypt-family KDFs are deliberately memory/sequential-bound and so
-//     scale far more modestly across GPU tiers than fast hashes — e.g.
-//     classic bcrypt (hashcat mode 3200) only reaches ~5-6 kH/s on a
-//     flagship RTX 4090 at a comparable cost setting, vs. the same GPU's
-//     ~300 GH/s on a fast hash like NTLM (a ~50,000,000x gap, not the
-//     ~50x gap raw compute-core counts would suggest). Applying a
-//     deliberately conservative ~20x "flagship GPU vs. modest laptop GPU"
-//     multiplier for this hash family (rather than assuming anything close
-//     to the raw hardware ratio) lands at ~1,900 H/s for a single strong
-//     GPU — rounded to 2,000/sec here.
-//
-// This number exists only to make "time to crack" messaging concrete — it
-// is not a security boundary, real attacker hardware and rented/distributed
-// GPU clusters vary widely, and every message built from it is explicitly
-// caveated as a rough estimate.
+// assumedOfflineGuessesPerSec is an estimated offline passphrase guess rate
+// (~2,000 H/s) against OpenSSH keys protected with hardened KDF rounds.
 const assumedOfflineGuessesPerSec = 2000.0
 
-// StrengthLevel classifies a passphrase's estimated resistance to offline
-// guessing, from weakest to strongest.
+// StrengthLevel classifies a passphrase's estimated resistance to offline guessing.
 type StrengthLevel int
 
 const (
@@ -161,11 +101,6 @@ func (l StrengthLevel) String() string {
 	}
 }
 
-// StrengthResult is a purely informational assessment of a passphrase.
-// git-user enforces no length or composition requirement on SSH key
-// passphrases — this never blocks anything, it only helps the person
-// choosing one understand how much protection it would actually offer if
-// the encrypted key file it protects were ever copied off the machine.
 type StrengthResult struct {
 	Level   StrengthLevel
 	Label   string
@@ -173,11 +108,7 @@ type StrengthResult struct {
 	Message string
 }
 
-// PassphraseStrength estimates how resistant pass would be to an offline
-// guessing attack against the key file it protects. An empty passphrase
-// still gets a (Very Weak) result — callers that want to skip rating an
-// intentionally-empty ("no passphrase") field should check for "" before
-// calling, or use PassphraseHintLine, which does that for them.
+// PassphraseStrength estimates how resistant pass would be to an offline guessing attack.
 func PassphraseStrength(pass string) StrengthResult {
 	if pass == "" {
 		return StrengthResult{Level: VeryWeak, Label: VeryWeak.String(), Message: levelMessage(VeryWeak, false)}
@@ -199,9 +130,7 @@ func PassphraseStrength(pass string) StrengthResult {
 	return StrengthResult{Level: level, Label: level.String(), Bits: bits, Message: message}
 }
 
-// PassphraseHintLine returns the ready-to-print strength message for pass,
-// or "" for an empty passphrase — every optional-passphrase flow in
-// git-user already treats empty as "skip", so there's nothing to rate.
+// PassphraseHintLine returns the ready-to-print strength message for pass, or "" if empty.
 func PassphraseHintLine(pass string) string {
 	if pass == "" {
 		return ""
@@ -274,12 +203,7 @@ func humanizeDuration(seconds float64) string {
 	}
 }
 
-// estimateBits computes a rough entropy estimate: an "effective length"
-// (raw length, discounted for predictable runs — see discount*) multiplied
-// by the number of bits contributed by each character given the character
-// classes actually present. No class is ever required — an all-lowercase
-// passphrase is scored purely on its (effective) length, since git-user
-// places no composition requirement on SSH key passphrases.
+// estimateBits computes a rough entropy estimate based on character classes and effective length.
 func estimateBits(pass string) float64 {
 	pool := poolSize(pass)
 	bitsPerChar := math.Log2(float64(pool))
@@ -325,12 +249,7 @@ func poolSize(pass string) int {
 	return size
 }
 
-// effectiveLength discounts runs of 3+ characters that are predictable
-// (identical, ascending/descending by one codepoint, or a keyboard-row
-// sequence) down to a weight of 2 for the whole run, instead of counting
-// each character as a full unit of randomness. This is what makes "aaaaaaaa",
-// "12345678", and "qwertyui" all score as Very Weak despite their raw
-// length, without ever rejecting them outright.
+// effectiveLength calculates length discounted for predictable/keyboard runs.
 func effectiveLength(pass string) int {
 	runes := []rune(pass)
 	n := len(runes)

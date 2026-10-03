@@ -2,64 +2,50 @@ package theme
 
 import "github.com/charmbracelet/lipgloss"
 
-// ── Color Palette ─────────────────────────────────────────────────────────────
-// Single source of truth for all TUI colors. No other file should define colors.
-
 type Theme struct {
-	// Semantic colors
-	Primary    lipgloss.Color // Cyan — main accent, active borders, highlights
-	Secondary  lipgloss.Color // Green — success states, active identity
-	Accent     lipgloss.Color // Magenta — decorative touches
-	Danger     lipgloss.Color // Red — destructive actions, errors
-	Warning    lipgloss.Color // Yellow/Orange — warnings
-	Muted      lipgloss.Color // Gray — disabled, separators, dim text
-	Text       lipgloss.Color // White — primary text
-	TextDim    lipgloss.Color // Lighter gray — secondary text
-	Background lipgloss.Color // For cards and panels (not terminal bg)
+	Primary    lipgloss.Color
+	Secondary  lipgloss.Color
+	Accent     lipgloss.Color
+	Danger     lipgloss.Color
+	Warning    lipgloss.Color
+	Muted      lipgloss.Color
+	Text       lipgloss.Color
+	TextDim    lipgloss.Color
+	Background lipgloss.Color
 
-	// Derived styles (computed once)
 	styles themeStyles
 }
 
 type themeStyles struct {
-	// Text styles
-	Bold       lipgloss.Style
-	Dim        lipgloss.Style
-	Subtle     lipgloss.Style
-	Italic     lipgloss.Style
-	Success    lipgloss.Style
-	Error      lipgloss.Style
-	Warning    lipgloss.Style
-	Info       lipgloss.Style
-	DangerText lipgloss.Style
-	Featured   lipgloss.Style
-
-	// Cursor / selection
-	Selected lipgloss.Style
-	Active   lipgloss.Style
-
-	// Pane titles
-	PaneTitle lipgloss.Style
-
-	// Section headers (inside action menus)
+	Bold          lipgloss.Style
+	Dim           lipgloss.Style
+	Subtle        lipgloss.Style
+	Italic        lipgloss.Style
+	Success       lipgloss.Style
+	Error         lipgloss.Style
+	Warning       lipgloss.Style
+	Info          lipgloss.Style
+	DangerText    lipgloss.Style
+	Featured      lipgloss.Style
+	Selected      lipgloss.Style
+	Active        lipgloss.Style
+	PaneTitle     lipgloss.Style
 	SectionHeader lipgloss.Style
-
-	// Separator line
-	Separator lipgloss.Style
+	Separator     lipgloss.Style
 }
 
-// DefaultTheme returns the standard git-user color scheme (Tokyo Night inspired).
+// DefaultTheme returns the standard git-user color scheme.
 func DefaultTheme() Theme {
 	t := Theme{
-		Primary:    lipgloss.Color("#7AA2F7"), // Soft Blue / Cyan Accent
-		Secondary:  lipgloss.Color("#9ECE6A"), // Emerald Green / Active
-		Accent:     lipgloss.Color("#BB9AF7"), // Soft Purple / Selector
-		Danger:     lipgloss.Color("#F7768E"), // Rose Red
-		Warning:    lipgloss.Color("#E0AF68"), // Warm Amber
-		Muted:      lipgloss.Color("#565F89"), // Deep Gray
-		Text:       lipgloss.Color("#C0CAF5"), // Ice Blue White
-		TextDim:    lipgloss.Color("#787C99"), // Dimmed Text
-		Background: lipgloss.Color("#1F2335"), // Card Background
+		Primary:    lipgloss.Color("#7AA2F7"),
+		Secondary:  lipgloss.Color("#9ECE6A"),
+		Accent:     lipgloss.Color("#BB9AF7"),
+		Danger:     lipgloss.Color("#F7768E"),
+		Warning:    lipgloss.Color("#E0AF68"),
+		Muted:      lipgloss.Color("#565F89"),
+		Text:       lipgloss.Color("#C0CAF5"),
+		TextDim:    lipgloss.Color("#787C99"),
+		Background: lipgloss.Color("#1F2335"),
 	}
 	t.styles = t.buildStyles()
 	return t
@@ -88,8 +74,6 @@ func (t Theme) buildStyles() themeStyles {
 	}
 }
 
-// ── Style Accessors ───────────────────────────────────────────────────────────
-
 func (t Theme) Bold() lipgloss.Style         { return t.styles.Bold }
 func (t Theme) Dim() lipgloss.Style          { return t.styles.Dim }
 func (t Theme) Subtle() lipgloss.Style       { return t.styles.Subtle }
@@ -99,19 +83,12 @@ func (t Theme) ErrorStyle() lipgloss.Style   { return t.styles.Error }
 func (t Theme) WarningStyle() lipgloss.Style { return t.styles.Warning }
 func (t Theme) InfoStyle() lipgloss.Style    { return t.styles.Info }
 func (t Theme) DangerText() lipgloss.Style   { return t.styles.DangerText }
-
-// Featured is the bold, distinctly coloured style for menu entries that
-// deserve attention at rest. It differs from the cursor (purple), update
-// (amber), danger (red) and success (green) styles.
-func (t Theme) Featured() lipgloss.Style      { return t.styles.Featured }
-func (t Theme) Selected() lipgloss.Style      { return t.styles.Selected }
-func (t Theme) Active() lipgloss.Style        { return t.styles.Active }
-func (t Theme) PaneTitle() lipgloss.Style     { return t.styles.PaneTitle }
+func (t Theme) Featured() lipgloss.Style     { return t.styles.Featured }
+func (t Theme) Selected() lipgloss.Style     { return t.styles.Selected }
+func (t Theme) Active() lipgloss.Style       { return t.styles.Active }
+func (t Theme) PaneTitle() lipgloss.Style    { return t.styles.PaneTitle }
 func (t Theme) SectionHeader() lipgloss.Style { return t.styles.SectionHeader }
-func (t Theme) Separator() lipgloss.Style     { return t.styles.Separator }
-
-// ── Dynamic Pane Styles ───────────────────────────────────────────────────────
-// These accept width/height so they adapt to terminal size.
+func (t Theme) Separator() lipgloss.Style    { return t.styles.Separator }
 
 var pulseColors = []string{"#7AA2F7", "#89B4FA", "#B4BEFE", "#89B4FA"}
 
@@ -170,8 +147,6 @@ func (t Theme) ActionPane(width, height int) lipgloss.Style {
 		Height(height)
 }
 
-// ── Component Badges & Keycaps ─────────────────────────────────────────────────
-
 func (t Theme) PillActive() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Background(t.Secondary).
@@ -226,9 +201,6 @@ func (t Theme) Keycap() lipgloss.Style {
 		Bold(true)
 }
 
-// ── Toast Style Type ──────────────────────────────────────────────────────────
-
-// ToastStyleKind defines the visual style of a toast notification.
 type ToastStyleKind int
 
 const (
@@ -236,8 +208,6 @@ const (
 	ToastStyleError
 	ToastStyleInfo
 )
-
-// ── Toast Styles ──────────────────────────────────────────────────────────────
 
 func (t Theme) ToastSuccess(width int) lipgloss.Style {
 	return lipgloss.NewStyle().
@@ -262,8 +232,6 @@ func (t Theme) ToastInfo(width int) lipgloss.Style {
 		Padding(0, 2).
 		Width(width)
 }
-
-// ── Layout Helpers ────────────────────────────────────────────────────────────
 
 const (
 	// MinTermWidth is the minimum terminal width before switching to single-column mode.

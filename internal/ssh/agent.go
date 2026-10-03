@@ -90,9 +90,7 @@ func SSHKeyFingerprint(keyPath string) (string, error) {
 	return ssh.FingerprintSHA256(pubKey), nil
 }
 
-// ReadPublicKey returns the trimmed content of keyPath+".pub", including its
-// trailing comment (by convention the identity's email, for keys this tool
-// generates) — for display, not for pasting; see PublicKeyAuthPart for that.
+// ReadPublicKey returns the trimmed content of keyPath+".pub".
 func ReadPublicKey(keyPath string) (string, error) {
 	data, err := os.ReadFile(keyPath + ".pub")
 	if err != nil {
@@ -101,15 +99,7 @@ func ReadPublicKey(keyPath string) (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
-// PublicKeyAuthPart returns just the "<type> <base64-key>" portion of a
-// public key line, dropping the trailing comment field. The comment is
-// cosmetic — it plays no part in SSH authentication (the fingerprint is
-// identical with or without it) — so it's safe to omit from what actually
-// gets pasted into a "add SSH key" field. Worth omitting deliberately too:
-// GitHub (and similar platforms) expose a user's added public keys verbatim
-// via a public API (github.com/<user>.keys), so a comment set to the
-// identity's email — as this tool's generated keys are — would otherwise
-// leak that email publicly.
+// PublicKeyAuthPart returns the "<type> <base64-key>" part of a public key line, omitting comments.
 func PublicKeyAuthPart(pubKey string) string {
 	fields := strings.Fields(pubKey)
 	if len(fields) < 2 {
@@ -161,38 +151,21 @@ func ParseSSHKeyFingerprint(line string) (string, error) {
 	return fields[1], nil
 }
 
-// AgentLoadOptions constrains how long a key stays usable once loaded into
-// the SSH agent, and whether each use requires fresh confirmation.
-// LifetimeSecs of 0 means no limit. Neither constraint protects a key
-// that's already loaded before it was set — both only take effect on the
-// Add call that applies them.
+// AgentLoadOptions configures key lifetime and confirmation constraints for the SSH agent.
 type AgentLoadOptions struct {
 	LifetimeSecs     uint32
 	ConfirmBeforeUse bool
 }
 
-// LikelyHasConfirmPromptSupport is a best-effort check for whether turning
-// on AgentLoadOptions.ConfirmBeforeUse will actually be able to show a
-// prompt: the confirmation UI is rendered by whatever process is running as
-// the system ssh-agent (not git-user, and usually not started by it), using
-// that agent's own askpass/GUI notifier. On a headless session with no such
-// notifier reachable, a confirm-required key simply fails to sign with no
-// visible prompt at all. This can't be exact — SSH agent forwarding, tmux,
-// or a differently-configured agent can all produce false negatives — so
-// callers must use it to warn, never to block.
+// LikelyHasConfirmPromptSupport checks if the system likely supports confirmation prompts.
 func LikelyHasConfirmPromptSupport() bool {
 	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
-		return true // native Keychain/Touch ID and Windows OpenSSH both have their own confirm UI
+		return true
 	}
 	return os.Getenv("SSH_ASKPASS") != "" || os.Getenv("DISPLAY") != "" || os.Getenv("WAYLAND_DISPLAY") != ""
 }
 
-// sshAddArgs builds the flags+positional argument list for an `ssh-add`
-// invocation from opts, in the order ssh-add expects (flags before the
-// positional key path). appleUseKeychain adds --apple-use-keychain on
-// darwin when true — the caller passes false for a plain fallback attempt
-// after a --apple-use-keychain attempt has already failed. Split out as a
-// pure function so it's unit-testable without actually running ssh-add.
+// sshAddArgs builds the argument list for ssh-add.
 func sshAddArgs(keyPath string, opts AgentLoadOptions, appleUseKeychain bool) []string {
 	var args []string
 	if opts.LifetimeSecs > 0 {
@@ -207,17 +180,12 @@ func sshAddArgs(keyPath string, opts AgentLoadOptions, appleUseKeychain bool) []
 	return append(args, keyPath)
 }
 
-// AddSSHKeyWithPassphrase adds the SSH key to the agent using the provided
-// passphrase, with no lifetime limit and no confirm-before-use constraint.
-// Equivalent to AddSSHKeyWithOptions(keyPath, passphrase, AgentLoadOptions{}).
+// AddSSHKeyWithPassphrase adds an SSH key to the agent using the provided passphrase.
 func AddSSHKeyWithPassphrase(keyPath, passphrase string) error {
 	return AddSSHKeyWithOptions(keyPath, passphrase, AgentLoadOptions{})
 }
 
-// AddSSHKeyWithOptions is AddSSHKeyWithPassphrase with an agent lifetime
-// and/or confirm-before-use constraint applied to the loaded key (see
-// AgentLoadOptions). It tries in-process parsing and loading first, and
-// falls back to a secure SSH_ASKPASS execution.
+// AddSSHKeyWithOptions loads an SSH key into the agent with the given options.
 func AddSSHKeyWithOptions(keyPath, passphrase string, opts AgentLoadOptions) error {
 	EnsureSSHBinariesOnPath()
 	if runtime.GOOS == "darwin" {

@@ -25,46 +25,27 @@ type AuthorStat struct {
 	Email       string
 	Commits     int
 
-	// --- Cryptographic signature status -----------------------------------
-	// Derived EXCLUSIVELY from git's own `%G?` commit signature-status output
-	// (see `git log --help`, PRETTY FORMATS). This is the only concept on
-	// this struct backed by a real cryptographic check. It says nothing
-	// about whether the author's email is a locally registered identity —
-	// see VerifiedUser/IsRegisteredIdentity below for that.
-	SignedCommits           int // %G? in {G, U, X, Y}: a valid signature from a currently-trusted key
-	UnsignedCommits         int // %G? == N (or unrecognized): commit carries no signature at all
-	RevokedSignatureCommits int // %G? == R: signature is valid but made by a key that has since been revoked — NOT trustworthy
-	BadSignatureCommits     int // %G? == B: a signature is present but does not match (invalid/corrupt/tampered)
-	UnverifiableCommits     int // %G? == E: git could not check the signature locally (no public key / no allowedSignersFile configured) — unknown status, not the same as "unsigned"
+	SignedCommits           int
+	UnsignedCommits         int
+	RevokedSignatureCommits int
+	BadSignatureCommits     int
+	UnverifiableCommits     int
 
 	CodeLinesAdded   int
 	CodeLinesDeleted int
 	NetCodeLines     int
 	TotalLines       int
 
-	// Line-level breakdown by the same crypto signature axis. "Signed" lines
-	// belong to commits counted in SignedCommits; "Unsigned" lines belong to
-	// commits counted in any of UnsignedCommits/RevokedSignatureCommits/
-	// BadSignatureCommits/UnverifiableCommits (i.e. everything that is not a
-	// currently-trusted good signature).
 	SignedLinesAdded     int
 	SignedLinesDeleted   int
 	UnsignedLinesAdded   int
 	UnsignedLinesDeleted int
 
-	// --- Identity registration ---------------------------------------------
-	// Derived EXCLUSIVELY from the local git-user config store
-	// (internal/config). This is NOT a cryptographic check — it only says
-	// whether this author's email matches an identity registered locally. A
-	// commit can be identity-registered but never signed, and vice versa; do
-	// not conflate this with the signature fields above.
 	VerifiedUser   *config.User
 	NameVariations []string
 }
 
-// IsRegisteredIdentity reports whether this author's email matches a locally
-// registered identity in the git-user config store. This is an identity
-// check, not a cryptographic one — it makes no claim about commit signing.
+// IsRegisteredIdentity reports whether this author's email matches a locally registered identity.
 func (a AuthorStat) IsRegisteredIdentity() bool {
 	return a.VerifiedUser != nil
 }
@@ -74,23 +55,7 @@ func AuditRepository(store *config.Store, targetPath string) ([]AuthorStat, erro
 	return AuditRepositoryMode(store, targetPath, SortByCommits)
 }
 
-// prepareAllowedSignersFile writes a temporary SSH "allowed signers" file
-// (see `git help gpg.ssh.allowedSignersFile`) so that git can cryptographically
-// verify SSH-signed commits at all.
-//
-// Without ANY allowedSignersFile configured, git refuses to check SSH
-// signatures and %G? reports "N" (no signature) even for a commit that
-// genuinely carries a valid SSH signature — indistinguishable from a truly
-// unsigned commit. Once a file is present, git verifies the signature
-// against the embedded public key: commits signed by a key listed here (as a
-// principal for a registered identity's email/alias) report "G" (trusted),
-// while commits signed by any other key still report "U" (cryptographically
-// valid, unknown signer) instead of the misleading "N". Both "G" and "U" are
-// treated as SignedCommits — see AuthorStat doc comments.
-//
-// Returns the path to pass via `-c gpg.ssh.allowedSignersFile=<path>` and a
-// cleanup function. Always returns a usable (possibly empty) file so SSH
-// verification is unlocked even with no registered users.
+// prepareAllowedSignersFile writes a temporary SSH allowed signers file for commit verification.
 func prepareAllowedSignersFile(store *config.Store) (path string, cleanup func(), err error) {
 	f, err := os.CreateTemp("", "git-user-allowed-signers-*")
 	if err != nil {

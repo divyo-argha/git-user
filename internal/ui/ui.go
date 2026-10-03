@@ -14,26 +14,17 @@ import (
 	"github.com/mattn/go-isatty"
 )
 
-// ErrNotInteractive is returned by Prompt/Select when stdout is not a
-// terminal (e.g. a script or CI job piping output). Without this check,
-// each would either block waiting on an invisible prompt or launch a
-// raw-mode Bubble Tea program that renders garbled escape sequences into
-// the pipe instead of failing clearly.
 var ErrNotInteractive = errors.New("this command requires an interactive terminal — pass the needed value as a flag instead")
 
-// ── Tokyo Night Palette ───────────────────────────────────────────────────────
-// Single source of truth — matches internal/tui/theme/theme.go exactly.
 var (
-	colPrimary = lipgloss.Color("#7AA2F7") // Soft Blue — info, headers
-	colSecond  = lipgloss.Color("#9ECE6A") // Emerald — success, active
-	colAccent  = lipgloss.Color("#BB9AF7") // Soft Purple — prompts, accents
-	colDanger  = lipgloss.Color("#F7768E") // Rose — errors
-	colWarning = lipgloss.Color("#E0AF68") // Amber — warnings
-	colMuted   = lipgloss.Color("#565F89") // Deep Gray — dim, separators
-	colText    = lipgloss.Color("#C0CAF5") // Ice Blue-White — primary text
-	colBg      = lipgloss.Color("#1F2335") // Card background
-
-	// ── Component styles ─────────────────────────────────────────────────────
+	colPrimary = lipgloss.Color("#7AA2F7")
+	colSecond  = lipgloss.Color("#9ECE6A")
+	colAccent  = lipgloss.Color("#BB9AF7")
+	colDanger  = lipgloss.Color("#F7768E")
+	colWarning = lipgloss.Color("#E0AF68")
+	colMuted   = lipgloss.Color("#565F89")
+	colText    = lipgloss.Color("#C0CAF5")
+	colBg      = lipgloss.Color("#1F2335")
 
 	styleSuccess = lipgloss.NewStyle().Foreground(colSecond).Bold(true)
 	styleInfo    = lipgloss.NewStyle().Foreground(colPrimary)
@@ -90,8 +81,6 @@ var (
 	IsTTYFn   func() bool
 )
 
-// ── TTY Detection ─────────────────────────────────────────────────────────────
-
 // IsTTY returns true if stdout is a character device (terminal).
 func IsTTY() bool {
 	if IsTTYFn != nil {
@@ -108,17 +97,11 @@ func IsTTY() bool {
 }
 
 // StdinIsTTY returns true if stdin is attached to an interactive terminal.
-// Unlike IsTTY it does not treat any character device as a terminal, so
-// `< /dev/null` correctly counts as non-interactive.
 func StdinIsTTY() bool {
 	return isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd())
 }
 
 // IsPlainOutput reports whether styled/banner output should be suppressed.
-// It returns true when stdout is not a terminal (pipes, CI) or the caller
-// passes an explicit --plain flag. IsTTY (and therefore this) honors IsTTYFn
-// when set, so a mocked TTY state is respected the same as a real one rather
-// than being special-cased away.
 func IsPlainOutput(args []string) bool {
 	for _, a := range args {
 		if a == "--plain" {
@@ -128,8 +111,7 @@ func IsPlainOutput(args []string) bool {
 	return !IsTTY()
 }
 
-// IsJSONOutput reports whether the caller requested machine-readable JSON
-// via an explicit --json flag.
+// IsJSONOutput reports whether the caller requested machine-readable JSON via --json.
 func IsJSONOutput(args []string) bool {
 	for _, a := range args {
 		if a == "--json" {
@@ -139,15 +121,11 @@ func IsJSONOutput(args []string) bool {
 	return false
 }
 
-// ── Logo ──────────────────────────────────────────────────────────────────────
-
-// PrintLogo prints the git-user design logo to stdout.
 func PrintLogo() {
 	lines := logo.GetTrimmedLogo()
 	fmt.Println(strings.Join(lines, "\n"))
 }
 
-// PrintBanner prints the git-user design logo with the version line to stdout, matching the TUI banner.
 func PrintBanner(ver string) {
 	lines := logo.GetTrimmedLogo()
 	fmt.Println(strings.Join(lines, "\n"))
@@ -156,7 +134,6 @@ func PrintBanner(ver string) {
 	}
 }
 
-// PrintUpdateSuccess renders the Unicode logo and an aesthetic version transition card.
 func PrintUpdateSuccess(oldVer, newVer string, verified bool) {
 	fmt.Println()
 	PrintBanner(newVer)
@@ -184,7 +161,6 @@ func PrintUpdateSuccess(oldVer, newVer string, verified bool) {
 	fmt.Println()
 }
 
-// PrintUpdateCurrent renders the Unicode logo and an up-to-date card.
 func PrintUpdateCurrent(ver string) {
 	fmt.Println()
 	PrintBanner(ver)
@@ -208,57 +184,41 @@ func PrintUpdateCurrent(ver string) {
 	fmt.Println()
 }
 
-// ── Core Output ───────────────────────────────────────────────────────────────
-
-// Success prints a green ✔ message.
 func Success(msg string) {
 	fmt.Println(styleSuccess.Render("✔ " + msg))
 }
 
-// Successf prints a formatted green ✔ message.
 func Successf(format string, args ...any) {
 	Success(fmt.Sprintf(format, args...))
 }
 
-// Info prints a soft-blue ℹ message.
 func Info(msg string) {
 	fmt.Println(styleInfo.Render("ℹ " + msg))
 }
 
-// Warn prints an amber ⚠ message.
 func Warn(msg string) {
 	fmt.Println(styleWarn.Render("⚠ " + msg))
 }
 
-// Error prints a rose ✖ message to stderr.
 func Error(msg string) {
 	fmt.Fprintln(os.Stderr, styleError.Render("✖ "+msg))
 }
 
-// Errorf prints a formatted rose ✖ message to stderr.
 func Errorf(format string, args ...any) {
 	Error(fmt.Sprintf(format, args...))
 }
 
-// StyleDim returns the muted dim style.
-func StyleDim() lipgloss.Style { return styleDim }
-
-// StyleSuccess returns the emerald success style.
+func StyleDim() lipgloss.Style     { return styleDim }
 func StyleSuccess() lipgloss.Style { return styleSuccess }
 
-// ── Layout Helpers ────────────────────────────────────────────────────────────
-
-// Header prints a bold section header with a rounded accent border.
 func Header(msg string) {
 	fmt.Println(styleHeader.Render(strings.ToUpper(msg)))
 }
 
-// Banner prints a full-width accent-background banner.
 func Banner(msg string) {
 	fmt.Println(styleBanner.Render("  " + strings.ToUpper(msg) + "  "))
 }
 
-// Divider prints a thin muted separator line.
 func Divider() {
 	fmt.Println(styleDim.Render("─────────────────────────────────────────────────────────────────────────────"))
 }
@@ -290,7 +250,6 @@ func UserRow(name, email, sshKey string, active bool) {
 	fmt.Println(cardStyle.Render(content))
 }
 
-// UserDetails prints the details of a single user.
 func UserDetails(name, email, sshKey string) {
 	label := lipgloss.NewStyle().Foreground(colPrimary).Bold(true)
 	fmt.Printf("  %-10s  %s\n", label.Render("Name  :"), name)
@@ -300,9 +259,6 @@ func UserDetails(name, email, sshKey string) {
 	}
 }
 
-// ── Prompt ────────────────────────────────────────────────────────────────────
-
-// RawMode is a no-op — managed by Bubble Tea.
 func RawMode(on bool) error { return nil }
 
 // Prompt asks the user for text input.
@@ -322,9 +278,6 @@ func Prompt(label string) (string, error) {
 	return strings.TrimSpace(text), nil
 }
 
-// ── Select / Confirm ──────────────────────────────────────────────────────────
-
-// SelectModel is the Bubble Tea model for the selection menu.
 type SelectModel struct {
 	label    string
 	options  []string
@@ -445,13 +398,10 @@ func Confirm(question string, defaultYes bool) bool {
 	return m.chosen == 0
 }
 
-// ── Animated Success ──────────────────────────────────────────────────────────
-
-// typewriterModel animates a message character by character using Bubble Tea.
 type typewriterModel struct {
-	full  string // complete rendered line (with ANSI)
-	runes []rune // plain text, decoded once so pos advances by rune, not byte
-	pos   int    // runes revealed so far
+	full  string
+	runes []rune
+	pos   int
 	done  bool
 }
 
@@ -486,14 +436,12 @@ func (m typewriterModel) View() string {
 	if m.done || m.pos >= len(m.runes) {
 		return "\r" + m.full + "\n"
 	}
-	// Show plain-text prefix up to m.pos + blinking cursor block
 	visible := string(m.runes[:m.pos])
 	cursor := lipgloss.NewStyle().Foreground(colAccent).Render("█")
 	return "\r" + styleSuccess.Render("✔ "+visible) + cursor
 }
 
 // AnimatedSuccess prints msg with a typewriter animation when connected to a TTY.
-// Falls back to plain Success() in non-interactive contexts (pipes, CI).
 func AnimatedSuccess(msg string) {
 	if os.Getenv("CI") != "" || !IsTTY() {
 		Success(msg)
@@ -508,14 +456,10 @@ func AnimatedSuccess(msg string) {
 
 	p := tea.NewProgram(m, tea.WithoutRenderer(), tea.WithInput(strings.NewReader("")))
 	if _, err := p.Run(); err != nil {
-		// Fallback if Bubble Tea can't run
 		Success(msg)
 	}
 }
 
-// ── Spinner ───────────────────────────────────────────────────────────────────
-
-// spinnerModel drives a dot-cycle spinner using Bubble Tea.
 type spinnerModel struct {
 	label  string
 	frames []string
