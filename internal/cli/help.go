@@ -32,12 +32,14 @@ Flags:
   -t, --temp                 Create as a temporary identity (with -c)
   --skip-ssh                 Skip SSH key setup (with -c)
   -l, --local                Switch only for the current repository
+  -s, --session              Switch identity for current terminal session only
   --original                 Import and switch to the original pre-git-user identity
   -h, --help                 Show this help
 
 Examples:
   git-user switch work
   git-user switch work --local
+  git-user switch work --session
   git-user switch -c work -e me@work.com`,
 		"list": `Usage: git-user list [flags]
 

@@ -21,8 +21,8 @@ COMMANDS
 
   Identities
     register                   Create a new identity (guided setup)
-    switch <name>              Switch to an identity
-    switch -c <name> [-e email] Create new identity and switch to it
+    switch <name> [--local]    Switch to an identity (globally, or repo-local with --local)
+    switch -c <name> [-e email] [-t] Create new identity and switch to it
     switch -c <name> --skip-ssh  Create and switch without SSH key setup
     switch --original          Import and switch to the original pre-git-user identity
     switch --session <name>    Switch identity for current terminal session only

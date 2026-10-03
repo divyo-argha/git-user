@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/divyo-argha/git-user/internal/config"
 	"github.com/divyo-argha/git-user/internal/git"
 	"github.com/divyo-argha/git-user/internal/tui/core"
@@ -38,30 +37,30 @@ func hasUnimportedOriginalIdentity(store *config.Store) bool {
 func buildImportExportOptions(store *config.Store) []importExportOption {
 	options := []importExportOption{
 		{
-			label: "› Export current identity",
+			label: "Export current identity",
 			key:   "export-current",
 			desc:  "Bundle the active identity's keys into an encrypted file",
 		},
 		{
-			label: "› Export all identities",
+			label: "Export all identities",
 			key:   "export-all",
 			desc:  "Bundle all non-temporary identities (skips passphrase-protected keys)",
 		},
 		{
-			label: "› Import identities",
+			label: "Import identities",
 			key:   "import",
 			desc:  "Restore identities from an encrypted bundle file",
 		},
 	}
 	if hasUnimportedOriginalIdentity(store) {
 		options = append(options, importExportOption{
-			label: "› Import original gitconfig",
+			label: "Import original gitconfig",
 			key:   "import-original",
 			desc:  "Import your existing ~/.gitconfig identity (you pick the name)",
 		})
 	}
 	return append(options, importExportOption{
-		label: "← Back",
+		label: "Back",
 		key:   "back",
 		desc:  "Return to previous menu",
 	})
@@ -130,15 +129,14 @@ func (s *ImportExport) View(width, height int) string {
 	var sb strings.Builder
 
 	// Title
-	title := s.theme.PaneTitle().Render("Import / Export")
-	sb.WriteString(title)
+	sb.WriteString(s.theme.PaneTitle().Render("Import / Export"))
 	sb.WriteString("\n")
 	sb.WriteString(s.theme.SeparatorLine(width - 6))
 	sb.WriteString("\n\n")
 
 	// Subtitle
-	subtitle := s.theme.Dim().Render("  Choose an operation:")
-	sb.WriteString(subtitle)
+	sb.WriteString("  ")
+	sb.WriteString(s.theme.Dim().Render("Choose an operation:"))
 	sb.WriteString("\n\n")
 
 	// Options
@@ -152,15 +150,15 @@ func (s *ImportExport) View(width, height int) string {
 			labelLine = "  " + opt.label
 		}
 
-		descStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#555555")).Italic(true)
+		descStyle := s.theme.Dim().Italic(true)
 		if isCursor {
-			descStyle = descStyle.Foreground(lipgloss.Color("#888888"))
+			descStyle = s.theme.Subtle().Italic(true)
 		}
-		descLine := descStyle.Render("    " + opt.desc)
 
 		sb.WriteString(labelLine)
 		sb.WriteString("\n")
-		sb.WriteString(descLine)
+		sb.WriteString("    ")
+		sb.WriteString(descStyle.Render(opt.desc))
 		sb.WriteString("\n\n")
 	}
 
