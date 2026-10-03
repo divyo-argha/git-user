@@ -35,6 +35,7 @@ var commands = []commandSpec{
 	{name: "connections", desc: "Check platform SSH connections (GitHub/GitLab/Bitbucket)", takesID: true},
 	{name: "check-ssh", desc: "Check platform SSH connections (alias)", takesID: true},
 	{name: "check", desc: "Check platform SSH connections (alias)", takesID: true},
+	{name: "test-ssh", desc: "Check platform SSH connections (alias)", takesID: true},
 	{name: "bind-key", desc: "Add/link an SSH key to an identity", takesID: true},
 	{name: "bind", desc: "Add/link an SSH key (alias)", takesID: true},
 	{name: "bind-path", desc: "Bind a directory to an identity", takesID: true},
@@ -48,6 +49,10 @@ var commands = []commandSpec{
 	{name: "import", desc: "Import identities from a bundle"},
 	{name: "import-original", desc: "Import and switch to the original identity (alias for switch --original)"},
 	{name: "doctor", desc: "Diagnose common setup issues"},
+	{name: "refresh", desc: "Fix config conflicts doctor finds (re-sync git config)"},
+	{name: "repair", desc: "Fix config conflicts (alias)"},
+	{name: "uninstall", desc: "Remove git-user entirely and restore original identity"},
+	{name: "purge", desc: "Remove git-user entirely (alias)"},
 	{name: "audit", desc: "Run a security audit"},
 	{name: "security", desc: "Run a security audit (alias)"},
 	{name: "logout", desc: "Sign out and clear the active identity"},
@@ -55,6 +60,8 @@ var commands = []commandSpec{
 	{name: "signout", desc: "Sign out (alias)"},
 	{name: "clone", desc: "Clone a repository and auto-configure the local identity"},
 	{name: "stats", desc: "Audit commit author identity stats"},
+	{name: "log", desc: "Show the identity-switch audit log"},
+	{name: "history", desc: "Show the identity-switch audit log (alias)"},
 	{name: "verify", desc: "Verify commit signatures in a rev-range"},
 	{name: "policy", desc: "Manage repository signing/identity policy"},
 	{name: "config", desc: "Manage custom git config for an identity", takesID: true},
@@ -299,11 +306,13 @@ func fishCompletion() string {
 	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -s \"c\" -d \"Create and switch\"\n"
 	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -s \"e\" -l \"email\" -d \"Email address\"\n"
 	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -s \"l\" -l \"local\" -d \"Switch only for this repository\"\n"
+	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -s \"s\" -l \"session\" -d \"Switch identity for current session only\"\n"
 	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -l \"original\" -d \"Import and switch to the original identity\"\n"
 	out += "complete -c git-user -f -n \"__fish_seen_subcommand_from switch sw\" -l \"skip-ssh\" -d \"Skip SSH key setup (with -c)\"\n"
 	out += "complete -c gu -f -n \"__fish_seen_subcommand_from switch sw\" -s \"c\" -d \"Create and switch\"\n"
 	out += "complete -c gu -f -n \"__fish_seen_subcommand_from switch sw\" -s \"e\" -l \"email\" -d \"Email address\"\n"
 	out += "complete -c gu -f -n \"__fish_seen_subcommand_from switch sw\" -s \"l\" -l \"local\" -d \"Switch only for this repository\"\n"
+	out += "complete -c gu -f -n \"__fish_seen_subcommand_from switch sw\" -s \"s\" -l \"session\" -d \"Switch identity for current session only\"\n"
 	out += "complete -c gu -f -n \"__fish_seen_subcommand_from switch sw\" -l \"original\" -d \"Import and switch to the original identity\"\n"
 	out += "complete -c gu -f -n \"__fish_seen_subcommand_from switch sw\" -l \"skip-ssh\" -d \"Skip SSH key setup (with -c)\"\n"
 

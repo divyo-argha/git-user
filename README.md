@@ -575,7 +575,6 @@ What happens:
 | `switch <name> [--local]` | Switch to an identity (globally, or locally in repository config) |
 | `switch <name> --session` | Switch identity for the current terminal session only |
 | `switch -c <name> [-e <email>]` | Create and switch in one command |
-| `switch -c <name> [--passphrase <pass>]` | Create and switch, setting the key passphrase |
 | `switch -c <name> --temp` | Create a temporary identity that is removed on logout |
 | `switch -c <name> --skip-ssh` | Create and switch, skipping SSH key setup (attach later with `bind-key`) |
 | `switch --original` | Import and switch to the original pre-git-user identity |
@@ -595,13 +594,18 @@ What happens:
 | `unbind-path <name> <path>` | Unbind a directory path from an identity |
 | `pubkey` | Show the public key of the active identity |
 | `pubkey publish [platform]` | Publish public SSH key directly to GitHub, GitLab, or Bitbucket |
+| `connections [name]` | Check SSH connections to GitHub, GitLab, and Bitbucket |
 | `passphrase` | Add, change, or remove (`--remove`) passphrase for the active, unlocked identity |
 | `token <name> [--set\|--remove\|--expires <date>]` | Manage an HTTPS personal-access-token for an identity, with optional expiry tracking |
 | `sign <name> [--on\|--off]` | Enable/disable automatic Git commit signing for an identity |
+| `verify [--range <revs>]` | Verify commit signatures (CI-friendly) |
+| `policy <init\|show\|signers>` | Manage the repository `.git-user-policy` and `.allowed-signers` files |
 | `rekey <name>` | Rotate SSH key (with rollback safety) |
 | `fix-remote` | Convert HTTPS remotes to SSH |
 | `logout` | Sign out, clearing the active identity and restoring a void state |
 | `audit [--fix]` | Audit all identities for security issues (`--fix` corrects insecure permissions) |
+| `refresh` | Fix config conflicts doctor finds (re-syncs git config to match git-user state) |
+| `log [-n <count>\|--all]` | Show identity-switch audit log |
 | `export --all` | Export all identities + SSH keys (AES-256 encrypted) |
 | `export <name> [name...]` | Export specific identities |
 | `import <file>` | Import from an encrypted bundle |
@@ -611,8 +615,9 @@ What happens:
 | `sync` | Synchronize identities across devices using a private repository |
 | `doctor [--fix]` | Run a full health check (`--fix` auto-corrects what it can) |
 | `tui` | Interactive menu |
-| `completion <shell>` | Shell completions (bash/zsh/fish) |
+| `completion <shell>` | Shell completions (bash/zsh/fish/powershell) |
 | `hook <install\|uninstall>` | Pre-commit & pre-push hooks to verify identity |
+| `uninstall [--yes]` | Remove git-user entirely: identities, keys, config, and restore original git identity |
 | `--update` | Update to the latest version (shows version transition + binary verification) |
 | `--version` / `-v` | Show version |
 | `--no-color` | Plain, uncoloured output (also honours `NO_COLOR` and `TERM=dumb`) |
@@ -621,7 +626,7 @@ What happens:
 dashboard's background check for new releases (otherwise it runs at most once every 24 hours).
 Explicit `git-user --update` is unaffected.
 
-**Aliases:** `ls` → `list` · `sw` → `switch` · `rm` → `remove` · `reg` → `register` · `whoami` → `current` · `lo` / `signout` → `logout` · `bind` → `bind-key` · `pubkey push` → `pubkey publish` · `security` → `audit` · `import-original` → `switch --original` · `tui` / `-i` / `--interactive` → interactive menu
+**Aliases:** `ls` → `list` · `sw` → `switch` · `rm` → `remove` · `reg` → `register` · `whoami` → `current` · `lo` / `signout` → `logout` · `bind` → `bind-key` · `pubkey push` → `pubkey publish` · `check-ssh` / `check` → `connections` · `repair` → `refresh` · `history` → `log` · `purge` → `uninstall` · `security` → `audit` · `import-original` → `switch --original` · `tui` / `-i` / `--interactive` → interactive menu
 
 > **Removed shorthands (v4.19):** `-d`, `del`, `--del` and `-rm` (for `remove` — use `remove` or `rm`), `run`/`--run` (use `exec`), and `fix`/`--fix` on their own (use `doctor --fix` to repair, or `refresh` to re-sync git config). They now fail with a hint instead of acting on the wrong thing.
 
