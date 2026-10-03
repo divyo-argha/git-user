@@ -1,6 +1,6 @@
 module github.com/divyo-argha/git-user
 
-go 1.26.0
+go 1.26.6
 
 require (
 	github.com/atotto/clipboard v0.1.4

@@ -29,6 +29,7 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: 'go.mod'
+          check-latest: true
       - run: go test ./...
 
   # Cross-compilation and the npm packaging script only need to be checked
@@ -43,6 +44,7 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: 'go.mod'
+          check-latest: true
       - name: Verify cross-platform compilation
         run: |
           GOOS=windows GOARCH=amd64 go build -o /dev/null ./cmd/git-user
@@ -65,5 +67,6 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: 'go.mod'
+          check-latest: true
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...

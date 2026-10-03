@@ -3,6 +3,7 @@ package version
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -76,7 +77,11 @@ func TestUpdateCache_ConcurrentWritesLeaveOneValidFile(t *testing.T) {
 	if len(entries) != 1 {
 		t.Errorf("no temp files should be left behind, found %d entries", len(entries))
 	}
-	if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0o600 {
-		t.Errorf("cache should be private (0600), got %v %v", info, err)
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("cache file stat: %v", err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		t.Errorf("cache should be private (0600), got %v", info)
 	}
 }
